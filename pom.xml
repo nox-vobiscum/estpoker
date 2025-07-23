@@ -51,6 +51,26 @@
 			<artifactId>spring-boot-starter-test</artifactId>
 			<scope>test</scope>
 		</dependency>
+		<dependency>
+    		<groupId>org.jetbrains</groupId>
+    		<artifactId>annotations</artifactId>
+		    <version>24.0.1</version>
+		</dependency>
+
+
+		<!-- andere Dependencies -->
+    	<dependency>
+        	<groupId>org.seleniumhq.selenium</groupId>
+        	<artifactId>selenium-java</artifactId>
+        	<version>4.21.0</version>
+    	</dependency>
+		<dependency>
+    		<groupId>io.github.bonigarcia</groupId>
+    		<artifactId>webdrivermanager</artifactId>
+    		<version>5.7.0</version>
+		</dependency>
+
+
 	</dependencies>
 
 	<build>

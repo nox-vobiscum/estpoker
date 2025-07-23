@@ -28,16 +28,23 @@ public class Room {
         return votesRevealed;
     }
 
-    public void setVotesRevealed(boolean votesRevealed) {
-        this.votesRevealed = votesRevealed;
+    public boolean isRevealed() {
+    return votesRevealed;
     }
 
     public void setRevealed(boolean revealed) {
     this.votesRevealed = revealed;
     }
 
-    public boolean isRevealed() {
-        return votesRevealed;
+    public void revealVotes() {
+        this.votesRevealed = true;
+    }
+
+    public void resetVotes() {
+        this.votesRevealed = false;
+        for (Participant p : participants) {
+            p.setVote(null); // Stimmen zurücksetzen
+        }
     }
 
     public Participant getHost() {
@@ -49,20 +56,21 @@ public class Room {
     }
 
     public Participant getOrCreateParticipant(String name) {
-        for (Participant p : participants) {
-            if (p.getName().equals(name)) {
-                return p;
-            }
+    for (Participant p : participants) {
+        if (p.getName().equals(name)) {
+            return p;
         }
-        Participant newParticipant = new Participant(name);
-        participants.add(newParticipant);
+    }
+    Participant newParticipant = new Participant(name);
+    participants.add(newParticipant);
 
         if (participants.size() == 1) {
             setHost(newParticipant);
-        }
-
-        return newParticipant;
     }
+
+    return newParticipant;
+}
+
 
     public Participant getParticipant(String name) {
         return participants.stream()

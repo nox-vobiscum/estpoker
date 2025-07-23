@@ -30,10 +30,10 @@ public class GameService {
     }
 
     public void revealCards(String code) {
-        Room room = rooms.get(code);
-        if (room != null) {
-            room.setVotesRevealed(true);
-        }
+    Room room = rooms.get(code);
+    if (room != null) {
+        room.revealVotes();
+    }
     }
 
     public OptionalDouble calculateAverageVote(Room room) {
@@ -52,5 +52,15 @@ public class GameService {
     public Room getOrCreateRoom(String code) {
         return rooms.computeIfAbsent(code, Room::new);
     }
+
+    public void resetVotes(String roomCode) {
+    Room room = getRoom(roomCode);
+    if (room != null) {
+        for (Participant p : room.getParticipants()) {
+            p.setVote(null);
+        }
+        room.setRevealed(false);
+    }
+}
 
 }

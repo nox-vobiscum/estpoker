@@ -37,10 +37,26 @@ public class GameController {
     }
 
     @GetMapping("/reveal")
-    public String reveal(@RequestParam String code) {
-        gameService.revealCards(code);
-        return "Cards revealed in room " + code;
+public String revealCards(@RequestParam String roomCode, @RequestParam String participantName, Model model) {
+    Room room = gameService.getRoom(roomCode);
+    if (room != null && room.getHost().getName().equals(participantName)) {
+        gameService.revealCards(roomCode);
     }
+
+    return "redirect:/room?roomCode=" + roomCode + "&participantName=" + participantName;
+    }
+
+    @PostMapping("/reveal")
+public String revealCards(@RequestParam String roomCode,
+                          @RequestParam String participantName) {
+    Room room = gameService.getRoom(roomCode);
+    if (room != null && room.getHost().getName().equals(participantName)) {
+        gameService.revealCards(roomCode);
+    }
+
+    return "redirect:/room?roomCode=" + roomCode + "&participantName=" + participantName;
+    }
+
 
     @GetMapping("/average")
     public String average(@RequestParam String code) {
@@ -75,14 +91,16 @@ public String showRoom(
     List<String> cards = List.of("1", "2", "3", "5", "8", "13", "20", "☕", "❓", "📣");
 
     model.addAttribute("roomCode", roomCode);
+    model.addAttribute("hostName", room.getHost().getName());
+    model.addAttribute("isHost", room.getHost().equals(participant));
     model.addAttribute("participantName", participantName);
     model.addAttribute("cards", cards);
-    model.addAttribute("votesRevealed", room.areVotesRevealed());
     model.addAttribute("votes", room.getParticipants());
+    model.addAttribute("votesRevealed", room.areVotesRevealed());
     
     // HIER: OptionalDouble korrekt behandeln
     OptionalDouble average = gameService.calculateAverageVote(room);
-    average.ifPresent(avg -> model.addAttribute("average", avg));
+    average.ifPresent(avg -> model.addAttribute("averageVote", avg));
 
     model.addAttribute("isHost", room.getHost().equals(participant));
 
@@ -93,10 +111,15 @@ public String showRoom(
 public String handleJoinForm(
         @RequestParam String roomCode,
         @RequestParam String participantName,
+        @RequestParam(required = false) String card, // ← hier ergänzt
         Model model
 ) {
     Room room = gameService.getOrCreateRoom(roomCode);
     Participant participant = room.getOrCreateParticipant(participantName);
+
+    if (card != null && !card.isEmpty()) {
+        gameService.submitCard(roomCode, participantName, card);
+    }
 
     List<String> cards = List.of("1", "2", "3", "5", "8", "13", "20", "☕", "❓", "📣");
 
@@ -112,6 +135,17 @@ public String handleJoinForm(
     model.addAttribute("isHost", room.getHost().equals(participant));
 
     return "room";
-}
+    }
+
+@PostMapping("/reset")
+public String resetVotes(@RequestParam String roomCode,
+                         @RequestParam String participantName) {
+    Room room = gameService.getRoom(roomCode);
+    if (room != null && room.getHost().getName().equals(participantName)) {
+        gameService.resetVotes(roomCode);
+    }
+
+    return "redirect:/room?roomCode=" + roomCode + "&participantName=" + participantName;
+    }
 
 }
