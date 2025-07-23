@@ -9,18 +9,10 @@
   <div class="container">
     <h1>Estimation Poker</h1>
 
-    <form action="/join" method="post" class="space-y-4">
-      <div>
-        <label class="block text-gray-300">Dein Name</label>
-        <input name="participantName" required class="w-full p-2 bg-gray-700 text-white rounded">
-    </div>
-    <div>
-        <label class="block text-gray-300">Raumcode</label>
-        <input name="roomCode" required class="w-full p-2 bg-gray-700 text-white rounded">
-    </div>
-        <button type="submit" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded">
-    Raum betreten
-        </button>
+    <form method="get" action="/join">
+      <input type="text" name="code" placeholder="Room Code" required>
+      <input type="text" name="name" placeholder="Your Name" required>
+      <button type="submit">Join Room</button>
     </form>
 
     <form method="get" action="/vote">

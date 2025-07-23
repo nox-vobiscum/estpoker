@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="de" xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <title>Estimation Poker – Raum [[${roomCode}]]</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-900 text-white font-sans p-6">
+  <h1 class="text-2xl font-bold mb-4">Raum [[${roomCode}]]</h1>
+  <p class="mb-2">Willkommen, <strong>[[${participantName}]]</strong>!</p>
+
+  <h2 class="text-xl mt-4 mb-2">Teilnehmer:</h2>
+  <ul class="list-disc list-inside">
+    <li th:each="p : ${participants}" th:text="${p.name}">Teilnehmername</li>
+  </ul>
+</body>
+</html>
