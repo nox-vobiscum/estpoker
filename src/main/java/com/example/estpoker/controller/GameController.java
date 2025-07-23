@@ -24,6 +24,7 @@ public class GameController {
     }
 
     @GetMapping("/join")
+    @ResponseBody
     public String joinRoom(@RequestParam String code, @RequestParam String name) {
         gameService.joinRoom(code, name);
         return name + " joined room " + code;
@@ -43,7 +44,7 @@ public class GameController {
 
     @GetMapping("/average")
     public String average(@RequestParam String code) {
-        OptionalDouble avg = gameService.getAverageEstimate(code);
+        OptionalDouble avg = gameService.calculateAverageVote(gameService.getRoom(code));
         return avg.isPresent() ? "Average: " + avg.getAsDouble() : "No numeric votes";
     }
 
@@ -87,4 +88,30 @@ public String showRoom(
 
     return "room";
 }
+
+@PostMapping("/room")
+public String handleJoinForm(
+        @RequestParam String roomCode,
+        @RequestParam String participantName,
+        Model model
+) {
+    Room room = gameService.getOrCreateRoom(roomCode);
+    Participant participant = room.getOrCreateParticipant(participantName);
+
+    List<String> cards = List.of("1", "2", "3", "5", "8", "13", "20", "☕", "❓", "📣");
+
+    model.addAttribute("roomCode", roomCode);
+    model.addAttribute("participantName", participantName);
+    model.addAttribute("cards", cards);
+    model.addAttribute("votesRevealed", room.areVotesRevealed());
+    model.addAttribute("votes", room.getParticipants());
+
+    OptionalDouble average = gameService.calculateAverageVote(room);
+    average.ifPresent(avg -> model.addAttribute("average", avg));
+
+    model.addAttribute("isHost", room.getHost().equals(participant));
+
+    return "room";
+}
+
 }

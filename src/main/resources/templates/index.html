@@ -2,27 +2,31 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <head>
   <meta charset="UTF-8" />
-  <title>Estimation Poker</title>
+  <title>RBS Estimation Poker</title>
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
   <div class="container">
-    <h1>Estimation Poker</h1>
+    <h1>RBS' little Estimation Poker experiment...</h1>
 
-    <form action="/join" method="post" class="space-y-4">
+    <!-- Beitreten-Formular (POST-Methode) -->
+    <form action="/room" method="post" class="space-y-4">
       <div>
         <label class="block text-gray-300">Dein Name</label>
         <input name="participantName" required class="w-full p-2 bg-gray-700 text-white rounded">
-    </div>
-    <div>
+      </div>
+      <div>
         <label class="block text-gray-300">Raumcode</label>
         <input name="roomCode" required class="w-full p-2 bg-gray-700 text-white rounded">
-    </div>
-        <button type="submit" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded">
-    Raum betreten
-        </button>
+      </div>
+      <button type="submit" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded">
+        Raum betreten
+      </button>
     </form>
 
+    <hr style="margin: 2rem 0; border-color: #444;">
+
+    <!-- Test-Voting (GET: nur für Debug-Zwecke) -->
     <form method="get" action="/vote">
       <input type="hidden" name="code" value="test123">
       <input type="hidden" name="name" value="Anna">

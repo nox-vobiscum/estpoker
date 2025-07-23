@@ -36,16 +36,14 @@ public class GameService {
         }
     }
 
-    public OptionalDouble getAverageEstimate(String code) {
-        Room room = rooms.get(code);
-        if (room == null) return OptionalDouble.empty();
-
-        return room.getParticipants().stream()
-                .map(Participant::getVote)
-                .filter(v -> v.matches("\\d+")) // nur numerische Karten
-                .mapToInt(Integer::parseInt)
-                .average();
-    }
+    public OptionalDouble calculateAverageVote(Room room) {
+    return room.getParticipants().stream()
+            .map(Participant::getVote)
+            .filter(Objects::nonNull)                 // avoid NullPointerException
+            .filter(v -> v.matches("\\d+"))     // Nur numerische Karten zählen
+            .mapToInt(Integer::parseInt)
+            .average();
+}
 
     public Room getRoom(String code) {
         return rooms.get(code);
@@ -55,11 +53,4 @@ public class GameService {
         return rooms.computeIfAbsent(code, Room::new);
     }
 
-    public OptionalDouble calculateAverageVote(Room room) {
-        return room.getParticipants().stream()
-                .map(Participant::getVote)
-                .filter(v -> v.matches("\\d+"))
-                .mapToInt(Integer::parseInt)
-                .average();
-    }
 }
