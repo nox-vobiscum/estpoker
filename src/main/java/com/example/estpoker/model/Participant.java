@@ -2,7 +2,7 @@ package com.example.estpoker.model;
 
 public class Participant {
     private String name;
-    private String card; // z. B. "5", "☕", "?"
+    private String card;
 
     public Participant(String name) {
         this.name = name;
@@ -21,7 +21,11 @@ public class Participant {
         this.card = card;
     }
 
-    public boolean hasVoted() {
-        return card != null;
-    }
+    public String getVote() {
+    return card;
+}
+
+public void setVote(String vote) {
+    this.card = vote;
+}
 }

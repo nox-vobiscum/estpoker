@@ -1,17 +1,57 @@
 <!DOCTYPE html>
-<html lang="de" xmlns:th="http://www.thymeleaf.org">
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Estimation Poker – Raum [[${roomCode}]]</title>
-  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <meta charset="UTF-8">
+    <title>Estimation Poker</title>
+    <link rel="stylesheet" th:href="@{/styles.css}">
 </head>
-<body class="bg-gray-900 text-white font-sans p-6">
-  <h1 class="text-2xl font-bold mb-4">Raum [[${roomCode}]]</h1>
-  <p class="mb-2">Willkommen, <strong>[[${participantName}]]</strong>!</p>
+<body>
+    <div class="container">
+        <h1>🃏 Estimation Poker – Raum: <span th:text="${roomCode}"></span></h1>
 
-  <h2 class="text-xl mt-4 mb-2">Teilnehmer:</h2>
-  <ul class="list-disc list-inside">
-    <li th:each="p : ${participants}" th:text="${p.name}">Teilnehmername</li>
-  </ul>
+        <p>👤 Du bist: <strong th:text="${participantName}"></strong></p>
+        <p th:if="${hostName == participantName}">⭐ Du bist der Host</p>
+        <p th:if="${hostName != participantName}">Host: <strong th:text="${hostName}"></strong></p>
+
+        <!-- Nur wenn Karten noch nicht aufgedeckt -->
+        <div th:if="${!votesRevealed}">
+            <form method="post" th:action="@{/room}">
+                <input type="hidden" name="roomCode" th:value="${roomCode}"/>
+                <input type="hidden" name="participantName" th:value="${participantName}"/>
+
+                <p>Karte auswählen:</p>
+                <div class="card-grid">
+                    <button type="submit" name="card" value="1">1</button>
+                    <button type="submit" name="card" value="2">2</button>
+                    <button type="submit" name="card" value="3">3</button>
+                    <button type="submit" name="card" value="5">5</button>
+                    <button type="submit" name="card" value="8">8</button>
+                    <button type="submit" name="card" value="13">13</button>
+                    <button type="submit" name="card" value="20">20</button>
+                    <button type="submit" name="card" value="☕">☕</button>
+                    <button type="submit" name="card" value="?">?</button>
+                    <button type="submit" name="card" value="💬">💬</button>
+                </div>
+            </form>
+
+            <!-- Karten aufdecken (nur für Host sichtbar) -->
+            <form method="post" th:action="@{/reveal}" th:if="${hostName == participantName}">
+                <input type="hidden" name="roomCode" th:value="${roomCode}"/>
+                <button type="submit">🟡 Karten aufdecken</button>
+            </form>
+        </div>
+
+        <!-- Ergebnisse anzeigen -->
+        <div th:if="${votesRevealed}">
+            <h2>Ergebnisse</h2>
+            <ul>
+                <li th:each="p : ${participants}">
+                    <span th:text="${p.name}"></span>:
+                    <strong th:text="${p.vote} ?: '—'"></strong>
+                </li>
+            </ul>
+            <p><strong>⌀ Durchschnitt (nur Zahlen):</strong> <span th:text="${averageVote}"></span></p>
+        </div>
+    </div>
 </body>
 </html>

@@ -1,46 +1,84 @@
 package com.example.estpoker.model;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
 
 public class Room {
+
     private String code;
-    private Map<String, Participant> participants = new HashMap<>();
-    private boolean revealed = false;
+    private List<Participant> participants;
+    private boolean votesRevealed;
+    private Participant host;
 
     public Room(String code) {
         this.code = code;
+        this.participants = new ArrayList<>();
+        this.votesRevealed = false;
     }
 
     public String getCode() {
         return code;
     }
 
-    public Collection<Participant> getParticipants() {
-        return participants.values();
+    public List<Participant> getParticipants() {
+        return participants;
     }
 
-    public void addParticipant(String name) {
-        if (!participants.containsKey(name)) {
-            participants.put(name, new Participant(name));
-        }
+    public boolean areVotesRevealed() {
+        return votesRevealed;
     }
 
-    public Participant getParticipant(String name) {
-        return participants.get(name);
+    public void setVotesRevealed(boolean votesRevealed) {
+        this.votesRevealed = votesRevealed;
     }
 
     public void setRevealed(boolean revealed) {
-        this.revealed = revealed;
+    this.votesRevealed = revealed;
     }
 
     public boolean isRevealed() {
-        return revealed;
+        return votesRevealed;
     }
 
-    public void resetVotes() {
-        for (Participant p : participants.values()) {
-            p.setCard(null);
+    public Participant getHost() {
+        return host;
+    }
+
+    public void setHost(Participant host) {
+        this.host = host;
+    }
+
+    public Participant getOrCreateParticipant(String name) {
+        for (Participant p : participants) {
+            if (p.getName().equals(name)) {
+                return p;
+            }
         }
-        revealed = false;
+        Participant newParticipant = new Participant(name);
+        participants.add(newParticipant);
+
+        if (participants.size() == 1) {
+            setHost(newParticipant);
+        }
+
+        return newParticipant;
+    }
+
+    public Participant getParticipant(String name) {
+        return participants.stream()
+                .filter(p -> p.getName().equals(name))
+                .findFirst()
+                .orElse(null);
+    }
+
+    public void addParticipant(String name) {
+        if (getParticipant(name) == null) {
+            Participant newParticipant = new Participant(name);
+            participants.add(newParticipant);
+
+            if (participants.size() == 1) {
+                setHost(newParticipant);
+            }
+        }
     }
 }

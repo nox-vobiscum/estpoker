@@ -31,4 +31,22 @@ public class HomeController {
 
         return "room"; // ruft room.html auf
     }
+
+    @PostMapping("/vote")
+public String vote(@RequestParam String roomCode,
+                   @RequestParam String participantName,
+                   @RequestParam String card,
+                   Model model) {
+
+    // Karte speichern
+    roomManager.setVote(roomCode, participantName, card);
+
+    // Zur Raumansicht zurück
+    model.addAttribute("roomCode", roomCode);
+    model.addAttribute("participantName", participantName);
+    model.addAttribute("participants", roomManager.getParticipants(roomCode));
+
+    return "room";
+    }
+
 }

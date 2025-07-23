@@ -4,6 +4,7 @@ import com.example.estpoker.model.Participant;
 import com.example.estpoker.model.Room;
 import com.example.estpoker.service.GameService;
 
+import org.springframework.ui.Model;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -54,9 +55,35 @@ public class GameController {
         for (Participant p : room.getParticipants()) {
             Map<String, Object> entry = new HashMap<>();
             entry.put("name", p.getName());
-            entry.put("card", room.isRevealed() ? p.getCard() : "hidden");
+            entry.put("card", room.isRevealed() ? p.getVote() : "hidden");
             result.add(entry);
         }
         return result;
     }
+
+    @GetMapping("/room")
+public String showRoom(
+        @RequestParam String roomCode,
+        @RequestParam String participantName,
+        Model model
+) {
+    Room room = gameService.getOrCreateRoom(roomCode);
+    Participant participant = room.getOrCreateParticipant(participantName);
+
+    List<String> cards = List.of("1", "2", "3", "5", "8", "13", "20", "☕", "❓", "📣");
+
+    model.addAttribute("roomCode", roomCode);
+    model.addAttribute("participantName", participantName);
+    model.addAttribute("cards", cards);
+    model.addAttribute("votesRevealed", room.areVotesRevealed());
+    model.addAttribute("votes", room.getParticipants());
+    
+    // HIER: OptionalDouble korrekt behandeln
+    OptionalDouble average = gameService.calculateAverageVote(room);
+    average.ifPresent(avg -> model.addAttribute("average", avg));
+
+    model.addAttribute("isHost", room.getHost().equals(participant));
+
+    return "room";
+}
 }
