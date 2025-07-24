@@ -3,7 +3,6 @@ package com.example.estpoker.controller;
 import com.example.estpoker.model.Participant;
 import com.example.estpoker.model.Room;
 import com.example.estpoker.service.GameService;
-
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -36,7 +35,12 @@ public class GameController {
         model.addAttribute("votesRevealed", room.areVotesRevealed());
         model.addAttribute("votes", room.getParticipants());
 
-        gameService.calculateAverageVote(room).ifPresent(avg -> model.addAttribute("averageVote", avg));
+        if (room.areVotesRevealed()) {
+            gameService.calculateAverageVote(room).ifPresentOrElse(
+                avg -> model.addAttribute("averageVote", String.format("%.1f", avg)),
+                () -> model.addAttribute("averageVote", "–")
+            );
+        }
 
         return "room";
     }
@@ -65,7 +69,12 @@ public class GameController {
         model.addAttribute("votesRevealed", room.areVotesRevealed());
         model.addAttribute("votes", room.getParticipants());
 
-        gameService.calculateAverageVote(room).ifPresent(avg -> model.addAttribute("averageVote", avg));
+        if (room.areVotesRevealed()) {
+            gameService.calculateAverageVote(room).ifPresentOrElse(
+                avg -> model.addAttribute("averageVote", String.format("%.1f", avg)),
+                () -> model.addAttribute("averageVote", "–")
+            );
+        }
 
         return "room";
     }
