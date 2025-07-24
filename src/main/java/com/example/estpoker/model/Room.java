@@ -43,7 +43,7 @@ public class Room {
     public void resetVotes() {
         this.votesRevealed = false;
         for (Participant p : participants) {
-            p.setVote(null); // Stimmen zurücksetzen
+            p.setVote(null);
         }
     }
 

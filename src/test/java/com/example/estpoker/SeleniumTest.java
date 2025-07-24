@@ -26,7 +26,7 @@ public class SeleniumTest {
     @AfterEach
     public void teardown() {
         try {
-            Thread.sleep(3000);  // Fenster bleiben 3 Sekunden offen
+            Thread.sleep(5000);  // Testfenster 5 Sekunden offen halten
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
@@ -64,8 +64,19 @@ public class SeleniumTest {
         revealButton.click();
         Thread.sleep(2000);
 
-        // Ergebnisseite prüfen (nur als Beispiel)
-        WebElement averageDisplay = hostDriver.findElement(By.xpath("//*[contains(text(),'⌀ Durchschnitt')]"));
-        Assertions.assertTrue(averageDisplay.getText().contains("4"), "Durchschnitt sollte ca. 4 sein");
+        // Durchschnitt auslesen
+        WebElement averageElement = hostDriver.findElement(By.xpath("//*[contains(text(),'⌀ Durchschnitt')]/following-sibling::span"));
+        String avgText = averageElement.getText();
+        System.out.println("▶ Durchschnitt angezeigt: " + avgText);
+
+        // Formatierung bereinigen (z. B. "4,0" → "4.0")
+        String normalized = avgText.replace(",", ".").replaceAll("[^0-9.]", "");
+
+        try {
+            double avg = Double.parseDouble(normalized);
+            Assertions.assertEquals(4.0, avg, 0.1, "Durchschnitt sollte ca. 4.0 sein");
+        } catch (NumberFormatException e) {
+            Assertions.fail("Kein gültiger Durchschnittswert gefunden: " + avgText);
+        }
     }
 }

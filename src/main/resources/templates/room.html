@@ -70,7 +70,7 @@
 <!-- Voting Script -->
 <script>
     function submitVote(cardValue) {
-        document.getElementById('cardInput').value = cardValue;
+        document.getElementById('cardInput').value = cardValue.trim();
         document.getElementById('voteForm').submit();
     }
 </script>
