@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <title>RBS Estimation Poker</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="container">
+    <h1>RBS' little <br /> 🔢 Estimation Poker</h1>
+    <p>Gib den Raumcode und deinen Namen ein, um beizutreten!</p>
+    
+    <form action="/room" method="get" class="form">
+      <label for="roomCode">Raumcode:</label>
+      <input type="text" id="roomCode" name="roomCode" required>
+
+      <label for="participantName">Dein Name:</label>
+      <input type="text" id="participantName" name="participantName" required>
+
+      <button type="submit">Beitreten</button>
+    </form>
+
+    <p class="footer">
+      Ein Java-basiertes Lernprojekt <strong>noxvobiscum.at</strong> powered by Render.com.
+    </p>
+  </main>
+</body>
+</html>
+
