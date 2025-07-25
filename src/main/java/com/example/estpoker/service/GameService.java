@@ -1,95 +1,80 @@
 package com.example.estpoker.service;
 
-import com.example.estpoker.model.Participant;
 import com.example.estpoker.model.Room;
 import org.springframework.stereotype.Service;
+import org.springframework.web.socket.WebSocketSession;
+import org.springframework.web.socket.TextMessage;
 
-import java.util.*;
+import java.io.IOException;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.Optional;
+import java.util.OptionalDouble;
 
 @Service
 public class GameService {
 
     private final Map<String, Room> rooms = new ConcurrentHashMap<>();
+    private final Map<WebSocketSession, Room> sessionToRoomMap = new ConcurrentHashMap<>(); // Mapping von WebSocketSession zu Raum
 
-    public void createRoom(String code) {
-        rooms.putIfAbsent(code, new Room(code));
+    // Holen oder Erstellen eines Raums
+    public Room getOrCreateRoom(String roomCode) {
+        return rooms.computeIfAbsent(roomCode, Room::new);
     }
 
-    public void joinRoom(String code, String name) {
-        Room room = rooms.computeIfAbsent(code, Room::new);
-        room.getOrCreateParticipant(name);
+    // Holen eines Raums anhand des Raums-Codes
+    public Room getRoom(String roomCode) {
+        return rooms.get(roomCode);
     }
 
-    public void submitCard(String code, String name, String card) {
-    System.out.println("📝 submitCard() aufgerufen");
-    System.out.println("➡ Raum: " + code);
-    System.out.println("➡ Teilnehmer: " + name);
-    System.out.println("➡ Gewählte Karte: '" + card + "'");
-
-    Room room = rooms.get(code);
-    if (room == null) {
-        System.out.println("❌ Raum nicht gefunden!");
-        return;
+    // Methode, um den Raum anhand der WebSocket-Session zu erhalten
+    public Room getRoomFromSession(WebSocketSession session) {
+        return sessionToRoomMap.get(session);  // Gibt den Raum zurück, der mit der Session verknüpft ist
     }
 
-    Participant participant = room.getOrCreateParticipant(name);
-    if (participant == null) {
-        System.out.println("❌ Teilnehmer nicht gefunden!");
-        return;
+    // Speichern der Kartenwahl eines Teilnehmers
+    public void storeCardValue(String participantName, String cardValue) {
+        // Implementierung zum Speichern der Kartenwahl
     }
 
-    participant.setVote(card);
-    System.out.println("✅ Karte gespeichert: " + participant.getVote());
-}
-
-
-    public void revealCards(String code) {
-        Room room = rooms.get(code);
-        if (room != null) {
-            room.setRevealed(true);
-            System.out.println("Karten wurden für Raum " + code + " aufgedeckt.");
-        }
-    }
-
-    public OptionalDouble calculateAverageVote(Room room) {
-    System.out.println("🔍 Starte Berechnung des Durchschnitts ...");
-
-    return room.getParticipants().stream()
-        .map(Participant::getVote)
-        .filter(Objects::nonNull)
-        .peek(v -> System.out.println("➡ Stimme gefunden: '" + v + "'")) // Log für jede Stimme
-        .map(String::trim)
-        .filter(v -> {
-            boolean isNumeric = v.matches("\\d+");
-            System.out.println("🔎 Ist '" + v + "' numerisch? → " + isNumeric); // Log für die Überprüfung der Zahl
-            return isNumeric;
-        })
-        .mapToInt(Integer::parseInt)
-        .average()
-        .stream()
-        .peek(avg -> System.out.println("✅ Durchschnitt berechnet: " + avg)) // Log für den berechneten Durchschnitt
-        .findFirst();
-}
-
-
-
-    public void resetVotes(String roomCode) {
+    // Aufdecken der Karten
+    public void revealCards(String roomCode) {
         Room room = getRoom(roomCode);
         if (room != null) {
-            for (Participant p : room.getParticipants()) {
-                p.setVote(null);
-            }
-            room.setRevealed(false);
-            System.out.println("Raum " + roomCode + " wurde zurückgesetzt.");
+            room.revealVotes();  // Karten aufdecken
         }
     }
 
-    public Room getRoom(String code) {
-        return rooms.get(code);
+    // Broadcast einer Nachricht an alle Sessions
+    public void broadcastToAllSessions(String message) {
+        sessionToRoomMap.keySet().forEach(session -> {
+            try {
+                session.sendMessage(new TextMessage(message));
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        });
     }
 
-    public Room getOrCreateRoom(String code) {
-        return rooms.computeIfAbsent(code, Room::new);
+    // Berechnen des Durchschnitts der Karten
+    public Optional<Double> calculateAverageVote(Room room) {
+        OptionalDouble avg = room.getParticipants().stream()
+                .filter(p -> p.getVote() != null)  // Nur Teilnehmer mit einer Auswahl
+                .mapToInt(p -> Integer.parseInt(p.getVote()))  // Umwandlung in Integer für die Berechnung
+                .average();  // Gibt OptionalDouble zurück
+
+        // OptionalDouble nach Optional<Double> umwandeln, wenn ein Wert vorhanden ist
+        if (avg.isPresent()) {
+            return Optional.of(avg.getAsDouble());
+        } else {
+            return Optional.empty();
+        }
     }
+
+    public void resetVotes(String roomCode) {
+    Room room = getRoom(roomCode);
+    if (room != null) {
+        room.resetVotes();  // Setzt die Stimmen aller Teilnehmer zurück
+    }
+}
 }

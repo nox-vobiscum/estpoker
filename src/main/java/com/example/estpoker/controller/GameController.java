@@ -8,7 +8,7 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.*;
+import java.util.List;
 
 @Controller
 public class GameController {
@@ -19,52 +19,51 @@ public class GameController {
     private final List<String> cards = List.of("1", "2", "3", "5", "8", "13", "20", "☕", "❓", "📣");
 
     @GetMapping("/room")
-    public String showRoom(
-            @RequestParam String roomCode,
-            @RequestParam String participantName,
-            Model model
-    ) {
-        Room room = gameService.getOrCreateRoom(roomCode);
-        Participant participant = room.getOrCreateParticipant(participantName);
-
-        model.addAttribute("roomCode", roomCode);
-        model.addAttribute("participantName", participantName);
-        model.addAttribute("hostName", room.getHost().getName());
-        model.addAttribute("isHost", room.getHost().equals(participant));
-        model.addAttribute("cards", cards);
-        model.addAttribute("votesRevealed", room.areVotesRevealed());
-        model.addAttribute("votes", room.getParticipants());
-        model.addAttribute("selectedCard", participant.getVote());
-
-        if (room.areVotesRevealed()) {
-            gameService.calculateAverageVote(room).ifPresentOrElse(
-                avg -> model.addAttribute("averageVote", String.format("%.1f", avg)),
-                () -> model.addAttribute("averageVote", "–")
-            );
-        }
-
-        return "room";
-    }
-
-    @PostMapping("/room")
-public String handleJoinForm(
+public String showRoom(
         @RequestParam String roomCode,
         @RequestParam String participantName,
-        @RequestParam(required = false) String card
+        Model model
 ) {
     Room room = gameService.getOrCreateRoom(roomCode);
     Participant participant = room.getOrCreateParticipant(participantName);
 
-    if (card != null && !card.isEmpty()) {
-        participant.setVote(card);
-        // Hier fügen wir das Debugging-Log hinzu:
-        System.out.println("✅ Karte gespeichert: " + participant.getVote());
+    model.addAttribute("roomCode", roomCode);
+    model.addAttribute("participantName", participantName);
+    model.addAttribute("hostName", room.getHost().getName());
+    model.addAttribute("isHost", room.getHost().equals(participant));
+    model.addAttribute("cards", cards);
+    model.addAttribute("votesRevealed", room.areVotesRevealed());
+    model.addAttribute("participants", room.getParticipants());
+    model.addAttribute("selectedCard", participant.getVote());  // This line is important!
+
+    if (room.areVotesRevealed()) {
+        gameService.calculateAverageVote(room).ifPresentOrElse(
+            avg -> model.addAttribute("averageVote", String.format("%.1f", avg)),
+            () -> model.addAttribute("averageVote", "–")
+        );
     }
 
-    // 🔁 Redirect zu GET-Version, um konsistente Anzeige zu sichern
-    return "redirect:/room?roomCode=" + roomCode + "&participantName=" + participantName;
+    model.addAttribute("participantsWithVotes", room.getParticipantsWithVotes());
+
+    return "room";
 }
 
+    @PostMapping("/room")
+    public String handleJoinForm(
+            @RequestParam String roomCode,
+            @RequestParam String participantName,
+            @RequestParam(required = false) String card
+    ) {
+        Room room = gameService.getOrCreateRoom(roomCode);
+        Participant participant = room.getOrCreateParticipant(participantName);
+
+        if (card != null && !card.isEmpty()) {
+            participant.setVote(card);
+        }
+
+        // 🔁 Redirect zu GET-Version, um konsistente Anzeige zu sichern
+        return "redirect:/room?roomCode=" + roomCode + "&participantName=" + participantName;
+    }
 
     @PostMapping("/reveal")
     public String revealCards(

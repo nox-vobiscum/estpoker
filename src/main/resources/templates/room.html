@@ -13,12 +13,59 @@
     </style>
 </head>
 <body>
+
+<script>
+    // WebSocket-Verbindung herstellen
+    var socket = new WebSocket("ws://localhost:8080/gameSocket");
+
+    // Verbindung geöffnet
+    socket.onopen = function() {
+        console.log("Verbindung zum Server hergestellt!");
+    };
+
+    // Nachricht vom Server empfangen
+    socket.onmessage = function(event) {
+        console.log("Nachricht vom Server: " + event.data);
+        // Hier kannst du das DOM aktualisieren, wenn der Server eine Nachricht sendet
+    };
+
+    // Fehlerbehandlung
+    socket.onerror = function(error) {
+        console.log("WebSocket Fehler: " + error);
+    };
+
+    // Verbindung geschlossen
+    socket.onclose = function() {
+        console.log("Verbindung zum Server geschlossen");
+    };
+
+    // Funktion zum Senden einer Nachricht an den Server (z.B. bei Kartenauswahl)
+    function sendVote(cardValue) {
+        console.log("Kartenwert: " + cardValue);  // Loggt den Wert der Karte in der Konsole
+        socket.send("Ich habe die Karte gewählt: " + cardValue);  // Nachricht an den Server senden
+    }
+
+    // Beispiel für das Aufdecken der Karten (nur für den Host)
+    function revealCards() {
+        socket.send("revealCards");  // Nachricht an alle Clients senden
+    }
+</script>
+
 <div class="container">
     <h1>🃏 Estimation Poker - Raum: <span th:text="${roomCode}"></span></h1>
 
+    <!-- Teilnehmerinformationen -->
     <p>👤 Du bist: <strong th:text="${participantName}"></strong></p>
     <p th:if="${isHost}">⭐ Du bist der Host</p>
     <p th:if="${!isHost}">Host: <strong th:text="${hostName}"></strong></p>
+
+    <!-- Teilnehmerliste -->
+    <h2>Teilnehmer:</h2>
+    <ul>
+        <li th:each="p : ${participants}">
+            <span th:text="${p.name}"></span>
+        </li>
+    </ul>
 
     <!-- Kartenabgabe -->
     <div th:if="${!votesRevealed}">
@@ -34,50 +81,40 @@
             th:text="${cardValue}"
             th:classappend="${selectedCard != null and cardValue == selectedCard} ? ' selected' : ''"
             th:data-card="${cardValue}" 
-            th:onclick="|submitVote(this.getAttribute('data-card'))|">
+            th:onclick="|sendVote(this.getAttribute('data-card'))|">
     </button>
 </div>
-
-            </div>
         </form>
 
         <!-- Karten aufdecken (nur für Host) -->
-        <form method="post" th:action="@{/reveal}" th:if="${isHost}">
+        <form method="post" th:action="@{/reveal}" th:if="${isHost and not votesRevealed}">
             <input type="hidden" name="roomCode" th:value="${roomCode}"/>
             <input type="hidden" name="participantName" th:value="${participantName}"/>
             <button type="submit">🟡 Karten aufdecken</button>
         </form>
     </div>
 
-    <!-- Ergebnisse -->
+    <!-- Ergebnisse (werden angezeigt, wenn die Karten aufgedeckt wurden) -->
     <div th:if="${votesRevealed}">
         <h2>Ergebnisse</h2>
         <ul>
-            <li th:each="p : ${votes}">
+            <li th:each="p : ${participantsWithVotes}">
                 <span th:text="${p.name}"></span>:
                 <strong th:text="${p.vote != null ? p.vote : '—'}"></strong>
             </li>
         </ul>
 
         <p><strong>⌀ Durchschnitt (nur Zahlen):</strong>
-            <span th:text="${averageVote != null ? averageVote : '–'}"></span>
+            <span th:text="${averageVote != null ? averageVote : '-'}"></span>
         </p>
 
+        <!-- Neue Runde starten (nur für Host) -->
         <form method="post" th:action="@{/reset}" th:if="${isHost}">
             <input type="hidden" name="roomCode" th:value="${roomCode}"/>
             <input type="hidden" name="participantName" th:value="${participantName}"/>
             <button type="submit">🔄 Neue Runde starten</button>
         </form>
     </div>
-
-    <!-- JavaScript -->
-    <script>
-    function submitVote(cardValue) {
-        console.log("Kartenwert: " + cardValue);  // Loggt den Wert der Karte in der Konsole
-        document.getElementById('cardInput').value = cardValue.trim();
-        document.getElementById('voteForm').submit();
-    }
-</script>
 </div>
 </body>
 </html>
