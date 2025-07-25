@@ -16,6 +16,8 @@ public class GameController {
     @Autowired
     private GameService gameService;
 
+    private final List<String> cards = List.of("1", "2", "3", "5", "8", "13", "20", "☕", "❓", "📣");
+
     @GetMapping("/room")
     public String showRoom(
             @RequestParam String roomCode,
@@ -25,8 +27,6 @@ public class GameController {
         Room room = gameService.getOrCreateRoom(roomCode);
         Participant participant = room.getOrCreateParticipant(participantName);
 
-        List<String> cards = List.of("1", "2", "3", "5", "8", "13", "20", "☕", "❓", "📣");
-
         model.addAttribute("roomCode", roomCode);
         model.addAttribute("participantName", participantName);
         model.addAttribute("hostName", room.getHost().getName());
@@ -34,6 +34,7 @@ public class GameController {
         model.addAttribute("cards", cards);
         model.addAttribute("votesRevealed", room.areVotesRevealed());
         model.addAttribute("votes", room.getParticipants());
+        model.addAttribute("selectedCard", participant.getVote()); // <- Neu für Hervorhebung
 
         if (room.areVotesRevealed()) {
             gameService.calculateAverageVote(room).ifPresentOrElse(
@@ -59,8 +60,6 @@ public class GameController {
             participant.setVote(card);
         }
 
-        List<String> cards = List.of("1", "2", "3", "5", "8", "13", "20", "☕", "❓", "📣");
-
         model.addAttribute("roomCode", roomCode);
         model.addAttribute("participantName", participantName);
         model.addAttribute("hostName", room.getHost().getName());
@@ -68,6 +67,7 @@ public class GameController {
         model.addAttribute("cards", cards);
         model.addAttribute("votesRevealed", room.areVotesRevealed());
         model.addAttribute("votes", room.getParticipants());
+        model.addAttribute("selectedCard", participant.getVote()); // <- Neu für Hervorhebung
 
         if (room.areVotesRevealed()) {
             gameService.calculateAverageVote(room).ifPresentOrElse(

@@ -23,17 +23,13 @@
 
             <p><strong>Karte auswählen:</strong></p>
             <div class="card-grid">
-                <button type="button" onclick="submitVote('1')">1</button>
-                <button type="button" onclick="submitVote('2')">2</button>
-                <button type="button" onclick="submitVote('3')">3</button>
-                <button type="button" onclick="submitVote('5')">5</button>
-                <button type="button" onclick="submitVote('8')">8</button>
-                <button type="button" onclick="submitVote('13')">13</button>
-                <button type="button" onclick="submitVote('20')">20</button>
-                <button type="button" onclick="submitVote('☕')">☕</button>
-                <button type="button" onclick="submitVote('❓')">❓</button>
-                <button type="button" onclick="submitVote('💬')">💬</button>
-            </div>
+    <button type="button"
+            th:each="card : ${cards}"
+            th:text="${card}"
+            th:onclick="'submitVote(\'' + card + '\')'"
+            th:classappend="${card == #lists.find(votes, v -> v.name == participantName)?.vote} ? 'selected' : ''">
+    </button>
+</div>
         </form>
 
         <!-- Karten aufdecken (nur für Host) -->

@@ -32,3 +32,10 @@ body {
 .button:hover {
     background: #005a9e;
 }
+
+button.selected {
+    background-color: #4CAF50;
+    border: 2px solid #fff;
+    box-shadow: 0 0 8px #4CAF50;
+    transform: scale(1.05);
+}
