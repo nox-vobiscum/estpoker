@@ -58,20 +58,19 @@ public class GameService {
     return room.getParticipants().stream()
         .map(Participant::getVote)
         .filter(Objects::nonNull)
-        .peek(v -> System.out.println("➡ Stimme gefunden: '" + v + "'"))
+        .peek(v -> System.out.println("➡ Stimme gefunden: '" + v + "'")) // Log für jede Stimme
         .map(String::trim)
         .filter(v -> {
             boolean isNumeric = v.matches("\\d+");
-            System.out.println("🔎 Ist '" + v + "' numerisch? → " + isNumeric);
+            System.out.println("🔎 Ist '" + v + "' numerisch? → " + isNumeric); // Log für die Überprüfung der Zahl
             return isNumeric;
         })
         .mapToInt(Integer::parseInt)
         .average()
         .stream()
-        .peek(avg -> System.out.println("✅ Durchschnitt berechnet: " + avg))
+        .peek(avg -> System.out.println("✅ Durchschnitt berechnet: " + avg)) // Log für den berechneten Durchschnitt
         .findFirst();
 }
-
 
 
 

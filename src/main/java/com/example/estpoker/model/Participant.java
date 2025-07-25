@@ -2,30 +2,22 @@ package com.example.estpoker.model;
 
 public class Participant {
     private String name;
-    private String card;
+    private String vote;
 
     public Participant(String name) {
         this.name = name;
-        this.card = null;
+        this.vote = null;
     }
 
     public String getName() {
         return name;
     }
 
-    public String getCard() {
-        return card;
-    }
-
-    public void setCard(String card) {
-        this.card = card;
-    }
-
     public String getVote() {
-    return card;
-}
+        return vote;
+    }
 
-public void setVote(String vote) {
-    this.card = vote;
-}
+    public void setVote(String vote) {
+        this.vote = vote;
+    }
 }

@@ -39,3 +39,10 @@ button.selected {
     box-shadow: 0 0 8px #4CAF50;
     transform: scale(1.05);
 }
+
+.selected {
+    background-color: #4CAF50 !important;
+    color: white !important;
+    font-weight: bold;
+    border: 2px solid #388E3C;
+}

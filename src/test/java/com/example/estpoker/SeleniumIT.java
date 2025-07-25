@@ -7,7 +7,7 @@ import org.openqa.selenium.chrome.ChromeDriver;
 
 import java.time.Duration;
 
-public class SeleniumTest {
+public class SeleniumIT {
 
     private WebDriver hostDriver;
     private WebDriver participantDriver;

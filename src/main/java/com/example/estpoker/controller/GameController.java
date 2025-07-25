@@ -34,7 +34,7 @@ public class GameController {
         model.addAttribute("cards", cards);
         model.addAttribute("votesRevealed", room.areVotesRevealed());
         model.addAttribute("votes", room.getParticipants());
-        model.addAttribute("selectedCard", participant.getVote()); // <- Neu für Hervorhebung
+        model.addAttribute("selectedCard", participant.getVote());
 
         if (room.areVotesRevealed()) {
             gameService.calculateAverageVote(room).ifPresentOrElse(
@@ -47,37 +47,24 @@ public class GameController {
     }
 
     @PostMapping("/room")
-    public String handleJoinForm(
-            @RequestParam String roomCode,
-            @RequestParam String participantName,
-            @RequestParam(required = false) String card,
-            Model model
-    ) {
-        Room room = gameService.getOrCreateRoom(roomCode);
-        Participant participant = room.getOrCreateParticipant(participantName);
+public String handleJoinForm(
+        @RequestParam String roomCode,
+        @RequestParam String participantName,
+        @RequestParam(required = false) String card
+) {
+    Room room = gameService.getOrCreateRoom(roomCode);
+    Participant participant = room.getOrCreateParticipant(participantName);
 
-        if (card != null && !card.isEmpty()) {
-            participant.setVote(card);
-        }
-
-        model.addAttribute("roomCode", roomCode);
-        model.addAttribute("participantName", participantName);
-        model.addAttribute("hostName", room.getHost().getName());
-        model.addAttribute("isHost", room.getHost().equals(participant));
-        model.addAttribute("cards", cards);
-        model.addAttribute("votesRevealed", room.areVotesRevealed());
-        model.addAttribute("votes", room.getParticipants());
-        model.addAttribute("selectedCard", participant.getVote()); // <- Neu für Hervorhebung
-
-        if (room.areVotesRevealed()) {
-            gameService.calculateAverageVote(room).ifPresentOrElse(
-                avg -> model.addAttribute("averageVote", String.format("%.1f", avg)),
-                () -> model.addAttribute("averageVote", "–")
-            );
-        }
-
-        return "room";
+    if (card != null && !card.isEmpty()) {
+        participant.setVote(card);
+        // Hier fügen wir das Debugging-Log hinzu:
+        System.out.println("✅ Karte gespeichert: " + participant.getVote());
     }
+
+    // 🔁 Redirect zu GET-Version, um konsistente Anzeige zu sichern
+    return "redirect:/room?roomCode=" + roomCode + "&participantName=" + participantName;
+}
+
 
     @PostMapping("/reveal")
     public String revealCards(
