@@ -74,4 +74,12 @@ public class Room {
                 .findFirst()
                 .orElse(null);
     }
+
+    // Neue Methode zum Speichern der Kartenwahl eines Teilnehmers
+    public void storeCardValue(String participantName, String cardValue) {
+        Participant participant = getParticipant(participantName);
+        if (participant != null) {
+            participant.setVote(cardValue);
+        }
+    }
 }

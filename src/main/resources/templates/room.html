@@ -41,15 +41,24 @@
 
     // Funktion zum Senden einer Nachricht an den Server (z.B. bei Kartenauswahl)
     function sendVote(cardValue) {
-        console.log("Kartenwert: " + cardValue);  // Loggt den Wert der Karte in der Konsole
-        socket.send("Ich habe die Karte gewählt: " + cardValue);  // Nachricht an den Server senden
+    // Holen des Teilnehmernamens aus dem versteckten Input-Feld
+    var participantName = document.getElementById("participantName").value;  
+    if (!participantName) {
+        console.log("Fehler: Teilnehmername nicht gefunden.");
+        return;  // Verhindert das Senden, wenn der Name nicht gefunden wurde
     }
+    console.log("Kartenwert: " + cardValue);  // Loggt den Wert der Karte in der Konsole
+    socket.send("vote:" + participantName + ":" + cardValue);  // Nachricht an den Server senden
+}
 
     // Beispiel für das Aufdecken der Karten (nur für den Host)
     function revealCards() {
         socket.send("revealCards");  // Nachricht an alle Clients senden
     }
 </script>
+
+<!-- Hier der Form-Tag für den Teilnehmernamen -->
+<input type="hidden" id="participantName" value="${participantName}" />
 
 <div class="container">
     <h1>🃏 Estimation Poker - Raum: <span th:text="${roomCode}"></span></h1>
@@ -76,14 +85,14 @@
 
             <p><strong>Karte auswählen:</strong></p>
             <div class="card-grid">
-    <button type="button"
-            th:each="cardValue : ${cards}"
-            th:text="${cardValue}"
-            th:classappend="${selectedCard != null and cardValue == selectedCard} ? ' selected' : ''"
-            th:data-card="${cardValue}" 
-            th:onclick="|sendVote(this.getAttribute('data-card'))|">
-    </button>
-</div>
+                <button type="button"
+                        th:each="cardValue : ${cards}"
+                        th:text="${cardValue}"
+                        th:classappend="${selectedCard != null and cardValue == selectedCard} ? ' selected' : ''"
+                        th:data-card="${cardValue}" 
+                        th:onclick="|sendVote(this.getAttribute('data-card'))|">
+                </button>
+            </div>
         </form>
 
         <!-- Karten aufdecken (nur für Host) -->
@@ -105,7 +114,7 @@
         </ul>
 
         <p><strong>⌀ Durchschnitt (nur Zahlen):</strong>
-            <span th:text="${averageVote != null ? averageVote : '-'}"></span>
+            <span id="averageVote" th:text="${averageVote != null ? averageVote : 'N/A'}"></span>
         </p>
 
         <!-- Neue Runde starten (nur für Host) -->

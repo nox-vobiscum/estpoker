@@ -4,6 +4,7 @@ import io.github.bonigarcia.wdm.WebDriverManager;
 import org.junit.jupiter.api.*;
 import org.openqa.selenium.*;
 import org.openqa.selenium.chrome.ChromeDriver;
+import org.openqa.selenium.chrome.ChromeOptions;
 
 import java.time.Duration;
 
@@ -16,8 +17,13 @@ public class SeleniumIT {
     public void setup() {
         WebDriverManager.chromedriver().setup();
 
-        hostDriver = new ChromeDriver();
-        participantDriver = new ChromeDriver();
+        // ChromeOptions erstellen und Cache deaktivieren
+        ChromeOptions options = new ChromeOptions();
+        options.addArguments("--incognito");  // Inkognito-Modus
+        options.addArguments("--disable-application-cache");  // Cache deaktivieren
+
+        hostDriver = new ChromeDriver(options);
+        participantDriver = new ChromeDriver(options);
 
         hostDriver.manage().timeouts().implicitlyWait(Duration.ofSeconds(2));
         participantDriver.manage().timeouts().implicitlyWait(Duration.ofSeconds(2));

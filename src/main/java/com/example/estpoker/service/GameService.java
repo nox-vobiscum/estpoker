@@ -33,15 +33,10 @@ public class GameService {
     }
 
     // Speichern der Kartenwahl eines Teilnehmers
-    public void storeCardValue(String participantName, String cardValue) {
-        // Implementierung zum Speichern der Kartenwahl
-    }
-
-    // Aufdecken der Karten
-    public void revealCards(String roomCode) {
-        Room room = getRoom(roomCode);
+    public void storeCardValue(WebSocketSession session, String participantName, String cardValue) {
+        Room room = getRoomFromSession(session); // Hole den Raum anhand der Session
         if (room != null) {
-            room.revealVotes();  // Karten aufdecken
+            room.storeCardValue(participantName, cardValue);  // Speichern der Kartenwahl
         }
     }
 
@@ -58,23 +53,34 @@ public class GameService {
 
     // Berechnen des Durchschnitts der Karten
     public Optional<Double> calculateAverageVote(Room room) {
-        OptionalDouble avg = room.getParticipants().stream()
-                .filter(p -> p.getVote() != null)  // Nur Teilnehmer mit einer Auswahl
-                .mapToInt(p -> Integer.parseInt(p.getVote()))  // Umwandlung in Integer für die Berechnung
-                .average();  // Gibt OptionalDouble zurück
+    OptionalDouble avg = room.getParticipants().stream()
+            .filter(p -> p.getVote() != null)  // Nur Teilnehmer mit einer Auswahl
+            .mapToInt(p -> Integer.parseInt(p.getVote()))  // Umwandlung in Integer für die Berechnung
+            .average();  // Gibt OptionalDouble zurück
 
-        // OptionalDouble nach Optional<Double> umwandeln, wenn ein Wert vorhanden ist
-        if (avg.isPresent()) {
-            return Optional.of(avg.getAsDouble());
-        } else {
-            return Optional.empty();
+    // OptionalDouble nach Optional<Double> umwandeln, wenn ein Wert vorhanden ist
+    if (avg.isPresent()) {
+        System.out.println("Berechneter Durchschnitt: " + avg.getAsDouble());  // Debug-Ausgabe
+        return Optional.of(avg.getAsDouble());
+    } else {
+        System.out.println("Kein gültiger Durchschnittswert gefunden.");
+        return Optional.empty();
+    }
+}
+
+    // Aufdecken der Karten
+    public void revealCards(String roomCode) {
+        Room room = getRoom(roomCode);
+        if (room != null) {
+            room.revealVotes();  // Hier wird das Aufdecken der Karten im Raum ausgeführt
         }
     }
 
+    // Zurücksetzen der Stimmen
     public void resetVotes(String roomCode) {
-    Room room = getRoom(roomCode);
-    if (room != null) {
-        room.resetVotes();  // Setzt die Stimmen aller Teilnehmer zurück
+        Room room = getRoom(roomCode);
+        if (room != null) {
+            room.resetVotes();  // Setzt die Stimmen aller Teilnehmer zurück
+        }
     }
-}
 }
