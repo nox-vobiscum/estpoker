@@ -24,8 +24,37 @@
     };
 
     socket.onmessage = function(event) {
-        console.log("Nachricht vom Server: " + event.data);
-    };
+    const data = JSON.parse(event.data);
+
+    if (data.type === "voteUpdate") {
+        updateParticipantList(data.participants);
+        updateAverage(data.averageVote);
+    }
+
+    if (data.type === "reveal") {
+        location.reload(); // Seite neu laden, um Ergebnisse & Buttons anzuzeigen
+    }
+};
+
+function updateParticipantList(participants) {
+    const list = document.querySelector("ul");
+    if (!list) return;
+
+    list.innerHTML = ""; // alte Liste löschen
+
+    participants.forEach(p => {
+        const li = document.createElement("li");
+        li.textContent = `${p.name}: ${p.vote != null ? p.vote : '—'}`;
+        list.appendChild(li);
+    });
+}
+
+function updateAverage(avg) {
+    const avgSpan = document.getElementById("averageVote");
+    if (avgSpan) {
+        avgSpan.textContent = avg != null ? avg : "N/A";
+    }
+}
 
     socket.onerror = function(error) {
         console.log("WebSocket Fehler: " + error);
@@ -52,12 +81,10 @@
 <div class="container">
     <h1>🃏 Estimation Poker - Raum: <span th:text="${roomCode}"></span></h1>
 
-    <!-- Teilnehmerinformationen -->
     <p>👤 Du bist: <strong th:text="${participantName}"></strong></p>
     <p th:if="${isHost}">⭐ Du bist der Host</p>
     <p th:if="${!isHost}">Host: <strong th:text="${hostName}"></strong></p>
 
-    <!-- Teilnehmerliste -->
     <h2>Teilnehmer:</h2>
     <ul>
         <li th:each="p : ${participants}">
@@ -65,7 +92,6 @@
         </li>
     </ul>
 
-    <!-- Kartenabgabe -->
     <div th:if="${!votesRevealed}">
         <p><strong>Karte auswählen:</strong></p>
         <div class="card-grid">
@@ -77,7 +103,6 @@
             </button>
         </div>
 
-        <!-- Karten aufdecken (nur für Host) -->
         <form method="post" th:action="@{/reveal}" th:if="${isHost and not votesRevealed}">
             <input type="hidden" name="roomCode" th:value="${roomCode}"/>
             <input type="hidden" name="participantName" th:value="${participantName}"/>
@@ -85,7 +110,6 @@
         </form>
     </div>
 
-    <!-- Ergebnisse (werden angezeigt, wenn die Karten aufgedeckt wurden) -->
     <div th:if="${votesRevealed}">
         <h2>Ergebnisse</h2>
         <ul>
@@ -99,7 +123,6 @@
             <span id="averageVote" th:text="${averageVote != null ? averageVote : 'N/A'}"></span>
         </p>
 
-        <!-- Neue Runde starten (nur für Host) -->
         <form method="post" th:action="@{/reset}" th:if="${isHost}">
             <input type="hidden" name="roomCode" th:value="${roomCode}"/>
             <input type="hidden" name="participantName" th:value="${participantName}"/>
