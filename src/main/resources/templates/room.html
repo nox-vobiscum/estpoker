@@ -16,50 +16,38 @@
 
 <script th:inline="javascript">
     let participantName = /*[[${participantName}]]*/ "Gast";
-    // WebSocket-Verbindung herstellen
-    var socket = new WebSocket("ws://localhost:8080/gameSocket");
 
-    // Verbindung geöffnet
+    const socket = new WebSocket("ws://localhost:8080/gameSocket");
+
     socket.onopen = function() {
         console.log("Verbindung zum Server hergestellt!");
     };
 
-    // Nachricht vom Server empfangen
     socket.onmessage = function(event) {
         console.log("Nachricht vom Server: " + event.data);
-        // Hier kannst du das DOM aktualisieren, wenn der Server eine Nachricht sendet
     };
 
-    // Fehlerbehandlung
     socket.onerror = function(error) {
         console.log("WebSocket Fehler: " + error);
     };
 
-    // Verbindung geschlossen
     socket.onclose = function() {
         console.log("Verbindung zum Server geschlossen");
     };
 
-    // Funktion zum Senden einer Nachricht an den Server (z.B. bei Kartenauswahl)
     function sendVote(cardValue) {
-    // Holen des Teilnehmernamens aus dem versteckten Input-Feld
-    var participantName = document.getElementById("participantName").value;  
-    if (!participantName) {
-        console.log("Fehler: Teilnehmername nicht gefunden.");
-        return;  // Verhindert das Senden, wenn der Name nicht gefunden wurde
-    }
-    console.log("Kartenwert: " + cardValue);  // Loggt den Wert der Karte in der Konsole
-    socket.send("vote:" + participantName + ":" + cardValue);  // Nachricht an den Server senden
-}
+        console.log("Kartenwert: " + cardValue);
+        socket.send("vote:" + participantName + ":" + cardValue);
 
-    // Beispiel für das Aufdecken der Karten (nur für den Host)
-    function revealCards() {
-        socket.send("revealCards");  // Nachricht an alle Clients senden
+        // Hervorhebung der ausgewählten Karte
+        const buttons = document.querySelectorAll(".card-grid button");
+        buttons.forEach(btn => btn.classList.remove("selected"));
+        const selected = Array.from(buttons).find(btn => btn.textContent === cardValue.toString());
+        if (selected) {
+            selected.classList.add("selected");
+        }
     }
 </script>
-
-<!-- Hier der Form-Tag für den Teilnehmernamen -->
-<input type="hidden" id="participantName" value="${participantName}" />
 
 <div class="container">
     <h1>🃏 Estimation Poker - Raum: <span th:text="${roomCode}"></span></h1>
@@ -79,22 +67,15 @@
 
     <!-- Kartenabgabe -->
     <div th:if="${!votesRevealed}">
-        <form method="post" th:action="@{/room}" id="voteForm">
-            <input type="hidden" name="roomCode" th:value="${roomCode}"/>
-            <input type="hidden" name="participantName" th:value="${participantName}"/>
-            <input type="hidden" name="card" id="cardInput"/>
-
-            <p><strong>Karte auswählen:</strong></p>
-            <div class="card-grid">
-                <button type="button"
-                        th:each="cardValue : ${cards}"
-                        th:text="${cardValue}"
-                        th:classappend="${selectedCard != null and cardValue == selectedCard} ? ' selected' : ''"
-                        th:data-card="${cardValue}" 
-                        th:onclick="|sendVote(this.getAttribute('data-card'))|">
-                </button>
-            </div>
-        </form>
+        <p><strong>Karte auswählen:</strong></p>
+        <div class="card-grid">
+            <button type="button"
+                    th:each="cardValue : ${cards}"
+                    th:text="${cardValue}"
+                    th:attr="data-card=${cardValue}"
+                    th:onclick="|sendVote(this.getAttribute('data-card'))|">
+            </button>
+        </div>
 
         <!-- Karten aufdecken (nur für Host) -->
         <form method="post" th:action="@{/reveal}" th:if="${isHost and not votesRevealed}">
