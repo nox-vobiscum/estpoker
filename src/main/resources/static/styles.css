@@ -3,6 +3,7 @@ body {
     color: #d4d4d4;
     font-family: Consolas, monospace;
     padding: 2rem;
+    margin: 0;
 }
 
 .card {
@@ -84,13 +85,49 @@ li[data-hasvote="false"] {
 .container {
     max-width: 800px;
     margin: 0 auto;
+    padding: 1rem;
 }
 
 h1, h2 {
     color: #ffffff;
     margin-bottom: 1rem;
+    font-size: 1.5rem;
 }
 
 strong {
     color: #ffffff;
+}
+
+@media (max-width: 600px) {
+    body {
+        padding: 1rem;
+    }
+
+    .card {
+        padding: 0.8rem 1rem;
+        font-size: 0.9rem;
+    }
+
+    .card-grid {
+        grid-template-columns: repeat(auto-fit, minmax(50px, 1fr));
+        gap: 8px;
+    }
+
+    .button, button[type="submit"] {
+        width: 100%;
+        padding: 0.9rem;
+        font-size: 1rem;
+    }
+
+    h1, h2 {
+        font-size: 1.2rem;
+    }
+
+    .container {
+        padding: 0.5rem;
+    }
+
+    ul li {
+        font-size: 0.95rem;
+    }
 }
