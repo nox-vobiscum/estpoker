@@ -46,7 +46,10 @@
     }
 
     function resetRoom() {
-        if (isHost) socket.send("resetRoom");
+    if (isHost) socket.send("resetRoom");
+
+    // Entfernt Highlighting bei allen Karten
+    document.querySelectorAll(".card-grid button").forEach(btn => btn.classList.remove("selected"));
     }
 
     function updateParticipantList(participants) {
