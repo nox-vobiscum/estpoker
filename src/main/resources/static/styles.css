@@ -8,13 +8,15 @@ body {
 
 .card {
     display: inline-block;
-    padding: 1rem 1.5rem;
-    margin: 0.5rem;
+    padding: 0.6rem 1rem;
+    margin: 0.4rem;
     background: #2d2d30;
     border: 1px solid #3c3c3c;
     border-radius: 6px;
     cursor: pointer;
     transition: transform 0.15s ease, box-shadow 0.15s ease;
+    font-size: 1rem;
+    text-align: center;
 }
 
 .card:hover {
@@ -42,8 +44,8 @@ body {
 
 .card-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(70px, 1fr));
-    gap: 10px;
+    grid-template-columns: repeat(auto-fit, minmax(60px, 1fr));
+    gap: 8px;
     margin-top: 1rem;
     margin-bottom: 1rem;
 }
@@ -104,13 +106,13 @@ strong {
     }
 
     .card {
-        padding: 0.8rem 1rem;
-        font-size: 0.9rem;
+        padding: 0.6rem 0.8rem;
+        font-size: 0.85rem;
     }
 
     .card-grid {
-        grid-template-columns: repeat(auto-fit, minmax(50px, 1fr));
-        gap: 8px;
+        grid-template-columns: repeat(auto-fit, minmax(45px, 1fr));
+        gap: 6px;
     }
 
     .button, button[type="submit"] {
