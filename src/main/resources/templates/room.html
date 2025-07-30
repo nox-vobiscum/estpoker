@@ -1,4 +1,12 @@
-<!-- ... head bleibt unverändert ... -->
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="de">
+<head>
+    <meta charset="UTF-8">
+    <title>Estimation Poker</title>
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+
 <script th:inline="javascript">
     let participantName = /*[[${participantName}]]*/ "Gast";
     let isHost = /*[[${isHost}]]*/ false;
@@ -6,16 +14,16 @@
 
     const socket = new WebSocket("ws://localhost:8080/gameSocket?roomCode=" + roomCode + "&participantName=" + participantName);
 
-    socket.onopen = function() {
+    socket.onopen = () => {
         console.log("✅ Verbindung zum Server hergestellt!");
     };
 
-    socket.onmessage = function(event) {
+    socket.onmessage = (event) => {
         const data = JSON.parse(event.data);
         console.log("📨 Nachricht empfangen:", data);
 
         if (data.type === "voteUpdate") {
-            updateParticipantList(data.participants);
+            updateParticipantList(data.participants, data.votesRevealed);
             updateAverage(data.averageVote);
             toggleView(data.votesRevealed);
         }
@@ -40,13 +48,14 @@
         if (isHost) socket.send("resetRoom");
     }
 
-    function updateParticipantList(participants) {
+    function updateParticipantList(participants, revealed) {
         const list = document.getElementById("liveParticipantList");
         if (!list) return;
         list.innerHTML = "";
         participants.forEach(p => {
             const li = document.createElement("li");
-            li.textContent = `${p.name}: ${p.vote != null ? p.vote : '—'}`;
+            li.textContent = p.name;
+            li.setAttribute("data-hasvote", revealed ? "false" : (p.vote != null));
             list.appendChild(li);
         });
     }
@@ -74,16 +83,17 @@
     }
 </script>
 
-<!-- HTML-Inhalt -->
 <div class="container">
-    <h1>🃏 Estimation Poker - Raum: <span th:text="${roomCode}"></span></h1>
-    <p>👤 Du bist: <strong th:text="${participantName}"></strong></p>
+    <h1>🃏 Estimation Poker - Raum: <span th:text="${roomCode}">DEMO</span></h1>
+
+    <p>👤 Du bist: <strong th:text="${participantName}">Gast</strong></p>
     <p th:if="${isHost}">⭐ Du bist der Host</p>
-    <p th:if="${!isHost}">Host: <strong th:text="${hostName}"></strong></p>
+    <p th:if="${!isHost}">Host: <strong th:text="${hostName}">?</strong></p>
 
     <h2>Teilnehmer:</h2>
     <ul id="liveParticipantList"></ul>
 
+    <!-- Vor dem Aufdecken -->
     <div class="pre-vote" th:if="${!votesRevealed}">
         <p><strong>Karte auswählen:</strong></p>
         <div class="card-grid">
@@ -94,13 +104,17 @@
                     th:onclick="|sendVote(this.getAttribute('data-card'))|">
             </button>
         </div>
-        <button type="button" th:if="${isHost}" onclick="revealCards()">🟡 Karten aufdecken</button>
+        <button type="button" th:if="${isHost}" class="button" onclick="revealCards()">🟡 Karten aufdecken</button>
     </div>
 
+    <!-- Nach dem Aufdecken -->
     <div class="post-vote" style="display: none;">
         <h2>Ergebnisse</h2>
         <ul id="resultList"></ul>
         <p><strong>⌀ Durchschnitt:</strong> <span id="averageVote">–</span></p>
-        <button type="button" th:if="${isHost}" onclick="resetRoom()">🔄 Neue Runde starten</button>
+        <button type="button" th:if="${isHost}" class="button" onclick="resetRoom()">🔄 Neue Runde starten</button>
     </div>
 </div>
+
+</body>
+</html>
