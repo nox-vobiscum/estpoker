@@ -3,46 +3,92 @@ body {
     color: #d4d4d4;
     font-family: Consolas, monospace;
     padding: 2rem;
+    line-height: 1.6;
 }
 
-.card {
-    display: inline-block;
-    padding: 1rem 1.5rem;
-    margin: 0.5rem;
-    background: #2d2d30;
-    border: 1px solid #3c3c3c;
-    border-radius: 6px;
-    cursor: pointer;
+h1, h2 {
+    color: #ffffff;
+    margin-top: 0;
 }
 
-.card:hover {
-    background: #3c3c3c;
+.container {
+    max-width: 800px;
+    margin: 0 auto;
+    background-color: #252526;
+    padding: 2rem;
+    border-radius: 12px;
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.4);
 }
 
-.button {
-    margin-top: 2rem;
-    padding: 0.7rem 1.2rem;
-    background: #007acc;
-    color: white;
-    border: none;
+ul {
+    list-style-type: none;
+    padding: 0;
+    margin-bottom: 1.5rem;
+}
+
+li {
+    padding: 0.3rem 0.6rem;
+    margin-bottom: 0.2rem;
+    background-color: #2d2d30;
     border-radius: 4px;
+}
+
+.card-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 1rem;
+}
+
+.card-grid button {
+    background-color: #3c3c3c;
+    color: #d4d4d4;
+    border: 1px solid #555;
+    border-radius: 6px;
+    padding: 0.8rem 1.2rem;
+    font-size: 1.1rem;
     cursor: pointer;
+    transition: all 0.2s ease;
 }
 
-.button:hover {
-    background: #005a9e;
-}
-
-button.selected {
-    background-color: #4CAF50;
-    border: 2px solid #fff;
-    box-shadow: 0 0 8px #4CAF50;
+.card-grid button:hover {
+    background-color: #505050;
     transform: scale(1.05);
 }
 
-.selected {
-    background-color: #4CAF50 !important;
-    color: white !important;
+.card-grid button.selected {
+    background-color: #4CAF50;
+    border: 2px solid #fff;
+    box-shadow: 0 0 8px #4CAF50;
+    transform: scale(1.08);
+    color: white;
     font-weight: bold;
-    border: 2px solid #388E3C;
+}
+
+button {
+    padding: 0.6rem 1.2rem;
+    font-size: 1rem;
+    background-color: #007acc;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    margin-top: 1rem;
+}
+
+button:hover {
+    background-color: #005a9e;
+}
+
+button:disabled {
+    background-color: #555;
+    cursor: not-allowed;
+}
+
+#averageVote {
+    font-size: 1.3rem;
+    color: #ffd700;
+    font-weight: bold;
+    margin-left: 0.4rem;
 }

@@ -1,98 +1,90 @@
-<!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org" lang="de">
-<head>
-    <meta charset="UTF-8">
-    <title>Estimation Poker</title>
-    <link rel="stylesheet" th:href="@{/styles.css}">
-    <style>
-        .selected {
-            background-color: #4CAF50;
-            color: white;
-            font-weight: bold;
-        }
-    </style>
-</head>
-<body>
-
+<!-- ... head bleibt unverändert ... -->
 <script th:inline="javascript">
     let participantName = /*[[${participantName}]]*/ "Gast";
+    let isHost = /*[[${isHost}]]*/ false;
+    let roomCode = /*[[${roomCode}]]*/ "demo";
 
-    const socket = new WebSocket("ws://localhost:8080/gameSocket");
+    const socket = new WebSocket("ws://localhost:8080/gameSocket?roomCode=" + roomCode + "&participantName=" + participantName);
 
     socket.onopen = function() {
-        console.log("Verbindung zum Server hergestellt!");
+        console.log("✅ Verbindung zum Server hergestellt!");
     };
 
     socket.onmessage = function(event) {
-    const data = JSON.parse(event.data);
+        const data = JSON.parse(event.data);
+        console.log("📨 Nachricht empfangen:", data);
 
-    if (data.type === "voteUpdate") {
-        updateParticipantList(data.participants);
-        updateAverage(data.averageVote);
-    }
+        if (data.type === "voteUpdate") {
+            updateParticipantList(data.participants);
+            updateAverage(data.averageVote);
+            toggleView(data.votesRevealed);
+        }
 
-    if (data.type === "reveal") {
-        location.reload(); // Seite neu laden, um Ergebnisse & Buttons anzuzeigen
-    }
-};
-
-function updateParticipantList(participants) {
-    const list = document.querySelector("ul");
-    if (!list) return;
-
-    list.innerHTML = ""; // alte Liste löschen
-
-    participants.forEach(p => {
-        const li = document.createElement("li");
-        li.textContent = `${p.name}: ${p.vote != null ? p.vote : '—'}`;
-        list.appendChild(li);
-    });
-}
-
-function updateAverage(avg) {
-    const avgSpan = document.getElementById("averageVote");
-    if (avgSpan) {
-        avgSpan.textContent = avg != null ? avg : "N/A";
-    }
-}
-
-    socket.onerror = function(error) {
-        console.log("WebSocket Fehler: " + error);
-    };
-
-    socket.onclose = function() {
-        console.log("Verbindung zum Server geschlossen");
+        if (data.type === "reveal") {
+            showResults(data.participants, data.averageVote);
+        }
     };
 
     function sendVote(cardValue) {
-        console.log("Kartenwert: " + cardValue);
         socket.send("vote:" + participantName + ":" + cardValue);
+        document.querySelectorAll(".card-grid button").forEach(btn => btn.classList.remove("selected"));
+        const selected = Array.from(document.querySelectorAll(".card-grid button")).find(btn => btn.textContent === cardValue.toString());
+        if (selected) selected.classList.add("selected");
+    }
 
-        // Hervorhebung der ausgewählten Karte
-        const buttons = document.querySelectorAll(".card-grid button");
-        buttons.forEach(btn => btn.classList.remove("selected"));
-        const selected = Array.from(buttons).find(btn => btn.textContent === cardValue.toString());
-        if (selected) {
-            selected.classList.add("selected");
-        }
+    function revealCards() {
+        if (isHost) socket.send("revealCards");
+    }
+
+    function resetRoom() {
+        if (isHost) socket.send("resetRoom");
+    }
+
+    function updateParticipantList(participants) {
+        const list = document.getElementById("liveParticipantList");
+        if (!list) return;
+        list.innerHTML = "";
+        participants.forEach(p => {
+            const li = document.createElement("li");
+            li.textContent = `${p.name}: ${p.vote != null ? p.vote : '—'}`;
+            list.appendChild(li);
+        });
+    }
+
+    function updateAverage(avg) {
+        const avgSpan = document.getElementById("averageVote");
+        if (avgSpan) avgSpan.textContent = avg != null ? avg : "N/A";
+    }
+
+    function toggleView(revealed) {
+        document.querySelectorAll(".pre-vote").forEach(e => e.style.display = revealed ? "none" : "block");
+        document.querySelectorAll(".post-vote").forEach(e => e.style.display = revealed ? "block" : "none");
+    }
+
+    function showResults(participants, avg) {
+        toggleView(true);
+        const resultList = document.getElementById("resultList");
+        resultList.innerHTML = "";
+        participants.forEach(p => {
+            const li = document.createElement("li");
+            li.innerHTML = `<span>${p.name}</span>: <strong>${p.vote != null ? p.vote : '—'}</strong>`;
+            resultList.appendChild(li);
+        });
+        updateAverage(avg);
     }
 </script>
 
+<!-- HTML-Inhalt -->
 <div class="container">
     <h1>🃏 Estimation Poker - Raum: <span th:text="${roomCode}"></span></h1>
-
     <p>👤 Du bist: <strong th:text="${participantName}"></strong></p>
     <p th:if="${isHost}">⭐ Du bist der Host</p>
     <p th:if="${!isHost}">Host: <strong th:text="${hostName}"></strong></p>
 
     <h2>Teilnehmer:</h2>
-    <ul>
-        <li th:each="p : ${participants}">
-            <span th:text="${p.name}"></span>
-        </li>
-    </ul>
+    <ul id="liveParticipantList"></ul>
 
-    <div th:if="${!votesRevealed}">
+    <div class="pre-vote" th:if="${!votesRevealed}">
         <p><strong>Karte auswählen:</strong></p>
         <div class="card-grid">
             <button type="button"
@@ -102,33 +94,13 @@ function updateAverage(avg) {
                     th:onclick="|sendVote(this.getAttribute('data-card'))|">
             </button>
         </div>
-
-        <form method="post" th:action="@{/reveal}" th:if="${isHost and not votesRevealed}">
-            <input type="hidden" name="roomCode" th:value="${roomCode}"/>
-            <input type="hidden" name="participantName" th:value="${participantName}"/>
-            <button type="submit">🟡 Karten aufdecken</button>
-        </form>
+        <button type="button" th:if="${isHost}" onclick="revealCards()">🟡 Karten aufdecken</button>
     </div>
 
-    <div th:if="${votesRevealed}">
+    <div class="post-vote" style="display: none;">
         <h2>Ergebnisse</h2>
-        <ul>
-            <li th:each="p : ${participantsWithVotes}">
-                <span th:text="${p.name}"></span>:
-                <strong th:text="${p.vote != null ? p.vote : '—'}"></strong>
-            </li>
-        </ul>
-
-        <p><strong>⌀ Durchschnitt (nur Zahlen):</strong>
-            <span id="averageVote" th:text="${averageVote != null ? averageVote : 'N/A'}"></span>
-        </p>
-
-        <form method="post" th:action="@{/reset}" th:if="${isHost}">
-            <input type="hidden" name="roomCode" th:value="${roomCode}"/>
-            <input type="hidden" name="participantName" th:value="${participantName}"/>
-            <button type="submit">🔄 Neue Runde starten</button>
-        </form>
+        <ul id="resultList"></ul>
+        <p><strong>⌀ Durchschnitt:</strong> <span id="averageVote">–</span></p>
+        <button type="button" th:if="${isHost}" onclick="resetRoom()">🔄 Neue Runde starten</button>
     </div>
 </div>
-</body>
-</html>
