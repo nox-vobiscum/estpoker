@@ -2,18 +2,15 @@
 FROM maven:3.9.6-eclipse-temurin-21 AS build
 WORKDIR /app
 
-# Maven-Wrapper und Konfig laden
 COPY .mvn/ .mvn/
 COPY mvnw .
 COPY pom.xml .
 
-# Abhängigkeiten vorausladen (für Caching)
 RUN ./mvnw dependency:go-offline
 
-# Source-Code erst nach go-offline kopieren
 COPY src ./src
 
-# Tests KOMPLETT überspringen (inkl. Kompilierung)
+# WICHTIG: Keine Tests ausführen UND nicht mal kompilieren
 RUN ./mvnw clean package -Dmaven.test.skip=true
 
 # ---------- Runtime Stage ----------
