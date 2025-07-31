@@ -6,14 +6,12 @@ COPY .mvn/ .mvn/
 COPY mvnw .
 COPY pom.xml .
 
-# Bessere Caching-Effizienz durch Preload
 RUN ./mvnw dependency:go-offline
 
 COPY src ./src
 
-# 💡 Tests gar nicht kompilieren
-# --- RUN ./mvnw clean package -Dmaven.test.skip=true --- #
-RUN ./mvnw clean package -Dspring.profiles.active=test
+# 💡 Wichtig: Verhindert auch Kompilieren und Initialisieren von Tests
+RUN ./mvnw clean package -Dmaven.test.skip=true
 
 # ---------- Runtime Stage ----------
 FROM eclipse-temurin:21-jre-alpine
