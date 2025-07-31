@@ -68,13 +68,6 @@
             <version>24.0.1</version>
         </dependency>
 
-        <!-- H2 Database (falls doch benötigt, nur zur Laufzeit) -->
-        <dependency>
-            <groupId>com.h2database</groupId>
-            <artifactId>h2</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
         <!-- WebSockets -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
