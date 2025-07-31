@@ -2,25 +2,25 @@
 FROM maven:3.9.6-eclipse-temurin-21 AS build
 WORKDIR /app
 
-# Kopiere nur was nötig ist – zuerst die Konfiguration und Maven-Wrapper
+# Kopiere Maven-Wrapper und Konfiguration
 COPY .mvn/ .mvn/
 COPY mvnw .
 COPY pom.xml .
 
-# Preload dependencies (bessere Caching-Effizienz)
+# Lade Abhängigkeiten (optimiert fürs Caching)
 RUN ./mvnw dependency:go-offline
 
-# Dann restlicher Source
+# Kopiere restlichen Code
 COPY src ./src
 
-# Erstelle das Paket ohne Tests
-RUN ./mvnw clean package -DskipTests=true
+# Baue Projekt, ohne Tests zu kompilieren oder auszuführen
+RUN ./mvnw clean package -Dmaven.test.skip=true
 
 # ---------- Runtime Stage ----------
 FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
 
-# Kopiere JAR vom vorherigen Build
+# Kopiere fertiges JAR vom Build-Container
 COPY --from=build /app/target/estpoker-0.0.1-SNAPSHOT.jar app.jar
 
 EXPOSE 8080
