@@ -10,8 +10,9 @@ RUN ./mvnw dependency:go-offline
 
 COPY src ./src
 
-# WICHTIG: Keine Tests ausführen UND nicht mal kompilieren
+# 💡 Das ist jetzt korrekt:
 RUN ./mvnw clean package -Dmaven.test.skip=true
+
 
 # ---------- Runtime Stage ----------
 FROM eclipse-temurin:21-jre-alpine
