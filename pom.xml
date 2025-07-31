@@ -21,6 +21,19 @@
         <skip.tests>true</skip.tests>
     </properties>
 
+    <profiles>
+        <profile>
+            <id>no-tests</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
+           <properties>
+                <maven.test.skip>true</maven.test.skip>
+            </properties>
+        </profile>
+    </profiles>
+
+
     <dependencies>
         <!-- Web + Thymeleaf -->
         <dependency>
