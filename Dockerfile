@@ -1,23 +1,27 @@
-# Use official OpenJDK 21 image with Maven
-FROM maven:3.9.6-eclipse-temurin-21 as build
-
-# Create app directory
+# ---------- Build Stage ----------
+FROM maven:3.9.6-eclipse-temurin-21 AS build
 WORKDIR /app
 
-# Copy pom.xml and download dependencies
+# Kopiere nur was nötig ist – zuerst die Konfiguration und Maven-Wrapper
+COPY .mvn/ .mvn/
+COPY mvnw .
 COPY pom.xml .
-RUN mvn dependency:go-offline
 
-# Copy source code and build app
+# Preload dependencies (bessere Caching-Effizienz)
+RUN ./mvnw dependency:go-offline
+
+# Dann restlicher Source
 COPY src ./src
-RUN mvn clean package -DskipTests=true
 
-# Use lightweight JRE for final image
+# Erstelle das Paket ohne Tests
+RUN ./mvnw clean package -DskipTests=true
+
+# ---------- Runtime Stage ----------
 FROM eclipse-temurin:21-jre-alpine
+WORKDIR /app
 
-# Copy built jar from previous stage
+# Kopiere JAR vom vorherigen Build
 COPY --from=build /app/target/estpoker-0.0.1-SNAPSHOT.jar app.jar
 
-# Run app on port 8080
 EXPOSE 8080
-ENTRYPOINT ["java", "-jar", "/app.jar"]
+ENTRYPOINT ["java", "-jar", "app.jar"]
