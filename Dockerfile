@@ -2,29 +2,25 @@
 FROM maven:3.9.6-eclipse-temurin-21 AS build
 WORKDIR /app
 
-# Maven-Wrapper und Konfiguration (für Caching)
+# Maven-Wrapper und Konfig laden
 COPY .mvn/ .mvn/
 COPY mvnw .
 COPY pom.xml .
 
-# Lade alle Dependencies ohne Source zu kopieren (für Build-Cache)
+# Abhängigkeiten vorausladen (für Caching)
 RUN ./mvnw dependency:go-offline
 
-# Restlicher Source
+# Source-Code erst nach go-offline kopieren
 COPY src ./src
 
-# 💡 Tests vollständig überspringen (keine Kompilierung, keine Abhängigkeiten laden)
+# Tests KOMPLETT überspringen (inkl. Kompilierung)
 RUN ./mvnw clean package -Dmaven.test.skip=true
 
 # ---------- Runtime Stage ----------
 FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
 
-# Übernehme JAR aus dem Build-Stage
 COPY --from=build /app/target/estpoker-0.0.1-SNAPSHOT.jar app.jar
 
-# Anwendung läuft auf Port 8080
 EXPOSE 8080
-
-# Startbefehl
 ENTRYPOINT ["java", "-jar", "app.jar"]
