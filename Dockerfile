@@ -2,18 +2,18 @@
 FROM maven:3.9.6-eclipse-temurin-21 AS build
 WORKDIR /app
 
-# Maven Wrapper kopieren
+# Maven Wrapper & Projekt-Metadaten kopieren
 COPY .mvn/ .mvn/
 COPY mvnw .
 COPY pom.xml .
 
-# Nur Dependencies laden (beschleunigt Builds)
+# Nur Abhängigkeiten laden (schnellerer Build bei Quellcode-Änderungen)
 RUN ./mvnw dependency:go-offline
 
-# Jetzt Quellcode kopieren
+# Projektquellcode kopieren
 COPY src ./src
 
-# 💡 Tests werden übersprungen UND nicht kompiliert
+# Build ohne Tests (werden nicht ausgeführt & nicht kompiliert)
 RUN ./mvnw clean package -Dmaven.test.skip=true
 
 
@@ -24,5 +24,8 @@ WORKDIR /app
 # Nur das fertige JAR in das Runtime-Image übernehmen
 COPY --from=build /app/target/estpoker-0.0.1-SNAPSHOT.jar app.jar
 
+# HTTP-Port freigeben
 EXPOSE 8080
+
+# Startbefehl
 ENTRYPOINT ["java", "-jar", "app.jar"]
