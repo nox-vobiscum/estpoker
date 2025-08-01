@@ -1,11 +1,10 @@
 services:
   - type: web
     name: estpoker
-    env: java
     plan: free
+    region: frankfurt
     buildCommand: ./mvnw clean package -DskipTests
     startCommand: java -jar target/estpoker-0.0.1-SNAPSHOT.jar
-    region: frankfurt
     envVars:
       - key: SPRING_PROFILES_ACTIVE
         value: prod
