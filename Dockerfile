@@ -1,27 +1,14 @@
-# ---------- Build Stage ----------
-FROM maven:3.9.6-eclipse-temurin-21 AS build
+# Basis-Image mit Java 17
+FROM eclipse-temurin:17-jdk
+
+# Arbeitsverzeichnis im Container
 WORKDIR /app
 
-# Maven Wrapper kopieren
-COPY .mvn/ .mvn/
-COPY mvnw .
-COPY pom.xml .
+# Das JAR-File von Spring Boot kopieren (angenommen: target/*.jar)
+COPY target/estpoker-0.0.1-SNAPSHOT.jar app.jar
 
-# Nur Dependencies laden (beschleunigt Builds)
-RUN ./mvnw dependency:go-offline
+# Profil "prod" beim Start aktivieren
+ENV SPRING_PROFILES_ACTIVE=prod
 
-# Jetzt Quellcode kopieren
-COPY src ./src
-
-# Tests werden NICHT gebaut
-RUN ./mvnw clean package -Dmaven.test.skip=true
-
-# ---------- Runtime Stage ----------
-FROM eclipse-temurin:21-jre-alpine
-WORKDIR /app
-
-# Nur das fertige JAR in das Runtime-Image übernehmen
-COPY --from=build /app/target/estpoker-0.0.1-SNAPSHOT.jar app.jar
-
-EXPOSE 8080
+# Startbefehl für die Anwendung
 ENTRYPOINT ["java", "-jar", "app.jar"]

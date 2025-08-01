@@ -1,4 +1,4 @@
-target/
+# .dockerignore (target draußen lassen – damit Docker es mitnimmt)
 .git/
 .idea/
 *.iml
