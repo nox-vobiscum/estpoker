@@ -1,7 +1,7 @@
 services:
   - type: web
     name: estpoker
-    env: docker
+    env: static
     plan: free
     region: frankfurt
     buildCommand: ./mvnw clean package -DskipTests
