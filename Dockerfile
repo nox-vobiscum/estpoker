@@ -1,14 +1,15 @@
+#
 # Basis-Image mit Java 17
-FROM eclipse-temurin:17-jdk
+#-# FROM eclipse-temurin:17-jdk
 
 # Arbeitsverzeichnis im Container
-WORKDIR /app
+#-# WORKDIR /app
 
 # Das JAR-File von Spring Boot kopieren (angenommen: target/*.jar)
-COPY target/estpoker-0.0.1-SNAPSHOT.jar app.jar
+#-# COPY target/estpoker-0.0.1-SNAPSHOT.jar app.jar
 
 # Profil "prod" beim Start aktivieren
-ENV SPRING_PROFILES_ACTIVE=prod
+#-# ENV SPRING_PROFILES_ACTIVE=prod
 
 # Startbefehl für die Anwendung
-ENTRYPOINT ["java", "-jar", "app.jar"]
+#-# ENTRYPOINT ["java", "-jar", "app.jar"]
