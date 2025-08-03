@@ -6,8 +6,8 @@ import java.util.stream.Collectors;
 
 public class Room {
 
-    private String code;
-    private List<Participant> participants;
+    private final String code;
+    private final List<Participant> participants;
     private boolean votesRevealed;
     private Participant host;
 
@@ -35,37 +35,8 @@ public class Room {
         return votesRevealed;
     }
 
-    public void revealVotes() {
-        this.votesRevealed = true;
-    }
-
-    public void resetVotes() {
-        this.votesRevealed = false;
-        for (Participant p : participants) {
-            p.setVote(null);
-        }
-    }
-
-    public Participant getHost() {
-        return host;
-    }
-
-    public void setHost(Participant host) {
-        this.host = host;
-    }
-
-    public Participant getOrCreateParticipant(String name) {
-        for (Participant p : participants) {
-            if (p.getName().equals(name)) {
-                return p;
-            }
-        }
-        Participant newParticipant = new Participant(name);
-        participants.add(newParticipant);
-        if (participants.size() == 1) {
-            setHost(newParticipant);
-        }
-        return newParticipant;
+    public void setCardsRevealed(boolean revealed) {
+        this.votesRevealed = revealed;
     }
 
     public Participant getParticipant(String name) {
@@ -75,8 +46,37 @@ public class Room {
                 .orElse(null);
     }
 
-    public void storeCardValue(String participantName, String cardValue) {
-        Participant participant = getOrCreateParticipant(participantName);
-        participant.setVote(cardValue);
+    public Participant getOrCreateParticipant(String name) {
+        Participant existing = getParticipant(name);
+        if (existing != null) {
+            return existing;
+        }
+        Participant newParticipant = new Participant(name);
+        participants.add(newParticipant);
+        if (participants.size() == 1) {
+            this.host = newParticipant;
+        }
+        return newParticipant;
+    }
+
+    public void addOrReactivateParticipant(String name) {
+        Participant existing = getParticipant(name);
+        if (existing != null) {
+            existing.setActive(true);
+        } else {
+            participants.add(new Participant(name));
+        }
+    }
+
+    public void reset() {
+        this.votesRevealed = false;
+        for (Participant p : participants) {
+            p.setVote(null);
+            p.setActive(true);
+        }
+    }
+
+    public Participant getHost() {
+        return host;
     }
 }
