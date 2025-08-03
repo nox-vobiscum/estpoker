@@ -41,7 +41,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                 String participantName = params.get("participantName");
                 if (roomCode != null && participantName != null) {
                     gameService.assignSessionToRoom(session, roomCode);
-                    gameService.getOrCreateRoom(roomCode).getOrCreateParticipant(participantName);
+                    gameService.getOrCreateRoom(roomCode).getOrCreateParticipant(participantName).setDisconnected(false);
                     System.out.println("Session wurde Raum '" + roomCode + "' zugeordnet.");
 
                     Room room = gameService.getRoomFromSession(session);
@@ -90,7 +90,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     @Override
     public void afterConnectionClosed(@NonNull WebSocketSession session, @NonNull CloseStatus status) throws Exception {
         super.afterConnectionClosed(session, status);
-        gameService.removeSession(session);
+        gameService.markParticipantDisconnected(session);
         System.out.println("Verbindung geschlossen: " + session.getId() + ", Status: " + status);
     }
 }

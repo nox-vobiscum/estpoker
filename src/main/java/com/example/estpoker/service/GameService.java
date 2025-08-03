@@ -1,5 +1,4 @@
-package com.example.estpoker.service;
-
+// imports unverändert
 import com.example.estpoker.model.Participant;
 import com.example.estpoker.model.Room;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -18,6 +17,7 @@ public class GameService {
     private final Map<String, Room> rooms = new ConcurrentHashMap<>();
     private final Map<WebSocketSession, Room> sessionToRoomMap = new ConcurrentHashMap<>();
     private final List<WebSocketSession> sessions = new CopyOnWriteArrayList<>();
+    private final Map<WebSocketSession, String> sessionToParticipantMap = new ConcurrentHashMap<>();
 
     public Room getOrCreateRoom(String roomCode) {
         return rooms.computeIfAbsent(roomCode, Room::new);
@@ -67,16 +67,40 @@ public class GameService {
         }
     }
 
+    public void registerSession(WebSocketSession session) {
+        sessions.add(session);
+    }
+
+    public void removeSession(WebSocketSession session) {
+        sessions.remove(session);
+        sessionToParticipantMap.remove(session);
+        sessionToRoomMap.remove(session);
+    }
+
+    public void markParticipantDisconnected(WebSocketSession session) {
+        Room room = sessionToRoomMap.get(session);
+        String name = sessionToParticipantMap.get(session);
+        if (room != null && name != null) {
+            Participant participant = room.getParticipantByName(name);
+            if (participant != null) {
+                participant.setDisconnected(true);
+                String json = buildVoteUpdateJson(room);
+                broadcastToRoom(room, json);
+            }
+        }
+    }
+
     public String buildVoteUpdateJson(Room room) {
         try {
             Map<String, Object> payload = new HashMap<>();
             payload.put("type", "voteUpdate");
 
-            List<Map<String, String>> participantList = new ArrayList<>();
+            List<Map<String, Object>> participantList = new ArrayList<>();
             for (Participant p : room.getParticipants()) {
-                Map<String, String> pData = new HashMap<>();
+                Map<String, Object> pData = new HashMap<>();
                 pData.put("name", p.getName());
                 pData.put("vote", p.getVote());
+                pData.put("disconnected", p.isDisconnected());
                 participantList.add(pData);
             }
             payload.put("participants", participantList);
@@ -123,15 +147,6 @@ public class GameService {
         }
     }
 
-    public void registerSession(WebSocketSession session) {
-        sessions.add(session);
-    }
-
-    public void removeSession(WebSocketSession session) {
-        sessions.remove(session);
-        sessionToRoomMap.remove(session);
-    }
-
     public void broadcastToRoom(Room room, String message) {
         sessionToRoomMap.entrySet().stream()
                 .filter(entry -> entry.getValue().equals(room))
@@ -143,5 +158,9 @@ public class GameService {
                         e.printStackTrace();
                     }
                 });
+    }
+
+    public void trackParticipant(WebSocketSession session, String participantName) {
+        sessionToParticipantMap.put(session, participantName);
     }
 }

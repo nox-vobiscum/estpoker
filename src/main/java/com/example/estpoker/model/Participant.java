@@ -20,4 +20,14 @@ public class Participant {
     public void setVote(String vote) {
         this.vote = vote;
     }
+
+    private boolean disconnected = false;
+
+    public boolean isDisconnected() {
+    return disconnected;
+    }
+
+    public void setDisconnected(boolean disconnected) {
+    this.disconnected = disconnected;
+    }
 }

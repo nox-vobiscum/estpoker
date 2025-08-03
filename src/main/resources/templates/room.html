@@ -85,6 +85,20 @@
         });
         updateAverage(avg);
     }
+
+       function updateParticipantList(participants) {
+        const list = document.getElementById("liveParticipantList");
+        if (!list) return;
+        list.innerHTML = "";
+        participants.forEach(p => {
+            const li = document.createElement("li");
+            li.dataset.hasvote = p.vote !== null;
+            li.className = p.disconnected ? "disconnected" : "";
+            li.textContent = p.name;
+            list.appendChild(li);
+        });
+    }
+
 </script>
 
 <div class="container">
