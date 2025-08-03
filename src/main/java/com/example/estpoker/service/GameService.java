@@ -81,7 +81,7 @@ public class GameService {
         Room room = sessionToRoomMap.get(session);
         String name = sessionToParticipantMap.get(session);
         if (room != null && name != null) {
-            Participant participant = room.getParticipantByName(name);
+            Participant participant = room.getParticipant(name);
             if (participant != null) {
                 participant.setDisconnected(true);
                 String json = buildVoteUpdateJson(room);
