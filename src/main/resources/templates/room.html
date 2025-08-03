@@ -58,7 +58,14 @@
         list.innerHTML = "";
         participants.forEach(p => {
             const li = document.createElement("li");
-            li.textContent = `${p.name}`;
+
+            if (p.disconnected) {
+                li.classList.add("disconnected");
+                li.innerHTML = `<span class="name">${p.name}</span> <span class="status">🚪 Verlassen</span>`;
+            } else {
+                li.textContent = p.name;
+            }
+
             li.dataset.hasvote = p.vote !== null;
             list.appendChild(li);
         });
