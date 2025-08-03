@@ -1,3 +1,5 @@
+package com.example.estpoker.service;
+
 // imports unverändert
 import com.example.estpoker.model.Participant;
 import com.example.estpoker.model.Room;
