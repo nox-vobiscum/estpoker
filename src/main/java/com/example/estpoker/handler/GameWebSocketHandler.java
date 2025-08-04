@@ -4,11 +4,13 @@ import com.example.estpoker.model.Participant;
 import com.example.estpoker.model.Room;
 import com.example.estpoker.service.GameService;
 import org.springframework.lang.NonNull;
+import org.springframework.stereotype.Component;
 import org.springframework.web.socket.*;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
 import java.net.URI;
 
+@Component
 public class GameWebSocketHandler extends TextWebSocketHandler {
 
     private final GameService gameService;
