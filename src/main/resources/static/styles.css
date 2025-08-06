@@ -1,35 +1,11 @@
-/* === Basis-Layout === */
 body {
     background-color: #1e1e1e;
     color: #d4d4d4;
     font-family: Consolas, monospace;
     padding: 2rem;
     margin: 0;
-    font-size: clamp(0.9rem, 2.5vw, 1.1rem);
 }
 
-h1, h2 {
-    color: #ffffff;
-    margin-bottom: 1rem;
-    font-size: clamp(1.3rem, 5vw, 2rem);
-}
-
-h2 {
-    font-size: clamp(1.1rem, 4vw, 1.5rem);
-}
-
-strong {
-    color: #ffffff;
-}
-
-.container {
-    max-width: 95vw;
-    width: 100%;
-    margin: 0 auto;
-    padding: 1rem;
-}
-
-/* === Karten-Design === */
 .card {
     display: inline-block;
     padding: 0.6rem 1rem;
@@ -49,16 +25,6 @@ strong {
     box-shadow: 0 0 6px #007acc;
 }
 
-.card-grid {
-    display: grid;
-    justify-content: center;
-    grid-template-columns: repeat(auto-fit, minmax(60px, 1fr));
-    gap: 8px;
-    margin-top: 1rem;
-    margin-bottom: 1rem;
-}
-
-/* === Buttons === */
 .button, button[type="submit"] {
     margin-top: 2rem;
     padding: 0.7rem 1.2rem;
@@ -70,11 +36,18 @@ strong {
     font-size: 1rem;
     font-family: inherit;
     transition: background 0.2s ease;
-    min-height: 48px;
 }
 
 .button:hover, button[type="submit"]:hover {
     background: #005a9e;
+}
+
+.card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(60px, 1fr));
+    gap: 8px;
+    margin-top: 1rem;
+    margin-bottom: 1rem;
 }
 
 button.selected {
@@ -91,7 +64,6 @@ button.selected {
     border: 2px solid #388E3C;
 }
 
-/* === Teilnehmer:innen-Liste === */
 ul {
     list-style: none;
     padding: 0;
@@ -112,7 +84,23 @@ li[data-hasvote="false"] {
     opacity: 0.6;
 }
 
-/* === Durchgestrichene Teilnehmer:innen (verlassen) === */
+.container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 1rem;
+}
+
+h1, h2 {
+    color: #ffffff;
+    margin-bottom: 1rem;
+    font-size: 1.2rem;
+}
+
+strong {
+    color: #ffffff;
+}
+
+/* 👇 Durchgestrichene Teilnehmer:innen mit Tür-Symbol */
 #liveParticipantList li.disconnected {
     color: #888;
     text-decoration: line-through;
@@ -120,14 +108,13 @@ li[data-hasvote="false"] {
     padding-right: 1.5em;
 }
 
-#liveParticipantList li.disconnected::after {
-    content: "🚪";
+#liveParticipantList li.disconnected .status {
     position: absolute;
     right: 0;
     top: 0;
+    color: #888;
 }
 
-/* === Responsive Design (mobile first) === */
 @media (max-width: 600px) {
     body {
         padding: 1rem;
@@ -139,16 +126,14 @@ li[data-hasvote="false"] {
     }
 
     .card-grid {
-        grid-template-columns: repeat(auto-fit, minmax(50px, 1fr));
-        justify-content: center;
+        grid-template-columns: repeat(auto-fit, minmax(45px, 1fr));
         gap: 6px;
     }
 
     .button, button[type="submit"] {
         width: 100%;
+        padding: 0.9rem;
         font-size: 1rem;
-        padding: 1rem;
-        margin-top: 1rem;
     }
 
     h1, h2 {
@@ -171,20 +156,4 @@ li[data-hasvote="false"] {
         margin-bottom: 4px;
         font-size: 1.1em;
     }
-
-    /* Durchgestrichene, verlassene Teilnehmer:innen */
-    #liveParticipantList li.disconnected {
-        color: #888;
-        text-decoration: line-through;
-        position: relative;
-        padding-right: 1.5em;
-    }
-
-#liveParticipantList li.disconnected .status {
-    position: absolute;
-    right: 0;
-    top: 0;
-    font-size: 1.1em;
-}
-
 }
