@@ -123,6 +123,41 @@ public class GameService {
         }
     }
 
+    public void sendRoomStateToSingleSession(Room room, WebSocketSession targetSession) {
+        try {
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("type", "voteUpdate");
+
+            List<Participant> ordered = getOrderedParticipants(room);
+
+            List<Map<String, Object>> participants = new ArrayList<>();
+            for (Participant p : ordered) {
+                Map<String, Object> pData = new HashMap<>();
+                pData.put("name", p.getName());
+                pData.put("vote", p.getVote());
+                pData.put("disconnected", !p.isActive());
+                participants.add(pData);
+            }
+
+            payload.put("participants", participants);
+            payload.put("votesRevealed", room.areVotesRevealed());
+
+            Optional<Double> avg = calculateAverageVote(room);
+            payload.put("averageVote", room.areVotesRevealed()
+                    ? avg.map(a -> String.format("%.1f", a)).orElse("N/A")
+                    : null);
+
+            String json = objectMapper.writeValueAsString(payload);
+
+            if (targetSession.isOpen()) {
+                targetSession.sendMessage(new TextMessage(json));
+            }
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
     private List<Participant> getOrderedParticipants(Room room) {
         List<Participant> all = new ArrayList<>(room.getParticipants());
         Participant host = room.getHost();

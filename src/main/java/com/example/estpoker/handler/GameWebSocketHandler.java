@@ -30,6 +30,10 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         gameService.addSession(session, room);
         gameService.trackParticipant(session, participantName);
 
+        // 🆕: Nur an diesen neuen Client senden
+        gameService.sendRoomStateToSingleSession(room, session);
+
+        // 🆕: An alle anderen ebenfalls senden (falls relevant)
         gameService.broadcastRoomState(room);
 
         System.out.println("Neue WebSocket-Verbindung: " + session.getId());
