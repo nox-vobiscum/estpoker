@@ -6,6 +6,7 @@ import com.example.estpoker.service.GameService;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
+import java.util.List;
 
 @Controller
 public class GameController {
@@ -24,25 +25,13 @@ public class GameController {
     @PostMapping("/join")
     public String joinRoom(@RequestParam String roomCode, @RequestParam String participantName, Model model) {
         Room room = gameService.getOrCreateRoom(roomCode);
-        room.getOrCreateParticipant(participantName); // Warnung entfernt: kein unnötiges `Participant participant = ...`
+        room.getOrCreateParticipant(participantName);
 
-        boolean isHost = room.getHost() != null && room.getHost().getName().equals(participantName);
-        boolean isVisible = room.getHost() != null && room.getHost().getName().equals(participantName) && room.areVotesRevealed();
-
-        model.addAttribute("roomCode", roomCode);
-        model.addAttribute("participantName", participantName);
-        model.addAttribute("isHost", isHost);
-        model.addAttribute("isVisible", isVisible);
-        model.addAttribute("participants", room.getParticipants());
-        model.addAttribute("averageVote", gameService.calculateAverageVote(room).map(a -> String.format("%.1f", a)).orElse("N/A"));
-        model.addAttribute("cardsRevealed", room.areVotesRevealed());
-        model.addAttribute("participantsWithVotes", room.getParticipantsWithVotes());
-
-        return "room";
+        return "redirect:/room/" + roomCode + "?participantName=" + participantName;
     }
 
     @PostMapping("/vote")
-    public String vote(@RequestParam String roomCode, @RequestParam String participantName, @RequestParam String card, Model model) {
+    public String vote(@RequestParam String roomCode, @RequestParam String participantName, @RequestParam String card) {
         Room room = gameService.getOrCreateRoom(roomCode);
         Participant participant = room.getOrCreateParticipant(participantName);
         participant.setVote(card);
@@ -70,15 +59,16 @@ public class GameController {
         }
 
         boolean isHost = room.getHost() != null && room.getHost().getName().equals(participantName);
-        boolean isVisible = room.areVotesRevealed();
 
         model.addAttribute("roomCode", roomCode);
         model.addAttribute("participantName", participantName);
         model.addAttribute("isHost", isHost);
-        model.addAttribute("isVisible", isVisible);
+        model.addAttribute("hostName", room.getHost() != null ? room.getHost().getName() : "Unbekannt");
         model.addAttribute("participants", room.getParticipants());
         model.addAttribute("averageVote", gameService.calculateAverageVote(room).map(a -> String.format("%.1f", a)).orElse("N/A"));
         model.addAttribute("participantsWithVotes", room.getParticipantsWithVotes());
+        model.addAttribute("votesRevealed", room.areVotesRevealed());
+        model.addAttribute("cards", List.of("1", "2", "3", "5", "8", "13", "20", "☕", "?", "🧑‍💼"));
 
         return "room";
     }

@@ -46,10 +46,8 @@
     }
 
     function resetRoom() {
-    if (isHost) socket.send("resetRoom");
-
-    // Entfernt Highlighting bei allen Karten
-    document.querySelectorAll(".card-grid button").forEach(btn => btn.classList.remove("selected"));
+        if (isHost) socket.send("resetRoom");
+        document.querySelectorAll(".card-grid button").forEach(btn => btn.classList.remove("selected"));
     }
 
     function updateParticipantList(participants) {
@@ -58,15 +56,11 @@
         list.innerHTML = "";
         participants.forEach(p => {
             const li = document.createElement("li");
-
-            if (p.disconnected) {
-                li.classList.add("disconnected");
-                li.innerHTML = `<span class="name">${p.name}</span> <span class="status">🚪 Verlassen</span>`;
-            } else {
-                li.textContent = p.name;
-            }
-
             li.dataset.hasvote = p.vote !== null;
+            li.className = p.disconnected ? "disconnected" : "";
+            li.innerHTML = p.disconnected
+                ? `<span class="name">${p.name}</span> <span class="status">🚪 Verlassen</span>`
+                : p.name;
             list.appendChild(li);
         });
     }
@@ -92,27 +86,13 @@
         });
         updateAverage(avg);
     }
-
-       function updateParticipantList(participants) {
-        const list = document.getElementById("liveParticipantList");
-        if (!list) return;
-        list.innerHTML = "";
-        participants.forEach(p => {
-            const li = document.createElement("li");
-            li.dataset.hasvote = p.vote !== null;
-            li.className = p.disconnected ? "disconnected" : "";
-            li.textContent = p.name;
-            list.appendChild(li);
-        });
-    }
-
 </script>
 
 <div class="container">
     <h1>🃏 Estimation Poker - Raum: <span th:text="${roomCode}"></span></h1>
     <p>👤 Du bist: <strong th:text="${participantName}"></strong></p>
     <p th:if="${isHost}">⭐ Du bist der Host</p>
-    <p th:if="${!isHost}">Host: <strong th:text="${hostName}"></strong></p>
+    <p th:if="${!isHost}">Host: <strong th:text="${hostName}">Unbekannt</strong></p>
 
     <h2>Teilnehmer:</h2>
     <ul id="liveParticipantList"></ul>
@@ -137,5 +117,8 @@
         <button type="button" class="button" th:if="${isHost}" onclick="resetRoom()">🔄 Neue Runde starten</button>
     </div>
 </div>
+
+<p style="color: lime;" th:text="'Cards-Liste: ' + ${cards}">Cards-Liste: (nicht geladen)</p>
+
 </body>
 </html>
