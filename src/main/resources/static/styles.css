@@ -100,19 +100,14 @@ strong {
     color: #ffffff;
 }
 
-/* 👇 Durchgestrichene Teilnehmer:innen mit Tür-Symbol */
+/* Disconnected Teilnehmer */
 #liveParticipantList li.disconnected {
     color: #888;
     text-decoration: line-through;
-    position: relative;
-    padding-right: 1.5em;
 }
 
 #liveParticipantList li.disconnected .status {
-    position: absolute;
-    right: 0;
-    top: 0;
-    color: #888;
+    margin-left: 0.5rem;
 }
 
 @media (max-width: 600px) {
@@ -146,10 +141,6 @@ strong {
 
     ul li {
         font-size: 0.95rem;
-    }
-
-    .footer {
-        font-size: 0.6rem;
     }
 
     #liveParticipantList li {

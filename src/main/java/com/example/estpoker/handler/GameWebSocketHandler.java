@@ -58,7 +58,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             }
         } else if ("revealCards".equals(payload)) {
             room.setCardsRevealed(true);
-            gameService.broadcastRoomState(room);
+            gameService.broadcastReveal(room);
             System.out.println("Karten wurden aufgedeckt für Raum: " + room.getCode());
         } else if ("resetRoom".equals(payload)) {
             room.reset();
@@ -78,9 +78,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             Participant participant = room.getParticipant(participantName);
             if (participant != null) {
                 participant.setActive(false);
-                participant.setDisconnected(true);
             }
-
             gameService.broadcastRoomState(room);
         }
 

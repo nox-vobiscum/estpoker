@@ -54,13 +54,16 @@
         const list = document.getElementById("liveParticipantList");
         if (!list) return;
         list.innerHTML = "";
+
         participants.forEach(p => {
             const li = document.createElement("li");
             li.dataset.hasvote = p.vote !== null;
-            li.className = p.disconnected ? "disconnected" : "";
-            li.innerHTML = p.disconnected
-                ? `<span class="name">${p.name}</span> <span class="status">🚪 Verlassen</span>`
-                : p.name;
+            if (p.disconnected) {
+                li.classList.add("disconnected");
+                li.innerHTML = `<span class="name">${p.name}</span> <span class="status">🚪 Verlassen</span>`;
+            } else {
+                li.textContent = p.name;
+            }
             list.appendChild(li);
         });
     }
@@ -82,6 +85,7 @@
         participants.forEach(p => {
             const li = document.createElement("li");
             li.innerHTML = `<span>${p.name}</span>: <strong>${p.vote != null ? p.vote : '—'}</strong>`;
+            if (p.disconnected) li.classList.add("disconnected");
             resultList.appendChild(li);
         });
         updateAverage(avg);
@@ -117,6 +121,5 @@
         <button type="button" class="button" th:if="${isHost}" onclick="resetRoom()">🔄 Neue Runde starten</button>
     </div>
 </div>
-
 </body>
 </html>

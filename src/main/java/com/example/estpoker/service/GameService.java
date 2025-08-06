@@ -102,8 +102,7 @@ public class GameService {
                 Map<String, Object> pData = new HashMap<>();
                 pData.put("name", p.getName());
                 pData.put("vote", p.getVote());
-                pData.put("active", p.isActive());
-                pData.put("disconnected", p.isDisconnected());
+                pData.put("disconnected", !p.isActive());
                 participants.add(pData);
             }
 
@@ -114,6 +113,30 @@ public class GameService {
             payload.put("averageVote", room.areVotesRevealed()
                     ? avg.map(a -> String.format("%.1f", a)).orElse("N/A")
                     : null);
+
+            String json = objectMapper.writeValueAsString(payload);
+            broadcastToRoom(room, json);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void broadcastReveal(Room room) {
+        try {
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("type", "reveal");
+
+            List<Map<String, Object>> participants = new ArrayList<>();
+            for (Participant p : room.getParticipants()) {
+                Map<String, Object> pData = new HashMap<>();
+                pData.put("name", p.getName());
+                pData.put("vote", p.getVote());
+                pData.put("disconnected", !p.isActive());
+                participants.add(pData);
+            }
+
+            Optional<Double> avg = calculateAverageVote(room);
+            payload.put("averageVote", avg.map(a -> String.format("%.1f", a)).orElse("N/A"));
 
             String json = objectMapper.writeValueAsString(payload);
             broadcastToRoom(room, json);
