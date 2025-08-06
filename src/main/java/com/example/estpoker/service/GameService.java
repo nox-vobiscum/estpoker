@@ -103,6 +103,7 @@ public class GameService {
                 pData.put("name", p.getName());
                 pData.put("vote", p.getVote());
                 pData.put("active", p.isActive());
+                pData.put("disconnected", p.isDisconnected());
                 participants.add(pData);
             }
 

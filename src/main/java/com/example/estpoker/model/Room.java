@@ -63,6 +63,7 @@ public class Room {
         Participant existing = getParticipant(name);
         if (existing != null) {
             existing.setActive(true);
+            existing.setDisconnected(false);
         } else {
             participants.add(new Participant(name));
         }
@@ -73,6 +74,7 @@ public class Room {
         for (Participant p : participants) {
             p.setVote(null);
             p.setActive(true);
+            p.setDisconnected(false);
         }
     }
 

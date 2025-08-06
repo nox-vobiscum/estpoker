@@ -4,6 +4,7 @@ public class Participant {
     private final String name;
     private String vote;
     private boolean active = true;
+    private boolean disconnected = false;
 
     public Participant(String name) {
         this.name = name;
@@ -31,5 +32,13 @@ public class Participant {
 
     public void setActive(boolean active) {
         this.active = active;
+    }
+
+    public boolean isDisconnected() {
+        return disconnected;
+    }
+
+    public void setDisconnected(boolean disconnected) {
+        this.disconnected = disconnected;
     }
 }

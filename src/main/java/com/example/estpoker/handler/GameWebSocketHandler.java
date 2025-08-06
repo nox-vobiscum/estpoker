@@ -42,7 +42,6 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         System.out.println("Nachricht vom Client: " + payload);
 
         Room room = gameService.getRoomForSession(session);
-
         if (room == null) return;
 
         if (payload.startsWith("vote:")) {
@@ -79,10 +78,10 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             Participant participant = room.getParticipant(participantName);
             if (participant != null) {
                 participant.setActive(false);
+                participant.setDisconnected(true);
             }
 
-            String leaveMsg = String.format("participantLeft:%s", participantName);
-            gameService.broadcastToRoom(room, leaveMsg);
+            gameService.broadcastRoomState(room);
         }
 
         System.out.println("Verbindung geschlossen: " + session.getId() + ", Status: " + status);

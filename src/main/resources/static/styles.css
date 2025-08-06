@@ -171,4 +171,20 @@ li[data-hasvote="false"] {
         margin-bottom: 4px;
         font-size: 1.1em;
     }
+
+    /* Durchgestrichene, verlassene Teilnehmer:innen */
+    #liveParticipantList li.disconnected {
+        color: #888;
+        text-decoration: line-through;
+        position: relative;
+        padding-right: 1.5em;
+    }
+
+#liveParticipantList li.disconnected .status {
+    position: absolute;
+    right: 0;
+    top: 0;
+    font-size: 1.1em;
+}
+
 }
