@@ -2,7 +2,7 @@
 <html xmlns:th="http://www.thymeleaf.org" lang="de">
 <head>
     <meta charset="UTF-8">
-    <title>Estimation Poker</title>
+    <title>RBS' Estimation Poker</title>
     <link rel="stylesheet" th:href="@{/styles.css}">
 </head>
 <body>
@@ -32,13 +32,14 @@
             } else {
                 toggleView(false);
                 updateAverage(null);
+                clearCardSelection(); // ← hier ist der entscheidende neue Aufruf
             }
         }
     };
 
     function sendVote(cardValue) {
         socket.send("vote:" + participantName + ":" + cardValue);
-        document.querySelectorAll(".card-grid button").forEach(btn => btn.classList.remove("selected"));
+        clearCardSelection();
         const selected = Array.from(document.querySelectorAll(".card-grid button")).find(btn => btn.textContent === cardValue.toString());
         if (selected) selected.classList.add("selected");
     }
@@ -49,6 +50,10 @@
 
     function resetRoom() {
         if (isHost) socket.send("resetRoom");
+        clearCardSelection();
+    }
+
+    function clearCardSelection() {
         document.querySelectorAll(".card-grid button").forEach(btn => btn.classList.remove("selected"));
     }
 
@@ -96,7 +101,7 @@
 </script>
 
 <div class="container">
-    <h1>🃏 Estimation Poker - Raum: <span th:text="${roomCode}"></span></h1>
+    <h1>🃏 RBS' Estimation Poker - Raum: <span th:text="${roomCode}"></span></h1>
     <p>👤 Du bist: <strong th:text="${participantName}"></strong></p>
     <p th:if="${isHost}">⭐ Du bist der Host</p>
     <p th:if="${!isHost}">Host: <strong th:text="${hostName}">Unbekannt</strong></p>

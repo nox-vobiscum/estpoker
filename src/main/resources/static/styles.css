@@ -6,7 +6,8 @@ body {
     margin: 0;
 }
 
-.card {
+.card,
+.card-grid button {
     display: inline-block;
     padding: 0.6rem 1rem;
     margin: 0.4rem;
@@ -17,12 +18,22 @@ body {
     transition: transform 0.15s ease, box-shadow 0.15s ease;
     font-size: 1rem;
     text-align: center;
+    color: #d4d4d4;
 }
 
-.card:hover {
+.card:hover,
+.card-grid button:hover {
     background: #3c3c3c;
     transform: scale(1.03);
     box-shadow: 0 0 6px #007acc;
+}
+
+.card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(60px, 1fr));
+    gap: 8px;
+    margin-top: 1rem;
+    margin-bottom: 1rem;
 }
 
 .button,
@@ -44,26 +55,13 @@ button[type="submit"]:hover {
     background: #005a9e;
 }
 
-.card-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(60px, 1fr));
-    gap: 8px;
-    margin-top: 1rem;
-    margin-bottom: 1rem;
-}
-
 button.selected {
-    background-color: #4CAF50;
-    border: 2px solid #fff;
-    box-shadow: 0 0 8px #4CAF50;
-    transform: scale(1.05);
-}
-
-.selected {
     background-color: #4CAF50 !important;
-    color: white !important;
+    color: #fff !important;
     font-weight: bold;
-    border: 2px solid #388E3C;
+    border: 2px solid #81C784;
+    box-shadow: 0 0 10px #4CAF50;
+    transform: scale(1.05);
 }
 
 ul {
@@ -75,12 +73,17 @@ ul {
 li {
     margin-bottom: 0.4rem;
     line-height: 1.5;
+    font-size: 1rem;
 }
 
 li[data-hasvote="true"]::after {
     content: " ✅";
     color: #4CAF50;
     margin-left: 0.4rem;
+}
+
+li[data-hasvote="false"]::after {
+    content: "";
 }
 
 li[data-hasvote="false"] {
@@ -123,7 +126,8 @@ strong {
         padding: 1rem;
     }
 
-    .card {
+    .card,
+    .card-grid button {
         padding: 0.6rem 0.8rem;
         font-size: 0.85rem;
     }
@@ -151,10 +155,6 @@ strong {
 
     ul li {
         font-size: 0.95rem;
-    }
-
-    .footer {
-        font-size: 0.6rem;
     }
 
     #liveParticipantList li {
