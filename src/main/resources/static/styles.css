@@ -1,4 +1,3 @@
-
 body {
     background-color: #1e1e1e;
     color: #d4d4d4;
@@ -7,6 +6,7 @@ body {
     margin: 0;
 }
 
+/* Karten-Buttons */
 .card-grid button {
     display: inline-block;
     padding: 0.6rem 1rem;
@@ -50,6 +50,7 @@ body {
     margin-bottom: 1rem;
 }
 
+/* Buttons */
 .button,
 button[type="submit"] {
     margin-top: 2rem;
@@ -78,6 +79,7 @@ button.selected {
     transform: scale(1.05);
 }
 
+/* Teilnehmer:innenliste */
 ul {
     list-style: none;
     padding: 0;
@@ -104,7 +106,6 @@ li[data-hasvote="false"] {
     opacity: 0.6;
 }
 
-/* Teilnehmer:innenliste */
 #liveParticipantList li.disconnected {
     color: #888;
     text-decoration: line-through;
@@ -117,6 +118,7 @@ li[data-hasvote="false"] {
     font-size: 1.2rem;
 }
 
+/* Container */
 .container {
     max-width: 800px;
     margin: 0 auto;
@@ -132,6 +134,47 @@ h2 {
 
 strong {
     color: #ffffff;
+}
+
+/* Landing Page */
+.landing-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 90vh;
+    padding: 2rem;
+    text-align: center;
+}
+
+.landing-container form {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    width: 100%;
+    max-width: 400px;
+}
+
+.landing-container input[type="text"] {
+    padding: 0.8rem 1rem;
+    font-size: 1rem;
+    border: 1px solid #3c3c3c;
+    border-radius: 6px;
+    background-color: #2d2d30;
+    color: #d4d4d4;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.landing-container input[type="text"]::placeholder {
+    color: #888;
+}
+
+.landing-container button[type="submit"] {
+    width: 100%;
+    padding: 0.9rem;
+    font-size: 1rem;
 }
 
 /* Responsive Design */
@@ -175,48 +218,6 @@ strong {
         font-size: 1.1em;
     }
 
-    /* Landing Page */
-    .landing-container {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        min-height: 90vh;
-        padding: 2rem;
-        text-align: center;
-    }
-
-    .landing-container form {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 1rem;
-        width: 100%;
-        max-width: 400px;
-    }
-
-    .landing-container input[type="text"] {
-        padding: 0.8rem 1rem;
-        font-size: 1rem;
-        border: 1px solid #3c3c3c;
-        border-radius: 6px;
-        background-color: #2d2d30;
-        color: #d4d4d4;
-        width: 100%;
-        box-sizing: border-box;
-    }
-
-    .landing-container input[type="text"]::placeholder {
-        color: #888;
-    }
-
-    .landing-container button[type="submit"] {
-        width: 100%;
-        padding: 0.9rem;
-        font-size: 1rem;
-    }
-
-    @media (max-width: 600px) {
     .landing-container h1 {
         font-size: 1.4rem;
     }
@@ -224,6 +225,4 @@ strong {
     .landing-container input[type="text"] {
         font-size: 1rem;
     }
-}
-
 }
