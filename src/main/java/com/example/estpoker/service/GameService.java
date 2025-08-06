@@ -97,8 +97,10 @@ public class GameService {
             Map<String, Object> payload = new HashMap<>();
             payload.put("type", "voteUpdate");
 
+            List<Participant> ordered = getOrderedParticipants(room);
+
             List<Map<String, Object>> participants = new ArrayList<>();
-            for (Participant p : room.getParticipants()) {
+            for (Participant p : ordered) {
                 Map<String, Object> pData = new HashMap<>();
                 pData.put("name", p.getName());
                 pData.put("vote", p.getVote());
@@ -126,8 +128,10 @@ public class GameService {
             Map<String, Object> payload = new HashMap<>();
             payload.put("type", "reveal");
 
+            List<Participant> ordered = getOrderedParticipants(room);
+
             List<Map<String, Object>> participants = new ArrayList<>();
-            for (Participant p : room.getParticipants()) {
+            for (Participant p : ordered) {
                 Map<String, Object> pData = new HashMap<>();
                 pData.put("name", p.getName());
                 pData.put("vote", p.getVote());
@@ -143,5 +147,20 @@ public class GameService {
         } catch (IOException e) {
             e.printStackTrace();
         }
+    }
+
+    private List<Participant> getOrderedParticipants(Room room) {
+        List<Participant> all = new ArrayList<>(room.getParticipants());
+        Participant host = room.getHost();
+
+        if (host != null) {
+            all.removeIf(p -> p.getName().equals(host.getName()));
+            List<Participant> ordered = new ArrayList<>();
+            ordered.add(host);
+            ordered.addAll(all);
+            return ordered;
+        }
+
+        return all;
     }
 }
