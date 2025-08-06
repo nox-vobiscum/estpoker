@@ -6,7 +6,6 @@ body {
     margin: 0;
 }
 
-.card,
 .card-grid button {
     display: inline-block;
     padding: 0.6rem 1rem;
@@ -19,9 +18,23 @@ body {
     font-size: 1rem;
     text-align: center;
     color: #d4d4d4;
+    position: relative;
 }
 
-.card:hover,
+.card-grid .checkmark {
+    position: absolute;
+    top: 4px;
+    right: 6px;
+    font-size: 0.9rem;
+    color: #4CAF50;
+    background: #1e1e1e;
+    border-radius: 50%;
+    padding: 1px 5px;
+    line-height: 1;
+    display: none;
+    box-shadow: 0 0 4px #4CAF50;
+}
+
 .card-grid button:hover {
     background: #3c3c3c;
     transform: scale(1.03);
@@ -126,7 +139,6 @@ strong {
         padding: 1rem;
     }
 
-    .card,
     .card-grid button {
         padding: 0.6rem 0.8rem;
         font-size: 0.85rem;

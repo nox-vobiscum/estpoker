@@ -2,7 +2,7 @@
 <html xmlns:th="http://www.thymeleaf.org" lang="de">
 <head>
     <meta charset="UTF-8">
-    <title>RBS' Estimation Poker</title>
+    <title>Estimation Poker</title>
     <link rel="stylesheet" th:href="@{/styles.css}">
 </head>
 <body>
@@ -10,16 +10,17 @@
     let participantName = /*[[${participantName}]]*/ "Gast";
     let isHost = /*[[${isHost}]]*/ false;
     let roomCode = /*[[${roomCode}]]*/ "demo";
+    let selectedCard = null;
 
     const wsProtocol = location.protocol === "https:" ? "wss://" : "ws://";
     const socketUrl = wsProtocol + location.host + "/gameSocket?roomCode=" + roomCode + "&participantName=" + participantName;
     const socket = new WebSocket(socketUrl);
 
-    socket.onopen = function () {
+    socket.onopen = () => {
         console.log("✅ Verbindung zum Server hergestellt!");
     };
 
-    socket.onmessage = function (event) {
+    socket.onmessage = (event) => {
         const data = JSON.parse(event.data);
         console.log("📨 Nachricht empfangen:", data);
 
@@ -32,16 +33,26 @@
             } else {
                 toggleView(false);
                 updateAverage(null);
-                clearCardSelection(); // ← hier ist der entscheidende neue Aufruf
             }
+
+            highlightSelectedCard();
         }
     };
 
     function sendVote(cardValue) {
         socket.send("vote:" + participantName + ":" + cardValue);
-        clearCardSelection();
-        const selected = Array.from(document.querySelectorAll(".card-grid button")).find(btn => btn.textContent === cardValue.toString());
-        if (selected) selected.classList.add("selected");
+        selectedCard = cardValue;
+        highlightSelectedCard();
+    }
+
+    function highlightSelectedCard() {
+        document.querySelectorAll(".card-grid button").forEach(btn => {
+            const card = btn.getAttribute("data-card");
+            const isSelected = card === selectedCard;
+            btn.classList.toggle("selected", isSelected);
+            const check = btn.querySelector(".checkmark");
+            if (check) check.style.display = isSelected ? "block" : "none";
+        });
     }
 
     function revealCards() {
@@ -50,11 +61,8 @@
 
     function resetRoom() {
         if (isHost) socket.send("resetRoom");
-        clearCardSelection();
-    }
-
-    function clearCardSelection() {
-        document.querySelectorAll(".card-grid button").forEach(btn => btn.classList.remove("selected"));
+        selectedCard = null;
+        highlightSelectedCard();
     }
 
     function updateParticipantList(participants, revealed) {
@@ -65,16 +73,13 @@
         participants.forEach(p => {
             const li = document.createElement("li");
             li.dataset.hasvote = p.vote !== null;
-            if (p.disconnected) {
-                li.classList.add("disconnected");
-            }
+            if (p.disconnected) li.classList.add("disconnected");
 
             let content = `<span class="name">${p.name}</span>`;
             if (revealed) {
                 const displayVote = p.vote != null ? `<strong>${p.vote}</strong>` : `<span>—</span>`;
                 content += `: ${displayVote}`;
             }
-
             if (p.disconnected) {
                 content += ` <span class="status">🚪 Verlassen</span>`;
             }
@@ -101,7 +106,7 @@
 </script>
 
 <div class="container">
-    <h1>🃏 RBS' Estimation Poker - Raum: <span th:text="${roomCode}"></span></h1>
+    <h1>🃏 Estimation Poker - Raum: <span th:text="${roomCode}"></span></h1>
     <p>👤 Du bist: <strong th:text="${participantName}"></strong></p>
     <p th:if="${isHost}">⭐ Du bist der Host</p>
     <p th:if="${!isHost}">Host: <strong th:text="${hostName}">Unbekannt</strong></p>
@@ -117,6 +122,7 @@
                     th:text="${cardValue}"
                     th:attr="data-card=${cardValue}"
                     th:onclick="|sendVote(this.getAttribute('data-card'))|">
+                <span class="checkmark">✔</span>
             </button>
         </div>
         <button type="button" class="button" th:if="${isHost}" onclick="revealCards()">🟡 Karten aufdecken</button>
