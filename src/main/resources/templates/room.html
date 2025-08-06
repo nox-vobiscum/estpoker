@@ -15,22 +15,24 @@
     const socketUrl = wsProtocol + location.host + "/gameSocket?roomCode=" + roomCode + "&participantName=" + participantName;
     const socket = new WebSocket(socketUrl);
 
-    socket.onopen = function() {
+    socket.onopen = function () {
         console.log("✅ Verbindung zum Server hergestellt!");
     };
 
-    socket.onmessage = function(event) {
+    socket.onmessage = function (event) {
         const data = JSON.parse(event.data);
         console.log("📨 Nachricht empfangen:", data);
 
         if (data.type === "voteUpdate") {
-            updateParticipantList(data.participants);
-            updateAverage(data.averageVote);
-            toggleView(data.votesRevealed);
-        }
+            const revealed = data.votesRevealed;
+            updateParticipantList(data.participants, revealed);
 
-        if (data.type === "reveal") {
-            showResults(data.participants, data.averageVote);
+            if (revealed) {
+                showResults(data.participants, data.averageVote);
+            } else {
+                toggleView(false);
+                updateAverage(null);
+            }
         }
     };
 
@@ -50,7 +52,7 @@
         document.querySelectorAll(".card-grid button").forEach(btn => btn.classList.remove("selected"));
     }
 
-    function updateParticipantList(participants) {
+    function updateParticipantList(participants, revealed) {
         const list = document.getElementById("liveParticipantList");
         if (!list) return;
         list.innerHTML = "";
@@ -60,10 +62,19 @@
             li.dataset.hasvote = p.vote !== null;
             if (p.disconnected) {
                 li.classList.add("disconnected");
-                li.innerHTML = `<span class="name">${p.name}</span> <span class="status">🚪 Verlassen</span>`;
-            } else {
-                li.textContent = p.name;
             }
+
+            let content = `<span class="name">${p.name}</span>`;
+            if (revealed) {
+                const displayVote = p.vote != null ? `<strong>${p.vote}</strong>` : `<span>—</span>`;
+                content += `: ${displayVote}`;
+            }
+
+            if (p.disconnected) {
+                content += ` <span class="status">🚪 Verlassen</span>`;
+            }
+
+            li.innerHTML = content;
             list.appendChild(li);
         });
     }
@@ -80,14 +91,6 @@
 
     function showResults(participants, avg) {
         toggleView(true);
-        const resultList = document.getElementById("resultList");
-        resultList.innerHTML = "";
-        participants.forEach(p => {
-            const li = document.createElement("li");
-            li.innerHTML = `<span>${p.name}</span>: <strong>${p.vote != null ? p.vote : '—'}</strong>`;
-            if (p.disconnected) li.classList.add("disconnected");
-            resultList.appendChild(li);
-        });
         updateAverage(avg);
     }
 </script>
@@ -116,7 +119,6 @@
 
     <div class="post-vote" style="display: none;">
         <h2>Ergebnisse</h2>
-        <ul id="resultList"></ul>
         <p><strong>⌀ Durchschnitt:</strong> <span id="averageVote">–</span></p>
         <button type="button" class="button" th:if="${isHost}" onclick="resetRoom()">🔄 Neue Runde starten</button>
     </div>

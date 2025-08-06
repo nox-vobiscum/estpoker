@@ -123,32 +123,6 @@ public class GameService {
         }
     }
 
-    public void broadcastReveal(Room room) {
-        try {
-            Map<String, Object> payload = new HashMap<>();
-            payload.put("type", "reveal");
-
-            List<Participant> ordered = getOrderedParticipants(room);
-
-            List<Map<String, Object>> participants = new ArrayList<>();
-            for (Participant p : ordered) {
-                Map<String, Object> pData = new HashMap<>();
-                pData.put("name", p.getName());
-                pData.put("vote", p.getVote());
-                pData.put("disconnected", !p.isActive());
-                participants.add(pData);
-            }
-
-            Optional<Double> avg = calculateAverageVote(room);
-            payload.put("averageVote", avg.map(a -> String.format("%.1f", a)).orElse("N/A"));
-
-            String json = objectMapper.writeValueAsString(payload);
-            broadcastToRoom(room, json);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
     private List<Participant> getOrderedParticipants(Room room) {
         List<Participant> all = new ArrayList<>(room.getParticipants());
         Participant host = room.getHost();
