@@ -25,7 +25,8 @@ body {
     box-shadow: 0 0 6px #007acc;
 }
 
-.button, button[type="submit"] {
+.button,
+button[type="submit"] {
     margin-top: 2rem;
     padding: 0.7rem 1.2rem;
     background: #007acc;
@@ -38,7 +39,8 @@ body {
     transition: background 0.2s ease;
 }
 
-.button:hover, button[type="submit"]:hover {
+.button:hover,
+button[type="submit"]:hover {
     background: #005a9e;
 }
 
@@ -67,6 +69,7 @@ button.selected {
 ul {
     list-style: none;
     padding: 0;
+    margin: 0;
 }
 
 li {
@@ -84,13 +87,27 @@ li[data-hasvote="false"] {
     opacity: 0.6;
 }
 
+/* Teilnehmer:innenliste */
+#liveParticipantList li.disconnected {
+    color: #888;
+    text-decoration: line-through;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+#liveParticipantList li .status {
+    font-size: 1.2rem;
+}
+
 .container {
     max-width: 800px;
     margin: 0 auto;
     padding: 1rem;
 }
 
-h1, h2 {
+h1,
+h2 {
     color: #ffffff;
     margin-bottom: 1rem;
     font-size: 1.2rem;
@@ -100,16 +117,7 @@ strong {
     color: #ffffff;
 }
 
-/* Disconnected Teilnehmer */
-#liveParticipantList li.disconnected {
-    color: #888;
-    text-decoration: line-through;
-}
-
-#liveParticipantList li.disconnected .status {
-    margin-left: 0.5rem;
-}
-
+/* Responsive Design */
 @media (max-width: 600px) {
     body {
         padding: 1rem;
@@ -125,13 +133,15 @@ strong {
         gap: 6px;
     }
 
-    .button, button[type="submit"] {
+    .button,
+    button[type="submit"] {
         width: 100%;
         padding: 0.9rem;
         font-size: 1rem;
     }
 
-    h1, h2 {
+    h1,
+    h2 {
         font-size: 1.2rem;
     }
 
@@ -141,6 +151,10 @@ strong {
 
     ul li {
         font-size: 0.95rem;
+    }
+
+    .footer {
+        font-size: 0.6rem;
     }
 
     #liveParticipantList li {
