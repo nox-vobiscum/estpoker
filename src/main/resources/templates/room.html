@@ -134,9 +134,11 @@
 
 <div class="container">
     <h1>🃏 RBS' Estimation Poker</h1>
-    <p>🆔 Dein Raum: <strong th:text="${roomCode}">demo</strong></p>
-    <p>👤 Du bist: <strong th:text="${participantName}">Gast</strong></p>
-
+    <div class="main-info">
+        <p>🆔 Dein Raum: <strong th:text="${roomCode}">demo</strong></p>
+        <p>👤 Du bist: <strong th:text="${participantName}">Gast</strong></p>
+    </div>
+    
     <h2>Teilnehmende:</h2>
     <ul id="liveParticipantList"></ul>
 

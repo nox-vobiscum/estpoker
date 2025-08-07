@@ -129,11 +129,15 @@ h1,
 h2 {
     color: #ffffff;
     margin-bottom: 3rem;
-    font-size: 1.5rem;
+    font-size: 1.1rem;
 }
 
 strong {
     color: #ffffff;
+}
+
+.main-info {
+    margin-bottom: 1.5rem;
 }
 
 /* Landing Page */
