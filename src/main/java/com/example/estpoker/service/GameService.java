@@ -105,6 +105,7 @@ public class GameService {
                 pData.put("name", p.getName());
                 pData.put("vote", p.getVote());
                 pData.put("disconnected", !p.isActive());
+                pData.put("isHost", p.isHost()); // 🆕 Host-Flag mitgeben
                 participants.add(pData);
             }
 
@@ -136,6 +137,7 @@ public class GameService {
                 pData.put("name", p.getName());
                 pData.put("vote", p.getVote());
                 pData.put("disconnected", !p.isActive());
+                pData.put("isHost", p.isHost()); // 🆕 Host-Flag mitgeben
                 participants.add(pData);
             }
 

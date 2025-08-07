@@ -227,3 +227,18 @@ strong {
         font-size: 1rem;
     }
 }
+    
+    .average-label {
+        font-size: 0.85rem;
+        margin-top: 1rem;
+    }
+
+    .host-label {
+        font-size: 0.9em;
+       color: #FFD700;
+       background-color: #444;
+       padding: 2px 6px;
+       border-radius: 4px;
+       margin-left: 0.5rem;
+       font-weight: normal;
+    }

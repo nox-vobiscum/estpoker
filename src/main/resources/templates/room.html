@@ -18,9 +18,7 @@
     const socketUrl = wsProtocol + location.host + "/gameSocket?roomCode=" + roomCode + "&participantName=" + participantName;
     const socket = new WebSocket(socketUrl);
 
-    socket.onopen = () => {
-        console.log("✅ Verbindung zum Server hergestellt!");
-    };
+    socket.onopen = () => console.log("✅ Verbindung zum Server hergestellt!");
 
     socket.onmessage = (event) => {
         const data = JSON.parse(event.data);
@@ -77,10 +75,9 @@
             li.dataset.hasvote = p.vote !== null;
             if (p.disconnected) li.classList.add("disconnected");
 
-            let nameText = p.name;
-            if (p.isHost) nameText += " (⭐ Host)";
-
-            let content = `<span class="name">${nameText}</span>`;
+            let nameDisplay = p.name;
+            if (p.isHost) nameDisplay += ` <span class="host-label">(⭐ Host)</span>`;
+            let content = `<span class="name">${nameDisplay}</span>`;
             if (revealed) {
                 const displayVote = p.vote != null ? `<strong>${p.vote}</strong>` : `<span>—</span>`;
                 content += `: ${displayVote}`;
@@ -112,11 +109,8 @@
 
 <div class="container">
     <h1>🃏 RBS' Estimation Poker</h1>
-    <p><strong>Dein Raum:</strong> <span th:text="${roomCode}"></span></p>
-    <p><strong>Dein Name:</strong>
-        <span th:text="${participantName}"></span>
-        <span th:if="${isHost}">(⭐ Host)</span>
-    </p>
+    <p>🆔 Dein Raum: <strong th:text="${roomCode}">demo</strong></p>
+    <p>👤 Du bist: <strong th:text="${participantName}">Gast</strong></p>
 
     <h2>Teilnehmende:</h2>
     <ul id="liveParticipantList"></ul>
@@ -124,32 +118,24 @@
     <div class="pre-vote" th:if="${!votesRevealed}">
         <p><strong>Karte auswählen:</strong></p>
 
-        <!-- Zeile 1 -->
         <div class="card-grid">
-            <button type="button"
-                    th:each="cardValue : ${cardsRow1}"
+            <button type="button" th:each="cardValue : ${cardsRow1}"
                     th:text="${cardValue}"
                     th:attr="data-card=${cardValue}"
                     th:onclick="|sendVote(this.getAttribute('data-card'))|">
                 <span class="checkmark">✔</span>
             </button>
         </div>
-
-        <!-- Zeile 2 -->
         <div class="card-grid">
-            <button type="button"
-                    th:each="cardValue : ${cardsRow2}"
+            <button type="button" th:each="cardValue : ${cardsRow2}"
                     th:text="${cardValue}"
                     th:attr="data-card=${cardValue}"
                     th:onclick="|sendVote(this.getAttribute('data-card'))|">
                 <span class="checkmark">✔</span>
             </button>
         </div>
-
-        <!-- Zeile 3 -->
         <div class="card-grid">
-            <button type="button"
-                    th:each="cardValue : ${cardsRow3}"
+            <button type="button" th:each="cardValue : ${cardsRow3}"
                     th:text="${cardValue}"
                     th:attr="data-card=${cardValue}"
                     th:onclick="|sendVote(this.getAttribute('data-card'))|">
@@ -161,8 +147,7 @@
     </div>
 
     <div class="post-vote" style="display: none;">
-        <h2>Ergebnisse</h2>
-        <p><strong>⌀ Durchschnitt:</strong> <span id="averageVote">–</span></p>
+        <p class="average-label">⌀ Durchschnitt: <span id="averageVote">–</span></p>
         <button type="button" class="button" th:if="${isHost}" onclick="resetRoom()">🔄 Neue Runde starten</button>
     </div>
 </div>

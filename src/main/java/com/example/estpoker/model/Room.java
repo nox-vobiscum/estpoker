@@ -1,83 +1,103 @@
 package com.example.estpoker.model;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.stream.Collectors;
+import java.util.*;
 
 public class Room {
 
     private final String code;
-    private final List<Participant> participants;
-    private boolean votesRevealed;
+    private final List<Participant> participants = new ArrayList<>();
+    private final Map<String, Participant> nameToParticipant = new HashMap<>();
+    private boolean votesRevealed = false;
     private Participant host;
 
     public Room(String code) {
         this.code = code;
-        this.participants = new ArrayList<>();
-        this.votesRevealed = false;
     }
 
     public String getCode() {
         return code;
     }
 
-    public List<Participant> getParticipants() {
+    public synchronized void addParticipant(Participant p, boolean asHost) {
+        nameToParticipant.put(p.getName(), p);
+        participants.add(p);
+
+        if (asHost) {
+            host = p;
+            p.setHost(true); // 🆕 Host-Flag setzen
+        }
+    }
+
+    public synchronized Participant getParticipant(String name) {
+        return nameToParticipant.get(name);
+    }
+
+    public synchronized List<Participant> getParticipants() {
         return participants;
     }
 
-    public List<Participant> getParticipantsWithVotes() {
-        return participants.stream()
-                .filter(p -> p.getVote() != null)
-                .collect(Collectors.toList());
-    }
-
-    public boolean areVotesRevealed() {
-        return votesRevealed;
-    }
-
-    public void setCardsRevealed(boolean revealed) {
+    public synchronized void setCardsRevealed(boolean revealed) {
         this.votesRevealed = revealed;
     }
 
-    public Participant getParticipant(String name) {
-        return participants.stream()
-                .filter(p -> p.getName().equals(name))
-                .findFirst()
-                .orElse(null);
+    public synchronized boolean areVotesRevealed() {
+        return votesRevealed;
     }
 
-    public Participant getOrCreateParticipant(String name) {
-        Participant existing = getParticipant(name);
-        if (existing != null) {
-            return existing;
-        }
-        Participant newParticipant = new Participant(name);
-        participants.add(newParticipant);
-        if (participants.size() == 1) {
-            this.host = newParticipant;
-        }
-        return newParticipant;
-    }
-
-    public void addOrReactivateParticipant(String name) {
-        Participant existing = getParticipant(name);
-        if (existing != null) {
-            existing.setActive(true);
-        } else {
-            participants.add(new Participant(name));
-        }
-    }
-
-    public void reset() {
-        this.votesRevealed = false;
-        for (Participant p : participants) {
-            p.setVote(null);
-            // ⚠️ Nur auf true setzen, wenn tatsächlich verbunden
-            // Teilnehmer bleibt "inaktiv", wenn er die WebSocket-Verbindung nicht mehr hat
-        }
-    }
-
-    public Participant getHost() {
+    public synchronized Participant getHost() {
         return host;
     }
+
+    public synchronized void reset() {
+        votesRevealed = false;
+        for (Participant p : participants) {
+            p.setVote(null);
+        }
+    }
+
+    public synchronized void markInactive(String name) {
+        Participant p = nameToParticipant.get(name);
+        if (p != null) p.setActive(false);
+    }
+
+    public synchronized void markActive(String name) {
+        Participant p = nameToParticipant.get(name);
+        if (p != null) p.setActive(true);
+    }
+
+    public synchronized void removeParticipant(String name) {
+        Participant p = nameToParticipant.remove(name);
+        if (p != null) participants.remove(p);
+    }
+
+    public synchronized Participant getOrCreateParticipant(String name) {
+    Participant p = nameToParticipant.get(name);
+    if (p == null) {
+        p = new Participant(name);
+        participants.add(p);
+        nameToParticipant.put(name, p);
+    }
+    return p;
+}
+
+public synchronized List<Participant> getParticipantsWithVotes() {
+    List<Participant> voted = new ArrayList<>();
+    for (Participant p : participants) {
+        if (p.getVote() != null) {
+            voted.add(p);
+        }
+    }
+    return voted;
+}
+
+public synchronized void addOrReactivateParticipant(String name) {
+    Participant p = nameToParticipant.get(name);
+    if (p == null) {
+        p = new Participant(name);
+        participants.add(p);
+        nameToParticipant.put(name, p);
+    }
+    p.setActive(true);
+}
+
 }
