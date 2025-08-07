@@ -9,10 +9,10 @@
 <body>
 <script th:inline="javascript">
     let participantName = /*[[${participantName}]]*/ "Gast";
-    let isHost = /*[[${isHost}]]*/ false;
     let roomCode = /*[[${roomCode}]]*/ "demo";
-    let votesRevealed = /*[[${votesRevealed}]]*/ false;
     let selectedCard = null;
+    let votesRevealed = false;
+    let isHost = false;
 
     const wsProtocol = location.protocol === "https:" ? "wss://" : "ws://";
     const socketUrl = wsProtocol + location.host + "/gameSocket?roomCode=" + roomCode + "&participantName=" + participantName;
@@ -26,6 +26,14 @@
 
         if (data.type === "voteUpdate") {
             votesRevealed = data.votesRevealed;
+
+            // 👑 Host-Erkennung
+            isHost = data.participants.find(p => p.name === participantName)?.isHost === true;
+
+            // 🔁 Buttons anzeigen/verstecken
+            document.getElementById("revealButton").style.display = isHost && !votesRevealed ? "inline-block" : "none";
+            document.getElementById("resetButton").style.display = isHost && votesRevealed ? "inline-block" : "none";
+
             updateParticipantList(data.participants, votesRevealed);
 
             if (votesRevealed) {
@@ -143,12 +151,14 @@
             </button>
         </div>
 
-        <button type="button" class="button" th:if="${isHost}" onclick="revealCards()">🟡 Karten aufdecken</button>
+        <!-- 🟡 Aufdecken-Button wird nur per JS sichtbar -->
+        <button type="button" id="revealButton" class="button" style="display: none;" onclick="revealCards()">🟡 Karten aufdecken</button>
     </div>
 
     <div class="post-vote" style="display: none;">
         <p class="average-label">⌀ Durchschnitt: <span id="averageVote">–</span></p>
-        <button type="button" class="button" th:if="${isHost}" onclick="resetRoom()">🔄 Neue Runde starten</button>
+        <!-- 🔄 Reset-Button wird nur per JS sichtbar -->
+        <button type="button" id="resetButton" class="button" style="display: none;" onclick="resetRoom()">🔄 Neue Runde starten</button>
     </div>
 </div>
 </body>
