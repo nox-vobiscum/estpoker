@@ -1,6 +1,5 @@
 package com.example.estpoker;
 
-import com.example.estpoker.model.PersistentRoom;
 import com.example.estpoker.repository.PersistentRoomRepository;
 import com.example.estpoker.repository.PingRepository;
 import org.springframework.boot.CommandLineRunner;
@@ -26,16 +25,8 @@ public class EstpokerApplication {
     @Bean
     public CommandLineRunner testPersistentRoom(PersistentRoomRepository repo) {
         return args -> {
-            if (!repo.existsByDisplayNameIgnoreCase("testRaum")) {
-                PersistentRoom room = new PersistentRoom("A1b2C3", "testRaum");
-                repo.save(room);
-                System.out.println("✅ Test-Raum gespeichert!");
-            } else {
-                System.out.println("ℹ️ Test-Raum existiert bereits.");
-            }
-
-            repo.findAll().forEach(r ->
-                System.out.println("📦 Raum: " + r.getDisplayName() + " (" + r.getRoomCode() + ")"));
+            long count = repo.count();
+            System.out.println("📦 Anzahl persistenter Räume: " + count);
         };
     }
 }

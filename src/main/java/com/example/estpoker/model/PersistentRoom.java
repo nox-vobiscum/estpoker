@@ -1,74 +1,51 @@
 package com.example.estpoker.model;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.Column;
-import jakarta.persistence.Table;
-
+import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "persistent_rooms")
 public class PersistentRoom {
 
     @Id
-    private String roomCode; // z. B. "a2C3xY"
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
-    @Column(nullable = false, unique = true)
-    private String displayName;
+    @Column(unique = true)
+    private String name;
+
+    @Column(unique = true)
+    private String roomId;
 
     private LocalDateTime createdAt;
 
-    private LocalDateTime lastUsedAt;
-
-    private boolean deleted = false;
-
-    public PersistentRoom() {}
-
-    public PersistentRoom(String roomCode, String displayName) {
-        this.roomCode = roomCode;
-        this.displayName = displayName;
-        this.createdAt = LocalDateTime.now();
-        this.lastUsedAt = LocalDateTime.now();
+    public PersistentRoom() {
     }
 
-    public String getRoomCode() {
-        return roomCode;
+    public Long getId() {
+        return id;
     }
 
-    public void setRoomCode(String roomCode) {
-        this.roomCode = roomCode;
+    public String getName() {
+        return name;
     }
 
-    public String getDisplayName() {
-        return displayName;
-    }
-
-    public void setDisplayName(String displayName) {
-        this.displayName = displayName;
+    public String getRoomId() {
+        return roomId;
     }
 
     public LocalDateTime getCreatedAt() {
         return createdAt;
     }
 
-    public void setCreatedAt(LocalDateTime createdAt) {
-        this.createdAt = createdAt;
+    public void setName(String name) {
+        this.name = name;
     }
 
-    public LocalDateTime getLastUsedAt() {
-        return lastUsedAt;
+    public void setRoomId(String roomId) {
+        this.roomId = roomId;
     }
 
-    public void setLastUsedAt(LocalDateTime lastUsedAt) {
-        this.lastUsedAt = lastUsedAt;
-    }
-
-    public boolean isDeleted() {
-        return deleted;
-    }
-
-    public void setDeleted(boolean deleted) {
-        this.deleted = deleted;
+    public void setCreatedAtNow() {
+        this.createdAt = LocalDateTime.now();
     }
 }

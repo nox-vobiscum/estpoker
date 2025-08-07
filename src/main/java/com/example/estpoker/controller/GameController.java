@@ -1,78 +1,61 @@
 package com.example.estpoker.controller;
 
-import com.example.estpoker.model.Participant;
-import com.example.estpoker.model.Room;
-import com.example.estpoker.service.GameService;
+import com.example.estpoker.model.PersistentRoom;
+import com.example.estpoker.repository.PersistentRoomRepository;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
-import java.util.List;
+
+import java.util.UUID;
 
 @Controller
 public class GameController {
 
-    private final GameService gameService;
+    private final PersistentRoomRepository persistentRoomRepository;
 
-    public GameController(GameService gameService) {
-        this.gameService = gameService;
+    public GameController(PersistentRoomRepository persistentRoomRepository) {
+        this.persistentRoomRepository = persistentRoomRepository;
     }
 
     @GetMapping("/")
-    public String index() {
+    public String landingPage() {
         return "index";
     }
 
     @PostMapping("/join")
-    public String joinRoom(@RequestParam String roomCode, @RequestParam String participantName, Model model) {
-        Room room = gameService.getOrCreateRoom(roomCode);
-        room.getOrCreateParticipant(participantName);
+    public String joinRoom(@RequestParam String participantName,
+                           @RequestParam String roomCode,
+                           @RequestParam(required = false) boolean persistent,
+                           Model model) {
 
-        return "redirect:/room/" + roomCode + "?participantName=" + participantName;
-    }
+        participantName = participantName.trim();
+        roomCode = roomCode.trim();
 
-    @PostMapping("/vote")
-    public String vote(@RequestParam String roomCode, @RequestParam String participantName, @RequestParam String card) {
-        Room room = gameService.getOrCreateRoom(roomCode);
-        Participant participant = room.getOrCreateParticipant(participantName);
-        participant.setVote(card);
+        if (participantName.isEmpty() || roomCode.isEmpty()) {
+            model.addAttribute("error", "Name und Raumcode dürfen nicht leer sein.");
+            return "index";
+        }
 
-        return "redirect:/room/" + roomCode + "?participantName=" + participantName;
-    }
+        // 🧠 Wenn persistent gewünscht und Raum noch nicht vorhanden → speichern
+        if (persistent && !persistentRoomRepository.existsByNameIgnoreCase(roomCode)) {
+            PersistentRoom room = new PersistentRoom();
+            room.setName(roomCode);
+            room.setRoomId(UUID.randomUUID().toString().substring(0, 6));
+            room.setCreatedAtNow();
+            persistentRoomRepository.save(room);
 
-    @PostMapping("/reveal")
-    public String reveal(@RequestParam String roomCode, @RequestParam String participantName) {
-        gameService.revealCards(roomCode);
-        return "redirect:/room/" + roomCode + "?participantName=" + participantName;
-    }
+            System.out.println("💾 Persistenter Raum gespeichert: " + roomCode);
+        }
 
-    @PostMapping("/reset")
-    public String reset(@RequestParam String roomCode, @RequestParam String participantName) {
-        gameService.resetVotes(roomCode);
         return "redirect:/room/" + roomCode + "?participantName=" + participantName;
     }
 
     @GetMapping("/room/{roomCode}")
-    public String showRoom(@PathVariable String roomCode, @RequestParam String participantName, Model model) {
-        Room room = gameService.getRoom(roomCode);
-        if (room == null) {
-            return "redirect:/";
-        }
-
-        boolean isHost = room.getHost() != null && room.getHost().getName().equals(participantName);
-
+    public String room(@PathVariable String roomCode,
+                       @RequestParam String participantName,
+                       Model model) {
         model.addAttribute("roomCode", roomCode);
         model.addAttribute("participantName", participantName);
-        model.addAttribute("isHost", isHost);
-        model.addAttribute("hostName", room.getHost() != null ? room.getHost().getName() : "Unbekannt");
-        model.addAttribute("participants", room.getParticipants());
-        model.addAttribute("averageVote", gameService.calculateAverageVote(room).map(a -> String.format("%.1f", a)).orElse("N/A"));
-        model.addAttribute("participantsWithVotes", room.getParticipantsWithVotes());
-        model.addAttribute("votesRevealed", room.areVotesRevealed());
-        model.addAttribute("cardsRow1", List.of("1", "2", "3", "5"));
-        model.addAttribute("cardsRow2", List.of("8", "13", "20", "40+"));
-        model.addAttribute("cardsRow3", List.of("❓", "💬", "☕"));
-
-
         return "room";
     }
 }

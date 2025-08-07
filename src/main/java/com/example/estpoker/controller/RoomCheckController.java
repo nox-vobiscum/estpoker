@@ -7,14 +7,14 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/rooms")
 public class RoomCheckController {
 
-    private final PersistentRoomRepository repository;
+    private final PersistentRoomRepository roomRepository;
 
-    public RoomCheckController(PersistentRoomRepository repository) {
-        this.repository = repository;
+    public RoomCheckController(PersistentRoomRepository roomRepository) {
+        this.roomRepository = roomRepository;
     }
 
     @GetMapping("/check")
-    public boolean isNameTaken(@RequestParam("name") String displayName) {
-        return repository.existsByDisplayNameIgnoreCase(displayName);
+    public boolean isRoomNameAvailable(@RequestParam String name) {
+        return !roomRepository.existsByNameIgnoreCase(name);
     }
 }
