@@ -117,17 +117,45 @@
     <ul id="liveParticipantList"></ul>
 
     <div class="pre-vote" th:if="${!votesRevealed}">
+    
         <p><strong>Karte auswählen:</strong></p>
+    
+        <!-- Zeile 1: 1, 2, 3, 5 -->
         <div class="card-grid">
             <button type="button"
-                    th:each="cardValue : ${cards}"
+                    th:each="cardValue : ${cardsRow1}"
+                th:text="${cardValue}"
+                th:attr="data-card=${cardValue}"
+                th:onclick="|sendVote(this.getAttribute('data-card'))|">
+                <span class="checkmark">✔</span>
+            </button>
+        </div>
+
+        <!-- Zeile 2: 8, 13, 20, 40+ -->
+        <div class="card-grid">
+            <button type="button"
+                    th:each="cardValue : ${cardsRow2}"
                     th:text="${cardValue}"
                     th:attr="data-card=${cardValue}"
                     th:onclick="|sendVote(this.getAttribute('data-card'))|">
                 <span class="checkmark">✔</span>
             </button>
         </div>
+
+        <!-- Zeile 3: ?, ☕, 📣 -->
+        <div class="card-grid">
+            <button type="button"
+                    th:each="cardValue : ${cardsRow3}"
+                    th:text="${cardValue}"
+                    th:attr="data-card=${cardValue}"
+                    th:onclick="|sendVote(this.getAttribute('data-card'))|">
+                <span class="checkmark">✔</span>
+            </button>
+        </div>
+
+        
         <button type="button" class="button" th:if="${isHost}" onclick="revealCards()">🟡 Karten aufdecken</button>
+    
     </div>
 
     <div class="post-vote" style="display: none;">

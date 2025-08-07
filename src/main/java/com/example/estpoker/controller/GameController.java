@@ -68,7 +68,10 @@ public class GameController {
         model.addAttribute("averageVote", gameService.calculateAverageVote(room).map(a -> String.format("%.1f", a)).orElse("N/A"));
         model.addAttribute("participantsWithVotes", room.getParticipantsWithVotes());
         model.addAttribute("votesRevealed", room.areVotesRevealed());
-        model.addAttribute("cards", List.of("1", "2", "3", "5", "8", "13", "20", "☕", "?", "🧑‍💼"));
+        model.addAttribute("cardsRow1", List.of("1", "2", "3", "5"));
+        model.addAttribute("cardsRow2", List.of("8", "13", "20", "40+"));
+        model.addAttribute("cardsRow3", List.of("❓", "💬", "☕"));
+
 
         return "room";
     }
