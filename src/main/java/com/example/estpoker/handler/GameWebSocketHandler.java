@@ -72,7 +72,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     }
 
     @Override
-    public void afterConnectionClosed(@NonNull WebSocketSession session, @NonNull CloseStatus status) {
+        public void afterConnectionClosed(@NonNull WebSocketSession session, @NonNull CloseStatus status) {
         Room room = gameService.getRoomForSession(session);
         String participantName = gameService.getParticipantName(session);
 
@@ -80,13 +80,20 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
 
         if (room != null && participantName != null) {
             Participant participant = room.getParticipant(participantName);
-            if (participant != null) {
-                participant.setActive(false);
-            }
-            gameService.broadcastRoomState(room);
+        if (participant != null) {
+            participant.setActive(false);
         }
 
-        System.out.println("Verbindung geschlossen: " + session.getId() + ", Status: " + status);
+        // 🔁 Hostwechsel prüfen und ggf. bekannt geben
+        String newHostName = room.assignNewHostIfNecessary(participantName);
+        if (newHostName != null) {
+            gameService.broadcastHostChange(room, participantName, newHostName);
+        }
+
+        gameService.broadcastRoomState(room);
+    }
+
+    System.out.println("Verbindung geschlossen: " + session.getId() + ", Status: " + status);
     }
 
     private String getQueryParam(@NonNull WebSocketSession session, String key) {

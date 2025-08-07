@@ -174,4 +174,19 @@ public class GameService {
 
         return all;
     }
+
+    public void broadcastHostChange(Room room, String oldHostName, String newHostName) {
+    try {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("type", "hostChanged");
+        payload.put("oldHost", oldHostName);
+        payload.put("newHost", newHostName);
+
+        String json = objectMapper.writeValueAsString(payload);
+        broadcastToRoom(room, json);
+    } catch (IOException e) {
+        e.printStackTrace();
+    }
+    }
+
 }

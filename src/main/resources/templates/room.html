@@ -45,6 +45,18 @@
 
             highlightSelectedCard();
         }
+
+        else if (data.type === "hostChanged") {
+    const oldHost = data.oldHost;
+    const newHost = data.newHost;
+
+    if (newHost === participantName) {
+        showToast(`Host ${oldHost} hat den Raum verlassen. Du bist jetzt Host!`);
+    } else {
+        showToast(`Host ${oldHost} hat den Raum verlassen. ${newHost} ist jetzt Host.`);
+    }
+}
+
     };
 
     function sendVote(cardValue) {
@@ -113,6 +125,16 @@
         toggleView(true);
         updateAverage(avg);
     }
+
+    function showToast(message) {
+    const toast = document.createElement("div");
+    toast.className = "toast";
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    setTimeout(() => {
+        toast.remove();
+    }, 3000);
+}
 </script>
 
 <div class="container">

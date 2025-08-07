@@ -97,12 +97,25 @@ public class Room {
             participants.add(p);
             nameToParticipant.put(name, p);
 
-            // 👇 Wenn es noch keinen Host gibt, wird dieser Teilnehmer zum Host
             if (host == null) {
                 host = p;
                 p.setHost(true);
             }
         }
         p.setActive(true);
+    }
+
+    public synchronized String assignNewHostIfNecessary(String oldHostName) {
+        if (host != null && host.getName().equals(oldHostName)) {
+            for (Participant p : participants) {
+                if (p.isActive() && !p.getName().equals(oldHostName)) {
+                    host.setHost(false);
+                    host = p;
+                    p.setHost(true);
+                    return p.getName();
+                }
+            }
+        }
+        return null;
     }
 }

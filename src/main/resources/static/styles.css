@@ -242,3 +242,27 @@ strong {
        margin-left: 0.5rem;
        font-weight: normal;
     }
+
+    .toast {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background-color: #333;
+    color: white;
+    padding: 12px 20px;
+    border-radius: 8px;
+    opacity: 0.9;
+    z-index: 9999;
+    font-size: 14px;
+    animation: fadein 0.5s, fadeout 0.5s 2.5s;
+}
+
+@keyframes fadein {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 0.9; transform: translateY(0); }
+}
+
+@keyframes fadeout {
+    from { opacity: 0.9; }
+    to { opacity: 0; }
+}
