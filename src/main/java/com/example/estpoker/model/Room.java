@@ -24,7 +24,7 @@ public class Room {
 
         if (asHost) {
             host = p;
-            p.setHost(true); // 🆕 Host-Flag setzen
+            p.setHost(true);
         }
     }
 
@@ -71,33 +71,38 @@ public class Room {
     }
 
     public synchronized Participant getOrCreateParticipant(String name) {
-    Participant p = nameToParticipant.get(name);
-    if (p == null) {
-        p = new Participant(name);
-        participants.add(p);
-        nameToParticipant.put(name, p);
-    }
-    return p;
-}
-
-public synchronized List<Participant> getParticipantsWithVotes() {
-    List<Participant> voted = new ArrayList<>();
-    for (Participant p : participants) {
-        if (p.getVote() != null) {
-            voted.add(p);
+        Participant p = nameToParticipant.get(name);
+        if (p == null) {
+            p = new Participant(name);
+            participants.add(p);
+            nameToParticipant.put(name, p);
         }
+        return p;
     }
-    return voted;
-}
 
-public synchronized void addOrReactivateParticipant(String name) {
-    Participant p = nameToParticipant.get(name);
-    if (p == null) {
-        p = new Participant(name);
-        participants.add(p);
-        nameToParticipant.put(name, p);
+    public synchronized List<Participant> getParticipantsWithVotes() {
+        List<Participant> voted = new ArrayList<>();
+        for (Participant p : participants) {
+            if (p.getVote() != null) {
+                voted.add(p);
+            }
+        }
+        return voted;
     }
-    p.setActive(true);
-}
 
+    public synchronized void addOrReactivateParticipant(String name) {
+        Participant p = nameToParticipant.get(name);
+        if (p == null) {
+            p = new Participant(name);
+            participants.add(p);
+            nameToParticipant.put(name, p);
+
+            // 👇 Wenn es noch keinen Host gibt, wird dieser Teilnehmer zum Host
+            if (host == null) {
+                host = p;
+                p.setHost(true);
+            }
+        }
+        p.setActive(true);
+    }
 }
