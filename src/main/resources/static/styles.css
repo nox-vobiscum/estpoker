@@ -145,6 +145,7 @@ strong {
     min-height: 90vh;
     padding: 2rem;
     text-align: center;
+    margin-top: 10vh;
 }
 
 .landing-container form {
