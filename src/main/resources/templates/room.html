@@ -77,7 +77,10 @@
             li.dataset.hasvote = p.vote !== null;
             if (p.disconnected) li.classList.add("disconnected");
 
-            let content = `<span class="name">${p.name}</span>`;
+            let nameText = p.name;
+            if (p.isHost) nameText += " (⭐ Host)";
+
+            let content = `<span class="name">${nameText}</span>`;
             if (revealed) {
                 const displayVote = p.vote != null ? `<strong>${p.vote}</strong>` : `<span>—</span>`;
                 content += `: ${displayVote}`;
@@ -108,30 +111,31 @@
 </script>
 
 <div class="container">
-    <h1>🃏 RBS' Estimation Poker - Raum: <span th:text="${roomCode}"></span></h1>
-    <p>👤 Du bist: <strong th:text="${participantName}"></strong></p>
-    <p th:if="${isHost}">⭐ Du bist der Host</p>
-    <p th:if="${!isHost}">Host: <strong th:text="${hostName}">Unbekannt</strong></p>
+    <h1>🃏 RBS' Estimation Poker</h1>
+    <p><strong>Dein Raum:</strong> <span th:text="${roomCode}"></span></p>
+    <p><strong>Dein Name:</strong>
+        <span th:text="${participantName}"></span>
+        <span th:if="${isHost}">(⭐ Host)</span>
+    </p>
 
-    <h2>Teilnehmer:</h2>
+    <h2>Teilnehmende:</h2>
     <ul id="liveParticipantList"></ul>
 
     <div class="pre-vote" th:if="${!votesRevealed}">
-    
         <p><strong>Karte auswählen:</strong></p>
-    
-        <!-- Zeile 1: 1, 2, 3, 5 -->
+
+        <!-- Zeile 1 -->
         <div class="card-grid">
             <button type="button"
                     th:each="cardValue : ${cardsRow1}"
-                th:text="${cardValue}"
-                th:attr="data-card=${cardValue}"
-                th:onclick="|sendVote(this.getAttribute('data-card'))|">
+                    th:text="${cardValue}"
+                    th:attr="data-card=${cardValue}"
+                    th:onclick="|sendVote(this.getAttribute('data-card'))|">
                 <span class="checkmark">✔</span>
             </button>
         </div>
 
-        <!-- Zeile 2: 8, 13, 20, 40+ -->
+        <!-- Zeile 2 -->
         <div class="card-grid">
             <button type="button"
                     th:each="cardValue : ${cardsRow2}"
@@ -142,7 +146,7 @@
             </button>
         </div>
 
-        <!-- Zeile 3: ?, ☕, 📣 -->
+        <!-- Zeile 3 -->
         <div class="card-grid">
             <button type="button"
                     th:each="cardValue : ${cardsRow3}"
@@ -153,9 +157,7 @@
             </button>
         </div>
 
-        
         <button type="button" class="button" th:if="${isHost}" onclick="revealCards()">🟡 Karten aufdecken</button>
-    
     </div>
 
     <div class="post-vote" style="display: none;">
