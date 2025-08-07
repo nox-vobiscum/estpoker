@@ -36,17 +36,17 @@ public class GameController {
             return "index";
         }
 
-        // 🧠 Wenn persistent gewünscht und Raum noch nicht vorhanden → speichern
+        // Persistenten Raum anlegen, falls gewünscht und noch nicht vorhanden
         if (persistent && !persistentRoomRepository.existsByNameIgnoreCase(roomCode)) {
             PersistentRoom room = new PersistentRoom();
             room.setName(roomCode);
             room.setRoomId(UUID.randomUUID().toString().substring(0, 6));
             room.setCreatedAtNow();
             persistentRoomRepository.save(room);
-
             System.out.println("💾 Persistenter Raum gespeichert: " + roomCode);
         }
 
+        // Weiter auf die Room-Seite (GET), damit Refresh sauber ist
         return "redirect:/room/" + roomCode + "?participantName=" + participantName;
     }
 
@@ -56,6 +56,12 @@ public class GameController {
                        Model model) {
         model.addAttribute("roomCode", roomCode);
         model.addAttribute("participantName", participantName);
+
+        // 👇 Kartenreihen wieder hinzufügen (wichtig für room.html th:each)
+        model.addAttribute("cardsRow1", new String[]{"1", "2", "3", "5", "8"});
+        model.addAttribute("cardsRow2", new String[]{"13", "20", "☕", "?", "📣"});
+        model.addAttribute("cardsRow3", new String[]{"0", "½", "∞"});
+
         return "room";
     }
 }
