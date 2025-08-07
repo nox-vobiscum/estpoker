@@ -5,6 +5,41 @@
   <title>RBS' Estimation Poker</title>
   <link rel="icon" href="https://noxvobiscum.at/wp-content/uploads/2022/09/cropped-nvb-favicon-32x32.png" sizes="32x32" />
   <link rel="stylesheet" href="/styles.css">
+  <script>
+    async function checkRoomAvailability() {
+      const input = document.getElementById("roomCode");
+      const status = document.getElementById("roomCodeStatus");
+      const checkbox = document.getElementById("persistentCheckbox");
+
+      const name = input.value.trim();
+      if (name.length < 3) {
+        status.textContent = "❗ Mindestens 3 Zeichen";
+        status.style.color = "orange";
+        checkbox.disabled = true;
+        return;
+      }
+
+      try {
+        const res = await fetch(`/api/rooms/check?name=${encodeURIComponent(name)}`);
+        const taken = await res.json();
+
+        if (taken) {
+          status.textContent = "❌ Bereits vergeben";
+          status.style.color = "red";
+          checkbox.disabled = true;
+          checkbox.checked = false;
+        } else {
+          status.textContent = "✔️ Verfügbar";
+          status.style.color = "green";
+          checkbox.disabled = false;
+        }
+      } catch (e) {
+        status.textContent = "⚠️ Fehler bei Prüfung";
+        status.style.color = "gray";
+        checkbox.disabled = true;
+      }
+    }
+  </script>
 </head>
 <body>
   <div class="landing-container">
@@ -13,10 +48,16 @@
       <label for="participantName">Dein Name:</label>
       <input type="text" id="participantName" name="participantName" required>
 
-      <label for="roomCode">Raumcode:</label>
-      <input type="text" id="roomCode" name="roomCode" required>
+      <label for="roomCode">Raumname:</label>
+      <input type="text" id="roomCode" name="roomCode" required oninput="checkRoomAvailability()">
+      <span id="roomCodeStatus" style="margin-left: 0.5rem;"></span>
 
-      <button type="submit">Raum betreten</button>
+      <div style="margin-top: 0.5rem;">
+        <input type="checkbox" id="persistentCheckbox" name="persistent" disabled>
+        <label for="persistentCheckbox">Diesen Raum dauerhaft speichern</label>
+      </div>
+
+      <button type="submit">➡️ Raum betreten</button>
     </form>
   </div>
 </body>
