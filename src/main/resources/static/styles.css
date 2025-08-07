@@ -266,3 +266,10 @@ strong {
     from { opacity: 0.9; }
     to { opacity: 0; }
 }
+
+.host-icon {
+    font-size: 1rem;
+    margin-right: 0.4rem;
+    vertical-align: middle;
+    cursor: default;
+}

@@ -93,7 +93,7 @@
             if (p.disconnected) li.classList.add("disconnected");
 
             let nameDisplay = p.name;
-            if (p.isHost) nameDisplay += ` <span class="host-label">(⭐ Host)</span>`;
+            if (p.isHost) nameDisplay = `<span class="host-icon" title='Host'>👑</span> ` + nameDisplay;
             let content = `<span class="name">${nameDisplay}</span>`;
             if (revealed) {
                 const displayVote = p.vote != null ? `<strong>${p.vote}</strong>` : `<span>—</span>`;
