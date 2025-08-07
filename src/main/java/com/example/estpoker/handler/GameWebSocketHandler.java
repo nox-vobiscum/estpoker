@@ -30,14 +30,11 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         gameService.addSession(session, room);
         gameService.trackParticipant(session, participantName);
 
-        // 🆕: Nur an diesen neuen Client senden
+        // ✅ Fix: zuerst an alle broadcasten, damit Host gesetzt ist
+        gameService.broadcastRoomState(room);
         gameService.sendRoomStateToSingleSession(room, session);
 
-        // 🆕: An alle anderen ebenfalls senden (falls relevant)
-        gameService.broadcastRoomState(room);
-
         System.out.println("Neue WebSocket-Verbindung: " + session.getId());
-        System.out.println("Session wurde Raum '" + roomCode + "' zugeordnet.");
     }
 
     @Override
@@ -63,16 +60,14 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         } else if ("revealCards".equals(payload)) {
             room.setCardsRevealed(true);
             gameService.broadcastRoomState(room);
-            System.out.println("Karten wurden aufgedeckt für Raum: " + room.getCode());
         } else if ("resetRoom".equals(payload)) {
             room.reset();
             gameService.broadcastRoomState(room);
-            System.out.println("Raum '" + room.getCode() + "' wurde zurückgesetzt.");
         }
     }
 
     @Override
-        public void afterConnectionClosed(@NonNull WebSocketSession session, @NonNull CloseStatus status) {
+    public void afterConnectionClosed(@NonNull WebSocketSession session, @NonNull CloseStatus status) {
         Room room = gameService.getRoomForSession(session);
         String participantName = gameService.getParticipantName(session);
 
@@ -80,28 +75,26 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
 
         if (room != null && participantName != null) {
             Participant participant = room.getParticipant(participantName);
-        if (participant != null) {
-            participant.setActive(false);
+            if (participant != null) {
+                participant.setActive(false);
+            }
+
+            String newHostName = room.assignNewHostIfNecessary(participantName);
+            if (newHostName != null) {
+                gameService.broadcastHostChange(room, participantName, newHostName);
+            }
+
+            gameService.broadcastRoomState(room);
         }
 
-        // 🔁 Hostwechsel prüfen und ggf. bekannt geben
-        String newHostName = room.assignNewHostIfNecessary(participantName);
-        if (newHostName != null) {
-            gameService.broadcastHostChange(room, participantName, newHostName);
-        }
-
-        gameService.broadcastRoomState(room);
-    }
-
-    System.out.println("Verbindung geschlossen: " + session.getId() + ", Status: " + status);
+        System.out.println("Verbindung geschlossen: " + session.getId());
     }
 
     private String getQueryParam(@NonNull WebSocketSession session, String key) {
         URI uri = session.getUri();
         if (uri == null || uri.getQuery() == null) return null;
 
-        String query = uri.getQuery();
-        for (String param : query.split("&")) {
+        for (String param : uri.getQuery().split("&")) {
             String[] kv = param.split("=");
             if (kv.length == 2 && kv[0].equals(key)) {
                 return kv[1];
