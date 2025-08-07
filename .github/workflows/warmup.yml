@@ -1,0 +1,27 @@
+name: Warmup Koyeb (Vienna time, DST-safe)
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"   # alle 30 Minuten (UTC)
+  workflow_dispatch:          # optional: manuell startbar
+
+jobs:
+  warmup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run only 07-22 Europe/Vienna (optionally Mon-Fri)
+        shell: bash
+        run: |
+          export TZ=Europe/Vienna
+          HOUR=$(date +%H)
+          DOW=$(date +%u) # 1=Mon ... 7=Sun
+          # Uncomment next line to skip weekends:
+          # if [ "$DOW" -gt 5 ]; then echo "Weekend → skip"; exit 0; fi
+          if [ "$HOUR" -lt 7 ] || [ "$HOUR" -gt 22 ]; then
+            echo "Outside 07-22 Vienna (current: ${HOUR}h) → skipping."
+            exit 0
+          fi
+
+      - name: Ping health endpoint (8s timeout)
+        run: |
+          curl -fsS --max-time 8 https://ep.noxvobiscum.at/healthz || true
