@@ -129,7 +129,7 @@ h1,
 h2 {
     color: #ffffff;
     margin-bottom: 3rem;
-    font-size: 1.2rem;
+    font-size: 1.5rem;
 }
 
 strong {
@@ -145,7 +145,7 @@ strong {
     min-height: 90vh;
     padding: 2rem;
     text-align: center;
-    margin-top: 10vh;
+    margin-top: 8vh;
 }
 
 .landing-container form {
