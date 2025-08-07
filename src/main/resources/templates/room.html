@@ -27,10 +27,10 @@
         if (data.type === "voteUpdate") {
             votesRevealed = data.votesRevealed;
 
-            // 👑 Host-Erkennung
+            console.log("🧩 Teilnehmerdaten:", data.participants);
             isHost = data.participants.find(p => p.name === participantName)?.isHost === true;
+            console.log("👑 Bin ich Host?", isHost);
 
-            // 🔁 Buttons anzeigen/verstecken
             document.getElementById("revealButton").style.display = isHost && !votesRevealed ? "inline-block" : "none";
             document.getElementById("resetButton").style.display = isHost && votesRevealed ? "inline-block" : "none";
 
@@ -44,19 +44,16 @@
             }
 
             highlightSelectedCard();
+        } else if (data.type === "hostChanged") {
+            const oldHost = data.oldHost;
+            const newHost = data.newHost;
+
+            if (newHost === participantName) {
+                showToast(`Host ${oldHost} hat den Raum verlassen. Du bist jetzt Host!`);
+            } else {
+                showToast(`Host ${oldHost} hat den Raum verlassen. ${newHost} ist jetzt Host.`);
+            }
         }
-
-        else if (data.type === "hostChanged") {
-    const oldHost = data.oldHost;
-    const newHost = data.newHost;
-
-    if (newHost === participantName) {
-        showToast(`Host ${oldHost} hat den Raum verlassen. Du bist jetzt Host!`);
-    } else {
-        showToast(`Host ${oldHost} hat den Raum verlassen. ${newHost} ist jetzt Host.`);
-    }
-}
-
     };
 
     function sendVote(cardValue) {
@@ -127,14 +124,12 @@
     }
 
     function showToast(message) {
-    const toast = document.createElement("div");
-    toast.className = "toast";
-    toast.textContent = message;
-    document.body.appendChild(toast);
-    setTimeout(() => {
-        toast.remove();
-    }, 3000);
-}
+        const toast = document.createElement("div");
+        toast.className = "toast";
+        toast.textContent = message;
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 3000);
+    }
 </script>
 
 <div class="container">
@@ -173,15 +168,37 @@
             </button>
         </div>
 
-        <!-- 🟡 Aufdecken-Button wird nur per JS sichtbar -->
         <button type="button" id="revealButton" class="button" style="display: none;" onclick="revealCards()">🟡 Karten aufdecken</button>
     </div>
 
     <div class="post-vote" style="display: none;">
         <p class="average-label">⌀ Durchschnitt: <span id="averageVote">–</span></p>
-        <!-- 🔄 Reset-Button wird nur per JS sichtbar -->
         <button type="button" id="resetButton" class="button" style="display: none;" onclick="resetRoom()">🔄 Neue Runde starten</button>
     </div>
 </div>
+
+<style>
+.toast {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background-color: #333;
+    color: white;
+    padding: 12px 20px;
+    border-radius: 8px;
+    opacity: 0.9;
+    z-index: 9999;
+    font-size: 14px;
+    animation: fadein 0.5s, fadeout 0.5s 2.5s;
+}
+@keyframes fadein {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 0.9; transform: translateY(0); }
+}
+@keyframes fadeout {
+    from { opacity: 0.9; }
+    to { opacity: 0; }
+}
+</style>
 </body>
 </html>

@@ -98,14 +98,14 @@ public class GameService {
             payload.put("type", "voteUpdate");
 
             List<Participant> ordered = getOrderedParticipants(room);
-
             List<Map<String, Object>> participants = new ArrayList<>();
+
             for (Participant p : ordered) {
                 Map<String, Object> pData = new HashMap<>();
                 pData.put("name", p.getName());
                 pData.put("vote", p.getVote());
                 pData.put("disconnected", !p.isActive());
-                pData.put("isHost", p.isHost()); // 🆕 Host-Flag mitgeben
+                pData.put("isHost", p.isHost());
                 participants.add(pData);
             }
 
@@ -116,6 +116,9 @@ public class GameService {
             payload.put("averageVote", room.areVotesRevealed()
                     ? avg.map(a -> String.format("%.1f", a)).orElse("N/A")
                     : null);
+
+            System.out.println("📤 Sende Teilnehmerliste:");
+            participants.forEach(p -> System.out.println(p));
 
             String json = objectMapper.writeValueAsString(payload);
             broadcastToRoom(room, json);
@@ -130,14 +133,14 @@ public class GameService {
             payload.put("type", "voteUpdate");
 
             List<Participant> ordered = getOrderedParticipants(room);
-
             List<Map<String, Object>> participants = new ArrayList<>();
+
             for (Participant p : ordered) {
                 Map<String, Object> pData = new HashMap<>();
                 pData.put("name", p.getName());
                 pData.put("vote", p.getVote());
                 pData.put("disconnected", !p.isActive());
-                pData.put("isHost", p.isHost()); // 🆕 Host-Flag mitgeben
+                pData.put("isHost", p.isHost());
                 participants.add(pData);
             }
 
@@ -160,6 +163,22 @@ public class GameService {
         }
     }
 
+    public void broadcastHostChange(Room room, String oldHostName, String newHostName) {
+        try {
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("type", "hostChanged");
+            payload.put("oldHost", oldHostName);
+            payload.put("newHost", newHostName);
+
+            System.out.println("📣 Host-Wechsel: " + oldHostName + " → " + newHostName);
+
+            String json = objectMapper.writeValueAsString(payload);
+            broadcastToRoom(room, json);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
     private List<Participant> getOrderedParticipants(Room room) {
         List<Participant> all = new ArrayList<>(room.getParticipants());
         Participant host = room.getHost();
@@ -174,19 +193,4 @@ public class GameService {
 
         return all;
     }
-
-    public void broadcastHostChange(Room room, String oldHostName, String newHostName) {
-    try {
-        Map<String, Object> payload = new HashMap<>();
-        payload.put("type", "hostChanged");
-        payload.put("oldHost", oldHostName);
-        payload.put("newHost", newHostName);
-
-        String json = objectMapper.writeValueAsString(payload);
-        broadcastToRoom(room, json);
-    } catch (IOException e) {
-        e.printStackTrace();
-    }
-    }
-
 }

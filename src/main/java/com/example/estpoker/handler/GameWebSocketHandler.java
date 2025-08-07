@@ -27,21 +27,21 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         Room room = gameService.getOrCreateRoom(roomCode);
         room.addOrReactivateParticipant(participantName);
 
+        System.out.println("✅ Host nach Join: " + (room.getHost() != null ? room.getHost().getName() : "–"));
+
         gameService.addSession(session, room);
         gameService.trackParticipant(session, participantName);
 
-        // ✅ Fix: zuerst an alle broadcasten, damit Host gesetzt ist
+        // 🛠️ Reihenfolge korrigiert: erst broadcast, dann send an neuen
         gameService.broadcastRoomState(room);
         gameService.sendRoomStateToSingleSession(room, session);
 
-        System.out.println("Neue WebSocket-Verbindung: " + session.getId());
+        System.out.println("🧠 Teilnehmer '" + participantName + "' hat Raum '" + roomCode + "' betreten.");
     }
 
     @Override
     protected void handleTextMessage(@NonNull WebSocketSession session, @NonNull TextMessage message) {
         String payload = message.getPayload();
-        System.out.println("Nachricht vom Client: " + payload);
-
         Room room = gameService.getRoomForSession(session);
         if (room == null) return;
 
@@ -87,7 +87,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             gameService.broadcastRoomState(room);
         }
 
-        System.out.println("Verbindung geschlossen: " + session.getId());
+        System.out.println("📴 Verbindung geschlossen: " + session.getId() + ", Teilnehmer: " + participantName);
     }
 
     private String getQueryParam(@NonNull WebSocketSession session, String key) {
