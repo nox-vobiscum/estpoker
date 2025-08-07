@@ -96,13 +96,16 @@ public class Room {
             p = new Participant(name);
             participants.add(p);
             nameToParticipant.put(name, p);
-
-            if (host == null) {
-                host = p;
-                p.setHost(true);
-            }
         }
+
         p.setActive(true);
+
+        // 🛠 Host setzen, wenn noch keiner vorhanden
+        if (host == null) {
+            host = p;
+            p.setHost(true);
+            System.out.println("👑 Neuer Host: " + p.getName());
+        }
     }
 
     public synchronized String assignNewHostIfNecessary(String oldHostName) {
