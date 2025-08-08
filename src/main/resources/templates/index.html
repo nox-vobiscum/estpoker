@@ -23,9 +23,7 @@
                 <input type="text"
                        id="participantName"
                        name="participantName"
-                       placeholder="z. B. Julia"
-                       th:value="${param.participantName != null ? param.participantName : participantName}"
-                       required>
+                       th:value="${param.participantName != null ? param.participantName : participantName}">
             </div>
 
             <div class="form-field">
@@ -34,9 +32,7 @@
                     <input type="text"
                            id="roomCode"
                            name="roomCode"
-                           placeholder="z. B. Team-Sprint-42"
-                           th:value="${param.roomCode != null ? param.roomCode : roomCode}"
-                           required>
+                           th:value="${param.roomCode != null ? param.roomCode : roomCode}">
                     <!-- Live-Status für Namensverfügbarkeit -->
                     <div id="nameCheck" class="hint" aria-live="polite"></div>
                 </div>
@@ -85,17 +81,19 @@
         const participantEl = document.getElementById('participantName');
         const nameCheck = document.getElementById('nameCheck');
         const joinButton = document.querySelector('#joinForm button[type="submit"]');
+        const joinForm = document.getElementById('joinForm');
 
         let nameTaken = false;
 
         function isEmpty(s) { return !s || s.trim().length === 0; }
+        function isSubmittable() {
+            if (isEmpty(participantEl.value) || isEmpty(roomCodeEl.value)) return false;
+            if (persistent.checked && nameTaken) return false;
+            return true;
+        }
 
         function updateSubmitEnabled() {
-            const pnEmpty = isEmpty(participantEl.value);
-            const rcEmpty = isEmpty(roomCodeEl.value);
-            let disabled = pnEmpty || rcEmpty;
-            if (persistent.checked && nameTaken) disabled = true;
-            if (joinButton) joinButton.disabled = disabled;
+            joinButton.disabled = !isSubmittable();
         }
 
         function setStatusLoading() {
@@ -167,20 +165,12 @@
             debounceTimer = setTimeout(() => checkNameAvailability(roomCodeEl.value), 250);
         }
 
-        // Shake bei Enter, wenn nicht submittable
-        const joinForm = document.getElementById('joinForm');
-        joinForm.addEventListener('keydown', function (event) {
-            if (event.key === 'Enter') {
-                const name = participantEl.value.trim();
-                const room = roomCodeEl.value.trim();
-                const isPersistent = persistent.checked;
-                const nameStatusBad = nameCheck.classList.contains('bad');
-
-                if (!name || !room || (isPersistent && nameStatusBad)) {
-                    event.preventDefault();
-                    joinButton.classList.add('shake');
-                    setTimeout(() => joinButton.classList.remove('shake'), 400);
-                }
+        // 👉 Einheitlicher Handler: bei Submit prüfen & ggf. Shake
+        joinForm.addEventListener('submit', function (event) {
+            if (!isSubmittable()) {
+                event.preventDefault();
+                joinButton.classList.add('shake');
+                setTimeout(() => joinButton.classList.remove('shake'), 400);
             }
         });
 
