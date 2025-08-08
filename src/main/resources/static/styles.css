@@ -22,7 +22,7 @@ body {
     border-radius: 6px;
     cursor: pointer;
     transition: transform 0.15s ease, box-shadow 0.15s ease;
-    font-size: 1.2rem;       /* minimal kleiner */
+    font-size: 1.2rem;
     text-align: center;
     color: #d4d4d4;
     position: relative;
@@ -85,7 +85,7 @@ button.selected {
     transform: scale(1.05);
 }
 
-/* Teilnehmer:innenliste */
+/* Teilnehmer:innenliste (Basis) */
 ul {
     list-style: none;
     padding: 0;
@@ -112,14 +112,34 @@ li[data-hasvote="false"] {
     opacity: 0.6;
 }
 
-#liveParticipantList li.disconnected {
-    color: #888;
-    text-decoration: line-through;
+/* NEU: Einheitliche Zeile mit Icon */
+#liveParticipantList .participant-row {
     display: flex;
     align-items: center;
-    gap: 0.4rem;
+    gap: 0.5rem;
+    margin-bottom: 0.4rem;
 }
 
+.participant-icon {
+    width: 1.25rem; /* fixe Icon-Spalte für sauberes Einrücken */
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    line-height: 1;
+}
+.participant-icon.host { font-size: 1.1rem; }
+.participant-icon.inactive { opacity: 0.75; }
+
+/* Inaktive: kursiv, nicht durchgestrichen */
+#liveParticipantList li.disconnected {
+    color: #888;
+    font-style: italic;
+    text-decoration: none; /* überschreibt alte Regel */
+}
+
+/* (alte Variante war: line-through + flex etc.) */
+
+/* Status-Badge (bleibt falls genutzt) */
 #liveParticipantList li .status {
     font-size: 1.2rem;
 }

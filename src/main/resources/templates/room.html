@@ -82,6 +82,7 @@
         highlightSelectedCard();
     }
 
+    // 👇 NEU: Einheitliche Icons + Layout
     function updateParticipantList(participants, revealed) {
         const list = document.getElementById("liveParticipantList");
         if (!list) return;
@@ -89,21 +90,34 @@
 
         participants.forEach(p => {
             const li = document.createElement("li");
+            li.classList.add("participant-row");
             li.dataset.hasvote = p.vote !== null;
+
             if (p.disconnected) li.classList.add("disconnected");
+            if (p.isHost) li.classList.add("is-host");
 
-            let nameDisplay = p.name;
-            if (p.isHost) nameDisplay = `<span class="host-icon" title='Host'>👑</span> ` + nameDisplay;
-            let content = `<span class="name">${nameDisplay}</span>`;
+            // Icon: 👑 Host, 👤 aktiv, 💤 inaktiv
+            const icon = document.createElement("span");
+            icon.className = p.isHost
+                ? "participant-icon host"
+                : (p.disconnected ? "participant-icon inactive" : "participant-icon");
+            icon.textContent = p.isHost ? "👑" : (p.disconnected ? "💤" : "👤");
+
+            const nameSpan = document.createElement("span");
+            nameSpan.className = "name";
+            nameSpan.textContent = p.name;
+
+            li.appendChild(icon);
+            li.appendChild(nameSpan);
+
             if (revealed) {
-                const displayVote = p.vote != null ? `<strong>${p.vote}</strong>` : `<span>—</span>`;
-                content += `: ${displayVote}`;
-            }
-            if (p.disconnected) {
-                content += ` <span class="status">🚪 Verlassen</span>`;
+                const voteSpan = document.createElement("span");
+                voteSpan.className = "vote";
+                voteSpan.innerHTML = p.vote != null ? `<strong>${p.vote}</strong>` : `<span>—</span>`;
+                li.appendChild(document.createTextNode(" "));
+                li.appendChild(voteSpan);
             }
 
-            li.innerHTML = content;
             list.appendChild(li);
         });
     }
