@@ -116,9 +116,9 @@ li {
 
 #liveParticipantList .participant-row {
     display: grid;
-    grid-template-columns: var(--name-col-width) auto;
+    grid-template-columns: var(--name-col-width) auto; /* name | status */
     align-items: center;
-    column-gap: 0.5rem;
+    column-gap: 0; /* <- no extra gap after the longest name */
     margin-bottom: 0.4rem;
 }
 
@@ -132,10 +132,13 @@ li {
 
 /* Right side: status or vote chip placed right after the name column */
 .row-right {
-    justify-self: start; /* aligns directly after the name column */
+    justify-self: start;   /* sticks immediately after the name column */
     display: inline-flex;
     align-items: center;
+    margin: 0;             /* <- no extra spacing */
+    padding: 0;            /* <- no extra spacing */
 }
+
 
 /* Participant icons (left) */
 .participant-icon {
