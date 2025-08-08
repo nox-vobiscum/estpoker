@@ -199,22 +199,24 @@ strong {
         gap: 6px;
     }
 
+    /* 🔎 Fonts & Lesbarkeit ~ +50% auf Mobile */
     .card-grid button {
-        padding: 0.7rem 0.7rem; /* noch etwas kompakter mobil */
-        font-size: 0.9rem;
+        padding: 0.7rem 0.7rem; /* kompakt lassen, nur Schrift größer */
+        font-size: calc(0.9rem * 1.5);
         margin: 0.25rem;
+        line-height: 1.2;
     }
 
     .button,
     button[type="submit"] {
         width: 100%;
         padding: 0.9rem;
-        font-size: 1rem;
+        font-size: calc(1rem * 1.5);
     }
 
     h1,
     h2 {
-        font-size: 1.2rem;
+        font-size: calc(1.2rem * 1.5);
     }
 
     .container {
@@ -222,20 +224,25 @@ strong {
     }
 
     ul li {
-        font-size: 0.95rem;
+        font-size: calc(0.95rem * 1.5);
+        line-height: 1.45;
     }
 
     #liveParticipantList li {
         margin-bottom: 4px;
-        font-size: 1.1em;
+        font-size: calc(1.1em * 1.5);
     }
 
     .landing-container h1 {
-        font-size: 1.4rem;
+        font-size: calc(1.4rem * 1.5);
     }
 
     .landing-container input[type="text"] {
-        font-size: 1rem;
+        font-size: calc(1rem * 1.5);
+    }
+
+    .toast {
+        font-size: calc(14px * 1.5);
     }
 }
     
