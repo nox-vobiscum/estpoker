@@ -31,6 +31,7 @@
             isHost = data.participants.find(p => p.name === participantName)?.isHost === true;
             console.log("👑 Bin ich Host?", isHost);
 
+            // Toggle host-only buttons
             document.getElementById("revealButton").style.display = isHost && !votesRevealed ? "inline-block" : "none";
             document.getElementById("resetButton").style.display = isHost && votesRevealed ? "inline-block" : "none";
 
@@ -82,7 +83,7 @@
         highlightSelectedCard();
     }
 
-    // 👇 NEU: Einheitliche Icons + Layout
+    // Render participant list with left icon + name, and right status area
     function updateParticipantList(participants, revealed) {
         const list = document.getElementById("liveParticipantList");
         if (!list) return;
@@ -96,7 +97,10 @@
             if (p.disconnected) li.classList.add("disconnected");
             if (p.isHost) li.classList.add("is-host");
 
-            // Icon: 👑 Host, 👤 aktiv, 💤 inaktiv
+            // Left: fixed icon + name
+            const leftWrap = document.createElement("div");
+            leftWrap.className = "name-wrap";
+
             const icon = document.createElement("span");
             icon.className = p.isHost
                 ? "participant-icon host"
@@ -107,17 +111,39 @@
             nameSpan.className = "name";
             nameSpan.textContent = p.name;
 
-            li.appendChild(icon);
-            li.appendChild(nameSpan);
+            leftWrap.appendChild(icon);
+            leftWrap.appendChild(nameSpan);
+
+            // Right: status or vote chip
+            const rightWrap = document.createElement("div");
+            rightWrap.className = "row-right";
 
             if (revealed) {
-                const voteSpan = document.createElement("span");
-                voteSpan.className = "vote";
-                voteSpan.innerHTML = p.vote != null ? `<strong>${p.vote}</strong>` : `<span>—</span>`;
-                li.appendChild(document.createTextNode(" "));
-                li.appendChild(voteSpan);
+                // Show the chosen card as a chip (or dash)
+                const voteChip = document.createElement("span");
+                voteChip.className = "vote-chip";
+                voteChip.textContent = p.vote != null ? p.vote : "—";
+                rightWrap.appendChild(voteChip);
+            } else {
+                // Pre-reveal: status icons
+                if (p.disconnected) {
+                    // show nothing for disconnected
+                } else if (p.vote != null) {
+                    const status = document.createElement("span");
+                    status.className = "status-icon done";
+                    status.textContent = "✅";
+                    rightWrap.appendChild(status);
+                } else {
+                    const status = document.createElement("span");
+                    status.className = "status-icon pending";
+                    status.textContent = "⏳";
+                    rightWrap.appendChild(status);
+                }
             }
 
+            // Assemble row
+            li.appendChild(leftWrap);
+            li.appendChild(rightWrap);
             list.appendChild(li);
         });
     }

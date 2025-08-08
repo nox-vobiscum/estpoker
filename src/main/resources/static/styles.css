@@ -2,6 +2,10 @@
     /* Tweakable variables for card minimum widths */
     --card-min-desktop: 52px;  /* previously 60px */
     --card-min-mobile: 42px;   /* previously 45px */
+
+    /* Optional: vertical spacing before the voting section */
+    --pre-vote-margin-desktop: 2.5rem;
+    --pre-vote-margin-mobile: 2rem;
 }
 
 body {
@@ -15,8 +19,8 @@ body {
 /* Card buttons */
 .card-grid button {
     display: inline-block;
-    padding: 0.85rem 0.85rem; /* slightly more compact */
-    margin: 0.5rem;           /* reduced spacing */
+    padding: 0.85rem 0.85rem;
+    margin: 0.5rem;
     background: #2d2d30;
     border: 1px solid #3c3c3c;
     border-radius: 6px;
@@ -85,7 +89,7 @@ button.selected {
     transform: scale(1.05);
 }
 
-/* Participant list - base styles */
+/* Participant list - base */
 ul {
     list-style: none;
     padding: 0;
@@ -98,21 +102,12 @@ li {
     font-size: 1rem;
 }
 
-li[data-hasvote="true"]::after {
-    content: " ✅";
-    color: #4CAF50;
-    margin-left: 0.4rem;
-}
-
-li[data-hasvote="false"]::after {
+/* Remove legacy auto-checkmark to avoid double icons */
+#liveParticipantList li[data-hasvote]::after {
     content: "";
 }
 
-li[data-hasvote="false"] {
-    opacity: 0.6;
-}
-
-/* NEW: unified row with icon */
+/* NEW: row layout — left (icon+name), right (status/vote) */
 #liveParticipantList .participant-row {
     display: flex;
     align-items: center;
@@ -120,8 +115,27 @@ li[data-hasvote="false"] {
     margin-bottom: 0.4rem;
 }
 
+/* Left side wrapper: icon + name */
+.name-wrap {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex: 1 1 auto;       /* grow to take remaining space */
+    min-width: 0;         /* allow text to truncate */
+}
+
+/* Right side wrapper: status or vote chip */
+.row-right {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    min-width: 3.2rem;    /* keeps right side aligned across rows */
+}
+
+/* Participant icons (left) */
 .participant-icon {
-    width: 1.25rem; /* fixed icon width for consistent alignment */
+    width: 1.25rem;       /* fixed icon width for consistent alignment */
     display: inline-flex;
     justify-content: center;
     align-items: center;
@@ -134,12 +148,48 @@ li[data-hasvote="false"] {
 #liveParticipantList li.disconnected {
     color: #888;
     font-style: italic;
-    text-decoration: none; /* overrides old rule */
+    text-decoration: none;
 }
 
-/* Status badge (kept for potential use) */
-#liveParticipantList li .status {
-    font-size: 1.2rem;
+/* Status icons (right, pre-reveal) */
+.status-icon {
+    font-size: 1rem;
+    line-height: 1;
+}
+/* Right-side status icons (pre-reveal) */
+.status-icon {
+  font-size: 1rem;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+}
+
+/* Card chosen */
+.status-icon.done {
+  color: #4CAF50; /* green tick */
+  filter: drop-shadow(0 0 2px rgba(76, 175, 80, 0.6));
+}
+
+/* Waiting for choice */
+.status-icon.pending {
+  color: #FFD54F; /* warm amber for hourglass */
+  opacity: 0.95;
+}
+
+/* Vote chip (right, post-reveal) — styled like selected card */
+.vote-chip {
+    display: inline-block;
+    padding: 0.15rem 0.5rem;
+    border-radius: 6px;
+    background-color: #4CAF50;
+    color: #fff;
+    font-weight: bold;
+    border: 2px solid #81C784;
+    box-shadow: 0 0 6px #4CAF50;
+    font-size: 0.95rem;
+    line-height: 1.2;
+    min-width: 2ch;        /* keeps small numbers readable */
+    text-align: center;
 }
 
 /* Container */
@@ -162,6 +212,11 @@ strong {
 
 .main-info {
     margin-bottom: 3rem;
+}
+
+/* Control spacing before the voting block via class hook */
+.pre-vote {
+    margin-top: var(--pre-vote-margin-desktop);
 }
 
 /* Landing page */
@@ -218,7 +273,7 @@ strong {
 
     /* Increase text size by ~50% on mobile for better readability */
     .card-grid button {
-        padding: 0.7rem 0.7rem; /* keep compact, only increase text size */
+        padding: 0.7rem 0.7rem;
         font-size: calc(1.2rem * 1.5);
         margin: 0.25rem;
         line-height: 1.2;
@@ -261,8 +316,13 @@ strong {
     .toast {
         font-size: calc(14px * 1.5);
     }
-}
 
+    /* Mobile-specific spacing before the voting block */
+    .pre-vote {
+        margin-top: var(--pre-vote-margin-mobile);
+    }
+}
+    
 .average-label {
     font-size: 0.85rem;
     margin-top: 1rem;
