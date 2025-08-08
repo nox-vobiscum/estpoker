@@ -58,9 +58,9 @@ public class GameController {
         model.addAttribute("participantName", participantName);
 
         // 👇 Kartenreihen wieder hinzufügen (wichtig für room.html th:each)
-        model.addAttribute("cardsRow1", new String[]{"1", "2", "3", "5", "8"});
-        model.addAttribute("cardsRow2", new String[]{"13", "20", "☕", "?", "📣"});
-        model.addAttribute("cardsRow3", new String[]{"0", "½", "∞"});
+        model.addAttribute("cardsRow1", new String[]{"1", "2", "3", "5"});
+        model.addAttribute("cardsRow2", new String[]{"8", "13", "20", "40" });
+        model.addAttribute("cardsRow3", new String[]{"❓", "💬", "☕"});
 
         return "room";
     }
