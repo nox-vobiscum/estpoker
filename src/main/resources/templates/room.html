@@ -13,6 +13,7 @@
     let selectedCard = null;
     let votesRevealed = false;
     let isHost = false;
+    let resizeTimer = null;
 
     const wsProtocol = location.protocol === "https:" ? "wss://" : "ws://";
     const socketUrl = wsProtocol + location.host + "/gameSocket?roomCode=" + roomCode + "&participantName=" + participantName;
@@ -22,16 +23,11 @@
 
     socket.onmessage = (event) => {
         const data = JSON.parse(event.data);
-        console.log("📨 Nachricht empfangen:", data);
 
         if (data.type === "voteUpdate") {
             votesRevealed = data.votesRevealed;
-
-            console.log("🧩 Teilnehmerdaten:", data.participants);
             isHost = data.participants.find(p => p.name === participantName)?.isHost === true;
-            console.log("👑 Bin ich Host?", isHost);
 
-            // Toggle host-only buttons
             document.getElementById("revealButton").style.display = isHost && !votesRevealed ? "inline-block" : "none";
             document.getElementById("resetButton").style.display = isHost && votesRevealed ? "inline-block" : "none";
 
@@ -46,14 +42,10 @@
 
             highlightSelectedCard();
         } else if (data.type === "hostChanged") {
-            const oldHost = data.oldHost;
-            const newHost = data.newHost;
-
-            if (newHost === participantName) {
-                showToast(`Host ${oldHost} hat den Raum verlassen. Du bist jetzt Host!`);
-            } else {
-                showToast(`Host ${oldHost} hat den Raum verlassen. ${newHost} ist jetzt Host.`);
-            }
+            const { oldHost, newHost } = data;
+            showToast(newHost === participantName
+                ? `Host ${oldHost} hat den Raum verlassen. Du bist jetzt Host!`
+                : `Host ${oldHost} hat den Raum verlassen. ${newHost} ist jetzt Host.`);
         }
     };
 
@@ -83,7 +75,7 @@
         highlightSelectedCard();
     }
 
-    // Render participant list with left icon + name, and a status column aligned after the longest name
+    // Render participant list as: [icon][name text][status]
     function updateParticipantList(participants, revealed) {
         const list = document.getElementById("liveParticipantList");
         if (!list) return;
@@ -97,24 +89,19 @@
             if (p.disconnected) li.classList.add("disconnected");
             if (p.isHost) li.classList.add("is-host");
 
-            // Left: icon + name
-            const leftWrap = document.createElement("div");
-            leftWrap.className = "name-wrap";
-
+            // Icon column
             const icon = document.createElement("span");
             icon.className = p.isHost
                 ? "participant-icon host"
                 : (p.disconnected ? "participant-icon inactive" : "participant-icon");
             icon.textContent = p.isHost ? "👑" : (p.disconnected ? "💤" : "👤");
 
+            // Name text column
             const nameSpan = document.createElement("span");
             nameSpan.className = "name";
             nameSpan.textContent = p.name;
 
-            leftWrap.appendChild(icon);
-            leftWrap.appendChild(nameSpan);
-
-            // Right: status or vote chip
+            // Status/vote column
             const rightWrap = document.createElement("div");
             rightWrap.className = "row-right";
 
@@ -125,7 +112,7 @@
                 rightWrap.appendChild(voteChip);
             } else {
                 if (p.disconnected) {
-                    // empty for disconnected
+                    // empty
                 } else if (p.vote != null) {
                     const status = document.createElement("span");
                     status.className = "status-icon done";
@@ -139,21 +126,32 @@
                 }
             }
 
-            // Assemble row
-            li.appendChild(leftWrap);
+            // Assemble row: icon | name | status
+            li.appendChild(icon);
+            li.appendChild(nameSpan);
             li.appendChild(rightWrap);
             list.appendChild(li);
         });
 
-        // After DOM update: measure the widest name-wrap and set a CSS variable so all rows align the status at the same column
-        requestAnimationFrame(() => {
-            const wraps = Array.from(list.querySelectorAll(".name-wrap"));
-            const maxWidth = wraps.reduce((max, el) => Math.max(max, el.offsetWidth || 0), 0);
-            if (maxWidth > 0) {
-                list.style.setProperty("--name-col-width", maxWidth + "px");
-            }
-        });
+        // Measure longest actual name and set CSS var (keeps at least 18ch)
+        measureAndSetNameColumn();
     }
+
+    function measureAndSetNameColumn() {
+        const list = document.getElementById("liveParticipantList");
+        if (!list) return;
+
+        const names = Array.from(list.querySelectorAll(".name"));
+        const maxTextWidth = names.reduce((max, el) => Math.max(max, el.offsetWidth || 0), 0);
+        // Set the CSS variable in px (grid uses max(18ch, var(--name-text-col)))
+        list.style.setProperty("--name-text-col", Math.ceil(maxTextWidth) + "px");
+    }
+
+    // Re-measure on resize (debounced)
+    window.addEventListener("resize", () => {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(measureAndSetNameColumn, 150);
+    });
 
     function updateAverage(avg) {
         const avgSpan = document.getElementById("averageVote");
@@ -228,26 +226,12 @@
 
 <style>
 .toast {
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    background-color: #333;
-    color: white;
-    padding: 12px 20px;
-    border-radius: 8px;
-    opacity: 0.9;
-    z-index: 9999;
-    font-size: 14px;
+    position: fixed; top: 20px; right: 20px; background-color: #333; color: white;
+    padding: 12px 20px; border-radius: 8px; opacity: 0.9; z-index: 9999; font-size: 14px;
     animation: fadein 0.5s, fadeout 0.5s 2.5s;
 }
-@keyframes fadein {
-    from { opacity: 0; transform: translateY(-10px); }
-    to { opacity: 0.9; transform: translateY(0); }
-}
-@keyframes fadeout {
-    from { opacity: 0.9; }
-    to { opacity: 0; }
-}
+@keyframes fadein { from { opacity: 0; transform: translateY(-10px);} to { opacity: 0.9; transform: translateY(0);} }
+@keyframes fadeout { from { opacity: 0.9; } to { opacity: 0; } }
 </style>
 </body>
 </html>

@@ -1,15 +1,15 @@
 :root {
-    /* Tweakable variables for card minimum widths */
-    --card-min-desktop: 52px;  /* previously 60px */
-    --card-min-mobile: 42px;   /* previously 45px */
+    /* Cards */
+    --card-min-desktop: 52px;
+    --card-min-mobile: 42px;
 
     /* Spacing before voting section */
     --pre-vote-margin-desktop: 2.5rem;
     --pre-vote-margin-mobile: 2rem;
 
-    /* Participant list layout */
-    --icon-col-width: 1.5rem;        /* fits 👑/👤/💤 comfortably */
-    --name-text-col: auto;           /* will be set (px) from JS based on longest name */
+    /* Participant list columns */
+    --icon-col-width: 1.5rem;  /* fits 👑/👤/💤 */
+    --name-text-col: 0px;      /* will be set (px) via JS if a name exceeds 18ch */
 }
 
 body {
@@ -35,7 +35,6 @@ body {
     color: #d4d4d4;
     position: relative;
 }
-
 .card-grid .checkmark {
     position: absolute;
     top: 4px;
@@ -49,13 +48,11 @@ body {
     display: none;
     box-shadow: 0 0 4px #4CAF50;
 }
-
 .card-grid button:hover {
     background: #3c3c3c;
     transform: scale(1.03);
     box-shadow: 0 0 6px #007acc;
 }
-
 .card-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(var(--card-min-desktop), 1fr));
@@ -78,12 +75,10 @@ button[type="submit"] {
     font-family: inherit;
     transition: background 0.2s ease;
 }
-
 .button:hover,
 button[type="submit"]:hover {
     background: #005a9e;
 }
-
 button.selected {
     background-color: #4CAF50 !important;
     color: #fff !important;
@@ -94,29 +89,18 @@ button.selected {
 }
 
 /* Participant list - base */
-ul {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-}
+ul { list-style: none; padding: 0; margin: 0; }
+li { margin-bottom: 0.4rem; line-height: 1.5; font-size: 1rem; }
 
-li {
-    margin-bottom: 0.4rem;
-    line-height: 1.5;
-    font-size: 1rem;
-}
+/* Remove legacy auto-checkmark */
+#liveParticipantList li[data-hasvote]::after { content: ""; }
 
-/* Remove legacy auto-checkmark to avoid double icons */
-#liveParticipantList li[data-hasvote]::after {
-    content: "";
-}
-
-/* Participant row as 3-column grid: icon | name text | status */
+/* 3-column grid: [icon] [name text fixed to max(18ch, measured)] [status] */
 #liveParticipantList .participant-row {
     display: grid;
-    grid-template-columns: var(--icon-col-width) var(--name-text-col) auto;
+    grid-template-columns: var(--icon-col-width) max(18ch, var(--name-text-col)) auto;
     align-items: center;
-    column-gap: 0.4rem;  /* tiny breathing room between icon/name/status */
+    column-gap: 0.4rem;     /* tiny breathing room between icon/name/status */
     margin-bottom: 0.4rem;
 }
 
@@ -139,7 +123,7 @@ li {
     min-width: 0;
 }
 
-/* Status column (right) sits immediately after longest name text */
+/* Status column (right) sits right after the name text column */
 .row-right {
     display: inline-flex;
     align-items: center;
@@ -163,11 +147,11 @@ li {
     align-items: center;
 }
 .status-icon.done {
-  color: #4CAF50; /* green tick */
+  color: #4CAF50;
   filter: drop-shadow(0 0 2px rgba(76, 175, 80, 0.6));
 }
 .status-icon.pending {
-  color: #FFD54F; /* warm amber for hourglass */
+  color: #FFD54F;
   opacity: 0.95;
 }
 
@@ -188,178 +172,61 @@ li {
 }
 
 /* Container */
-.container {
-    max-width: 800px;
-    margin: 0 auto;
-    padding: 1rem;
-}
-
-h1,
-h2 {
-    color: #ffffff;
-    margin-bottom: 3rem;
-    font-size: 1.1rem;
-}
-
-strong {
-    color: #ffffff;
-}
-
-.main-info {
-    margin-bottom: 3rem;
-}
+.container { max-width: 800px; margin: 0 auto; padding: 1rem; }
+h1, h2 { color: #ffffff; margin-bottom: 3rem; font-size: 1.1rem; }
+strong { color: #ffffff; }
+.main-info { margin-bottom: 3rem; }
 
 /* Control spacing before the voting block via class hook */
-.pre-vote {
-    margin-top: var(--pre-vote-margin-desktop);
-}
+.pre-vote { margin-top: var(--pre-vote-margin-desktop); }
 
 /* Landing page */
 .landing-container {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    min-height: 90vh;
-    padding: 2rem;
-    text-align: center;
-    margin-top: 10vh;
+    display: flex; flex-direction: column; align-items: center;
+    min-height: 90vh; padding: 2rem; text-align: center; margin-top: 10vh;
 }
-
 .landing-container form {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 1rem;
-    width: 100%;
-    max-width: 400px;
+    display: flex; flex-direction: column; align-items: center;
+    gap: 1rem; width: 100%; max-width: 400px;
 }
-
 .landing-container input[type="text"] {
-    padding: 0.8rem 1rem;
-    font-size: 1rem;
-    border: 1px solid #555555;
-    border-radius: 6px;
-    background-color: #3c3c3c;
-    color: #d4d4d4;
-    width: 100%;
-    box-sizing: border-box;
+    padding: 0.8rem 1rem; font-size: 1rem; border: 1px solid #555;
+    border-radius: 6px; background-color: #3c3c3c; color: #d4d4d4;
+    width: 100%; box-sizing: border-box;
 }
+.landing-container input[type="text"]::placeholder { color: #888; }
+.landing-container button[type="submit"] { width: 100%; padding: 0.9rem; font-size: 1rem; }
 
-.landing-container input[type="text"]::placeholder {
-    color: #888;
-}
-
-.landing-container button[type="submit"] {
-    width: 100%;
-    padding: 0.9rem;
-    font-size: 1rem;
-}
-
-/* Responsive design */
+/* Responsive */
 @media (max-width: 600px) {
-    body {
-        padding: 1rem;
-    }
+    body { padding: 1rem; }
+    .card-grid { grid-template-columns: repeat(auto-fit, minmax(var(--card-min-mobile), 1fr)); gap: 6px; }
 
-    .card-grid {
-        grid-template-columns: repeat(auto-fit, minmax(var(--card-min-mobile), 1fr));
-        gap: 6px;
-    }
+    .card-grid button { padding: 0.7rem 0.7rem; font-size: calc(1.2rem * 1.5); margin: 0.25rem; line-height: 1.2; }
+    .button, button[type="submit"] { width: 100%; padding: 0.9rem; font-size: calc(1rem * 1.5); }
 
-    /* Increase text size by ~50% on mobile for better readability */
-    .card-grid button {
-        padding: 0.7rem 0.7rem;
-        font-size: calc(1.2rem * 1.5);
-        margin: 0.25rem;
-        line-height: 1.2;
-    }
+    h1, h2 { font-size: calc(1.2rem * 1.5); }
+    .container { padding: 0.5rem; }
+    ul li { font-size: calc(0.95rem * 1.5); line-height: 1.45; }
+    #liveParticipantList li { margin-bottom: 4px; font-size: calc(1.1em * 1.5); }
+    .landing-container h1 { font-size: calc(1.4rem * 1.5); }
+    .landing-container input[type="text"] { font-size: calc(1rem * 1.5); }
+    .toast { font-size: calc(14px * 1.5); }
 
-    .button,
-    button[type="submit"] {
-        width: 100%;
-        padding: 0.9rem;
-        font-size: calc(1rem * 1.5);
-    }
-
-    h1,
-    h2 {
-        font-size: calc(1.2rem * 1.5);
-    }
-
-    .container {
-        padding: 0.5rem;
-    }
-
-    ul li {
-        font-size: calc(0.95rem * 1.5);
-        line-height: 1.45;
-    }
-
-    #liveParticipantList li {
-        margin-bottom: 4px;
-        font-size: calc(1.1em * 1.5);
-    }
-
-    .landing-container h1 {
-        font-size: calc(1.4rem * 1.5);
-    }
-
-    .landing-container input[type="text"] {
-        font-size: calc(1rem * 1.5);
-    }
-
-    .toast {
-        font-size: calc(14px * 1.5);
-    }
-
-    /* Mobile-specific spacing before the voting block */
-    .pre-vote {
-        margin-top: var(--pre-vote-margin-mobile);
-    }
-}
-    
-.average-label {
-    font-size: 0.85rem;
-    margin-top: 1rem;
+    .pre-vote { margin-top: var(--pre-vote-margin-mobile); }
 }
 
+.average-label { font-size: 0.85rem; margin-top: 1rem; }
 .host-label {
-    font-size: 0.9em;
-    color: #FFD700;
-    background-color: #444;
-    padding: 2px 6px;
-    border-radius: 4px;
-    margin-left: 0.5rem;
-    font-weight: normal;
+    font-size: 0.9em; color: #FFD700; background-color: #444;
+    padding: 2px 6px; border-radius: 4px; margin-left: 0.5rem; font-weight: normal;
 }
-
 .toast {
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    background-color: #333;
-    color: white;
-    padding: 12px 20px;
-    border-radius: 8px;
-    opacity: 0.9;
-    z-index: 9999;
-    font-size: 14px;
+    position: fixed; top: 20px; right: 20px; background-color: #333; color: white;
+    padding: 12px 20px; border-radius: 8px; opacity: 0.9; z-index: 9999; font-size: 14px;
     animation: fadein 0.5s, fadeout 0.5s 2.5s;
 }
+@keyframes fadein { from { opacity: 0; transform: translateY(-10px);} to { opacity: 0.9; transform: translateY(0);} }
+@keyframes fadeout { from { opacity: 0.9; } to { opacity: 0; } }
 
-@keyframes fadein {
-    from { opacity: 0; transform: translateY(-10px); }
-    to { opacity: 0.9; transform: translateY(0); }
-}
-
-@keyframes fadeout {
-    from { opacity: 0.9; }
-    to { opacity: 0; }
-}
-
-.host-icon {
-    font-size: 1rem;
-    margin-right: 0.4rem;
-    vertical-align: middle;
-    cursor: default;
-}
+.host-icon { font-size: 1rem; margin-right: 0.4rem; vertical-align: middle; cursor: default; }
