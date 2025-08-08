@@ -1,8 +1,7 @@
 :root {
-    /* 👉 Stellschrauben für Kartengröße */
-    --card-min: 56px;          /* Mindestbreite pro Karte (Desktop) */
-    --card-min-mobile: 44px;   /* Mindestbreite pro Karte (Mobile) */
-    --card-aspect: 5 / 7;      /* Breiten/Höhen-Verhältnis der Karten */
+    /* Stellschrauben: hier kannst du Kartenbreite feinjustieren */
+    --card-min-desktop: 52px;  /* vorher 60px */
+    --card-min-mobile: 42px;   /* vorher 45px */
 }
 
 body {
@@ -15,19 +14,15 @@ body {
 
 /* Karten-Buttons */
 .card-grid button {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 100%;                      /* füllt die Grid-Zelle */
-    aspect-ratio: var(--card-aspect); /* sorgt für kompaktere, konsistente Karten */
-    padding: 0.6rem 0.6rem;           /* etwas schlanker */
-    margin: 0;                        /* Abstand kommt vom Grid-Gap */
+    display: inline-block;
+    padding: 0.55rem 0.85rem; /* leicht kompakter */
+    margin: 0.3rem;           /* etwas weniger Abstand */
     background: #2d2d30;
     border: 1px solid #3c3c3c;
     border-radius: 6px;
     cursor: pointer;
     transition: transform 0.15s ease, box-shadow 0.15s ease;
-    font-size: 1rem;
+    font-size: 0.95rem;       /* minimal kleiner */
     text-align: center;
     color: #d4d4d4;
     position: relative;
@@ -37,7 +32,7 @@ body {
     position: absolute;
     top: 4px;
     right: 6px;
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     color: #4CAF50;
     background: #1e1e1e;
     border-radius: 50%;
@@ -55,7 +50,7 @@ body {
 
 .card-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(var(--card-min), 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(var(--card-min-desktop), 1fr));
     gap: 8px;
     margin-top: 1rem;
     margin-bottom: 1rem;
@@ -205,8 +200,9 @@ strong {
     }
 
     .card-grid button {
+        padding: 0.5rem 0.7rem; /* noch etwas kompakter mobil */
         font-size: 0.9rem;
-        padding: 0.55rem 0.55rem;
+        margin: 0.25rem;
     }
 
     .button,
