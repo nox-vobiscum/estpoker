@@ -1,7 +1,7 @@
 :root {
-    /* Stellschrauben: hier kannst du Kartenbreite feinjustieren */
-    --card-min-desktop: 52px;  /* vorher 60px */
-    --card-min-mobile: 42px;   /* vorher 45px */
+    /* Tweakable variables for card minimum widths */
+    --card-min-desktop: 52px;  /* previously 60px */
+    --card-min-mobile: 42px;   /* previously 45px */
 }
 
 body {
@@ -12,11 +12,11 @@ body {
     margin: 0;
 }
 
-/* Karten-Buttons */
+/* Card buttons */
 .card-grid button {
     display: inline-block;
-    padding: 0.85rem 0.85rem; /* leicht kompakter */
-    margin: 0.5rem;           /* etwas weniger Abstand */
+    padding: 0.85rem 0.85rem; /* slightly more compact */
+    margin: 0.5rem;           /* reduced spacing */
     background: #2d2d30;
     border: 1px solid #3c3c3c;
     border-radius: 6px;
@@ -56,7 +56,7 @@ body {
     margin-bottom: 1rem;
 }
 
-/* Buttons */
+/* Generic buttons */
 .button,
 button[type="submit"] {
     margin-top: 2rem;
@@ -85,7 +85,7 @@ button.selected {
     transform: scale(1.05);
 }
 
-/* Teilnehmer:innenliste (Basis) */
+/* Participant list - base styles */
 ul {
     list-style: none;
     padding: 0;
@@ -112,7 +112,7 @@ li[data-hasvote="false"] {
     opacity: 0.6;
 }
 
-/* NEU: Einheitliche Zeile mit Icon */
+/* NEW: unified row with icon */
 #liveParticipantList .participant-row {
     display: flex;
     align-items: center;
@@ -121,7 +121,7 @@ li[data-hasvote="false"] {
 }
 
 .participant-icon {
-    width: 1.25rem; /* fixe Icon-Spalte für sauberes Einrücken */
+    width: 1.25rem; /* fixed icon width for consistent alignment */
     display: inline-flex;
     justify-content: center;
     align-items: center;
@@ -130,16 +130,14 @@ li[data-hasvote="false"] {
 .participant-icon.host { font-size: 1.1rem; }
 .participant-icon.inactive { opacity: 0.75; }
 
-/* Inaktive: kursiv, nicht durchgestrichen */
+/* Inactive participants: italic, no strikethrough */
 #liveParticipantList li.disconnected {
     color: #888;
     font-style: italic;
-    text-decoration: none; /* überschreibt alte Regel */
+    text-decoration: none; /* overrides old rule */
 }
 
-/* (alte Variante war: line-through + flex etc.) */
-
-/* Status-Badge (bleibt falls genutzt) */
+/* Status badge (kept for potential use) */
 #liveParticipantList li .status {
     font-size: 1.2rem;
 }
@@ -166,12 +164,11 @@ strong {
     margin-bottom: 3rem;
 }
 
-/* Landing Page */
+/* Landing page */
 .landing-container {
     display: flex;
     flex-direction: column;
     align-items: center;
-    /* justify-content: center; */
     min-height: 90vh;
     padding: 2rem;
     text-align: center;
@@ -208,7 +205,7 @@ strong {
     font-size: 1rem;
 }
 
-/* Responsive Design */
+/* Responsive design */
 @media (max-width: 600px) {
     body {
         padding: 1rem;
@@ -219,9 +216,9 @@ strong {
         gap: 6px;
     }
 
-    /* 🔎 Fonts & Lesbarkeit ~ +50% auf Mobile */
+    /* Increase text size by ~50% on mobile for better readability */
     .card-grid button {
-        padding: 0.7rem 0.7rem; /* kompakt lassen, nur Schrift größer */
+        padding: 0.7rem 0.7rem; /* keep compact, only increase text size */
         font-size: calc(1.2rem * 1.5);
         margin: 0.25rem;
         line-height: 1.2;
@@ -265,7 +262,7 @@ strong {
         font-size: calc(14px * 1.5);
     }
 }
-    
+
 .average-label {
     font-size: 0.85rem;
     margin-top: 1rem;
