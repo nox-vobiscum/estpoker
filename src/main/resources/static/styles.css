@@ -88,6 +88,17 @@ button.selected {
     transform: scale(1.05);
 }
 
+/* Shake-Animation */
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20%, 60% { transform: translateX(-6px); }
+    40%, 80% { transform: translateX(6px); }
+}
+
+button.shake {
+    animation: shake 0.4s;
+}
+
 /* Participant list - base */
 ul { list-style: none; padding: 0; margin: 0; }
 li { margin-bottom: 0.4rem; line-height: 1.5; font-size: 1rem; }

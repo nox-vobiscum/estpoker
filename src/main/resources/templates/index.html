@@ -7,237 +7,245 @@
     <link rel="stylesheet" th:href="@{/styles.css}">
 </head>
 <body>
-<script th:inline="javascript">
-    let participantName = /*[[${participantName}]]*/ "Gast";
-    let roomCode = /*[[${roomCode}]]*/ "demo";
-    let selectedCard = null;
-    let votesRevealed = false;
-    let isHost = false;
-
-    const wsProtocol = location.protocol === "https:" ? "wss://" : "ws://";
-    const socketUrl = wsProtocol + location.host + "/gameSocket?roomCode=" + roomCode + "&participantName=" + participantName;
-    const socket = new WebSocket(socketUrl);
-
-    socket.onopen = () => console.log("✅ Verbindung zum Server hergestellt!");
-
-    socket.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-        if (data.type === "voteUpdate") {
-            votesRevealed = data.votesRevealed;
-
-            isHost = data.participants.find(p => p.name === participantName)?.isHost === true;
-
-            document.getElementById("revealButton").style.display = isHost && !votesRevealed ? "inline-block" : "none";
-            document.getElementById("resetButton").style.display = isHost && votesRevealed ? "inline-block" : "none";
-
-            updateParticipantList(data.participants, votesRevealed);
-
-            if (votesRevealed) {
-                showResults(data.participants, data.averageVote);
-            } else {
-                toggleView(false);
-                updateAverage(null);
-            }
-
-            highlightSelectedCard();
-        } else if (data.type === "hostChanged") {
-            const oldHost = data.oldHost;
-            const newHost = data.newHost;
-            if (newHost === participantName) {
-                showToast(`Host ${oldHost} hat den Raum verlassen. Du bist jetzt Host!`);
-            } else {
-                showToast(`Host ${oldHost} hat den Raum verlassen. ${newHost} ist jetzt Host.`);
-            }
-        }
-    };
-
-    function sendVote(cardValue) {
-        socket.send("vote:" + participantName + ":" + cardValue);
-        selectedCard = cardValue;
-        highlightSelectedCard();
-    }
-
-    function highlightSelectedCard() {
-        document.querySelectorAll(".card-grid button").forEach(btn => {
-            const card = btn.getAttribute("data-card");
-            const isSelected = !votesRevealed && card === selectedCard;
-            btn.classList.toggle("selected", isSelected);
-            const check = btn.querySelector(".checkmark");
-            if (check) check.style.display = isSelected ? "block" : "none";
-        });
-    }
-
-    function revealCards() {
-        if (isHost) socket.send("revealCards");
-    }
-
-    function resetRoom() {
-        if (isHost) socket.send("resetRoom");
-        selectedCard = null;
-        highlightSelectedCard();
-    }
-
-    // Render participant list with a 3-column grid: [icon][name text][status]
-    function updateParticipantList(participants, revealed) {
-        const list = document.getElementById("liveParticipantList");
-        if (!list) return;
-        list.innerHTML = "";
-
-        participants.forEach(p => {
-            const li = document.createElement("li");
-            li.classList.add("participant-row");
-            li.dataset.hasvote = p.vote !== null;
-
-            if (p.disconnected) li.classList.add("disconnected");
-            if (p.isHost) li.classList.add("is-host");
-
-            // 1) Icon column
-            const icon = document.createElement("span");
-            icon.className = p.isHost
-                ? "participant-icon host"
-                : (p.disconnected ? "participant-icon inactive" : "participant-icon");
-            icon.textContent = p.isHost ? "👑" : (p.disconnected ? "💤" : "👤");
-
-            // 2) Name text column
-            const nameSpan = document.createElement("span");
-            nameSpan.className = "name";
-            nameSpan.textContent = p.name;
-
-            // 3) Status/vote column
-            const rightWrap = document.createElement("div");
-            rightWrap.className = "row-right";
-
-            if (revealed) {
-                const voteChip = document.createElement("span");
-                voteChip.className = "vote-chip";
-                voteChip.textContent = p.vote != null ? p.vote : "—";
-                rightWrap.appendChild(voteChip);
-            } else {
-                if (p.disconnected) {
-                    // empty for disconnected
-                } else if (p.vote != null) {
-                    const status = document.createElement("span");
-                    status.className = "status-icon done";
-                    status.textContent = "✅";
-                    rightWrap.appendChild(status);
-                } else {
-                    const status = document.createElement("span");
-                    status.className = "status-icon pending";
-                    status.textContent = "⏳";
-                    rightWrap.appendChild(status);
-                }
-            }
-
-            // Assemble row: icon | name | status
-            li.appendChild(icon);
-            li.appendChild(nameSpan);
-            li.appendChild(rightWrap);
-            list.appendChild(li);
-        });
-
-        // After render: measure longest name text only and set CSS var for the name column width
-        requestAnimationFrame(() => {
-            const names = Array.from(list.querySelectorAll(".name"));
-            const maxTextWidth = names.reduce((max, el) => Math.max(max, el.offsetWidth || 0), 0);
-            if (maxTextWidth > 0) {
-                list.style.setProperty("--name-text-col", maxTextWidth + "px");
-            }
-        });
-    }
-
-    function updateAverage(avg) {
-        const avgSpan = document.getElementById("averageVote");
-        if (avgSpan) avgSpan.textContent = avg != null ? avg : "N/A";
-    }
-
-    function toggleView(revealed) {
-        document.querySelectorAll(".pre-vote").forEach(e => e.style.display = revealed ? "none" : "block");
-        document.querySelectorAll(".post-vote").forEach(e => e.style.display = revealed ? "block" : "none");
-    }
-
-    function showResults(participants, avg) {
-        toggleView(true);
-        updateAverage(avg);
-    }
-
-    function showToast(message) {
-        const toast = document.createElement("div");
-        toast.className = "toast";
-        toast.textContent = message;
-        document.body.appendChild(toast);
-        setTimeout(() => toast.remove(), 3000);
-    }
-</script>
 
 <div class="container">
     <h1>🃏 RBS' Estimation Poker</h1>
-    <div class="main-info">
-        <p>🆔 Raum: <strong th:text="${roomCode}">demo</strong></p>
-        <p>👤 Du bist: <strong th:text="${participantName}">Gast</strong></p>
-    </div>
-    
-    <h2>Teilnehmende:</h2>
-    <ul id="liveParticipantList"></ul>
 
-    <div class="pre-vote">
-        <p><strong>Karte auswählen:</strong></p>
+    <!-- Fehleranzeige: nimmt error entweder aus Model ODER aus Query-Param an -->
+    <div th:if="${error != null or param.error != null}"
+         class="error"
+         th:text="${error != null ? error : param.error}">Fehlermeldung</div>
 
-        <div class="card-grid">
-            <button type="button" th:each="cardValue : ${cardsRow1}"
-                    th:text="${cardValue}"
-                    th:attr="data-card=${cardValue}"
-                    th:onclick="|sendVote(this.getAttribute('data-card'))|">
-                <span class="checkmark">✔</span>
-            </button>
-        </div>
-        <div class="card-grid">
-            <button type="button" th:each="cardValue : ${cardsRow2}"
-                    th:text="${cardValue}"
-                    th:attr="data-card=${cardValue}"
-                    th:onclick="|sendVote(this.getAttribute('data-card'))|">
-                <span class="checkmark">✔</span>
-            </button>
-        </div>
-        <div class="card-grid">
-            <button type="button" th:each="cardValue : ${cardsRow3}"
-                    th:text="${cardValue}"
-                    th:attr="data-card=${cardValue}"
-                    th:onclick="|sendVote(this.getAttribute('data-card'))|">
-                <span class="checkmark">✔</span>
-            </button>
+    <form th:action="@{/join}" method="post" id="joinForm" class="join-form">
+        <div class="form-row">
+            <div class="form-field">
+                <label for="participantName">Dein Name</label>
+                <input type="text"
+                       id="participantName"
+                       name="participantName"
+                       placeholder="z. B. Julia"
+                       th:value="${param.participantName} ?: ${participantName}"
+                       required>
+            </div>
+
+            <div class="form-field">
+                <label for="roomCode">Raumcode / Name</label>
+                <div style="display:grid; gap:6px;">
+                    <input type="text"
+                           id="roomCode"
+                           name="roomCode"
+                           placeholder="z. B. Team-Sprint-42"
+                           th:value="${param.roomCode} ?: ${roomCode}"
+                           required>
+                    <!-- Live-Status für Namensverfügbarkeit -->
+                    <div id="nameCheck" class="hint" aria-live="polite"></div>
+                </div>
+            </div>
         </div>
 
-        <button type="button" id="revealButton" class="button" style="display: none;" onclick="revealCards()">🟡 Karten aufdecken</button>
-    </div>
+        <!-- Persistenter Raum -->
+        <div class="checkbox-row">
+            <input type="checkbox"
+                   id="persistent"
+                   name="persistent"
+                   th:checked="${(param.persistent != null) or (persistent == true)}">
+            <label for="persistent">Diesen Raum dauerhaft speichern</label>
+        </div>
+        <p class="hint">
+            Erzeugt einen Deep-Link (<code>/room/{ID}</code>). Der Raum bleibt bestehen,
+            bis der Auto-Cleanup greift.
+        </p>
 
-    <div class="post-vote" style="display: none;">
-        <p class="average-label">⌀ Durchschnitt: <span id="averageVote">–</span></p>
-        <button type="button" id="resetButton" class="button" style="display: none;" onclick="resetRoom()">🔄 Neue Runde starten</button>
-    </div>
+        <!-- Test-Raum (nur sichtbar bei persistent) -->
+        <div id="testRoomWrap" class="checkbox-row hidden">
+            <input type="checkbox"
+                   id="testRoom"
+                   name="testRoom"
+                   th:checked="${(param.testRoom != null) or (testRoom == true)}">
+            <label for="testRoom">Nur Test-Raum</label>
+        </div>
+        <p id="testRoomHint" class="hint hidden">
+            Markiert den Raum als Test – wird schneller automatisch gelöscht (z. B. nach 7 Tagen).
+        </p>
+
+        <div class="form-actions">
+            <button type="submit" class="button">Beitreten</button>
+        </div>
+    </form>
 </div>
 
+<!-- JS: testRoom-Checkbox nur zeigen, wenn persistent aktiv + Live-Name-Check + Button-Disable -->
+<script th:inline="javascript">
+    (function () {
+        const persistent = document.getElementById('persistent');
+        const testWrap = document.getElementById('testRoomWrap');
+        const testHint = document.getElementById('testRoomHint');
+        const testRoom = document.getElementById('testRoom');
+        const roomCodeEl = document.getElementById('roomCode');
+        const participantEl = document.getElementById('participantName');
+        const nameCheck = document.getElementById('nameCheck');
+        const joinButton = document.querySelector('#joinForm button[type="submit"]');
+
+        let nameTaken = false; // globaler Zustand für Button-Enable-Logik
+
+        function syncTestVisibility() {
+            const show = persistent.checked;
+            testWrap.classList.toggle('hidden', !show);
+            testHint.classList.toggle('hidden', !show);
+            // Beim Ausblenden Haken entfernen
+            if (!show && testRoom) testRoom.checked = false;
+
+            // Wenn persistent aus -> Statusmeldung leeren + Button prüfen
+            if (!show) {
+                setStatusEmpty();
+            }
+            updateSubmitEnabled();
+        }
+
+        function isEmpty(s) {
+            return !s || s.trim().length === 0;
+        }
+
+        function updateSubmitEnabled() {
+            const pnEmpty = isEmpty(participantEl.value);
+            const rcEmpty = isEmpty(roomCodeEl.value);
+
+            // Regeln:
+            // - Felder dürfen nicht leer sein
+            // - Wenn persistent aktiv, darf Name NICHT 'taken' sein
+            let disabled = pnEmpty || rcEmpty;
+            if (persistent.checked && nameTaken) disabled = true;
+
+            if (joinButton) joinButton.disabled = disabled;
+        }
+
+        // Debounce + Abort für fetch
+        let debounceTimer = null;
+        let currentAbort = null;
+
+        function setStatusLoading() {
+            nameCheck.textContent = "Prüfe Verfügbarkeit…";
+            nameCheck.classList.remove("ok","bad");
+            nameCheck.classList.add("loading");
+            nameTaken = false; // unentschieden -> nicht blockieren
+            updateSubmitEnabled();
+        }
+        function setStatusOK() {
+            nameCheck.textContent = "✅ Name ist frei";
+            nameCheck.classList.remove("bad","loading");
+            nameCheck.classList.add("ok");
+            nameTaken = false;
+            updateSubmitEnabled();
+        }
+        function setStatusBad() {
+            nameCheck.textContent = "❌ Name ist vergeben";
+            nameCheck.classList.remove("ok","loading");
+            nameCheck.classList.add("bad");
+            nameTaken = true;
+            updateSubmitEnabled();
+        }
+        function setStatusEmpty() {
+            nameCheck.textContent = "";
+            nameCheck.classList.remove("ok","bad","loading");
+            nameTaken = false;
+            updateSubmitEnabled();
+        }
+
+        async function checkNameAvailability(name) {
+            // Nur prüfen, wenn persistent aktiv ist
+            if (!persistent.checked) {
+                setStatusEmpty();
+                return;
+            }
+            const trimmed = (name || "").trim();
+            if (trimmed.length === 0) {
+                setStatusEmpty();
+                return;
+            }
+
+            // Abbrechen, falls vorheriger Request noch läuft
+            if (currentAbort) currentAbort.abort();
+            currentAbort = new AbortController();
+            const { signal } = currentAbort;
+
+            setStatusLoading();
+            try {
+                const resp = await fetch(`/api/rooms/check?name=` + encodeURIComponent(trimmed), { signal });
+                if (!resp.ok) throw new Error("Bad response: " + resp.status);
+                const taken = await resp.json(); // boolean
+                if (signal.aborted) return; // Zwischenzeitlich überholt
+
+                if (taken === true) setStatusBad();
+                else setStatusOK();
+            } catch (e) {
+                if (signal.aborted) return;
+                // Im Fehlerfall lieber neutral bleiben (Button nur nach Feldprüfungen)
+                setStatusEmpty();
+                console.warn("Name check failed:", e);
+            }
+        }
+
+        function scheduleCheck() {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => checkNameAvailability(roomCodeEl.value), 250);
+        }
+
+        // Initial bei Page-Load (damit Zustand bei Back/Reload stimmt)
+        syncTestVisibility();
+        if (persistent.checked) {
+            scheduleCheck(); // falls Werte aus Parametern kommen, gleich prüfen
+        }
+
+        // Events
+        persistent.addEventListener('change', () => {
+            syncTestVisibility();
+            if (persistent.checked) scheduleCheck(); else setStatusEmpty();
+        });
+        roomCodeEl.addEventListener('input', () => { scheduleCheck(); updateSubmitEnabled(); });
+        participantEl.addEventListener('input', updateSubmitEnabled);
+
+        // Initiale Button-Logik
+        updateSubmitEnabled();
+    })();
+
+// Enter-Handling mit Shake-Animation am Button
+const joinForm = document.getElementById('joinForm');
+const joinButton = joinForm.querySelector('button[type="submit"]');
+
+joinForm.addEventListener('keydown', function (event) {
+    if (event.key === 'Enter') {
+        const name = document.getElementById('participantName').value.trim();
+        const room = document.getElementById('roomCode').value.trim();
+        const isPersistent = document.getElementById('persistent').checked;
+        const nameStatusBad = document.getElementById('nameCheck').classList.contains('bad');
+
+        // Bedingungen für "nicht submittable"
+        if (!name || !room || (isPersistent && nameStatusBad)) {
+            event.preventDefault(); // Verhindert das Absenden
+            // Shake-Animation triggern
+            joinButton.classList.add('shake');
+            setTimeout(() => joinButton.classList.remove('shake'), 400);
+        }
+    }
+});
+    
+</script>
+
+<!-- Minimaler Fallback-Stil, falls styles.css nichts dazu hat -->
 <style>
-.toast {
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    background-color: #333;
-    color: white;
-    padding: 12px 20px;
-    border-radius: 8px;
-    opacity: 0.9;
-    z-index: 9999;
-    font-size: 14px;
-    animation: fadein 0.5s, fadeout 0.5s 2.5s;
-}
-@keyframes fadein {
-    from { opacity: 0; transform: translateY(-10px); }
-    to { opacity: 0.9; transform: translateY(0); }
-}
-@keyframes fadeout {
-    from { opacity: 0.9; }
-    to { opacity: 0; }
-}
+    .join-form { display: grid; gap: 16px; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .form-field label { display: block; margin-bottom: 6px; }
+    .form-field input[type="text"] { width: 100%; }
+    .checkbox-row { display: flex; align-items: center; gap: 10px; }
+    .form-actions { margin-top: 8px; }
+    .hint { margin: -6px 0 8px 0; opacity: .85; font-size: .9em; }
+    .hidden { display: none; }
+    #nameCheck.ok { color: #22c55e; }       /* grün */
+    #nameCheck.bad { color: #ef4444; }      /* rot */
+    #nameCheck.loading { color: #a3a3a3; }  /* grau */
+    .button:disabled { opacity: .6; cursor: not-allowed; }
 </style>
+
 </body>
 </html>

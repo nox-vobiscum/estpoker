@@ -2,10 +2,22 @@ package com.example.estpoker.repository;
 
 import com.example.estpoker.model.PersistentRoom;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
 
+import java.time.Instant;
 import java.util.Optional;
 
-public interface PersistentRoomRepository extends JpaRepository<PersistentRoom, Long> {
+@Repository
+public interface PersistentRoomRepository extends JpaRepository<PersistentRoom, String> {
+
     boolean existsByNameIgnoreCase(String name);
-    Optional<PersistentRoom> findByRoomId(String roomId);
+
+    Optional<PersistentRoom> findByNameIgnoreCase(String name);
+
+    void deleteByLastActiveAtBefore(Instant cutoff);
+
+    // Cleanup gezielt für Test-Räume
+    void deleteByTestRoomIsTrueAndLastActiveAtBefore(Instant cutoff);
+
+    long countByTestRoomIsTrue();
 }
