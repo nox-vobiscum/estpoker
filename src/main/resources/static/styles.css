@@ -1,3 +1,10 @@
+:root {
+    /* 👉 Stellschrauben für Kartengröße */
+    --card-min: 56px;          /* Mindestbreite pro Karte (Desktop) */
+    --card-min-mobile: 44px;   /* Mindestbreite pro Karte (Mobile) */
+    --card-aspect: 5 / 7;      /* Breiten/Höhen-Verhältnis der Karten */
+}
+
 body {
     background-color: #1e1e1e;
     color: #d4d4d4;
@@ -8,9 +15,13 @@ body {
 
 /* Karten-Buttons */
 .card-grid button {
-    display: inline-block;
-    padding: 0.6rem 1rem;
-    margin: 0.4rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;                      /* füllt die Grid-Zelle */
+    aspect-ratio: var(--card-aspect); /* sorgt für kompaktere, konsistente Karten */
+    padding: 0.6rem 0.6rem;           /* etwas schlanker */
+    margin: 0;                        /* Abstand kommt vom Grid-Gap */
     background: #2d2d30;
     border: 1px solid #3c3c3c;
     border-radius: 6px;
@@ -44,7 +55,7 @@ body {
 
 .card-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(60px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(var(--card-min), 1fr));
     gap: 8px;
     margin-top: 1rem;
     margin-bottom: 1rem;
@@ -188,14 +199,14 @@ strong {
         padding: 1rem;
     }
 
-    .card-grid button {
-        padding: 0.6rem 0.8rem;
-        font-size: 0.85rem;
+    .card-grid {
+        grid-template-columns: repeat(auto-fit, minmax(var(--card-min-mobile), 1fr));
+        gap: 6px;
     }
 
-    .card-grid {
-        grid-template-columns: repeat(auto-fit, minmax(45px, 1fr));
-        gap: 6px;
+    .card-grid button {
+        font-size: 0.9rem;
+        padding: 0.55rem 0.55rem;
     }
 
     .button,
@@ -232,22 +243,22 @@ strong {
     }
 }
     
-    .average-label {
-        font-size: 0.85rem;
-        margin-top: 1rem;
-    }
+.average-label {
+    font-size: 0.85rem;
+    margin-top: 1rem;
+}
 
-    .host-label {
-        font-size: 0.9em;
-       color: #FFD700;
-       background-color: #444;
-       padding: 2px 6px;
-       border-radius: 4px;
-       margin-left: 0.5rem;
-       font-weight: normal;
-    }
+.host-label {
+    font-size: 0.9em;
+    color: #FFD700;
+    background-color: #444;
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-left: 0.5rem;
+    font-weight: normal;
+}
 
-    .toast {
+.toast {
     position: fixed;
     top: 20px;
     right: 20px;
