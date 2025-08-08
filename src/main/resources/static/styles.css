@@ -22,7 +22,7 @@ body {
     border-radius: 6px;
     cursor: pointer;
     transition: transform 0.15s ease, box-shadow 0.15s ease;
-    font-size: 0.95rem;       /* minimal kleiner */
+    font-size: 1.2rem;       /* minimal kleiner */
     text-align: center;
     color: #d4d4d4;
     position: relative;
@@ -202,7 +202,7 @@ strong {
     /* 🔎 Fonts & Lesbarkeit ~ +50% auf Mobile */
     .card-grid button {
         padding: 0.7rem 0.7rem; /* kompakt lassen, nur Schrift größer */
-        font-size: calc(0.9rem * 1.5);
+        font-size: calc(1.2rem * 1.5);
         margin: 0.25rem;
         line-height: 1.2;
     }
