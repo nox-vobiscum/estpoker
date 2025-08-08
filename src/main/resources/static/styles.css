@@ -107,30 +107,34 @@ li {
     content: "";
 }
 
-/* NEW: row layout — left (icon+name), right (status/vote) */
+/* Participant row as two-column grid:
+   - column 1: name (icon + text) with dynamic width (set via JS on the UL)
+   - column 2: status or vote chip */
+#liveParticipantList {
+    --name-col-width: auto; /* will be set to a px value via JS for alignment */
+}
+
 #liveParticipantList .participant-row {
-    display: flex;
+    display: grid;
+    grid-template-columns: var(--name-col-width) auto;
     align-items: center;
-    gap: 0.5rem;
+    column-gap: 0.5rem;
     margin-bottom: 0.4rem;
 }
 
-/* Left side wrapper: icon + name */
+/* Left side: icon + name */
 .name-wrap {
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
-    flex: 1 1 auto;       /* grow to take remaining space */
-    min-width: 0;         /* allow text to truncate */
+    min-width: 0; /* allow truncation if needed */
 }
 
-/* Right side wrapper: status or vote chip */
+/* Right side: status or vote chip placed right after the name column */
 .row-right {
-    flex: 0 0 auto;
+    justify-self: start; /* aligns directly after the name column */
     display: inline-flex;
     align-items: center;
-    justify-content: flex-end;
-    min-width: 3.2rem;    /* keeps right side aligned across rows */
 }
 
 /* Participant icons (left) */
@@ -155,13 +159,8 @@ li {
 .status-icon {
     font-size: 1rem;
     line-height: 1;
-}
-/* Right-side status icons (pre-reveal) */
-.status-icon {
-  font-size: 1rem;
-  line-height: 1;
-  display: inline-flex;
-  align-items: center;
+    display: inline-flex;
+    align-items: center;
 }
 
 /* Card chosen */

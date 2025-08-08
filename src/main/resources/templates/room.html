@@ -83,7 +83,7 @@
         highlightSelectedCard();
     }
 
-    // Render participant list with left icon + name, and right status area
+    // Render participant list with left icon + name, and a status column aligned after the longest name
     function updateParticipantList(participants, revealed) {
         const list = document.getElementById("liveParticipantList");
         if (!list) return;
@@ -97,7 +97,7 @@
             if (p.disconnected) li.classList.add("disconnected");
             if (p.isHost) li.classList.add("is-host");
 
-            // Left: fixed icon + name
+            // Left: icon + name
             const leftWrap = document.createElement("div");
             leftWrap.className = "name-wrap";
 
@@ -119,15 +119,13 @@
             rightWrap.className = "row-right";
 
             if (revealed) {
-                // Show the chosen card as a chip (or dash)
                 const voteChip = document.createElement("span");
                 voteChip.className = "vote-chip";
                 voteChip.textContent = p.vote != null ? p.vote : "—";
                 rightWrap.appendChild(voteChip);
             } else {
-                // Pre-reveal: status icons
                 if (p.disconnected) {
-                    // show nothing for disconnected
+                    // empty for disconnected
                 } else if (p.vote != null) {
                     const status = document.createElement("span");
                     status.className = "status-icon done";
@@ -145,6 +143,15 @@
             li.appendChild(leftWrap);
             li.appendChild(rightWrap);
             list.appendChild(li);
+        });
+
+        // After DOM update: measure the widest name-wrap and set a CSS variable so all rows align the status at the same column
+        requestAnimationFrame(() => {
+            const wraps = Array.from(list.querySelectorAll(".name-wrap"));
+            const maxWidth = wraps.reduce((max, el) => Math.max(max, el.offsetWidth || 0), 0);
+            if (maxWidth > 0) {
+                list.style.setProperty("--name-col-width", maxWidth + "px");
+            }
         });
     }
 
