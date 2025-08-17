@@ -1,22 +1,27 @@
 package com.example.estpoker.controller;
 
 import com.example.estpoker.model.PersistentRoom;
-import com.example.estpoker.repository.PersistentRoomRepository;
+import com.example.estpoker.persistence.PersistentRooms;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.Optional;
 
 @Controller
 public class GameController {
 
-    private final PersistentRoomRepository persistentRoomRepository;
+    private final PersistentRooms persistentRooms;
 
-    public GameController(PersistentRoomRepository persistentRoomRepository) {
-        this.persistentRoomRepository = persistentRoomRepository;
+    @Value("${features.persistentRooms.enabled:false}")
+    private boolean persistenceEnabled;
+
+    public GameController(PersistentRooms persistentRooms) {
+        this.persistentRooms = persistentRooms;
     }
 
     @GetMapping("/")
@@ -31,78 +36,40 @@ public class GameController {
                            @RequestParam(required = false, defaultValue = "false") boolean testRoom,
                            Model model) {
 
-        participantName = participantName == null ? "" : participantName.trim();
-        roomCode = roomCode == null ? "" : roomCode.trim();
+        // Trim und "effectively final" Variablen für Lambda
+        final String pName = safeTrim(participantName);
+        final String requestedRoomName = safeTrim(roomCode);
 
-        // Validierung: leere Felder
-        if (participantName.isEmpty() || roomCode.isEmpty()) {
-            String msg = url("Name und Raumcode dürfen nicht leer sein.");
-            return "redirect:/?error=" + msg +
-                    "&participantName=" + url(participantName) +
-                    "&roomCode=" + url(roomCode) +
-                    (persistent ? "&persistent=true" : "") +
-                    (testRoom ? "&testRoom=true" : "");
+        if (pName.isBlank() || requestedRoomName.isBlank()) {
+            model.addAttribute("error", "Bitte Namen und Raum ausfüllen.");
+            model.addAttribute("participantName", pName);
+            model.addAttribute("roomCode", requestedRoomName);
+            model.addAttribute("persistent", persistent);
+            model.addAttribute("testRoom", testRoom);
+            return "index";
         }
 
-        if (persistent) {
-            // Serverseitige Validierung: Name darf NICHT bereits belegt sein
-            if (persistentRoomRepository.existsByNameIgnoreCase(roomCode)) {
-                String msg = url("Der gewählte Raumname ist bereits vergeben. Bitte anderen Namen wählen.");
-                return "redirect:/?error=" + msg +
-                        "&participantName=" + url(participantName) +
-                        "&roomCode=" + url(roomCode) +
-                        "&persistent=true" +
-                        (testRoom ? "&testRoom=true" : "");
-            }
+        String effectiveRoomCode = requestedRoomName;
 
-            // Neu anlegen (ID/createdAt/lastActiveAt via @PrePersist)
-            PersistentRoom room = new PersistentRoom(roomCode);
-            room.setTestRoom(testRoom);
-            persistentRoomRepository.save(room);
-
-            return "redirect:/room/" + room.getId() + "?participantName=" + url(participantName);
+        // Persistente Räume nur, wenn Flag aktiv UND Checkbox gesetzt
+        if (persistent && persistenceEnabled) {
+            Optional<PersistentRoom> existing = persistentRooms.findByNameIgnoreCase(requestedRoomName);
+            PersistentRoom pr = existing.orElseGet(() -> {
+                // Öffentlicher Konstruktor mit Name – @PrePersist setzt id/createdAt/lastActiveAt
+                PersistentRoom r = new PersistentRoom(requestedRoomName);
+                r.setTestRoom(testRoom);
+                r.setLastActiveAt(Instant.now());
+                return r;
+            });
+            pr = persistentRooms.save(pr);
+            effectiveRoomCode = pr.getId();
         }
 
-        // Transient (nicht persistent): Verhalten wie bisher – roomCode bleibt die URL
-        return "redirect:/room/" + url(roomCode) + "?participantName=" + url(participantName);
-    }
+        // Model für room.html
+        model.addAttribute("participantName", pName);
+        model.addAttribute("roomCode", effectiveRoomCode);
 
-    @GetMapping("/room/{codeOrId}")
-    public String room(@PathVariable String codeOrId,
-                       @RequestParam String participantName,
-                       Model model) {
-
-        Optional<PersistentRoom> persistentRoomOpt = persistentRoomRepository.findById(codeOrId);
-
-        final String effectiveRoomDisplayName;
-        final boolean isPersistent;
-        final boolean isTestRoom;
-
-        if (persistentRoomOpt.isPresent()) {
-            PersistentRoom room = persistentRoomOpt.get();
-            // Letzte Aktivität updaten (z. B. durch Betreten)
-            room.touch();
-            persistentRoomRepository.save(room);
-
-            effectiveRoomDisplayName = room.getName();
-            isPersistent = true;
-            isTestRoom = room.isTestRoom();
-
-            // Fürs Frontend ggf. nützlich
-            model.addAttribute("persistentRoomId", room.getId());
-        } else {
-            // Transient: Der Pfad ist direkt der "Raumcode"
-            effectiveRoomDisplayName = codeOrId;
-            isPersistent = false;
-            isTestRoom = false;
-        }
-
-        model.addAttribute("roomCode", effectiveRoomDisplayName);
-        model.addAttribute("isPersistent", isPersistent);
-        model.addAttribute("isTestRoom", isTestRoom);
-        model.addAttribute("participantName", participantName);
-
-        // Kartenreihen für room.html (th:each)
+        // Kartenreihen (per th:each)
         model.addAttribute("cardsRow1", new String[]{"1", "2", "3", "5"});
         model.addAttribute("cardsRow2", new String[]{"8", "13", "20", "40"});
         model.addAttribute("cardsRow3", new String[]{"❓", "💬", "☕"});
@@ -110,8 +77,8 @@ public class GameController {
         return "room";
     }
 
-    // --- Hilfsfunktion zum URL-Encoden ---
-    private static String url(String s) {
-        return URLEncoder.encode(s == null ? "" : s, StandardCharsets.UTF_8);
+    // --- Hilfsfunktionen ---
+    private static String safeTrim(String s) {
+        return s == null ? "" : s.trim();
     }
 }

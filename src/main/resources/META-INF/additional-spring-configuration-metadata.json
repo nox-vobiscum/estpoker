@@ -1,0 +1,10 @@
+{
+  "properties": [
+    {
+      "name": "features.persistentRooms.enabled",
+      "type": "java.lang.Boolean",
+      "defaultValue": false,
+      "description": "Toggle to enable persistence of rooms using the database. When false, the app uses a No-Op adapter and does not access the DB."
+    }
+  ]
+}

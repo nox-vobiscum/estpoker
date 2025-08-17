@@ -1,21 +1,26 @@
 package com.example.estpoker.controller;
 
-import com.example.estpoker.repository.PersistentRoomRepository;
-import org.springframework.web.bind.annotation.*;
+import com.example.estpoker.persistence.PersistentRooms;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/rooms")
 public class RoomCheckController {
 
-    private final PersistentRoomRepository roomRepository;
+    private final PersistentRooms rooms;
 
-    public RoomCheckController(PersistentRoomRepository roomRepository) {
-        this.roomRepository = roomRepository;
+    public RoomCheckController(PersistentRooms rooms) {
+        this.rooms = rooms;
     }
 
     // Liefert true, WENN der Name bereits vergeben ist (taken)
     @GetMapping("/check")
     public boolean isTaken(@RequestParam String name) {
-        return roomRepository.existsByNameIgnoreCase(name.trim());
+        String n = name == null ? "" : name.trim();
+        if (n.isEmpty()) return false;
+        return rooms.existsByNameIgnoreCase(n);
     }
 }
