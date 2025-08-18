@@ -27,12 +27,20 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         Room room = gameService.getOrCreateRoom(roomCode);
         room.addOrReactivateParticipant(participantName);
 
+        // Ensure flags are correct on (re)join (defensive, independent of Room impl)
+        Participant p = room.getParticipant(participantName);
+        if (p != null) {
+            p.setActive(true);
+            p.setDisconnected(false);
+        }
+
         System.out.println("✅ Host nach Join: " + (room.getHost() != null ? room.getHost().getName() : "–"));
 
+        // Map session -> room and session -> participant
         gameService.addSession(session, room);
         gameService.trackParticipant(session, participantName);
 
-        // 🛠️ Reihenfolge korrigiert: erst broadcast, dann send an neuen
+        // Broadcast fresh state to everyone, then to the new session (ordering OK)
         gameService.broadcastRoomState(room);
         gameService.sendRoomStateToSingleSession(room, session);
 
@@ -76,7 +84,9 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         if (room != null && participantName != null) {
             Participant participant = room.getParticipant(participantName);
             if (participant != null) {
+                // Mark fully disconnected (both flags) so UI shows sleeping row consistently
                 participant.setActive(false);
+                participant.setDisconnected(true);
             }
 
             String newHostName = room.assignNewHostIfNecessary(participantName);

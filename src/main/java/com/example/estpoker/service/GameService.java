@@ -81,13 +81,13 @@ public class GameService {
             try {
                 if (session.isOpen()) {
                     session.sendMessage(new TextMessage(message));
-                    return false;
+                    return false; // keep mapping
                 } else {
-                    return true;
+                    return true;  // remove closed session
                 }
             } catch (IOException e) {
                 e.printStackTrace();
-                return true;
+                return true;      // remove on failure
             }
         });
     }
@@ -104,7 +104,8 @@ public class GameService {
                 Map<String, Object> pData = new HashMap<>();
                 pData.put("name", p.getName());
                 pData.put("vote", p.getVote());
-                pData.put("disconnected", !p.isActive());
+                // robust: consider either flag as "disconnected"
+                pData.put("disconnected", p.isDisconnected() || !p.isActive());
                 pData.put("isHost", p.isHost());
                 participants.add(pData);
             }
@@ -139,7 +140,7 @@ public class GameService {
                 Map<String, Object> pData = new HashMap<>();
                 pData.put("name", p.getName());
                 pData.put("vote", p.getVote());
-                pData.put("disconnected", !p.isActive());
+                pData.put("disconnected", p.isDisconnected() || !p.isActive());
                 pData.put("isHost", p.isHost());
                 participants.add(pData);
             }

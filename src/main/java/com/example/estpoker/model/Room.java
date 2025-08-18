@@ -57,17 +57,26 @@ public class Room {
 
     public synchronized void markInactive(String name) {
         Participant p = nameToParticipant.get(name);
-        if (p != null) p.setActive(false);
+        if (p != null) {
+            p.setActive(false);
+            p.setDisconnected(true); // keep UI consistent for others
+        }
     }
 
     public synchronized void markActive(String name) {
         Participant p = nameToParticipant.get(name);
-        if (p != null) p.setActive(true);
+        if (p != null) {
+            p.setActive(true);
+            p.setDisconnected(false); // clear sleeping state on rejoin
+        }
     }
 
     public synchronized void removeParticipant(String name) {
         Participant p = nameToParticipant.remove(name);
-        if (p != null) participants.remove(p);
+        if (p != null) {
+            participants.remove(p);
+            // Note: host reassignment is handled via assignNewHostIfNecessary(...)
+        }
     }
 
     public synchronized Participant getOrCreateParticipant(String name) {
@@ -98,9 +107,11 @@ public class Room {
             nameToParticipant.put(name, p);
         }
 
+        // Ensure correct flags on (re)join
         p.setActive(true);
+        p.setDisconnected(false);
 
-        // 🛠 Host setzen, wenn noch keiner vorhanden
+        // Auto-assign host if none exists yet
         if (host == null) {
             host = p;
             p.setHost(true);
