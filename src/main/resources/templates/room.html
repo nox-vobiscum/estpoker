@@ -25,9 +25,13 @@
         const data = JSON.parse(event.data);
 
         if (data.type === "voteUpdate") {
+            // Keep previous state to detect a round reset from the server
+            const prevVotesRevealed = votesRevealed;
+
             votesRevealed = data.votesRevealed;
             isHost = data.participants.find(p => p.name === participantName)?.isHost === true;
 
+            // Host-only buttons visibility
             document.getElementById("revealButton").style.display = isHost && !votesRevealed ? "inline-block" : "none";
             document.getElementById("resetButton").style.display = isHost && votesRevealed ? "inline-block" : "none";
 
@@ -40,6 +44,18 @@
                 updateAverage(null);
             }
 
+            // --- Clear local selection when a new round starts ---
+            // Case 1: server toggled from revealed -> not revealed (round reset by someone else)
+            if (prevVotesRevealed && !votesRevealed) {
+                clearCardSelection();
+            }
+            // Case 2 (extra safety): no one has a vote -> treat as fresh round
+            if (!votesRevealed && Array.isArray(data.participants) && data.participants.every(p => p.vote == null)) {
+                clearCardSelection();
+            }
+            // ------------------------------------------------------
+
+            // Finally reflect current local selection (will be none if just cleared)
             highlightSelectedCard();
         } else if (data.type === "hostChanged") {
             const { oldHost, newHost } = data;
@@ -52,6 +68,15 @@
     function sendVote(cardValue) {
         socket.send("vote:" + participantName + ":" + cardValue);
         selectedCard = cardValue;
+        // (Optional) Persist locally if you ever want to restore on refresh:
+        // try { localStorage.setItem('selectedCard', cardValue); } catch(e) {}
+        highlightSelectedCard();
+    }
+
+    // Clear the local selected card and its visual highlight
+    function clearCardSelection() {
+        selectedCard = null;
+        try { localStorage.removeItem('selectedCard'); } catch(e) {}
         highlightSelectedCard();
     }
 
@@ -71,8 +96,8 @@
 
     function resetRoom() {
         if (isHost) socket.send("resetRoom");
-        selectedCard = null;
-        highlightSelectedCard();
+        // Immediately clear locally so the highlight doesn't stick until the server update arrives
+        clearCardSelection();
     }
 
     // Render participant list as: [icon][name text][status]
@@ -112,7 +137,7 @@
                 rightWrap.appendChild(voteChip);
             } else {
                 if (p.disconnected) {
-                    // empty
+                    // no status badge for disconnected users
                 } else if (p.vote != null) {
                     const status = document.createElement("span");
                     status.className = "status-icon done";
