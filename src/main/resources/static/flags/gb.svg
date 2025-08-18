@@ -1,15 +1,16 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30 20">
-  <rect width="30" height="20" fill="#012169"/>
-  <!-- white diagonals -->
-  <polygon points="0,2 2,0 30,18 28,20" fill="#fff"/>
-  <polygon points="28,0 30,2 2,20 0,18" fill="#fff"/>
-  <!-- red diagonals -->
-  <polygon points="0,3.2 3.2,0 30,16.8 26.8,20" fill="#C8102E"/>
-  <polygon points="26.8,0 30,3.2 3.2,20 0,16.8" fill="#C8102E"/>
-  <!-- white cross -->
-  <rect x="12" width="6" height="20" fill="#fff"/>
-  <rect y="7" width="30" height="6" fill="#fff"/>
-  <!-- red cross -->
-  <rect x="13.5" width="3" height="20" fill="#C8102E"/>
-  <rect y="8.5" width="30" height="3" fill="#C8102E"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 30">
+  <!-- Blue field -->
+  <rect width="60" height="30" fill="#012169"/>
+  <!-- White diagonals (full to corners) -->
+  <polygon fill="#FFF" points="0,0 6,0 60,24 60,30 54,30 0,6"/>
+  <polygon fill="#FFF" points="60,0 54,0 0,24 0,30 6,30 60,6"/>
+  <!-- Red diagonals with correct offset (no stroke gaps) -->
+  <polygon fill="#C8102E" points="0,0 3.5,0 60,25.5 60,30 56.5,30 0,4.5"/>
+  <polygon fill="#C8102E" points="60,0 56.5,0 0,25.5 0,30 3.5,30 60,4.5"/>
+  <!-- Central white cross -->
+  <rect x="0" y="12" width="60" height="6" fill="#FFF"/>
+  <rect x="27" y="0" width="6" height="30" fill="#FFF"/>
+  <!-- Central red cross -->
+  <rect x="0" y="13.5" width="60" height="3" fill="#C8102E"/>
+  <rect x="28.5" y="0" width="3" height="30" fill="#C8102E"/>
 </svg>
