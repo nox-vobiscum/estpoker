@@ -277,7 +277,7 @@ button.shake { animation: shake .4s; }
     color: var(--text);
     position: relative;
     /* make shorter by using a landscape-ish ratio (width / height) */
-    aspect-ratio: 7 / 6;
+    aspect-ratio: 5 / 3;
 }
 .card-grid button:hover {
     background: #36383c;
@@ -384,7 +384,7 @@ li { margin-bottom: 0.4rem; line-height: 1.5; font-size: 1rem; }
         font-size: clamp(1.2rem, 6vw, 1.6rem);
         margin: 0.25rem;
         line-height: 1.2;
-        aspect-ratio: 7 / 6;
+        aspect-ratio: 5 / 3;
     }
 
     .button { width: 100%; font-size: calc(1rem * 1.2); }
