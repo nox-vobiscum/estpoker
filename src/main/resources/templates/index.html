@@ -8,18 +8,16 @@
   <link rel="icon" href="https://noxvobiscum.at/wp-content/uploads/2022/09/cropped-nvb-favicon-32x32.png" sizes="32x32" />
   <!-- Early theme apply -->
   <script>
-    (function(){
-      try {
-        var t = localStorage.getItem('estpoker-theme') || 'dark';
-        if (t === 'system') document.documentElement.removeAttribute('data-theme');
-        else document.documentElement.setAttribute('data-theme', t);
-      } catch(e){}
-    })();
+    (function(){try{
+      var t=localStorage.getItem('estpoker-theme')||'dark';
+      if(t==='system')document.documentElement.removeAttribute('data-theme');
+      else document.documentElement.setAttribute('data-theme',t);
+    }catch(e){}})();
   </script>
   <link rel="stylesheet" th:href="@{/styles.css}">
 </head>
 <body>
-<!-- Hamburger (morphs to ✕ when open) -->
+<!-- Hamburger (morphs ☰ → ✕) -->
 <button id="menuButton" class="menu-button" aria-expanded="false" aria-controls="appMenuOverlay" aria-label="Open menu">☰</button>
 
 <!-- Overlay Menu -->
@@ -29,7 +27,6 @@
     <div class="menu-header">
       <h3 id="menuTitle" th:text="#{menu.title}">Settings</h3>
     </div>
-
     <div class="menu-section">
       <!-- Language -->
       <button id="langRow" class="menu-item" type="button" aria-label="Switch language">
@@ -55,15 +52,15 @@
   </div>
 </div>
 
-<!-- Hidden fallback form for /i18n (in case fetch is blocked) -->
-<form id="i18nForm" th:action="@{/i18n}" method="post" class="hidden">
+<!-- Hidden fallback form for /i18n -->
+<form id="i18nForm" action="/i18n" method="post" class="hidden">
   <input type="hidden" name="lang" id="i18nLang">
 </form>
 
 <div class="container landing-container">
   <h1 th:text="#{ui.heading}">🃏 RBS' Estimation Poker</h1>
 
-  <!-- Error message -->
+  <!-- Error -->
   <div th:if="${error != null or param.error != null}" class="error"
        th:text="${error != null ? error : param.error}">Error</div>
 
@@ -119,7 +116,7 @@
 </div>
 
 <script>
-/* ===== Menu open/close (morph ☰ ⇄ ✕) ===== */
+/* ===== Menu (morph) ===== */
 (function(){
   const btn = document.getElementById('menuButton');
   const overlay = document.getElementById('appMenuOverlay');
@@ -148,7 +145,7 @@
   window.addEventListener('keydown', (e)=>{ if(e.key==='Escape') closeMenu(); });
 })();
 
-/* ===== Theme handling (light/dark/system) ===== */
+/* ===== Theme (readyState-safe) ===== */
 (function(){
   const bLight  = document.getElementById('themeLight');
   const bDark   = document.getElementById('themeDark');
@@ -162,16 +159,19 @@
     ({light:bLight, dark:bDark, system:bSystem}[t||'dark'])?.classList.add('active');
   }
 
-  document.addEventListener('DOMContentLoaded', function(){
+  function init(){
     const saved = localStorage.getItem('estpoker-theme') || 'dark';
     ({light:bLight, dark:bDark, system:bSystem}[saved])?.classList.add('active');
     bLight?.addEventListener('click', ()=>applyTheme('light'));
     bDark?.addEventListener('click',  ()=>applyTheme('dark'));
     bSystem?.addEventListener('click',()=>applyTheme('system'));
-  });
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
 })();
 
-/* ===== Language: POST /i18n (with fetch + form fallback) ===== */
+/* ===== Language (readyState-safe, POST /i18n + fallback) ===== */
 (function(){
   const row   = document.getElementById('langRow');
   const cur   = (document.documentElement.lang || 'en').toLowerCase();
@@ -189,31 +189,31 @@
   function nextLang(){ return cur.startsWith('de') ? 'en' : 'de'; }
 
   async function switchLang(to){
-    // try fetch
     try{
-      const resp = await fetch('/i18n', {
+      await fetch('/i18n', {
         method:'POST',
         headers:{'Content-Type':'application/x-www-form-urlencoded'},
         body:'lang='+encodeURIComponent(to),
         credentials:'same-origin'
       });
-      // regardless of status, reload to render locale from session
       location.reload();
     }catch(e){
-      // fallback: oldschool form POST (guaranteed network entry)
       if(form && input){ input.value = to; form.submit(); }
       else { location.reload(); }
     }
   }
 
-  document.addEventListener('DOMContentLoaded', function(){
+  function init(){
     setSplit(cur);
     row?.addEventListener('click', function(){
       const to = nextLang();
       setSplit(to);
       switchLang(to);
     });
-  });
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
 })();
 </script>
 </body>

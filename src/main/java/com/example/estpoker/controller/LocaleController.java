@@ -28,7 +28,7 @@ public class LocaleController {
                 : Locale.ENGLISH;
 
         localeResolver.setLocale(request, response, target);
-        // 204 -> client reloads the current page (URL unchanged)
+        // 204 -> client reloads current page (URL unchanged)
         return ResponseEntity.noContent().build();
     }
 }

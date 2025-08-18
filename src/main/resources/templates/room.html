@@ -7,21 +7,17 @@
   <title th:text="#{app.title}">RBS' Estimation Poker</title>
   <link rel="icon" href="https://noxvobiscum.at/wp-content/uploads/2022/09/cropped-nvb-favicon-32x32.png" sizes="32x32" />
   <script>
-    (function(){
-      try {
-        var t = localStorage.getItem('estpoker-theme') || 'dark';
-        if (t === 'system') document.documentElement.removeAttribute('data-theme');
-        else document.documentElement.setAttribute('data-theme', t);
-      } catch(e){}
-    })();
+    (function(){try{
+      var t=localStorage.getItem('estpoker-theme')||'dark';
+      if(t==='system')document.documentElement.removeAttribute('data-theme');
+      else document.documentElement.setAttribute('data-theme',t);
+    }catch(e){}})();
   </script>
   <link rel="stylesheet" th:href="@{/styles.css}">
 </head>
 <body>
-<!-- Hamburger -->
 <button id="menuButton" class="menu-button" aria-expanded="false" aria-controls="appMenuOverlay" aria-label="Open menu">☰</button>
 
-<!-- Overlay Menu -->
 <div id="appMenuOverlay" class="menu-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="menuTitle">
   <div class="menu-backdrop" data-close></div>
   <div class="menu-panel">
@@ -54,14 +50,14 @@
 </div>
 
 <!-- Hidden fallback form for /i18n -->
-<form id="i18nForm" th:action="@{/i18n}" method="post" class="hidden">
+<form id="i18nForm" action="/i18n" method="post" class="hidden">
   <input type="hidden" name="lang" id="i18nLang">
 </form>
 
 <div class="container">
   <h1 th:text="#{ui.heading}">🃏 RBS' Estimation Poker</h1>
 
-  <!-- Aligned info rows -->
+  <!-- Info rows -->
   <dl class="main-info">
     <dt><span class="mi-icon" aria-hidden="true">🆔</span><span class="mi-label" th:text="#{label.room}">Room:</span></dt>
     <dd><strong th:text="${roomCode}">demo</strong></dd>
@@ -111,24 +107,11 @@
 </div>
 
 <script th:inline="javascript">
-/* ===== Menu (morph + simple focus trap) ===== */
+/* ===== Menu (morph + basic focus handling) ===== */
 (function(){
   const btn = document.getElementById('menuButton');
   const overlay = document.getElementById('appMenuOverlay');
-  const panel = overlay?.querySelector('.menu-panel');
   const backdrop = overlay?.querySelector('[data-close]');
-  let lastFocus = null;
-
-  function focusables(){
-    return panel.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
-  }
-  function trapTab(e){
-    if (e.key !== 'Tab' || overlay.classList.contains('hidden')) return;
-    const f = focusables(); if (!f.length) return;
-    const first = f[0], last = f[f.length-1];
-    if (e.shiftKey && document.activeElement === first) { last.focus(); e.preventDefault(); }
-    else if (!e.shiftKey && document.activeElement === last) { first.focus(); e.preventDefault(); }
-  }
 
   function openMenu(){
     document.body.classList.add('menu-open');
@@ -137,9 +120,6 @@
     btn.setAttribute('aria-expanded','true');
     btn.setAttribute('aria-label', /*[[#{menu.close}]]*/ 'Close menu');
     btn.textContent = '✕';
-    lastFocus = document.activeElement;
-    setTimeout(()=>focusables()[0]?.focus(), 0);
-    window.addEventListener('keydown', trapTab);
   }
   function closeMenu(){
     document.body.classList.remove('menu-open');
@@ -148,8 +128,6 @@
     btn.setAttribute('aria-expanded','false');
     btn.setAttribute('aria-label', /*[[#{menu.open}]]*/ 'Open menu');
     btn.textContent = '☰';
-    window.removeEventListener('keydown', trapTab);
-    lastFocus?.focus();
   }
   function toggleMenu(){ overlay.classList.contains('hidden') ? openMenu() : closeMenu(); }
 
@@ -158,7 +136,7 @@
   window.addEventListener('keydown', (e)=>{ if(e.key==='Escape') closeMenu(); });
 })();
 
-/* ===== Theme ===== */
+/* ===== Theme (readyState-safe) ===== */
 (function(){
   const bLight  = document.getElementById('themeLight');
   const bDark   = document.getElementById('themeDark');
@@ -172,16 +150,19 @@
     ({light:bLight, dark:bDark, system:bSystem}[t||'dark'])?.classList.add('active');
   }
 
-  document.addEventListener('DOMContentLoaded', function(){
+  function init(){
     const saved = localStorage.getItem('estpoker-theme') || 'dark';
     ({light:bLight, dark:bDark, system:bSystem}[saved])?.classList.add('active');
     bLight?.addEventListener('click', ()=>applyTheme('light'));
     bDark?.addEventListener('click',  ()=>applyTheme('dark'));
     bSystem?.addEventListener('click',()=>applyTheme('system'));
-  });
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
 })();
 
-/* ===== Language: POST /i18n (fetch + form fallback) ===== */
+/* ===== Language (readyState-safe, POST /i18n + fallback) ===== */
 (function(){
   const row   = document.getElementById('langRow');
   const cur   = (document.documentElement.lang || 'en').toLowerCase();
@@ -200,7 +181,7 @@
 
   async function switchLang(to){
     try{
-      const resp = await fetch('/i18n', {
+      await fetch('/i18n', {
         method:'POST',
         headers:{'Content-Type':'application/x-www-form-urlencoded'},
         body:'lang='+encodeURIComponent(to),
@@ -213,17 +194,20 @@
     }
   }
 
-  document.addEventListener('DOMContentLoaded', function(){
+  function init(){
     setSplit(cur);
     row?.addEventListener('click', function(){
       const to = nextLang();
       setSplit(to);
       switchLang(to);
     });
-  });
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
 })();
 
-/* === Game logic (unchanged) === */
+/* ===== Game logic (unchanged) ===== */
 let participantName = /*[[${participantName}]]*/ "Guest";
 let roomCode = /*[[${roomCode}]]*/ "demo";
 let selectedCard = null;
@@ -305,7 +289,7 @@ function updateParticipantList(participants, revealed) {
     icon.className = p.isHost
       ? "participant-icon host"
       : (p.disconnected ? "participant-icon inactive" : "participant-icon");
-    icon.textContent = p.isHost ? "👑" : (p.disconnected ? "💤" : "👤");
+    icon.textContent = p.isHost ? "👑" : (p.disconnected ? "💤" : "👤";
 
     const nameSpan = document.createElement("span");
     nameSpan.className = "name";
@@ -376,7 +360,7 @@ function showToast(message) {
 }
 </script>
 
-<!-- Tiny local toast CSS kept inline -->
+<!-- Small local CSS for toast animation -->
 <style>
 .toast {
   position: fixed; top: 20px; right: 20px; background-color: #333; color: white;
