@@ -1,15 +1,43 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org" lang="de" data-theme="dark">
+<html xmlns:th="http://www.thymeleaf.org" lang="de">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="color-scheme" content="dark light">
     <title>RBS' Estimation Poker</title>
     <link rel="icon" href="https://noxvobiscum.at/wp-content/uploads/2022/09/cropped-nvb-favicon-32x32.png" sizes="32x32" />
+    <!-- Early theme apply -->
+    <script>
+      (function(){
+        try {
+          var t = localStorage.getItem('estpoker-theme') || 'dark';
+          if (t === 'system') { document.documentElement.removeAttribute('data-theme'); }
+          else { document.documentElement.setAttribute('data-theme', t); }
+        } catch(e){}
+      })();
+    </script>
     <link rel="stylesheet" th:href="@{/styles.css}">
 </head>
 <body>
 <script th:inline="javascript">
+    // Theme switcher (shared)
+    (function(){
+        document.addEventListener('DOMContentLoaded', function(){
+            const sel = document.getElementById('themeSelect');
+            if (!sel) return;
+            try {
+                const saved = localStorage.getItem('estpoker-theme') || 'dark';
+                sel.value = saved;
+                sel.addEventListener('change', function(){
+                    const v = sel.value;
+                    try { localStorage.setItem('estpoker-theme', v); } catch(e){}
+                    if (v === 'system') document.documentElement.removeAttribute('data-theme');
+                    else document.documentElement.setAttribute('data-theme', v);
+                });
+            } catch(e){}
+        });
+    })();
+
     let participantName = /*[[${participantName}]]*/ "Gast";
     let roomCode = /*[[${roomCode}]]*/ "demo";
     let selectedCard = null;
@@ -28,13 +56,12 @@
 
         if (data.type === "voteUpdate") {
             const prevVotesRevealed = votesRevealed;
-
             const participants = Array.isArray(data.participants) ? data.participants : [];
 
             votesRevealed = data.votesRevealed;
             isHost = participants.find(p => p.name === participantName)?.isHost === true;
 
-            // Host-only controls
+            // Host-only buttons visibility
             document.getElementById("revealButton").style.display = isHost && !votesRevealed ? "inline-block" : "none";
             document.getElementById("resetButton").style.display = isHost && votesRevealed ? "inline-block" : "none";
 
@@ -47,7 +74,6 @@
                 updateAverage(null);
             }
 
-            // Clear local selection on server reset
             if (prevVotesRevealed && !votesRevealed) {
                 clearCardSelection();
             }
@@ -55,7 +81,6 @@
                 clearCardSelection();
             }
 
-            // Reflect current local selection
             highlightSelectedCard();
         } else if (data.type === "hostChanged") {
             const { oldHost, newHost } = data;
@@ -96,7 +121,7 @@
         clearCardSelection();
     }
 
-    // Render participant list: [icon][name][status]
+    // Render participant list as: [icon][name text][status]
     function updateParticipantList(participants, revealed) {
         const list = document.getElementById("liveParticipantList");
         if (!list) return;
@@ -126,11 +151,18 @@
             if (revealed) {
                 const voteChip = document.createElement("span");
                 voteChip.className = "vote-chip";
-                voteChip.textContent = p.vote != null ? p.vote : "—";
+                const v = p.vote != null ? String(p.vote) : null;
+                voteChip.textContent = v != null ? v : "—";
+
+                // Non-numeric votes (special cards) get a high-contrast chip
+                if (v && !/^\d+$/.test(v)) {
+                    voteChip.classList.add("special");
+                }
+
                 rightWrap.appendChild(voteChip);
             } else {
                 if (p.disconnected) {
-                    // no badge for disconnected users
+                    // no status badge for disconnected users
                 } else if (p.vote != null) {
                     const status = document.createElement("span");
                     status.className = "status-icon done";
@@ -162,7 +194,7 @@
         list.style.setProperty("--name-text-col", Math.ceil(maxTextWidth) + "px");
     }
 
-    // Debounced resize measure
+    // Re-measure on resize (debounced)
     window.addEventListener("resize", () => {
         clearTimeout(resizeTimer);
         resizeTimer = setTimeout(measureAndSetNameColumn, 150);
@@ -193,6 +225,15 @@
 </script>
 
 <div class="container">
+    <div class="toolbar">
+        <label for="themeSelect" class="sr-only">Theme</label>
+        <select id="themeSelect" class="theme-select" aria-label="Theme auswählen">
+            <option value="dark">Dark</option>
+            <option value="light">Light</option>
+            <option value="system">System</option>
+        </select>
+    </div>
+
     <h1>🃏 RBS' Estimation Poker</h1>
     <div class="main-info">
         <p>🆔 Raum: <strong th:text="${roomCode}">demo</strong></p>

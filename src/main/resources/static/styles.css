@@ -1,11 +1,8 @@
 /* ===========================
    THEME & TOKENS
-   - VS Code Dark as default
-   - Ready for future light mode via [data-theme] or prefers-color-scheme
    =========================== */
-
 html {
-    /* === Dark theme (default) === */
+    /* Dark theme (default) */
     --bg: #1e1e1e;
     --text: #d4d4d4;
     --text-strong: #ffffff;
@@ -15,9 +12,9 @@ html {
     --panel-2: #3c3c3c;
     --border: #3c3c3c;
 
-    --accent: #007acc;      /* primary blue */
+    --accent: #007acc;
     --accent-strong: #005a9e;
-    --ok: #4CAF50;          /* green (OK / vote chip) */
+    --ok: #4CAF50;
     --ok-border: #81C784;
     --warn: #FFD54F;
     --danger: #ef4444;
@@ -32,20 +29,25 @@ html {
     --gap: 12px;
     --gap-sm: 8px;
 
-    /* Card sizing (new: fixed, non-stretching) */
-    --card-size-desktop: 72px; /* width & height (square via aspect-ratio) */
+    /* Card sizing (fixed cell width) */
+    --card-size-desktop: 72px;
     --card-size-mobile: 56px;
+    --card-aspect: 4 / 3; /* width / height → slightly rectangular (less tall) */
 
     /* Spacing before voting section */
     --pre-vote-margin-desktop: 2rem;
     --pre-vote-margin-mobile: 1.5rem;
 
     /* Participant list columns */
-    --icon-col-width: 1.5rem;  /* fits 👑/👤/💤 */
-    --name-text-col: 0px;      /* set via JS if a name exceeds 18ch */
+    --icon-col-width: 1.5rem;
+    --name-text-col: 0px;
+
+    /* Special vote chip colors (for emoji/symbol cards) */
+    --special-chip-bg: #2e2e33;
+    --special-chip-border: #57595f;
+    --special-chip-fg: #ffffff;
 }
 
-/* Light theme overrides (available for future toggle) */
 html[data-theme="light"] {
     --bg: #f7f7f8;
     --text: #1b1b1d;
@@ -64,9 +66,13 @@ html[data-theme="light"] {
     --danger: #c24141;
 
     --shadow: 0 8px 24px rgba(0,0,0,0.07);
+
+    --special-chip-bg: #f1f3f5;
+    --special-chip-border: #c9ccd1;
+    --special-chip-fg: #1b1b1d;
 }
 
-/* Respect system preference when no explicit data-theme set */
+/* System preference if no data-theme set */
 @media (prefers-color-scheme: light) {
     html:not([data-theme]) {
         --bg: #f7f7f8;
@@ -86,6 +92,10 @@ html[data-theme="light"] {
         --danger: #c24141;
 
         --shadow: 0 8px 24px rgba(0,0,0,0.07);
+
+        --special-chip-bg: #f1f3f5;
+        --special-chip-border: #c9ccd1;
+        --special-chip-fg: #1b1b1d;
     }
 }
 
@@ -104,6 +114,26 @@ body {
 h1, h2 { color: var(--text-strong); margin-bottom: 2rem; font-size: 1.1rem; }
 strong { color: var(--text-strong); }
 .main-info { margin-bottom: 2rem; }
+
+/* Toolbar / Theme switch */
+.toolbar {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+.theme-select {
+    height: 36px;
+    padding: 0 10px;
+    background: var(--panel-2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    outline: none;
+}
+.theme-select:focus { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent); border-color: var(--accent); }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); border: 0; }
 
 /* ===========================
    LANDING / FORM
@@ -184,36 +214,32 @@ button[type="submit"]:disabled { opacity: .6; cursor: not-allowed; }
 button.shake { animation: shake 0.4s; }
 
 /* ===========================
-   CARD GRID & CARD BUTTONS
-   - NEW: fixed-size cards, no stretch with container width
-   - Smaller cards + bigger labels
+   CARD GRID & CARDS
    =========================== */
-
 .card-grid {
     --card-size: var(--card-size-desktop);
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(var(--card-size), var(--card-size))); /* fixed size cells */
-    justify-content: center; /* center the row when leftover space exists */
+    grid-template-columns: repeat(auto-fit, minmax(var(--card-size), var(--card-size))); /* fixed width cells */
+    justify-content: center;
     gap: 8px;
     margin: 1rem 0;
 }
 
-/* Card button */
 .card-grid button {
     width: var(--card-size);
-    aspect-ratio: 1 / 1;             /* square cards; change to e.g. 4/3 if you prefer shorter height */
-    padding: 0.6rem;                 /* reduced padding to keep cards compact */
+    aspect-ratio: var(--card-aspect); /* 4/3: less tall than square */
+    padding: 0.55rem;
     background: var(--panel);
     border: 1px solid var(--border);
     border-radius: 10px;
     cursor: pointer;
     transition: transform 0.15s ease, box-shadow 0.2s ease, background 0.2s ease, border-color 0.2s ease;
-    font-size: clamp(1.0rem, 2.4vw, 1.35rem); /* bigger labels but capped */
+    font-size: clamp(1.05rem, 2.6vw, 1.4rem); /* slightly larger labels */
     line-height: 1;
     text-align: center;
     color: var(--text);
     position: relative;
-    margin: 0;                       /* no extra margin (gap handles spacing) */
+    margin: 0;
 }
 .card-grid button:hover {
     background: #36383c;
@@ -222,7 +248,7 @@ button.shake { animation: shake 0.4s; }
     border-color: #4a4a4a;
 }
 
-/* Selected state (pre-reveal): blue ring & subtle lift */
+/* Selected state */
 button.selected {
     background-color: #163a52 !important;
     color: #fff !important;
@@ -232,7 +258,7 @@ button.selected {
     transform: scale(1.03);
 }
 
-/* Checkmark (pre-reveal) toggled by JS */
+/* Checkmark (pre-reveal) */
 .card-grid .checkmark {
     position: absolute;
     top: 6px;
@@ -257,10 +283,8 @@ button.selected .checkmark { display: block; opacity: 1; transform: scale(1); }
 ul { list-style: none; padding: 0; margin: 0; }
 li { margin-bottom: 0.4rem; line-height: 1.5; font-size: 1rem; }
 
-/* Remove legacy auto-checkmark */
 #liveParticipantList li[data-hasvote]::after { content: ""; }
 
-/* 3-column grid: [icon] [name text = max(18ch, measured)] [status] */
 #liveParticipantList .participant-row {
     display: grid;
     grid-template-columns: var(--icon-col-width) max(18ch, var(--name-text-col)) auto;
@@ -276,63 +300,25 @@ li { margin-bottom: 0.4rem; line-height: 1.5; font-size: 1rem; }
     outline: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
 }
 
-/* Icon column (left) */
-.participant-icon {
-    width: var(--icon-col-width);
-    display: inline-flex;
-    justify-content: center;
-    align-items: center;
-    line-height: 1;
-}
+.participant-icon { width: var(--icon-col-width); display: inline-flex; justify-content: center; align-items: center; line-height: 1; }
 .participant-icon.host { font-size: 1.1rem; }
 .participant-icon.inactive { opacity: 0.75; }
 
-/* Name text (middle) */
-.name {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    min-width: 0;
-    color: var(--text);
-}
+.name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; color: var(--text); }
 
-/* Status column (right) */
-.row-right {
-    display: inline-flex;
-    align-items: center;
-    justify-content: flex-start;
-    margin: 0;
-    padding: 0;
-    gap: 6px;
-}
+.row-right { display: inline-flex; align-items: center; justify-content: flex-start; margin: 0; padding: 0; gap: 6px; }
 
-/* Disconnected: italic, no strikethrough */
-#liveParticipantList li.disconnected {
-    color: #888;
-    font-style: italic;
-    text-decoration: none;
-}
+#liveParticipantList li.disconnected { color: #888; font-style: italic; text-decoration: none; }
 
 /* Status icons (pre-reveal) */
-.status-icon {
-    font-size: 1rem;
-    line-height: 1;
-    display: inline-flex;
-    align-items: center;
-}
-.status-icon.done {
-  color: var(--ok);
-  filter: drop-shadow(0 0 2px rgba(76, 175, 80, 0.6));
-}
-.status-icon.pending {
-  color: var(--warn);
-  opacity: 0.95;
-}
+.status-icon { font-size: 1rem; line-height: 1; display: inline-flex; align-items: center; }
+.status-icon.done { color: var(--ok); filter: drop-shadow(0 0 2px rgba(76, 175, 80, 0.6)); }
+.status-icon.pending { color: var(--warn); opacity: 0.95; }
 
 /* Vote chip (post-reveal) */
 .vote-chip {
     display: inline-block;
-    padding: 0.15rem 0.5rem;
+    padding: 0.18rem 0.55rem;
     border-radius: 8px;
     background-color: var(--ok);
     color: #fff;
@@ -347,9 +333,18 @@ li { margin-bottom: 0.4rem; line-height: 1.5; font-size: 1rem; }
     transform: translateY(6px);
     animation: chipIn 220ms ease forwards;
 }
+/* High-contrast variant for special (non-numeric) votes like ☕ ? 📣 */
+.vote-chip.special {
+    background-color: var(--special-chip-bg);
+    border-color: var(--special-chip-border);
+    color: var(--special-chip-fg);
+    box-shadow: 0 0 6px color-mix(in srgb, var(--special-chip-bg) 60%, transparent);
+    font-size: 1.05rem; /* a tad larger for emoji legibility */
+}
+
 @keyframes chipIn { to { opacity: 1; transform: translateY(0); } }
 
-/* Optional host badge (if used) */
+/* Optional host badge */
 .host-label {
     font-size: 0.9em; color: #FFD700; background-color: #444;
     padding: 2px 6px; border-radius: 999px; margin-left: 0.5rem; font-weight: normal;
@@ -371,7 +366,7 @@ li { margin-bottom: 0.4rem; line-height: 1.5; font-size: 1rem; }
 @keyframes avgIn { to { opacity: 1; } }
 
 /* ===========================
-   TOASTS (global style)
+   TOASTS
    =========================== */
 .toast {
     position: fixed; top: 20px; right: 20px; background-color: color-mix(in srgb, #333 95%, transparent); color: white;
@@ -383,9 +378,6 @@ li { margin-bottom: 0.4rem; line-height: 1.5; font-size: 1rem; }
 }
 @keyframes fadein { to { opacity: 0.95; transform: translateY(0);} }
 @keyframes fadeout { to { opacity: 0; } }
-
-/* Host crown icon next to name (if used) */
-.host-icon { font-size: 1rem; margin-right: 0.4rem; vertical-align: middle; cursor: default; }
 
 /* ===========================
    UTILITIES
@@ -399,11 +391,10 @@ li { margin-bottom: 0.4rem; line-height: 1.5; font-size: 1rem; }
     body { padding: 1rem; }
     .container { padding: 0.5rem; }
 
-    /* Smaller cards on mobile (still readable labels) */
     .card-grid { --card-size: var(--card-size-mobile); gap: 6px; }
     .card-grid button {
-        padding: 0.5rem;
-        font-size: clamp(1rem, 5.5vw, 1.2rem);
+        padding: 0.45rem;
+        font-size: clamp(1.0rem, 5.5vw, 1.2rem);
     }
 
     .button, button[type="submit"] { width: 100%; padding: 0 1.2rem; font-size: 1.05rem; }

@@ -1,19 +1,37 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org" lang="de" data-theme="dark">
+<html xmlns:th="http://www.thymeleaf.org" lang="de">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="color-scheme" content="dark light">
     <title>RBS' Estimation Poker</title>
     <link rel="icon" href="https://noxvobiscum.at/wp-content/uploads/2022/09/cropped-nvb-favicon-32x32.png" sizes="32x32" />
+    <!-- Early theme apply to reduce FOUC -->
+    <script>
+      (function(){
+        try {
+          var t = localStorage.getItem('estpoker-theme') || 'dark';
+          if (t === 'system') { document.documentElement.removeAttribute('data-theme'); }
+          else { document.documentElement.setAttribute('data-theme', t); }
+        } catch(e){}
+      })();
+    </script>
     <link rel="stylesheet" th:href="@{/styles.css}">
 </head>
 <body>
-
 <div class="container">
+    <div class="toolbar">
+        <label for="themeSelect" class="sr-only">Theme</label>
+        <select id="themeSelect" class="theme-select" aria-label="Theme auswählen">
+            <option value="dark">Dark</option>
+            <option value="light">Light</option>
+            <option value="system">System</option>
+        </select>
+    </div>
+
     <h1>🃏 RBS' Estimation Poker</h1>
 
-    <!-- Error display (kept functional) -->
+    <!-- Fehleranzeige -->
     <div th:if="${error != null or param.error != null}"
          class="error"
          th:text="${error != null ? error : param.error}">Fehlermeldung</div>
@@ -35,13 +53,13 @@
                            id="roomCode"
                            name="roomCode"
                            th:value="${param.roomCode != null ? param.roomCode : roomCode}">
-                    <!-- Live availability status -->
+                    <!-- Live-Status für Namensverfügbarkeit -->
                     <div id="nameCheck" class="hint" aria-live="polite"></div>
                 </div>
             </div>
         </div>
 
-        <!-- Persistent room -->
+        <!-- Persistenter Raum -->
         <div class="checkbox-row">
             <input type="checkbox"
                    id="persistent"
@@ -54,7 +72,7 @@
             bis der Auto-Cleanup greift.
         </p>
 
-        <!-- Test room (only visible when persistent) -->
+        <!-- Test-Raum (nur sichtbar bei persistent) -->
         <div id="testRoomWrap" class="checkbox-row hidden">
             <input type="checkbox"
                    id="testRoom"
@@ -72,8 +90,28 @@
     </form>
 </div>
 
-<!-- JS (unchanged logic; small UX only) -->
+<!-- JS -->
 <script th:inline="javascript">
+    // Theme switcher (shared)
+    (function(){
+        const sel = document.getElementById('themeSelect');
+        try {
+            const saved = localStorage.getItem('estpoker-theme') || 'dark';
+            sel.value = saved;
+            sel.addEventListener('change', function(){
+                const v = sel.value;
+                try {
+                    localStorage.setItem('estpoker-theme', v);
+                } catch(e){}
+                if (v === 'system') {
+                    document.documentElement.removeAttribute('data-theme');
+                } else {
+                    document.documentElement.setAttribute('data-theme', v);
+                }
+            });
+        } catch(e){}
+    })();
+
     (function () {
         const persistent = document.getElementById('persistent');
         const testWrap = document.getElementById('testRoomWrap');
@@ -190,6 +228,5 @@
         updateSubmitEnabled();
     })();
 </script>
-
 </body>
 </html>
