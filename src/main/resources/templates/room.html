@@ -6,18 +6,23 @@
   <meta name="color-scheme" content="dark light">
   <title th:text="#{app.title}">RBS' Estimation Poker</title>
   <link rel="icon" href="https://noxvobiscum.at/wp-content/uploads/2022/09/cropped-nvb-favicon-32x32.png" sizes="32x32" />
+  <!-- Early theme apply -->
   <script>
-    (function(){try{
-      var t=localStorage.getItem('estpoker-theme')||'dark';
-      if(t==='system')document.documentElement.removeAttribute('data-theme');
-      else document.documentElement.setAttribute('data-theme',t);
-    }catch(e){}})();
+    (function(){
+      try {
+        var t = localStorage.getItem('estpoker-theme') || 'dark';
+        if (t === 'system') document.documentElement.removeAttribute('data-theme');
+        else document.documentElement.setAttribute('data-theme', t);
+      } catch(e){}
+    })();
   </script>
   <link rel="stylesheet" th:href="@{/styles.css}">
 </head>
 <body>
+<!-- Hamburger -->
 <button id="menuButton" class="menu-button" aria-expanded="false" aria-controls="appMenuOverlay" aria-label="Open menu">☰</button>
 
+<!-- Overlay Menu -->
 <div id="appMenuOverlay" class="menu-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="menuTitle">
   <div class="menu-backdrop" data-close></div>
   <div class="menu-panel">
@@ -49,7 +54,7 @@
   </div>
 </div>
 
-<!-- Hidden fallback form for /i18n -->
+<!-- Hidden form as fallback for language switch -->
 <form id="i18nForm" action="/i18n" method="post" class="hidden">
   <input type="hidden" name="lang" id="i18nLang">
 </form>
@@ -57,7 +62,7 @@
 <div class="container">
   <h1 th:text="#{ui.heading}">🃏 RBS' Estimation Poker</h1>
 
-  <!-- Info rows -->
+  <!-- Aligned info rows -->
   <dl class="main-info">
     <dt><span class="mi-icon" aria-hidden="true">🆔</span><span class="mi-label" th:text="#{label.room}">Room:</span></dt>
     <dd><strong th:text="${roomCode}">demo</strong></dd>
@@ -107,11 +112,24 @@
 </div>
 
 <script th:inline="javascript">
-/* ===== Menu (morph + basic focus handling) ===== */
+/* ===== Menu (morph + focus trap) ===== */
 (function(){
   const btn = document.getElementById('menuButton');
   const overlay = document.getElementById('appMenuOverlay');
+  const panel = overlay?.querySelector('.menu-panel');
   const backdrop = overlay?.querySelector('[data-close]');
+  let lastFocus = null;
+
+  function focusables(){
+    return panel.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+  }
+  function trapTab(e){
+    if (e.key !== 'Tab' || overlay.classList.contains('hidden')) return;
+    const f = focusables(); if (!f.length) return;
+    const first = f[0], last = f[f.length-1];
+    if (e.shiftKey && document.activeElement === first) { last.focus(); e.preventDefault(); }
+    else if (!e.shiftKey && document.activeElement === last) { first.focus(); e.preventDefault(); }
+  }
 
   function openMenu(){
     document.body.classList.add('menu-open');
@@ -120,6 +138,9 @@
     btn.setAttribute('aria-expanded','true');
     btn.setAttribute('aria-label', /*[[#{menu.close}]]*/ 'Close menu');
     btn.textContent = '✕';
+    lastFocus = document.activeElement;
+    setTimeout(()=>focusables()[0]?.focus(), 0);
+    window.addEventListener('keydown', trapTab);
   }
   function closeMenu(){
     document.body.classList.remove('menu-open');
@@ -128,6 +149,8 @@
     btn.setAttribute('aria-expanded','false');
     btn.setAttribute('aria-label', /*[[#{menu.open}]]*/ 'Open menu');
     btn.textContent = '☰';
+    window.removeEventListener('keydown', trapTab);
+    lastFocus?.focus();
   }
   function toggleMenu(){ overlay.classList.contains('hidden') ? openMenu() : closeMenu(); }
 
@@ -136,7 +159,7 @@
   window.addEventListener('keydown', (e)=>{ if(e.key==='Escape') closeMenu(); });
 })();
 
-/* ===== Theme (readyState-safe) ===== */
+/* ===== Theme ===== */
 (function(){
   const bLight  = document.getElementById('themeLight');
   const bDark   = document.getElementById('themeDark');
@@ -150,61 +173,54 @@
     ({light:bLight, dark:bDark, system:bSystem}[t||'dark'])?.classList.add('active');
   }
 
-  function init(){
+  document.addEventListener('DOMContentLoaded', function(){
     const saved = localStorage.getItem('estpoker-theme') || 'dark';
     ({light:bLight, dark:bDark, system:bSystem}[saved])?.classList.add('active');
     bLight?.addEventListener('click', ()=>applyTheme('light'));
     bDark?.addEventListener('click',  ()=>applyTheme('dark'));
     bSystem?.addEventListener('click',()=>applyTheme('system'));
-  }
-
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
-  else init();
+  });
 })();
 
-/* ===== Language (readyState-safe, POST /i18n + fallback) ===== */
+/* ===== Language switch: fetch POST → reload; fallback → hidden form ===== */
 (function(){
   const row   = document.getElementById('langRow');
   const cur   = (document.documentElement.lang || 'en').toLowerCase();
   const a     = row?.querySelector('.flag-a');
   const b     = row?.querySelector('.flag-b');
   const label = document.getElementById('langCurrent');
-  const form  = document.getElementById('i18nForm');
-  const input = document.getElementById('i18nLang');
 
   function setSplit(lang){
     if (!a || !b) return;
     if (String(lang).startsWith('de')) { a.src='/flags/de.svg'; b.src='/flags/at.svg'; if (label) label.textContent='Deutsch'; }
     else { a.src='/flags/us.svg'; b.src='/flags/gb.svg'; if (label) label.textContent='English'; }
   }
-  function nextLang(){ return cur.startsWith('de') ? 'en' : 'de'; }
+  setSplit(cur);
 
-  async function switchLang(to){
+  async function postLang(to){
     try{
       await fetch('/i18n', {
         method:'POST',
         headers:{'Content-Type':'application/x-www-form-urlencoded'},
         body:'lang='+encodeURIComponent(to),
-        credentials:'same-origin'
+        credentials: 'same-origin',
+        cache: 'no-store'
       });
       location.reload();
-    }catch(e){
-      if(form && input){ input.value = to; form.submit(); }
-      else { location.reload(); }
+    }catch(err){
+      console.warn('fetch /i18n failed, falling back to form submit', err);
+      // Fallback: hidden form submit (and safety reload timer)
+      document.getElementById('i18nLang').value = to;
+      document.getElementById('i18nForm').submit();
+      setTimeout(()=>location.reload(), 300);
     }
   }
 
-  function init(){
-    setSplit(cur);
-    row?.addEventListener('click', function(){
-      const to = nextLang();
-      setSplit(to);
-      switchLang(to);
-    });
-  }
-
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
-  else init();
+  row?.addEventListener('click', function(){
+    const to = cur.startsWith('de') ? 'en' : 'de';
+    setSplit(to);
+    postLang(to);
+  });
 })();
 
 /* ===== Game logic (unchanged) ===== */
@@ -360,7 +376,7 @@ function showToast(message) {
 }
 </script>
 
-<!-- Small local CSS for toast animation -->
+<!-- Tiny local toast CSS (kept here as before) -->
 <style>
 .toast {
   position: fixed; top: 20px; right: 20px; background-color: #333; color: white;

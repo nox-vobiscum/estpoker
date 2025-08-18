@@ -6,18 +6,20 @@
   <meta name="color-scheme" content="dark light">
   <title th:text="#{app.title}">RBS' Estimation Poker</title>
   <link rel="icon" href="https://noxvobiscum.at/wp-content/uploads/2022/09/cropped-nvb-favicon-32x32.png" sizes="32x32" />
-  <!-- Early theme apply -->
+  <!-- Early theme apply (prevents flash) -->
   <script>
-    (function(){try{
-      var t=localStorage.getItem('estpoker-theme')||'dark';
-      if(t==='system')document.documentElement.removeAttribute('data-theme');
-      else document.documentElement.setAttribute('data-theme',t);
-    }catch(e){}})();
+    (function(){
+      try {
+        var t = localStorage.getItem('estpoker-theme') || 'dark';
+        if (t === 'system') document.documentElement.removeAttribute('data-theme');
+        else document.documentElement.setAttribute('data-theme', t);
+      } catch(e){}
+    })();
   </script>
   <link rel="stylesheet" th:href="@{/styles.css}">
 </head>
 <body>
-<!-- Hamburger (morphs ☰ → ✕) -->
+<!-- Hamburger (morphs to ✕ when open) -->
 <button id="menuButton" class="menu-button" aria-expanded="false" aria-controls="appMenuOverlay" aria-label="Open menu">☰</button>
 
 <!-- Overlay Menu -->
@@ -25,8 +27,9 @@
   <div class="menu-backdrop" data-close></div>
   <div class="menu-panel">
     <div class="menu-header">
-      <h3 id="menuTitle" th:text="#{menu.title}">Settings</h3>
+      <h3 id="menuTitle" th:text="#{menu.title}">Menu</h3>
     </div>
+
     <div class="menu-section">
       <!-- Language -->
       <button id="langRow" class="menu-item" type="button" aria-label="Switch language">
@@ -52,18 +55,18 @@
   </div>
 </div>
 
-<!-- Hidden fallback form for /i18n -->
+<!-- Hidden form for language switch (reliable POST + redirect back) -->
 <form id="i18nForm" action="/i18n" method="post" class="hidden">
   <input type="hidden" name="lang" id="i18nLang">
 </form>
 
+<h1 th:text="#{ui.heading}">🃏 RBS' Estimation Poker</h1>
+
+<!-- Error message -->
+<div th:if="${error != null or param.error != null}" class="error"
+     th:text="${error != null ? error : param.error}">Error</div>
+
 <div class="container landing-container">
-  <h1 th:text="#{ui.heading}">🃏 RBS' Estimation Poker</h1>
-
-  <!-- Error -->
-  <div th:if="${error != null or param.error != null}" class="error"
-       th:text="${error != null ? error : param.error}">Error</div>
-
   <form th:action="@{/join}" method="post" id="joinForm" class="join-form">
     <div class="form-row">
       <div class="form-field">
@@ -116,7 +119,7 @@
 </div>
 
 <script>
-/* ===== Menu (morph) ===== */
+/* ===== Menu open/close (morph ☰ ⇄ ✕) ===== */
 (function(){
   const btn = document.getElementById('menuButton');
   const overlay = document.getElementById('appMenuOverlay');
@@ -145,7 +148,7 @@
   window.addEventListener('keydown', (e)=>{ if(e.key==='Escape') closeMenu(); });
 })();
 
-/* ===== Theme (readyState-safe) ===== */
+/* ===== Theme handling (light/dark/system) ===== */
 (function(){
   const bLight  = document.getElementById('themeLight');
   const bDark   = document.getElementById('themeDark');
@@ -155,65 +158,120 @@
     if (t === 'system') document.documentElement.removeAttribute('data-theme');
     else document.documentElement.setAttribute('data-theme', t);
     try { localStorage.setItem('estpoker-theme', t); } catch(e){}
-    [bLight,bDark,bSystem].forEach(x=>x&&x.classList.remove('active'));
+    [bLight,bDark,bSystem].forEach(btn=>btn && btn.classList.remove('active'));
     ({light:bLight, dark:bDark, system:bSystem}[t||'dark'])?.classList.add('active');
   }
 
-  function init(){
+  document.addEventListener('DOMContentLoaded', function(){
     const saved = localStorage.getItem('estpoker-theme') || 'dark';
     ({light:bLight, dark:bDark, system:bSystem}[saved])?.classList.add('active');
     bLight?.addEventListener('click', ()=>applyTheme('light'));
     bDark?.addEventListener('click',  ()=>applyTheme('dark'));
     bSystem?.addEventListener('click',()=>applyTheme('system'));
-  }
-
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
-  else init();
+  });
 })();
 
-/* ===== Language (readyState-safe, POST /i18n + fallback) ===== */
+/* ===== Language switch via hidden form (POST /i18n → 303 back) ===== */
 (function(){
   const row   = document.getElementById('langRow');
   const cur   = (document.documentElement.lang || 'en').toLowerCase();
   const a     = row?.querySelector('.flag-a');
   const b     = row?.querySelector('.flag-b');
   const label = document.getElementById('langCurrent');
-  const form  = document.getElementById('i18nForm');
-  const input = document.getElementById('i18nLang');
 
   function setSplit(lang){
     if (!a || !b) return;
     if (String(lang).startsWith('de')) { a.src='/flags/de.svg'; b.src='/flags/at.svg'; if (label) label.textContent='Deutsch'; }
     else { a.src='/flags/us.svg'; b.src='/flags/gb.svg'; if (label) label.textContent='English'; }
   }
-  function nextLang(){ return cur.startsWith('de') ? 'en' : 'de'; }
+  setSplit(cur);
 
-  async function switchLang(to){
+  row?.addEventListener('click', function(){
+    const to = cur.startsWith('de') ? 'en' : 'de';
+    document.getElementById('i18nLang').value = to;
+    document.getElementById('i18nForm').submit();
+  });
+})();
+
+/* ===== Landing page form JS (Name-Check etc.) ===== */
+(function () {
+  const persistent = document.getElementById('persistent'); // may be null
+  const testWrap   = document.getElementById('testRoomWrap'); // may be null
+  const testHint   = document.getElementById('testRoomHint'); // may be null
+  const testRoom   = document.getElementById('testRoom');     // may be null
+  const roomCodeEl = document.getElementById('roomCode');
+  const participantEl = document.getElementById('participantName');
+  const nameCheck  = document.getElementById('nameCheck');
+  const joinButton = document.querySelector('#joinForm button[type="submit"]');
+  const joinForm   = document.getElementById('joinForm');
+
+  let nameTaken = false;
+
+  const MSG_CHECKING = /*[[#{status.checking}]]*/ 'Checking availability…';
+  const MSG_FREE     = /*[[#{status.free}]]*/ '✅ Name is available';
+  const MSG_TAKEN    = /*[[#{status.taken}]]*/ '❌ Name is taken';
+
+  function isEmpty(s){ return !s || s.trim().length===0; }
+  function persistEnabled(){ return !!persistent; }
+  function isPersistChecked(){ return persistent && persistent.checked; }
+
+  function isSubmittable(){
+    if (isEmpty(participantEl.value) || isEmpty(roomCodeEl.value)) return false;
+    if (isPersistChecked() && nameTaken) return false;
+    return true;
+  }
+  function updateSubmitEnabled(){ joinButton.disabled=!isSubmittable(); }
+
+  function setStatusLoading(){ nameCheck.textContent=MSG_CHECKING; nameCheck.className="hint loading"; nameTaken=false; updateSubmitEnabled(); }
+  function setStatusOK(){ nameCheck.textContent=MSG_FREE; nameCheck.className="hint ok"; nameTaken=false; updateSubmitEnabled(); }
+  function setStatusBad(){ nameCheck.textContent=MSG_TAKEN; nameCheck.className="hint bad"; nameTaken=true; updateSubmitEnabled(); }
+  function setStatusEmpty(){ nameCheck.textContent=""; nameCheck.className="hint"; nameTaken=false; updateSubmitEnabled(); }
+
+  function syncTestVisibility(){
+    if (!persistEnabled()) return;
+    const show = isPersistChecked();
+    if (testWrap) testWrap.classList.toggle('hidden', !show);
+    if (testHint) testHint.classList.toggle('hidden', !show);
+    if (!show && testRoom) testRoom.checked = false;
+    if (!show) setStatusEmpty();
+    updateSubmitEnabled();
+  }
+
+  let debounceTimer=null, currentAbort=null;
+
+  async function checkNameAvailability(name){
+    if (!isPersistChecked()) { setStatusEmpty(); return; }
+    const trimmed=(name||"").trim(); if (trimmed.length===0){ setStatusEmpty(); return; }
+
+    if (currentAbort) currentAbort.abort();
+    currentAbort=new AbortController(); const {signal}=currentAbort;
+
+    setStatusLoading();
     try{
-      await fetch('/i18n', {
-        method:'POST',
-        headers:{'Content-Type':'application/x-www-form-urlencoded'},
-        body:'lang='+encodeURIComponent(to),
-        credentials:'same-origin'
-      });
-      location.reload();
+      const resp=await fetch(`/api/rooms/check?name=`+encodeURIComponent(trimmed),{signal});
+      if(!resp.ok) throw new Error("Bad response: "+resp.status);
+      const taken=await resp.json(); if(signal.aborted) return;
+      if(taken===true) setStatusBad(); else setStatusOK();
     }catch(e){
-      if(form && input){ input.value = to; form.submit(); }
-      else { location.reload(); }
+      if (signal.aborted) return;
+      setStatusEmpty();
+      console.warn("Name check failed:", e);
     }
   }
+  function scheduleCheck(){ clearTimeout(debounceTimer); debounceTimer=setTimeout(()=>checkNameAvailability(roomCodeEl.value),250); }
 
-  function init(){
-    setSplit(cur);
-    row?.addEventListener('click', function(){
-      const to = nextLang();
-      setSplit(to);
-      switchLang(to);
-    });
+  joinForm.addEventListener('submit', function (event) {
+    if (!isSubmittable()) { event.preventDefault(); joinButton.classList.add('shake'); setTimeout(()=>joinButton.classList.remove('shake'),400); }
+  });
+
+  if (persistEnabled()) {
+    syncTestVisibility();
+    if (isPersistChecked()) scheduleCheck();
+    persistent.addEventListener('change', ()=>{ syncTestVisibility(); if (isPersistChecked()) scheduleCheck(); else setStatusEmpty(); });
   }
-
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
-  else init();
+  roomCodeEl.addEventListener('input', ()=>{ if (isPersistChecked()) scheduleCheck(); updateSubmitEnabled(); });
+  participantEl.addEventListener('input', updateSubmitEnabled);
+  updateSubmitEnabled();
 })();
 </script>
 </body>
