@@ -1,5 +1,11 @@
-:root {
-    /* === Theme variables (VS Code Dark inspired) === */
+/* ===========================
+   THEME & TOKENS
+   - VS Code Dark as default
+   - Ready for future light mode via [data-theme] or prefers-color-scheme
+   =========================== */
+
+html {
+    /* === Dark theme (default) === */
     --bg: #1e1e1e;
     --text: #d4d4d4;
     --text-strong: #ffffff;
@@ -26,20 +32,66 @@
     --gap: 12px;
     --gap-sm: 8px;
 
-    /* Cards (kept from your previous) */
-    --card-min-desktop: 52px;
-    --card-min-mobile: 42px;
+    /* Card sizing (new: fixed, non-stretching) */
+    --card-size-desktop: 72px; /* width & height (square via aspect-ratio) */
+    --card-size-mobile: 56px;
 
     /* Spacing before voting section */
-    --pre-vote-margin-desktop: 2.5rem;
-    --pre-vote-margin-mobile: 2rem;
+    --pre-vote-margin-desktop: 2rem;
+    --pre-vote-margin-mobile: 1.5rem;
 
     /* Participant list columns */
     --icon-col-width: 1.5rem;  /* fits 👑/👤/💤 */
     --name-text-col: 0px;      /* set via JS if a name exceeds 18ch */
 }
 
-/* ===== Base layout ===== */
+/* Light theme overrides (available for future toggle) */
+html[data-theme="light"] {
+    --bg: #f7f7f8;
+    --text: #1b1b1d;
+    --text-strong: #000;
+    --text-dim: #4b4b4f;
+
+    --panel: #ffffff;
+    --panel-2: #f0f2f5;
+    --border: #d9d9de;
+
+    --accent: #0066cc;
+    --accent-strong: #004c99;
+    --ok: #1f7a39;
+    --ok-border: #38b06a;
+    --warn: #b8860b;
+    --danger: #c24141;
+
+    --shadow: 0 8px 24px rgba(0,0,0,0.07);
+}
+
+/* Respect system preference when no explicit data-theme set */
+@media (prefers-color-scheme: light) {
+    html:not([data-theme]) {
+        --bg: #f7f7f8;
+        --text: #1b1b1d;
+        --text-strong: #000;
+        --text-dim: #4b4b4f;
+
+        --panel: #ffffff;
+        --panel-2: #f0f2f5;
+        --border: #d9d9de;
+
+        --accent: #0066cc;
+        --accent-strong: #004c99;
+        --ok: #1f7a39;
+        --ok-border: #38b06a;
+        --warn: #b8860b;
+        --danger: #c24141;
+
+        --shadow: 0 8px 24px rgba(0,0,0,0.07);
+    }
+}
+
+/* ===========================
+   BASE LAYOUT
+   =========================== */
 body {
     background-color: var(--bg);
     color: var(--text);
@@ -48,13 +100,14 @@ body {
     margin: 0;
 }
 
-/* ===== Headings & container ===== */
 .container { max-width: 800px; margin: 0 auto; padding: 1rem; }
-h1, h2 { color: var(--text-strong); margin-bottom: 3rem; font-size: 1.1rem; }
+h1, h2 { color: var(--text-strong); margin-bottom: 2rem; font-size: 1.1rem; }
 strong { color: var(--text-strong); }
-.main-info { margin-bottom: 3rem; }
+.main-info { margin-bottom: 2rem; }
 
-/* ===== Landing page / form layout ===== */
+/* ===========================
+   LANDING / FORM
+   =========================== */
 .landing-container {
     display: flex; flex-direction: column; align-items: center;
     min-height: 90vh; padding: 2rem; text-align: center; margin-top: 10vh;
@@ -64,7 +117,6 @@ strong { color: var(--text-strong); }
 .form-row { display: flex; flex-direction: column; gap: 1rem; width: 100%; max-width: 400px; }
 .form-field { width: 100%; }
 
-/* Text inputs */
 .landing-container input[type="text"],
 .form-field input[type="text"] {
   height: var(--h-input);
@@ -80,10 +132,10 @@ strong { color: var(--text-strong); }
 }
 .landing-container input[type="text"]::placeholder { color: #888; }
 .landing-container input[type="text"]:focus,
-.form-field input[type="text"]_:focus {
+.form-field input[type="text"]:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(0,122,204,0.25);
-  background: #34373a;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent);
+  background: color-mix(in srgb, var(--panel-2) 85%, var(--accent) 15%);
 }
 
 /* Checkboxes, hints, actions */
@@ -98,7 +150,9 @@ strong { color: var(--text-strong); }
   padding: 12px; border-radius: 10px; width: 100%; max-width: 400px; margin: 0 auto 1rem;
 }
 
-/* ===== Generic buttons ===== */
+/* ===========================
+   GENERIC BUTTONS
+   =========================== */
 .button,
 button[type="submit"] {
     margin-top: 2rem;
@@ -129,33 +183,42 @@ button[type="submit"]:disabled { opacity: .6; cursor: not-allowed; }
 }
 button.shake { animation: shake 0.4s; }
 
-/* ===== Card grid & card buttons ===== */
+/* ===========================
+   CARD GRID & CARD BUTTONS
+   - NEW: fixed-size cards, no stretch with container width
+   - Smaller cards + bigger labels
+   =========================== */
+
 .card-grid {
+    --card-size: var(--card-size-desktop);
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(var(--card-min-desktop), 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(var(--card-size), var(--card-size))); /* fixed size cells */
+    justify-content: center; /* center the row when leftover space exists */
     gap: 8px;
-    margin-top: 1rem;
-    margin-bottom: 1rem;
+    margin: 1rem 0;
 }
+
+/* Card button */
 .card-grid button {
-    display: inline-block;
-    padding: 0.85rem 0.85rem;
-    margin: 0.5rem;
+    width: var(--card-size);
+    aspect-ratio: 1 / 1;             /* square cards; change to e.g. 4/3 if you prefer shorter height */
+    padding: 0.6rem;                 /* reduced padding to keep cards compact */
     background: var(--panel);
     border: 1px solid var(--border);
     border-radius: 10px;
     cursor: pointer;
     transition: transform 0.15s ease, box-shadow 0.2s ease, background 0.2s ease, border-color 0.2s ease;
-    font-size: 1.2rem;
+    font-size: clamp(1.0rem, 2.4vw, 1.35rem); /* bigger labels but capped */
+    line-height: 1;
     text-align: center;
     color: var(--text);
     position: relative;
-    aspect-ratio: 1 / 1; /* square cards */
+    margin: 0;                       /* no extra margin (gap handles spacing) */
 }
 .card-grid button:hover {
     background: #36383c;
     transform: translateY(-1px);
-    box-shadow: 0 0 10px rgba(0,122,204,0.35);
+    box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 35%, transparent);
     border-color: #4a4a4a;
 }
 
@@ -164,8 +227,8 @@ button.selected {
     background-color: #163a52 !important;
     color: #fff !important;
     font-weight: bold;
-    border: 2px solid rgba(0,122,204,0.6);
-    box-shadow: 0 0 0 4px rgba(0,122,204,0.22), 0 0 12px rgba(0,122,204,0.35);
+    border: 2px solid color-mix(in srgb, var(--accent) 60%, transparent);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 22%, transparent), 0 0 12px color-mix(in srgb, var(--accent) 35%, transparent);
     transform: scale(1.03);
 }
 
@@ -188,7 +251,9 @@ button.selected {
 }
 button.selected .checkmark { display: block; opacity: 1; transform: scale(1); }
 
-/* ===== Participant list ===== */
+/* ===========================
+   PARTICIPANT LIST
+   =========================== */
 ul { list-style: none; padding: 0; margin: 0; }
 li { margin-bottom: 0.4rem; line-height: 1.5; font-size: 1rem; }
 
@@ -207,8 +272,8 @@ li { margin-bottom: 0.4rem; line-height: 1.5; font-size: 1rem; }
     border-radius: 6px;
 }
 #liveParticipantList .participant-row.is-host {
-    background: rgba(0,122,204,0.08);
-    outline: 1px solid rgba(0,122,204,0.22);
+    background: color-mix(in srgb, var(--accent) 8%, transparent);
+    outline: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
 }
 
 /* Icon column (left) */
@@ -241,7 +306,7 @@ li { margin-bottom: 0.4rem; line-height: 1.5; font-size: 1rem; }
     gap: 6px;
 }
 
-/* Disconnected: italic, no strikethrough (as requested) */
+/* Disconnected: italic, no strikethrough */
 #liveParticipantList li.disconnected {
     color: #888;
     font-style: italic;
@@ -264,7 +329,7 @@ li { margin-bottom: 0.4rem; line-height: 1.5; font-size: 1rem; }
   opacity: 0.95;
 }
 
-/* Vote chip (post-reveal) – separate from blue "selected" state */
+/* Vote chip (post-reveal) */
 .vote-chip {
     display: inline-block;
     padding: 0.15rem 0.5rem;
@@ -284,17 +349,18 @@ li { margin-bottom: 0.4rem; line-height: 1.5; font-size: 1rem; }
 }
 @keyframes chipIn { to { opacity: 1; transform: translateY(0); } }
 
-/* Optional host badge (if used in HTML) */
+/* Optional host badge (if used) */
 .host-label {
     font-size: 0.9em; color: #FFD700; background-color: #444;
     padding: 2px 6px; border-radius: 999px; margin-left: 0.5rem; font-weight: normal;
     border: 1px solid rgba(255,215,0,0.45);
 }
 
-/* ===== Pre-/Post-vote blocks ===== */
+/* ===========================
+   VOTE BLOCKS & AVERAGE
+   =========================== */
 .pre-vote { margin-top: var(--pre-vote-margin-desktop); }
 
-/* Average readout (slightly smaller + fade-in) */
 .average-label { font-size: 0.85rem; margin-top: 1rem; }
 .average-label #averageVote {
     font-size: 1.05rem;
@@ -304,9 +370,11 @@ li { margin-bottom: 0.4rem; line-height: 1.5; font-size: 1rem; }
 }
 @keyframes avgIn { to { opacity: 1; } }
 
-/* ===== Toasts ===== */
+/* ===========================
+   TOASTS (global style)
+   =========================== */
 .toast {
-    position: fixed; top: 20px; right: 20px; background-color: rgba(51,51,51,0.95); color: white;
+    position: fixed; top: 20px; right: 20px; background-color: color-mix(in srgb, #333 95%, transparent); color: white;
     padding: 12px 20px; border-radius: 10px; z-index: 9999; font-size: 14px;
     box-shadow: var(--shadow);
     transform: translateY(-10px);
@@ -319,29 +387,31 @@ li { margin-bottom: 0.4rem; line-height: 1.5; font-size: 1rem; }
 /* Host crown icon next to name (if used) */
 .host-icon { font-size: 1rem; margin-right: 0.4rem; vertical-align: middle; cursor: default; }
 
-/* ===== Utilities ===== */
+/* ===========================
+   UTILITIES
+   =========================== */
 .hidden { display: none !important; }
 
-/* ===== Responsive ===== */
+/* ===========================
+   RESPONSIVE
+   =========================== */
 @media (max-width: 600px) {
     body { padding: 1rem; }
-    .card-grid { grid-template-columns: repeat(auto-fit, minmax(var(--card-min-mobile), 1fr)); gap: 6px; }
-
-    .card-grid button {
-        padding: 0.7rem 0.7rem;
-        font-size: calc(1.2rem * 1.5);
-        margin: 0.25rem;
-        line-height: 1.2;
-    }
-    .button, button[type="submit"] { width: 100%; padding: 0 1.2rem; font-size: calc(1rem * 1.5); }
-
-    h1, h2 { font-size: calc(1.2rem * 1.5); }
     .container { padding: 0.5rem; }
-    ul li { font-size: calc(0.95rem * 1.5); line-height: 1.45; }
-    #liveParticipantList li { margin-bottom: 4px; font-size: calc(1.1em * 1.5); }
-    .landing-container h1 { font-size: calc(1.4rem * 1.5); }
-    .landing-container input[type="text"] { font-size: calc(1rem * 1.5); }
-    .toast { font-size: calc(14px * 1.5); }
+
+    /* Smaller cards on mobile (still readable labels) */
+    .card-grid { --card-size: var(--card-size-mobile); gap: 6px; }
+    .card-grid button {
+        padding: 0.5rem;
+        font-size: clamp(1rem, 5.5vw, 1.2rem);
+    }
+
+    .button, button[type="submit"] { width: 100%; padding: 0 1.2rem; font-size: 1.05rem; }
+
+    h1, h2 { font-size: 1.25rem; }
+    ul li { font-size: 1.05rem; line-height: 1.45; }
+
+    .toast { font-size: 0.95rem; }
 
     .pre-vote { margin-top: var(--pre-vote-margin-mobile); }
 }

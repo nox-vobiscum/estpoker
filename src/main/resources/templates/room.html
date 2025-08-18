@@ -1,7 +1,9 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org" lang="de">
+<html xmlns:th="http://www.thymeleaf.org" lang="de" data-theme="dark">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="dark light">
     <title>RBS' Estimation Poker</title>
     <link rel="icon" href="https://noxvobiscum.at/wp-content/uploads/2022/09/cropped-nvb-favicon-32x32.png" sizes="32x32" />
     <link rel="stylesheet" th:href="@{/styles.css}">
@@ -25,16 +27,14 @@
         const data = JSON.parse(event.data);
 
         if (data.type === "voteUpdate") {
-            // Keep previous state to detect a round reset from the server
             const prevVotesRevealed = votesRevealed;
 
-            // Safely normalize participants array to avoid errors on unexpected payloads
             const participants = Array.isArray(data.participants) ? data.participants : [];
 
             votesRevealed = data.votesRevealed;
             isHost = participants.find(p => p.name === participantName)?.isHost === true;
 
-            // Host-only buttons visibility
+            // Host-only controls
             document.getElementById("revealButton").style.display = isHost && !votesRevealed ? "inline-block" : "none";
             document.getElementById("resetButton").style.display = isHost && votesRevealed ? "inline-block" : "none";
 
@@ -47,18 +47,15 @@
                 updateAverage(null);
             }
 
-            // --- Clear local selection when a new round starts ---
-            // Case 1: server toggled from revealed -> not revealed (round reset by someone else)
+            // Clear local selection on server reset
             if (prevVotesRevealed && !votesRevealed) {
                 clearCardSelection();
             }
-            // Case 2 (extra safety): no one has a vote -> treat as fresh round
             if (!votesRevealed && participants.every(p => p.vote == null)) {
                 clearCardSelection();
             }
-            // ------------------------------------------------------
 
-            // Finally reflect current local selection (will be none if just cleared)
+            // Reflect current local selection
             highlightSelectedCard();
         } else if (data.type === "hostChanged") {
             const { oldHost, newHost } = data;
@@ -71,12 +68,9 @@
     function sendVote(cardValue) {
         socket.send("vote:" + participantName + ":" + cardValue);
         selectedCard = cardValue;
-        // (Optional) Persist locally if you ever want to restore on refresh:
-        // try { localStorage.setItem('selectedCard', cardValue); } catch(e) {}
         highlightSelectedCard();
     }
 
-    // Clear the local selected card and its visual highlight
     function clearCardSelection() {
         selectedCard = null;
         try { localStorage.removeItem('selectedCard'); } catch(e) {}
@@ -99,11 +93,10 @@
 
     function resetRoom() {
         if (isHost) socket.send("resetRoom");
-        // Immediately clear locally so the highlight doesn't stick until the server update arrives
         clearCardSelection();
     }
 
-    // Render participant list as: [icon][name text][status]
+    // Render participant list: [icon][name][status]
     function updateParticipantList(participants, revealed) {
         const list = document.getElementById("liveParticipantList");
         if (!list) return;
@@ -117,19 +110,16 @@
             if (p.disconnected) li.classList.add("disconnected");
             if (p.isHost) li.classList.add("is-host");
 
-            // Icon column
             const icon = document.createElement("span");
             icon.className = p.isHost
                 ? "participant-icon host"
                 : (p.disconnected ? "participant-icon inactive" : "participant-icon");
             icon.textContent = p.isHost ? "👑" : (p.disconnected ? "💤" : "👤");
 
-            // Name text column
             const nameSpan = document.createElement("span");
             nameSpan.className = "name";
             nameSpan.textContent = p.name;
 
-            // Status/vote column
             const rightWrap = document.createElement("div");
             rightWrap.className = "row-right";
 
@@ -140,7 +130,7 @@
                 rightWrap.appendChild(voteChip);
             } else {
                 if (p.disconnected) {
-                    // no status badge for disconnected users
+                    // no badge for disconnected users
                 } else if (p.vote != null) {
                     const status = document.createElement("span");
                     status.className = "status-icon done";
@@ -154,14 +144,12 @@
                 }
             }
 
-            // Assemble row: icon | name | status
             li.appendChild(icon);
             li.appendChild(nameSpan);
             li.appendChild(rightWrap);
             list.appendChild(li);
         });
 
-        // Measure longest actual name and set CSS var (keeps at least 18ch)
         measureAndSetNameColumn();
     }
 
@@ -171,11 +159,10 @@
 
         const names = Array.from(list.querySelectorAll(".name"));
         const maxTextWidth = names.reduce((max, el) => Math.max(max, el.offsetWidth || 0), 0);
-        // Set the CSS variable in px (grid uses max(18ch, var(--name-text-col)))
         list.style.setProperty("--name-text-col", Math.ceil(maxTextWidth) + "px");
     }
 
-    // Re-measure on resize (debounced)
+    // Debounced resize measure
     window.addEventListener("resize", () => {
         clearTimeout(resizeTimer);
         resizeTimer = setTimeout(measureAndSetNameColumn, 150);
@@ -211,7 +198,7 @@
         <p>🆔 Raum: <strong th:text="${roomCode}">demo</strong></p>
         <p>👤 Du bist: <strong th:text="${participantName}">Gast</strong></p>
     </div>
-    
+
     <h2>Teilnehmende:</h2>
     <ul id="liveParticipantList"></ul>
 
@@ -252,6 +239,7 @@
     </div>
 </div>
 
+<!-- Keep inline toast style (can be externalized later) -->
 <style>
 .toast {
     position: fixed; top: 20px; right: 20px; background-color: #333; color: white;

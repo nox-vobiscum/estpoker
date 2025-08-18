@@ -1,7 +1,9 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org" lang="de">
+<html xmlns:th="http://www.thymeleaf.org" lang="de" data-theme="dark">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="dark light">
     <title>RBS' Estimation Poker</title>
     <link rel="icon" href="https://noxvobiscum.at/wp-content/uploads/2022/09/cropped-nvb-favicon-32x32.png" sizes="32x32" />
     <link rel="stylesheet" th:href="@{/styles.css}">
@@ -11,7 +13,7 @@
 <div class="container">
     <h1>🃏 RBS' Estimation Poker</h1>
 
-    <!-- Fehleranzeige -->
+    <!-- Error display (kept functional) -->
     <div th:if="${error != null or param.error != null}"
          class="error"
          th:text="${error != null ? error : param.error}">Fehlermeldung</div>
@@ -33,13 +35,13 @@
                            id="roomCode"
                            name="roomCode"
                            th:value="${param.roomCode != null ? param.roomCode : roomCode}">
-                    <!-- Live-Status für Namensverfügbarkeit -->
+                    <!-- Live availability status -->
                     <div id="nameCheck" class="hint" aria-live="polite"></div>
                 </div>
             </div>
         </div>
 
-        <!-- Persistenter Raum -->
+        <!-- Persistent room -->
         <div class="checkbox-row">
             <input type="checkbox"
                    id="persistent"
@@ -52,7 +54,7 @@
             bis der Auto-Cleanup greift.
         </p>
 
-        <!-- Test-Raum (nur sichtbar bei persistent) -->
+        <!-- Test room (only visible when persistent) -->
         <div id="testRoomWrap" class="checkbox-row hidden">
             <input type="checkbox"
                    id="testRoom"
@@ -70,7 +72,7 @@
     </form>
 </div>
 
-<!-- JS -->
+<!-- JS (unchanged logic; small UX only) -->
 <script th:inline="javascript">
     (function () {
         const persistent = document.getElementById('persistent');
@@ -165,7 +167,7 @@
             debounceTimer = setTimeout(() => checkNameAvailability(roomCodeEl.value), 250);
         }
 
-        // 👉 Einheitlicher Handler: bei Submit prüfen & ggf. Shake
+        // Submit guard + subtle feedback
         joinForm.addEventListener('submit', function (event) {
             if (!isSubmittable()) {
                 event.preventDefault();
