@@ -7,87 +7,61 @@
   <title th:text="#{app.title}">RBS' Estimation Poker</title>
   <link rel="icon" href="https://noxvobiscum.at/wp-content/uploads/2022/09/cropped-nvb-favicon-32x32.png" sizes="32x32" />
   <script>
-    // Early theme apply to avoid FOUC
-    (function(){
-      try {
-        var t = localStorage.getItem('estpoker-theme') || 'dark';
-        if (t === 'system') document.documentElement.removeAttribute('data-theme');
-        else document.documentElement.setAttribute('data-theme', t);
-      } catch(e){}
-    })();
+    (function(){try{var t=localStorage.getItem('estpoker-theme')||'dark';
+      if(t==='system')document.documentElement.removeAttribute('data-theme');
+      else document.documentElement.setAttribute('data-theme',t);}catch(e){}})();
   </script>
   <link rel="stylesheet" th:href="@{/styles.css}">
 </head>
 <body>
-
 <script>
-  // ===== Theme toggle =====
   (function(){
-    function currentTheme(){
-      const explicit = document.documentElement.getAttribute('data-theme');
-      if (explicit) return explicit;
-      try { return matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'; }
-      catch(e){ return 'dark'; }
-    }
-    function setTheme(t){
-      if (t === 'system') document.documentElement.removeAttribute('data-theme');
-      else document.documentElement.setAttribute('data-theme', t);
-      try { localStorage.setItem('estpoker-theme', t); } catch(e){}
-      const b = document.getElementById('themeToggle');
-      if (b) b.textContent = (t === 'light') ? '🌞' : '🌙';
-    }
+    function currentTheme(){const a=document.documentElement.getAttribute('data-theme'); if(a) return a;
+      try{ return matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'; }catch(e){ return 'dark';}}
+    function setTheme(t){ if(t==='system')document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme',t);
+      try{localStorage.setItem('estpoker-theme',t);}catch(e){}; const b=document.getElementById('themeToggle'); if(b) b.textContent=(t==='light')?'🌞':'🌙'; }
     document.addEventListener('DOMContentLoaded', function(){
-      const saved = localStorage.getItem('estpoker-theme') || 'dark';
-      const effective = (saved === 'system') ? currentTheme() : saved;
-      const b = document.getElementById('themeToggle');
-      if (b) b.textContent = (effective === 'light') ? '🌞' : '🌙';
-      if (b) b.addEventListener('click', function(){
-        setTheme(currentTheme() === 'light' ? 'dark' : 'light');
-      });
+      const saved=localStorage.getItem('estpoker-theme')||'dark';
+      const eff=(saved==='system')?currentTheme():saved;
+      const b=document.getElementById('themeToggle'); if(b) b.textContent=(eff==='light')?'🌞':'🌙';
+      if(b) b.addEventListener('click',()=>setTheme(currentTheme()==='light'?'dark':'light'));
     });
   })();
 
-  // ===== Language toggle (split flags + ?lang=…) =====
   (function(){
-    function nextLang(){ const cur=(document.documentElement.lang||'en').toLowerCase(); return cur.startsWith('de') ? 'en' : 'de'; }
-    function switchLang(to){
-      const url = new URL(window.location.href);
-      url.searchParams.set('lang', to);
-      // GET redirect => vermeidet 405
-      window.location.replace(url.toString());
+    function nextLang(){const cur=(document.documentElement.lang||'en').toLowerCase();return cur.startsWith('de')?'en':'de';}
+    function setSplit(lang){
+      const a=document.querySelector('#langToggle .flag-a');
+      const b=document.querySelector('#langToggle .flag-b');
+      if(!a||!b) return;
+      if(String(lang).toLowerCase().startsWith('de')){ a.src='/flags/de.svg'; b.src='/flags/at.svg'; }
+      else { a.src='/flags/us.svg'; b.src='/flags/gb.svg'; }
     }
-    function injectSplitFlags(currentLang){
-      const btn = document.getElementById('langToggle'); if (!btn) return;
-      const tplId = (String(currentLang).toLowerCase().startsWith('de')) ? 'tpl-flags-de' : 'tpl-flags-en';
-      const tpl = document.getElementById(tplId);
-      if (tpl && 'content' in tpl) {
-        btn.innerHTML = '';
-        btn.appendChild(tpl.content.cloneNode(true));
-      }
+    function switchLang(to){
+      const url=new URL(window.location.href); url.searchParams.set('lang',to);
+      window.location.replace(url.toString()); // GET -> verhindert 405
     }
     document.addEventListener('DOMContentLoaded', function(){
-      const cur = document.documentElement.lang || 'en';
-      injectSplitFlags(cur);
-      const btn = document.getElementById('langToggle');
-      if (btn) btn.addEventListener('click', function(){
-        const to = nextLang();
-        injectSplitFlags(to); // optimistisches Update
-        switchLang(to);
-      });
+      setSplit(document.documentElement.lang||'en');
+      const btn=document.getElementById('langToggle');
+      if(btn) btn.addEventListener('click', function(){ const to=nextLang(); setSplit(to); switchLang(to); });
     });
   })();
 </script>
 
 <div class="container landing-container">
-  <!-- Floating toggles (no vertical space taken) -->
   <button id="themeToggle" class="theme-toggle" th:title="#{title.theme}" aria-label="Toggle light/dark mode">🌙</button>
-  <button id="langToggle" class="lang-toggle" th:title="#{title.lang}" aria-label="Switch language"></button>
+  <button id="langToggle" class="lang-toggle" th:title="#{title.lang}" aria-label="Switch language">
+    <span class="flag-split" aria-hidden="true">
+      <img class="flag flag-a" src="/flags/us.svg" alt="" />
+      <img class="flag flag-b" src="/flags/gb.svg" alt="" />
+    </span>
+    <span class="visually-hidden">Language</span>
+  </button>
 
   <h1 th:text="#{ui.heading}">🃏 RBS' Estimation Poker</h1>
 
-  <!-- Fehleranzeige -->
-  <div th:if="${error != null or param.error != null}"
-       class="error"
+  <div th:if="${error != null or param.error != null}" class="error"
        th:text="${error != null ? error : param.error}">Fehlermeldung</div>
 
   <form th:action="@{/join}" method="post" id="joinForm" class="join-form">
@@ -114,7 +88,7 @@
       <label for="persistent" th:text="#{label.persistRoom}">Persist this room</label>
     </div>
     <p class="hint" th:utext="#{hint.persistExpl}">
-      Creates a deep link (<code>/room/{ID}</code>). The room remains until cleanup.
+      Creates a deep link (<code>/room/{ID}</code>). The room persists until auto-cleanup.
     </p>
 
     <div id="testRoomWrap" class="checkbox-row hidden">
@@ -123,7 +97,7 @@
       <label for="testRoom" th:text="#{label.testRoom}">Test room only</label>
     </div>
     <p id="testRoomHint" class="hint hidden" th:text="#{hint.testRoom}">
-      Marks room as test – deleted sooner.
+      Marks as test – will be cleaned up sooner.
     </p>
 
     <div class="form-actions">
@@ -132,61 +106,6 @@
   </form>
 </div>
 
-<!-- Inline templates for split flags (EN = US|GB, DE = DE|AT).
-     Accurate, local SVG — no network dependency. -->
-<template id="tpl-flags-en">
-  <span class="flag-split" aria-hidden="true">
-    <!-- US (19:10) -->
-    <svg class="flag flag-a" viewBox="0 0 7410 3900" role="img" aria-label="United States flag">
-      <path d="M0,0h7410v3900H0" fill="#b31942"/>
-      <path d="M0,450H7410m0,600H0m0,600H7410m0,600H0m0,600H7410m0,600H0" stroke="#FFF" stroke-width="300"/>
-      <path d="M0,0h2964v2100H0" fill="#0a3161"/>
-      <g fill="#FFF">
-        <g id="s18"><g id="s9"><g id="s5"><g id="s4">
-          <path id="s" d="M247,90 317.53423,307.082039 132.873218,172.917961H361.126782L176.46577,307.082039z"/>
-          <use xlink:href="#s" y="420"/><use xlink:href="#s" y="840"/><use xlink:href="#s" y="1260"/>
-        </g><use xlink:href="#s" y="1680"/></g>
-        <use xlink:href="#s4" x="247" y="210"/></g>
-        <use xlink:href="#s9" x="494"/></g>
-        <use xlink:href="#s18" x="988"/><use xlink:href="#s9" x="1976"/><use xlink:href="#s5" x="2470"/>
-      </g>
-    </svg>
-    <!-- GB (1:2) -->
-    <svg class="flag flag-b" viewBox="0 0 12 6" role="img" aria-label="United Kingdom flag">
-      <rect width="12" height="6" fill="#012169"/>
-      <!-- Diagonals (white) -->
-      <path d="M0,0 L12,6 M12,0 L0,6" stroke="#FFF" stroke-width="1.2"/>
-      <!-- Diagonals (red) with correct offset via triangular clipping -->
-      <defs>
-        <clipPath id="uk-top"><path d="M0,0H12V3L0,0Z"/></clipPath>
-        <clipPath id="uk-bottom"><path d="M0,6H12V3L0,6Z"/></clipPath>
-      </defs>
-      <path d="M0,0 L12,6 M-0,0" stroke="#C8102E" stroke-width="0.8" clip-path="url(#uk-top)"/>
-      <path d="M12,0 L0,6" stroke="#C8102E" stroke-width="0.8" clip-path="url(#uk-bottom)"/>
-      <!-- Central cross (white then red) -->
-      <path d="M6,0V6 M0,3H12" stroke="#FFF" stroke-width="2"/>
-      <path d="M6,0V6 M0,3H12" stroke="#C8102E" stroke-width="1.2"/>
-    </svg>
-  </span>
-</template>
-
-<template id="tpl-flags-de">
-  <span class="flag-split" aria-hidden="true">
-    <!-- DE (3:5) -->
-    <svg class="flag flag-a" viewBox="0 0 5 3" role="img" aria-label="Germany flag">
-      <rect width="5" height="3" fill="#000000"/>
-      <rect width="5" height="2" y="1" fill="#DD0000"/>
-      <rect width="5" height="1" y="2" fill="#FFCE00"/>
-    </svg>
-    <!-- AT (2:3) -->
-    <svg class="flag flag-b" viewBox="0 0 6 4" role="img" aria-label="Austria flag">
-      <rect width="6" height="4" fill="#ED2939"/>
-      <rect width="6" height="2" y="1" fill="#FFFFFF"/>
-    </svg>
-  </span>
-</template>
-
-<!-- Page JS for live name-check stays identical to your prior version -->
 <script th:inline="javascript">
   (function () {
     const persistent = document.getElementById('persistent');
@@ -200,66 +119,51 @@
     const joinForm = document.getElementById('joinForm');
 
     let nameTaken = false;
-    function isEmpty(s) { return !s || s.trim().length === 0; }
-    function isSubmittable() {
-      if (isEmpty(participantEl.value) || isEmpty(roomCodeEl.value)) return false;
-      if (persistent.checked && nameTaken) return false;
-      return true;
-    }
-    function updateSubmitEnabled() { joinButton.disabled = !isSubmittable(); }
-    function setStatusLoading() { nameCheck.textContent = "Checking availability…"; nameCheck.classList.remove("ok","bad"); nameCheck.classList.add("loading"); nameTaken=false; updateSubmitEnabled(); }
-    function setStatusOK() { nameCheck.textContent = "✅ Name is free"; nameCheck.classList.remove("bad","loading"); nameCheck.classList.add("ok"); nameTaken=false; updateSubmitEnabled(); }
-    function setStatusBad() { nameCheck.textContent = "❌ Name is taken"; nameCheck.classList.remove("ok","loading"); nameCheck.classList.add("bad"); nameTaken=true; updateSubmitEnabled(); }
-    function setStatusEmpty() { nameCheck.textContent = ""; nameCheck.classList.remove("ok","bad","loading"); nameTaken=false; updateSubmitEnabled(); }
-    function syncTestVisibility() {
-      const show = persistent.checked;
-      testWrap.classList.toggle('hidden', !show);
-      testHint.classList.toggle('hidden', !show);
-      if (!show && testRoom) testRoom.checked = false;
-      if (!show) setStatusEmpty();
-      updateSubmitEnabled();
-    }
-    let debounceTimer = null;
-    let currentAbort = null;
-    async function checkNameAvailability(name) {
-      if (!persistent.checked) { setStatusEmpty(); return; }
-      const trimmed = (name || "").trim();
-      if (trimmed.length === 0) { setStatusEmpty(); return; }
-      if (currentAbort) currentAbort.abort();
-      currentAbort = new AbortController();
-      const { signal } = currentAbort;
+
+    const MSG_CHECKING = /*[[#{status.checking}]]*/ 'Checking availability…';
+    const MSG_FREE     = /*[[#{status.free}]]*/ '✅ Name is available';
+    const MSG_TAKEN    = /*[[#{status.taken}]]*/ '❌ Name is taken';
+
+    function isEmpty(s){ return !s || s.trim().length===0; }
+    function isSubmittable(){ if(isEmpty(participantEl.value)||isEmpty(roomCodeEl.value)) return false; if(persistent.checked&&nameTaken) return false; return true; }
+    function updateSubmitEnabled(){ joinButton.disabled=!isSubmittable(); }
+
+    function setStatusLoading(){ nameCheck.textContent=MSG_CHECKING; nameCheck.className="hint loading"; nameTaken=false; updateSubmitEnabled(); }
+    function setStatusOK(){ nameCheck.textContent=MSG_FREE; nameCheck.className="hint ok"; nameTaken=false; updateSubmitEnabled(); }
+    function setStatusBad(){ nameCheck.textContent=MSG_TAKEN; nameCheck.className="hint bad"; nameTaken=true; updateSubmitEnabled(); }
+    function setStatusEmpty(){ nameCheck.textContent=""; nameCheck.className="hint"; nameTaken=false; updateSubmitEnabled(); }
+
+    function syncTestVisibility(){ const show=persistent.checked; testWrap.classList.toggle('hidden',!show); testHint.classList.toggle('hidden',!show);
+      if(!show && testRoom) testRoom.checked=false; if(!show) setStatusEmpty(); updateSubmitEnabled(); }
+
+    let debounceTimer=null, currentAbort=null;
+
+    async function checkNameAvailability(name){
+      if(!persistent.checked){ setStatusEmpty(); return; }
+      const trimmed=(name||"").trim(); if(trimmed.length===0){ setStatusEmpty(); return; }
+      if(currentAbort) currentAbort.abort();
+      currentAbort=new AbortController(); const {signal}=currentAbort;
       setStatusLoading();
-      try {
-        const resp = await fetch(`/api/rooms/check?name=` + encodeURIComponent(trimmed), { signal });
-        if (!resp.ok) throw new Error("Bad response: " + resp.status);
-        const taken = await resp.json();
-        if (signal.aborted) return;
-        if (taken === true) setStatusBad(); else setStatusOK();
-      } catch (e) {
-        if (signal.aborted) return;
-        setStatusEmpty();
-        console.warn("Name check failed:", e);
-      }
+      try{
+        const resp=await fetch(`/api/rooms/check?name=`+encodeURIComponent(trimmed),{signal});
+        if(!resp.ok) throw new Error("Bad response: "+resp.status);
+        const taken=await resp.json(); if(signal.aborted) return;
+        if(taken===true) setStatusBad(); else setStatusOK();
+      }catch(e){ if(signal.aborted) return; setStatusEmpty(); console.warn("Name check failed:",e); }
     }
-    function scheduleCheck() {
-      clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(() => checkNameAvailability(roomCodeEl.value), 250);
-    }
+    function scheduleCheck(){ clearTimeout(debounceTimer); debounceTimer=setTimeout(()=>checkNameAvailability(roomCodeEl.value),250); }
+
     joinForm.addEventListener('submit', function (event) {
-      if (!isSubmittable()) {
-        event.preventDefault();
-        joinButton.classList.add('shake');
-        setTimeout(() => joinButton.classList.remove('shake'), 400);
-      }
+      if (!isSubmittable()) { event.preventDefault(); joinButton.classList.add('shake'); setTimeout(()=>joinButton.classList.remove('shake'),400); }
     });
+
     syncTestVisibility();
     if (persistent.checked) scheduleCheck();
-    persistent.addEventListener('change', () => { syncTestVisibility(); if (persistent.checked) scheduleCheck(); else setStatusEmpty(); });
-    roomCodeEl.addEventListener('input', () => { scheduleCheck(); updateSubmitEnabled(); });
+    persistent.addEventListener('change', ()=>{ syncTestVisibility(); if(persistent.checked) scheduleCheck(); else setStatusEmpty(); });
+    roomCodeEl.addEventListener('input', ()=>{ scheduleCheck(); updateSubmitEnabled(); });
     participantEl.addEventListener('input', updateSubmitEnabled);
     updateSubmitEnabled();
   })();
 </script>
-
 </body>
 </html>
