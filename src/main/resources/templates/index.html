@@ -19,7 +19,7 @@
   <link rel="stylesheet" th:href="@{/styles.css}">
 </head>
 <body>
-<!-- Hamburger (morphs to ✕ when open) -->
+<!-- Hamburger (morphs ☰ → ✕) -->
 <button id="menuButton" class="menu-button" aria-expanded="false" aria-controls="appMenuOverlay" aria-label="Open menu">☰</button>
 
 <!-- Overlay Menu -->
@@ -27,8 +27,7 @@
   <div class="menu-backdrop" data-close></div>
   <div class="menu-panel">
     <div class="menu-header">
-      <h3 id="menuTitle" th:text="#{menu.title}">Menu</h3>
-      <!-- Using morph pattern: no separate close button needed -->
+      <h3 id="menuTitle" th:text="#{menu.title}">Settings</h3>
     </div>
 
     <div class="menu-section">
@@ -104,7 +103,8 @@
 
     <!-- Hint when feature is off -->
     <p class="hint"
-       th:if="${@environment.getProperty('features.persistentRooms.enabled','false') != 'true'}">
+       th:if="${@environment.getProperty('features.persistentRooms.enabled','false') != 'true'}"
+       th:text="#{hint.persistOff}">
       Persistent rooms are not available on this deployment.
     </p>
 
@@ -115,27 +115,45 @@
 </div>
 
 <script>
-/* ===== Menu open/close (morph ☰ ⇄ ✕) ===== */
+/* ===== Menu open/close (morph ☰ ⇄ ✕) + Focus Trap ===== */
 (function(){
   const btn = document.getElementById('menuButton');
   const overlay = document.getElementById('appMenuOverlay');
+  const panel = overlay?.querySelector('.menu-panel');
   const backdrop = overlay?.querySelector('[data-close]');
+  let lastFocus = null;
+
+  function focusables(){
+    return panel.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+  }
+  function trapTab(e){
+    if (e.key !== 'Tab' || overlay.classList.contains('hidden')) return;
+    const f = focusables(); if (!f.length) return;
+    const first = f[0], last = f[f.length-1];
+    if (e.shiftKey && document.activeElement === first) { last.focus(); e.preventDefault(); }
+    else if (!e.shiftKey && document.activeElement === last) { first.focus(); e.preventDefault(); }
+  }
 
   function openMenu(){
     document.body.classList.add('menu-open');
     overlay.classList.remove('hidden');
     btn.classList.add('open');
     btn.setAttribute('aria-expanded','true');
-    btn.setAttribute('aria-label','Close menu');
+    btn.setAttribute('aria-label', /*[[#{menu.close}]]*/ 'Close menu');
     btn.textContent = '✕';
+    lastFocus = document.activeElement;
+    setTimeout(()=>focusables()[0]?.focus(), 0);
+    window.addEventListener('keydown', trapTab);
   }
   function closeMenu(){
     document.body.classList.remove('menu-open');
     overlay.classList.add('hidden');
     btn.classList.remove('open');
     btn.setAttribute('aria-expanded','false');
-    btn.setAttribute('aria-label','Open menu');
+    btn.setAttribute('aria-label', /*[[#{menu.open}]]*/ 'Open menu');
     btn.textContent = '☰';
+    window.removeEventListener('keydown', trapTab);
+    lastFocus?.focus();
   }
   function toggleMenu(){ overlay.classList.contains('hidden') ? openMenu() : closeMenu(); }
 
@@ -150,12 +168,6 @@
   const bDark   = document.getElementById('themeDark');
   const bSystem = document.getElementById('themeSystem');
 
-  function currentTheme(){
-    const attr = document.documentElement.getAttribute('data-theme');
-    if (attr) return attr; // 'light' or 'dark'
-    try { return matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'; }
-    catch(e){ return 'dark'; }
-  }
   function applyTheme(t){
     if (t === 'system') document.documentElement.removeAttribute('data-theme');
     else document.documentElement.setAttribute('data-theme', t);
@@ -186,8 +198,8 @@
 
   function setSplit(lang){
     if (!a || !b) return;
-    if (String(lang).startsWith('de')) { a.src='/flags/de.svg'; b.src='/flags/at.svg'; label && (label.textContent='Deutsch'); }
-    else { a.src='/flags/us.svg'; b.src='/flags/gb.svg'; label && (label.textContent='English'); }
+    if (String(lang).startsWith('de')) { a.src='/flags/de.svg'; b.src='/flags/at.svg'; if (label) label.textContent='Deutsch'; }
+    else { a.src='/flags/us.svg'; b.src='/flags/gb.svg'; if (label) label.textContent='English'; }
   }
   function nextLang(){ return cur.startsWith('de') ? 'en' : 'de'; }
   function switchLang(to){
@@ -206,7 +218,7 @@
   });
 })();
 
-/* ===== Landing page form JS (same as before; safe if persist UI absent) ===== */
+/* ===== Landing page form (robust when persist UI hidden) ===== */
 (function () {
   const persistent = document.getElementById('persistent'); // may be null
   const testWrap   = document.getElementById('testRoomWrap'); // may be null
@@ -225,7 +237,6 @@
   const MSG_TAKEN    = /*[[#{status.taken}]]*/ '❌ Name is taken';
 
   function isEmpty(s){ return !s || s.trim().length===0; }
-  function persistEnabled(){ return !!persistent; }
   function isPersistChecked(){ return persistent && persistent.checked; }
 
   function isSubmittable(){
@@ -241,7 +252,7 @@
   function setStatusEmpty(){ nameCheck.textContent=""; nameCheck.className="hint"; nameTaken=false; updateSubmitEnabled(); }
 
   function syncTestVisibility(){
-    if (!persistEnabled()) return;
+    if (!persistent) return;
     const show = isPersistChecked();
     if (testWrap) testWrap.classList.toggle('hidden', !show);
     if (testHint) testHint.classList.toggle('hidden', !show);
@@ -277,7 +288,7 @@
     if (!isSubmittable()) { event.preventDefault(); joinButton.classList.add('shake'); setTimeout(()=>joinButton.classList.remove('shake'),400); }
   });
 
-  if (persistEnabled()) {
+  if (persistent) {
     syncTestVisibility();
     if (isPersistChecked()) scheduleCheck();
     persistent.addEventListener('change', ()=>{ syncTestVisibility(); if (isPersistChecked()) scheduleCheck(); else setStatusEmpty(); });
