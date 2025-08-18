@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org" lang="de">
+<html xmlns:th="http://www.thymeleaf.org" th:lang="${#locale}" lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="dark light">
-  <title>RBS' Estimation Poker</title>
+  <title th:text="#{app.title}">RBS' Estimation Poker</title>
   <link rel="icon" href="https://noxvobiscum.at/wp-content/uploads/2022/09/cropped-nvb-favicon-32x32.png" sizes="32x32" />
   <!-- Early theme apply -->
   <script>
@@ -17,39 +17,42 @@
     })();
   </script>
   <link rel="stylesheet" th:href="@{/styles.css}">
+  <!-- Twemoji (robustes Flaggen-Fallback als SVG) -->
+  <script src="https://cdn.jsdelivr.net/npm/twemoji@14.0.2/dist/twemoji.min.js" crossorigin="anonymous"></script>
 </head>
 <body>
 <script th:inline="javascript">
-  // Theme toggle (button)
+  // Theme toggle
   (function(){
-    function currentTheme() {
-      const attr = document.documentElement.getAttribute('data-theme');
-      if (attr) return attr;
-      try { return matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'; } catch(e){ return 'dark'; }
-    }
-    function setTheme(t) {
-      if (t === 'system') document.documentElement.removeAttribute('data-theme');
-      else document.documentElement.setAttribute('data-theme', t);
-      try { localStorage.setItem('estpoker-theme', t); } catch(e){}
-      const btn = document.getElementById('themeToggle');
-      if (btn) btn.textContent = (t === 'light') ? '🌞' : '🌙';
-    }
+    function currentTheme(){ const a=document.documentElement.getAttribute('data-theme'); if(a) return a; try{ return matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'; }catch(e){ return 'dark'; } }
+    function setTheme(t){ if(t==='system') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', t);
+      try{ localStorage.setItem('estpoker-theme', t);}catch(e){}
+      const b=document.getElementById('themeToggle'); if(b) b.textContent=(t==='light')?'🌞':'🌙'; }
     document.addEventListener('DOMContentLoaded', function(){
-      try {
-        const saved = localStorage.getItem('estpoker-theme') || 'dark';
-        const effective = (saved === 'system') ? currentTheme() : saved;
-        const btn = document.getElementById('themeToggle');
-        if (btn) btn.textContent = (effective === 'light') ? '🌞' : '🌙';
-        if (btn) btn.addEventListener('click', function(){
-          let cur = currentTheme();
-          const next = (cur === 'light') ? 'dark' : 'light';
-          setTheme(next);
-        });
-      } catch(e){}
+      try{ const saved=localStorage.getItem('estpoker-theme')||'dark'; const eff=(saved==='system')?currentTheme():saved; const b=document.getElementById('themeToggle'); if(b) b.textContent=(eff==='light')?'🌞':'🌙'; if(b) b.addEventListener('click', function(){ setTheme(currentTheme()==='light'?'dark':'light'); }); }catch(e){}
     });
   })();
 
-  let participantName = /*[[${participantName}]]*/ "Gast";
+  // Language toggle (split flags + ?lang=…)
+  (function(){
+    function nextLang(){ const cur=document.documentElement.lang||'en'; return cur.toLowerCase().startsWith('de')?'en':'de'; }
+    function switchLang(to){ const url=new URL(window.location.href); url.searchParams.set('lang', to); window.location.href=url.toString(); }
+    function setSplitIcon(currentLang){
+      const btn=document.getElementById('langToggle'); if(!btn) return;
+      const a=btn.querySelector('.flag-a'); const b=btn.querySelector('.flag-b');
+      if(String(currentLang).toLowerCase().startsWith('de')){ a.textContent='🇩🇪'; b.textContent='🇦🇹'; }
+      else{ a.textContent='🇺🇸'; b.textContent='🇬🇧'; }
+      if (window.twemoji){ twemoji.parse(a, {folder:'svg', ext:'.svg'}); twemoji.parse(b, {folder:'svg', ext:'.svg'}); }
+    }
+    document.addEventListener('DOMContentLoaded', function(){
+      const cur=document.documentElement.lang||'en';
+      setSplitIcon(cur);
+      const btn=document.getElementById('langToggle');
+      if(btn) btn.addEventListener('click', function(){ setSplitIcon(nextLang()); switchLang(nextLang()); });
+    });
+  })();
+
+  let participantName = /*[[${participantName}]]*/ "Guest";
   let roomCode = /*[[${roomCode}]]*/ "demo";
   let selectedCard = null;
   let votesRevealed = false;
@@ -60,7 +63,10 @@
   const socketUrl = wsProtocol + location.host + "/gameSocket?roomCode=" + roomCode + "&participantName=" + participantName;
   const socket = new WebSocket(socketUrl);
 
-  socket.onopen = () => console.log("✅ Verbindung zum Server hergestellt!");
+  socket.onopen = () => console.log("✅ Connected");
+
+  const MSG_HOST_YOU   = /*[[#{toast.youAreHost}]]*/ 'Host {old} left. You are now host!';
+  const MSG_HOST_OTHER = /*[[#{toast.hostOther}]]*/ 'Host {old} left. {new} is now host.';
 
   socket.onmessage = (event) => {
     const data = JSON.parse(event.data);
@@ -73,16 +79,12 @@
       isHost = participants.find(p => p.name === participantName)?.isHost === true;
 
       document.getElementById("revealButton").style.display = isHost && !votesRevealed ? "inline-block" : "none";
-      document.getElementById("resetButton").style.display = isHost && votesRevealed ? "inline-block" : "none";
+      document.getElementById("resetButton").style.display  = isHost && votesRevealed ? "inline-block" : "none";
 
       updateParticipantList(participants, votesRevealed);
 
-      if (votesRevealed) {
-        showResults(participants, data.averageVote);
-      } else {
-        toggleView(false);
-        updateAverage(null);
-      }
+      if (votesRevealed) { showResults(participants, data.averageVote); }
+      else { toggleView(false); updateAverage(null); }
 
       if (prevVotesRevealed && !votesRevealed) { clearCardSelection(); }
       if (!votesRevealed && participants.every(p => p.vote == null)) { clearCardSelection(); }
@@ -91,22 +93,14 @@
     } else if (data.type === "hostChanged") {
       const { oldHost, newHost } = data;
       showToast(newHost === participantName
-        ? `Host ${oldHost} hat den Raum verlassen. Du bist jetzt Host!`
-        : `Host ${oldHost} hat den Raum verlassen. ${newHost} ist jetzt Host.`);
+        ? MSG_HOST_YOU.replace('{old}', oldHost)
+        : MSG_HOST_OTHER.replace('{old}', oldHost).replace('{new}', newHost)
+      );
     }
   };
 
-  function sendVote(cardValue) {
-    socket.send("vote:" + participantName + ":" + cardValue);
-    selectedCard = cardValue;
-    highlightSelectedCard();
-  }
-
-  function clearCardSelection() {
-    selectedCard = null;
-    try { localStorage.removeItem('selectedCard'); } catch(e) {}
-    highlightSelectedCard();
-  }
+  function sendVote(cardValue) { socket.send("vote:" + participantName + ":" + cardValue); selectedCard = cardValue; highlightSelectedCard(); }
+  function clearCardSelection(){ selectedCard = null; try { localStorage.removeItem('selectedCard'); } catch(e){} highlightSelectedCard(); }
 
   function highlightSelectedCard() {
     document.querySelectorAll(".card-grid button").forEach(btn => {
@@ -119,9 +113,9 @@
   }
 
   function revealCards() { if (isHost) socket.send("revealCards"); }
-  function resetRoom() { if (isHost) socket.send("resetRoom"); clearCardSelection(); }
+  function resetRoom()   { if (isHost) socket.send("resetRoom"); clearCardSelection(); }
 
-  // Render participant list as: [icon][name text][status]
+  // Render participant list
   function updateParticipantList(participants, revealed) {
     const list = document.getElementById("liveParticipantList");
     if (!list) return;
@@ -153,7 +147,7 @@
         voteChip.className = "vote-chip";
         const v = p.vote != null ? String(p.vote) : null;
         voteChip.textContent = v != null ? v : "—";
-        if (v && !/^\d+$/.test(v)) voteChip.classList.add("special"); // high-contrast for emoji/symbols
+        if (v && !/^\d+$/.test(v)) voteChip.classList.add("special");
         rightWrap.appendChild(voteChip);
       } else {
         if (!p.disconnected && p.vote != null) {
@@ -201,36 +195,38 @@
   function showToast(message) {
     const toast = document.createElement("div");
     toast.className = "toast";
-    toast.textContent = message;
     document.body.appendChild(toast);
+    toast.textContent = message;
     setTimeout(() => toast.remove(), 3000);
   }
 </script>
 
 <div class="container">
-  <!-- Floating theme toggle (no vertical space) -->
-  <button id="themeToggle" class="theme-toggle" title="Toggle light/dark mode" aria-label="Toggle light/dark mode">🌙</button>
+  <!-- Floating toggles -->
+  <button id="themeToggle" class="theme-toggle" th:title="#{title.theme}" aria-label="Toggle light/dark mode">🌙</button>
 
-  <h1>🃏 RBS' Estimation Poker</h1>
+  <button id="langToggle" class="lang-toggle" th:title="#{title.lang}" aria-label="Switch language">
+    <span class="flag-split" aria-hidden="true">
+      <span class="flag flag-a">🇺🇸</span>
+      <span class="flag flag-b">🇬🇧</span>
+    </span>
+    <span class="visually-hidden">Language</span>
+  </button>
 
-  <!-- New info grid (labels above values) -->
-  <div class="info-grid">
-    <div class="info-item">
-      <div class="info-label">🆔 Raum</div>
-      <div class="info-value" th:text="${roomCode}">demo</div>
-    </div>
-    <div class="info-item">
-      <div class="info-label">👤 Du bist</div>
-      <div class="info-value" th:text="${participantName}">Gast</div>
-    </div>
-  </div>
+  <h1 th:text="#{ui.heading}">🃏 RBS' Estimation Poker</h1>
 
-  <h2>Teilnehmende:</h2>
-  <ul id="liveParticipantList"></ul>
+  <!-- Ausgerichtete Kopfzeilen-Zeilen -->
+  <dl class="main-info">
+    <dt><span class="mi-icon" aria-hidden="true">🆔</span><span class="mi-label" th:text="#{label.room}">Room:</span></dt>
+    <dd><strong th:text="${roomCode}">demo</strong></dd>
+
+    <dt><span class="mi-icon" aria-hidden="true">👤</span><span class="mi-label" th:text="#{label.you}">You are:</span></dt>
+    <dd><strong th:text="${participantName}">Guest</strong></dd>
+  </dl>
+
+  <h2 th:text="#{label.selectCard}">Choose a card:</h2>
 
   <div class="pre-vote">
-    <p><strong>Karte auswählen:</strong></p>
-
     <div class="card-grid">
       <button type="button" th:each="cardValue : ${cardsRow1}"
               th:text="${cardValue}" th:attr="data-card=${cardValue}"
@@ -253,12 +249,14 @@
       </button>
     </div>
 
-    <button type="button" id="revealButton" class="button" style="display: none;" onclick="revealCards()">🟡 Karten aufdecken</button>
+    <button type="button" id="revealButton" class="button" style="display:none;"
+            th:text="#{button.reveal}" onclick="revealCards()">Reveal cards</button>
   </div>
 
-  <div class="post-vote" style="display: none;">
-    <p class="average-label">⌀ Durchschnitt: <span id="averageVote">–</span></p>
-    <button type="button" id="resetButton" class="button" style="display: none;" onclick="resetRoom()">🔄 Neue Runde starten</button>
+  <div class="post-vote" style="display:none;">
+    <p class="average-label"><span th:text="#{label.average}">Avg:</span> <span id="averageVote">–</span></p>
+    <button type="button" id="resetButton" class="button" style="display:none;"
+            th:text="#{button.reset}" onclick="resetRoom()">Start new round</button>
   </div>
 </div>
 

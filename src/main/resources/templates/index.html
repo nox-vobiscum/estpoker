@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org" lang="de">
+<html xmlns:th="http://www.thymeleaf.org" th:lang="${#locale}" lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="dark light">
-  <title>RBS' Estimation Poker</title>
+  <title th:text="#{app.title}">RBS' Estimation Poker</title>
   <link rel="icon" href="https://noxvobiscum.at/wp-content/uploads/2022/09/cropped-nvb-favicon-32x32.png" sizes="32x32" />
   <!-- Early theme apply to avoid FOUC -->
   <script>
@@ -17,29 +17,39 @@
     })();
   </script>
   <link rel="stylesheet" th:href="@{/styles.css}">
+  <!-- Twemoji (robustes Flaggen-Fallback als SVG) -->
+  <script src="https://cdn.jsdelivr.net/npm/twemoji@14.0.2/dist/twemoji.min.js" crossorigin="anonymous"></script>
 </head>
 <body>
 <div class="container">
-  <!-- Floating theme toggle (no vertical space) -->
-  <button id="themeToggle" class="theme-toggle" title="Toggle light/dark mode" aria-label="Toggle light/dark mode">🌙</button>
+  <!-- Floating toggles -->
+  <button id="themeToggle" class="theme-toggle" th:title="#{title.theme}" aria-label="Toggle light/dark mode">🌙</button>
 
-  <h1>🃏 RBS' Estimation Poker</h1>
+  <!-- Split-Flag language toggle (diagonal) -->
+  <button id="langToggle" class="lang-toggle" th:title="#{title.lang}" aria-label="Switch language">
+    <span class="flag-split" aria-hidden="true">
+      <span class="flag flag-a">🇺🇸</span>
+      <span class="flag flag-b">🇬🇧</span>
+    </span>
+    <span class="visually-hidden">Language</span>
+  </button>
+
+  <h1 th:text="#{ui.heading}">🃏 RBS' Estimation Poker</h1>
 
   <!-- Fehleranzeige -->
-  <div th:if="${error != null or param.error != null}"
-       class="error"
+  <div th:if="${error != null or param.error != null}" class="error"
        th:text="${error != null ? error : param.error}">Fehlermeldung</div>
 
   <form th:action="@{/join}" method="post" id="joinForm" class="join-form">
     <div class="form-row">
       <div class="form-field">
-        <label for="participantName">Dein Name</label>
+        <label for="participantName" th:text="#{label.enterName}">Your name</label>
         <input type="text" id="participantName" name="participantName"
                th:value="${param.participantName != null ? param.participantName : participantName}">
       </div>
 
       <div class="form-field">
-        <label for="roomCode">Raumcode / Name</label>
+        <label for="roomCode" th:text="#{label.roomCode}">Room code / name</label>
         <div style="display:grid; gap:6px;">
           <input type="text" id="roomCode" name="roomCode"
                  th:value="${param.roomCode != null ? param.roomCode : roomCode}">
@@ -51,23 +61,23 @@
     <div class="checkbox-row">
       <input type="checkbox" id="persistent" name="persistent"
              th:checked="${(param.persistent != null) or (persistent == true)}">
-      <label for="persistent">Diesen Raum dauerhaft speichern</label>
+      <label for="persistent" th:text="#{label.persistent}">Save this room</label>
     </div>
-    <p class="hint">
-      Erzeugt einen Deep-Link (<code>/room/{ID}</code>). Der Raum bleibt bestehen, bis der Auto-Cleanup greift.
+    <p class="hint" th:text="#{hint.persistent}">
+      Creates a deep link (/room/{ID}). The room persists until auto-cleanup.
     </p>
 
     <div id="testRoomWrap" class="checkbox-row hidden">
       <input type="checkbox" id="testRoom" name="testRoom"
              th:checked="${(param.testRoom != null) or (testRoom == true)}">
-      <label for="testRoom">Nur Test-Raum</label>
+      <label for="testRoom" th:text="#{label.testRoom}">Test room only</label>
     </div>
-    <p id="testRoomHint" class="hint hidden">
-      Markiert den Raum als Test – wird schneller automatisch gelöscht (z. B. nach 7 Tagen).
+    <p id="testRoomHint" class="hint hidden" th:text="#{hint.testRoom}">
+      Marks as test – auto-deleted sooner.
     </p>
 
     <div class="form-actions">
-      <button type="submit" class="button">Beitreten</button>
+      <button type="submit" class="button" th:text="#{button.join}">Join</button>
     </div>
   </form>
 </div>
@@ -82,29 +92,57 @@
       try { return matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'; } catch(e){ return 'dark'; }
     }
     function setTheme(t) {
-      if (t === 'system') {
-        document.documentElement.removeAttribute('data-theme');
-      } else {
-        document.documentElement.setAttribute('data-theme', t);
-      }
+      if (t === 'system') document.documentElement.removeAttribute('data-theme');
+      else document.documentElement.setAttribute('data-theme', t);
       try { localStorage.setItem('estpoker-theme', t); } catch(e){}
       const btn = document.getElementById('themeToggle');
       if (btn) btn.textContent = (t === 'light') ? '🌞' : '🌙';
     }
-    // init icon from saved/system
     try {
       const saved = localStorage.getItem('estpoker-theme') || 'dark';
       const effective = (saved === 'system') ? currentTheme() : saved;
       const btn = document.getElementById('themeToggle');
       if (btn) btn.textContent = (effective === 'light') ? '🌞' : '🌙';
+      if (btn) btn.addEventListener('click', function(){ setTheme(currentTheme()==='light'?'dark':'light'); });
     } catch(e){}
-    // click toggles light/dark (no extra space)
-    document.addEventListener('click', function(ev){
-      const btn = document.getElementById('themeToggle');
-      if (!btn || ev.target !== btn) return;
-      let cur = currentTheme();
-      const next = (cur === 'light') ? 'dark' : 'light';
-      setTheme(next);
+  })();
+
+  // Language toggle (split flags + ?lang=…)
+  (function(){
+    function nextLang() {
+      const cur = document.documentElement.lang || 'en';
+      return cur.toLowerCase().startsWith('de') ? 'en' : 'de';
+    }
+    function switchLang(to) {
+      const url = new URL(window.location.href);
+      url.searchParams.set('lang', to);
+      window.location.href = url.toString();
+    }
+    function setSplitIcon(currentLang){
+      const btn = document.getElementById('langToggle');
+      if (!btn) return;
+      const a = btn.querySelector('.flag-a');
+      const b = btn.querySelector('.flag-b');
+      if (String(currentLang).toLowerCase().startsWith('de')) {
+        a.textContent = '🇩🇪'; b.textContent = '🇦🇹';
+      } else {
+        a.textContent = '🇺🇸'; b.textContent = '🇬🇧';
+      }
+      // Twemoji parse (robust flags everywhere)
+      if (window.twemoji) {
+        twemoji.parse(a, {folder: 'svg', ext: '.svg'});
+        twemoji.parse(b, {folder: 'svg', ext: '.svg'});
+      }
+    }
+    document.addEventListener('DOMContentLoaded', function(){
+      const cur = document.documentElement.lang || 'en';
+      setSplitIcon(cur);
+      const btn = document.getElementById('langToggle');
+      if (btn) btn.addEventListener('click', function(){
+        // Optional: direkt Icon vor Switch umblenden
+        setSplitIcon(nextLang());
+        switchLang(nextLang());
+      });
     });
   })();
 
@@ -121,6 +159,10 @@
 
     let nameTaken = false;
 
+    const MSG_CHECKING = /*[[#{status.checking}]]*/ 'Checking availability…';
+    const MSG_FREE     = /*[[#{status.free}]]*/ '✅ Name is available';
+    const MSG_TAKEN    = /*[[#{status.taken}]]*/ '❌ Name is taken';
+
     function isEmpty(s) { return !s || s.trim().length === 0; }
     function isSubmittable() {
       if (isEmpty(participantEl.value) || isEmpty(roomCodeEl.value)) return false;
@@ -129,9 +171,9 @@
     }
     function updateSubmitEnabled() { joinButton.disabled = !isSubmittable(); }
 
-    function setStatusLoading() { nameCheck.textContent = "Prüfe Verfügbarkeit…"; nameCheck.className = "hint loading"; nameTaken = false; updateSubmitEnabled(); }
-    function setStatusOK() { nameCheck.textContent = "✅ Name ist frei"; nameCheck.className = "hint ok"; nameTaken = false; updateSubmitEnabled(); }
-    function setStatusBad() { nameCheck.textContent = "❌ Name ist vergeben"; nameCheck.className = "hint bad"; nameTaken = true; updateSubmitEnabled(); }
+    function setStatusLoading() { nameCheck.textContent = MSG_CHECKING; nameCheck.className = "hint loading"; nameTaken = false; updateSubmitEnabled(); }
+    function setStatusOK() { nameCheck.textContent = MSG_FREE; nameCheck.className = "hint ok"; nameTaken = false; updateSubmitEnabled(); }
+    function setStatusBad() { nameCheck.textContent = MSG_TAKEN; nameCheck.className = "hint bad"; nameTaken = true; updateSubmitEnabled(); }
     function setStatusEmpty() { nameCheck.textContent = ""; nameCheck.className = "hint"; nameTaken = false; updateSubmitEnabled(); }
 
     function syncTestVisibility() {

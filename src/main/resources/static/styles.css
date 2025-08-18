@@ -113,44 +113,43 @@ body {
   max-width: 800px;
   margin: 0 auto;
   padding: 1rem;
-  position: relative; /* anchor for floating toggle */
+  position: relative; /* anchor for floating toggles */
 }
 
 h1, h2 { color: var(--text-strong); margin-bottom: 2rem; font-size: 1.1rem; }
 strong { color: var(--text-strong); }
 
-/* New info grid (labels above values) */
-.info-grid {
+/* Aligned label/value block for room/user */
+.main-info {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px 16px;
-  margin-bottom: 1.5rem;
-  align-items: start;
+  grid-template-columns: max-content 1fr;
+  column-gap: 12px;
+  row-gap: 6px;
+  margin-bottom: 2rem;
+  align-items: baseline;
 }
-.info-item { min-width: 0; }
-.info-label {
-  font-size: 0.8rem;
+.main-info dt {
+  margin: 0;
+  font-size: 0.95rem;
   color: var(--text-dim);
-  margin-bottom: 2px;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
 }
-.info-value {
+.main-info dd {
+  margin: 0;
   color: var(--text-strong);
   font-weight: 600;
-  word-break: break-word;
 }
-@media (max-width: 520px) {
-  .info-grid { grid-template-columns: 1fr; }
-}
-
-.main-info { margin-bottom: 2rem; } /* kept in case older markup remains */
+.mi-icon { width: 1.25rem; display: inline-flex; justify-content: center; }
 
 /* ===========================
-   FLOATING THEME TOGGLE
+   FLOATING TOGGLES
    =========================== */
-.theme-toggle {
+.theme-toggle,
+.lang-toggle {
   position: absolute;
   top: 8px;
-  right: 8px;
   width: 36px;
   height: 36px;
   border-radius: 9999px;
@@ -163,15 +162,41 @@ strong { color: var(--text-strong); }
   cursor: pointer;
   box-shadow: var(--shadow);
   user-select: none;
-}
-.theme-toggle:hover {
-  background: #414449;
-  transform: translateY(-1px);
   transition: transform .12s ease, background .18s ease, box-shadow .18s ease;
+}
+.theme-toggle { right: 8px; }
+.lang-toggle  { right: 52px; }
+.theme-toggle:hover,
+.lang-toggle:hover { background: #414449; transform: translateY(-1px); }
+
+/* Split flag icon inside language toggle */
+.flag-split { position: relative; width: 22px; height: 22px; display: block; }
+.flag {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; line-height: 1;
+  /* Force emoji-supporting fonts so Flags nicht als "US/GB" erscheinen */
+  font-family:
+    "Apple Color Emoji",
+    "Segoe UI Emoji",
+    "Noto Color Emoji",
+    "Twemoji Mozilla",
+    "EmojiOne Color",
+    "Segoe UI Symbol",
+    system-ui, sans-serif !important;
+}
+/* Diagonaler Split: oben/links + unten/rechts */
+.flag-a { clip-path: polygon(0% 0%, 100% 0%, 0% 100%); }
+.flag-b { clip-path: polygon(100% 0%, 100% 100%, 0% 100%); }
+
+/* A11y helper */
+.visually-hidden{
+  position:absolute !important; height:1px; width:1px; overflow:hidden; clip:rect(1px,1px,1px,1px);
+  white-space:nowrap; border:0; padding:0; margin:-1px;
 }
 
 /* ===========================
-   FORM / LANDING (unchanged)
+   FORM / LANDING
    =========================== */
 .landing-container { display:flex; flex-direction:column; align-items:center; min-height:90vh; padding:2rem; text-align:center; margin-top:10vh; }
 .landing-container form, .join-form { display:flex; flex-direction:column; align-items:center; gap:1rem; width:100%; }
@@ -288,7 +313,7 @@ li{ margin-bottom:.4rem; line-height:1.5; font-size:1rem; }
 }
 @keyframes chipIn{ to{ opacity:1; transform:translateY(0); } }
 
-/* iPhone/Safari boost for special chips (larger + subtle text-shadow) */
+/* iPhone/Safari boost for special chips */
 @supports (-webkit-touch-callout: none) {
   @media (max-width: 768px) {
     .vote-chip.special {
@@ -344,7 +369,6 @@ li{ margin-bottom:.4rem; line-height:1.5; font-size:1rem; }
   .button, button[type="submit"]{ width:100%; padding:0 1.2rem; font-size:1.05rem; }
 
   h1, h2{ font-size:1.25rem; }
-  ul li{ font-size:1.05rem; line-height:1.45; }
 
   .toast{ font-size:.95rem; }
 
