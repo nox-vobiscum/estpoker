@@ -289,7 +289,7 @@ function updateParticipantList(participants, revealed) {
     icon.className = p.isHost
       ? "participant-icon host"
       : (p.disconnected ? "participant-icon inactive" : "participant-icon");
-    icon.textContent = p.isHost ? "👑" : (p.disconnected ? "💤" : "👤";
+    icon.textContent = p.isHost ? "👑" : (p.disconnected ? "💤" : "👤");
 
     const nameSpan = document.createElement("span");
     nameSpan.className = "name";
