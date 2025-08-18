@@ -1,291 +1,264 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org" lang="de">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="color-scheme" content="dark light">
-    <title>RBS' Estimation Poker</title>
-    <link rel="icon" href="https://noxvobiscum.at/wp-content/uploads/2022/09/cropped-nvb-favicon-32x32.png" sizes="32x32" />
-    <!-- Early theme apply -->
-    <script>
-      (function(){
-        try {
-          var t = localStorage.getItem('estpoker-theme') || 'dark';
-          if (t === 'system') { document.documentElement.removeAttribute('data-theme'); }
-          else { document.documentElement.setAttribute('data-theme', t); }
-        } catch(e){}
-      })();
-    </script>
-    <link rel="stylesheet" th:href="@{/styles.css}">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <title>RBS' Estimation Poker</title>
+  <link rel="icon" href="https://noxvobiscum.at/wp-content/uploads/2022/09/cropped-nvb-favicon-32x32.png" sizes="32x32" />
+  <!-- Early theme apply -->
+  <script>
+    (function(){
+      try {
+        var t = localStorage.getItem('estpoker-theme') || 'dark';
+        if (t === 'system') { document.documentElement.removeAttribute('data-theme'); }
+        else { document.documentElement.setAttribute('data-theme', t); }
+      } catch(e){}
+    })();
+  </script>
+  <link rel="stylesheet" th:href="@{/styles.css}">
 </head>
 <body>
 <script th:inline="javascript">
-    // Theme switcher (shared)
-    (function(){
-        document.addEventListener('DOMContentLoaded', function(){
-            const sel = document.getElementById('themeSelect');
-            if (!sel) return;
-            try {
-                const saved = localStorage.getItem('estpoker-theme') || 'dark';
-                sel.value = saved;
-                sel.addEventListener('change', function(){
-                    const v = sel.value;
-                    try { localStorage.setItem('estpoker-theme', v); } catch(e){}
-                    if (v === 'system') document.documentElement.removeAttribute('data-theme');
-                    else document.documentElement.setAttribute('data-theme', v);
-                });
-            } catch(e){}
+  // Theme toggle (button)
+  (function(){
+    function currentTheme() {
+      const attr = document.documentElement.getAttribute('data-theme');
+      if (attr) return attr;
+      try { return matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'; } catch(e){ return 'dark'; }
+    }
+    function setTheme(t) {
+      if (t === 'system') document.documentElement.removeAttribute('data-theme');
+      else document.documentElement.setAttribute('data-theme', t);
+      try { localStorage.setItem('estpoker-theme', t); } catch(e){}
+      const btn = document.getElementById('themeToggle');
+      if (btn) btn.textContent = (t === 'light') ? '🌞' : '🌙';
+    }
+    document.addEventListener('DOMContentLoaded', function(){
+      try {
+        const saved = localStorage.getItem('estpoker-theme') || 'dark';
+        const effective = (saved === 'system') ? currentTheme() : saved;
+        const btn = document.getElementById('themeToggle');
+        if (btn) btn.textContent = (effective === 'light') ? '🌞' : '🌙';
+        if (btn) btn.addEventListener('click', function(){
+          let cur = currentTheme();
+          const next = (cur === 'light') ? 'dark' : 'light';
+          setTheme(next);
         });
-    })();
+      } catch(e){}
+    });
+  })();
 
-    let participantName = /*[[${participantName}]]*/ "Gast";
-    let roomCode = /*[[${roomCode}]]*/ "demo";
-    let selectedCard = null;
-    let votesRevealed = false;
-    let isHost = false;
-    let resizeTimer = null;
+  let participantName = /*[[${participantName}]]*/ "Gast";
+  let roomCode = /*[[${roomCode}]]*/ "demo";
+  let selectedCard = null;
+  let votesRevealed = false;
+  let isHost = false;
+  let resizeTimer = null;
 
-    const wsProtocol = location.protocol === "https:" ? "wss://" : "ws://";
-    const socketUrl = wsProtocol + location.host + "/gameSocket?roomCode=" + roomCode + "&participantName=" + participantName;
-    const socket = new WebSocket(socketUrl);
+  const wsProtocol = location.protocol === "https:" ? "wss://" : "ws://";
+  const socketUrl = wsProtocol + location.host + "/gameSocket?roomCode=" + roomCode + "&participantName=" + participantName;
+  const socket = new WebSocket(socketUrl);
 
-    socket.onopen = () => console.log("✅ Verbindung zum Server hergestellt!");
+  socket.onopen = () => console.log("✅ Verbindung zum Server hergestellt!");
 
-    socket.onmessage = (event) => {
-        const data = JSON.parse(event.data);
+  socket.onmessage = (event) => {
+    const data = JSON.parse(event.data);
 
-        if (data.type === "voteUpdate") {
-            const prevVotesRevealed = votesRevealed;
-            const participants = Array.isArray(data.participants) ? data.participants : [];
+    if (data.type === "voteUpdate") {
+      const prevVotesRevealed = votesRevealed;
+      const participants = Array.isArray(data.participants) ? data.participants : [];
 
-            votesRevealed = data.votesRevealed;
-            isHost = participants.find(p => p.name === participantName)?.isHost === true;
+      votesRevealed = data.votesRevealed;
+      isHost = participants.find(p => p.name === participantName)?.isHost === true;
 
-            // Host-only buttons visibility
-            document.getElementById("revealButton").style.display = isHost && !votesRevealed ? "inline-block" : "none";
-            document.getElementById("resetButton").style.display = isHost && votesRevealed ? "inline-block" : "none";
+      document.getElementById("revealButton").style.display = isHost && !votesRevealed ? "inline-block" : "none";
+      document.getElementById("resetButton").style.display = isHost && votesRevealed ? "inline-block" : "none";
 
-            updateParticipantList(participants, votesRevealed);
+      updateParticipantList(participants, votesRevealed);
 
-            if (votesRevealed) {
-                showResults(participants, data.averageVote);
-            } else {
-                toggleView(false);
-                updateAverage(null);
-            }
+      if (votesRevealed) {
+        showResults(participants, data.averageVote);
+      } else {
+        toggleView(false);
+        updateAverage(null);
+      }
 
-            if (prevVotesRevealed && !votesRevealed) {
-                clearCardSelection();
-            }
-            if (!votesRevealed && participants.every(p => p.vote == null)) {
-                clearCardSelection();
-            }
+      if (prevVotesRevealed && !votesRevealed) { clearCardSelection(); }
+      if (!votesRevealed && participants.every(p => p.vote == null)) { clearCardSelection(); }
 
-            highlightSelectedCard();
-        } else if (data.type === "hostChanged") {
-            const { oldHost, newHost } = data;
-            showToast(newHost === participantName
-                ? `Host ${oldHost} hat den Raum verlassen. Du bist jetzt Host!`
-                : `Host ${oldHost} hat den Raum verlassen. ${newHost} ist jetzt Host.`);
+      highlightSelectedCard();
+    } else if (data.type === "hostChanged") {
+      const { oldHost, newHost } = data;
+      showToast(newHost === participantName
+        ? `Host ${oldHost} hat den Raum verlassen. Du bist jetzt Host!`
+        : `Host ${oldHost} hat den Raum verlassen. ${newHost} ist jetzt Host.`);
+    }
+  };
+
+  function sendVote(cardValue) {
+    socket.send("vote:" + participantName + ":" + cardValue);
+    selectedCard = cardValue;
+    highlightSelectedCard();
+  }
+
+  function clearCardSelection() {
+    selectedCard = null;
+    try { localStorage.removeItem('selectedCard'); } catch(e) {}
+    highlightSelectedCard();
+  }
+
+  function highlightSelectedCard() {
+    document.querySelectorAll(".card-grid button").forEach(btn => {
+      const card = btn.getAttribute("data-card");
+      const isSelected = !votesRevealed && card === selectedCard;
+      btn.classList.toggle("selected", isSelected);
+      const check = btn.querySelector(".checkmark");
+      if (check) check.style.display = isSelected ? "block" : "none";
+    });
+  }
+
+  function revealCards() { if (isHost) socket.send("revealCards"); }
+  function resetRoom() { if (isHost) socket.send("resetRoom"); clearCardSelection(); }
+
+  function updateParticipantList(participants, revealed) {
+    const list = document.getElementById("liveParticipantList");
+    if (!list) return;
+    list.innerHTML = "";
+
+    participants.forEach(p => {
+      const li = document.createElement("li");
+      li.classList.add("participant-row");
+      li.dataset.hasvote = p.vote !== null;
+
+      if (p.disconnected) li.classList.add("disconnected");
+      if (p.isHost) li.classList.add("is-host");
+
+      const icon = document.createElement("span");
+      icon.className = p.isHost
+        ? "participant-icon host"
+        : (p.disconnected ? "participant-icon inactive" : "participant-icon");
+      icon.textContent = p.isHost ? "👑" : (p.disconnected ? "💤" : "👤");
+
+      const nameSpan = document.createElement("span");
+      nameSpan.className = "name";
+      nameSpan.textContent = p.name;
+
+      const rightWrap = document.createElement("div");
+      rightWrap.className = "row-right";
+
+      if (revealed) {
+        const voteChip = document.createElement("span");
+        voteChip.className = "vote-chip";
+        const v = p.vote != null ? String(p.vote) : null;
+        voteChip.textContent = v != null ? v : "—";
+        if (v && !/^\d+$/.test(v)) voteChip.classList.add("special"); // high-contrast for emoji/symbols
+        rightWrap.appendChild(voteChip);
+      } else {
+        if (!p.disconnected && p.vote != null) {
+          const status = document.createElement("span");
+          status.className = "status-icon done";
+          status.textContent = "✅";
+          rightWrap.appendChild(status);
+        } else if (!p.disconnected) {
+          const status = document.createElement("span");
+          status.className = "status-icon pending";
+          status.textContent = "⏳";
+          rightWrap.appendChild(status);
         }
-    };
+      }
 
-    function sendVote(cardValue) {
-        socket.send("vote:" + participantName + ":" + cardValue);
-        selectedCard = cardValue;
-        highlightSelectedCard();
-    }
-
-    function clearCardSelection() {
-        selectedCard = null;
-        try { localStorage.removeItem('selectedCard'); } catch(e) {}
-        highlightSelectedCard();
-    }
-
-    function highlightSelectedCard() {
-        document.querySelectorAll(".card-grid button").forEach(btn => {
-            const card = btn.getAttribute("data-card");
-            const isSelected = !votesRevealed && card === selectedCard;
-            btn.classList.toggle("selected", isSelected);
-            const check = btn.querySelector(".checkmark");
-            if (check) check.style.display = isSelected ? "block" : "none";
-        });
-    }
-
-    function revealCards() {
-        if (isHost) socket.send("revealCards");
-    }
-
-    function resetRoom() {
-        if (isHost) socket.send("resetRoom");
-        clearCardSelection();
-    }
-
-    // Render participant list as: [icon][name text][status]
-    function updateParticipantList(participants, revealed) {
-        const list = document.getElementById("liveParticipantList");
-        if (!list) return;
-        list.innerHTML = "";
-
-        participants.forEach(p => {
-            const li = document.createElement("li");
-            li.classList.add("participant-row");
-            li.dataset.hasvote = p.vote !== null;
-
-            if (p.disconnected) li.classList.add("disconnected");
-            if (p.isHost) li.classList.add("is-host");
-
-            const icon = document.createElement("span");
-            icon.className = p.isHost
-                ? "participant-icon host"
-                : (p.disconnected ? "participant-icon inactive" : "participant-icon");
-            icon.textContent = p.isHost ? "👑" : (p.disconnected ? "💤" : "👤");
-
-            const nameSpan = document.createElement("span");
-            nameSpan.className = "name";
-            nameSpan.textContent = p.name;
-
-            const rightWrap = document.createElement("div");
-            rightWrap.className = "row-right";
-
-            if (revealed) {
-                const voteChip = document.createElement("span");
-                voteChip.className = "vote-chip";
-                const v = p.vote != null ? String(p.vote) : null;
-                voteChip.textContent = v != null ? v : "—";
-
-                // Non-numeric votes (special cards) get a high-contrast chip
-                if (v && !/^\d+$/.test(v)) {
-                    voteChip.classList.add("special");
-                }
-
-                rightWrap.appendChild(voteChip);
-            } else {
-                if (p.disconnected) {
-                    // no status badge for disconnected users
-                } else if (p.vote != null) {
-                    const status = document.createElement("span");
-                    status.className = "status-icon done";
-                    status.textContent = "✅";
-                    rightWrap.appendChild(status);
-                } else {
-                    const status = document.createElement("span");
-                    status.className = "status-icon pending";
-                    status.textContent = "⏳";
-                    rightWrap.appendChild(status);
-                }
-            }
-
-            li.appendChild(icon);
-            li.appendChild(nameSpan);
-            li.appendChild(rightWrap);
-            list.appendChild(li);
-        });
-
-        measureAndSetNameColumn();
-    }
-
-    function measureAndSetNameColumn() {
-        const list = document.getElementById("liveParticipantList");
-        if (!list) return;
-
-        const names = Array.from(list.querySelectorAll(".name"));
-        const maxTextWidth = names.reduce((max, el) => Math.max(max, el.offsetWidth || 0), 0);
-        list.style.setProperty("--name-text-col", Math.ceil(maxTextWidth) + "px");
-    }
-
-    // Re-measure on resize (debounced)
-    window.addEventListener("resize", () => {
-        clearTimeout(resizeTimer);
-        resizeTimer = setTimeout(measureAndSetNameColumn, 150);
+      li.appendChild(icon);
+      li.appendChild(nameSpan);
+      li.appendChild(rightWrap);
+      list.appendChild(li);
     });
 
-    function updateAverage(avg) {
-        const avgSpan = document.getElementById("averageVote");
-        if (avgSpan) avgSpan.textContent = avg != null ? avg : "N/A";
-    }
+    measureAndSetNameColumn();
+  }
 
-    function toggleView(revealed) {
-        document.querySelectorAll(".pre-vote").forEach(e => e.style.display = revealed ? "none" : "block");
-        document.querySelectorAll(".post-vote").forEach(e => e.style.display = revealed ? "block" : "none");
-    }
+  function measureAndSetNameColumn() {
+    const list = document.getElementById("liveParticipantList");
+    if (!list) return;
+    const names = Array.from(list.querySelectorAll(".name"));
+    const maxTextWidth = names.reduce((m, el) => Math.max(m, el.offsetWidth || 0), 0);
+    list.style.setProperty("--name-text-col", Math.ceil(maxTextWidth) + "px");
+  }
 
-    function showResults(participants, avg) {
-        toggleView(true);
-        updateAverage(avg);
-    }
+  window.addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(measureAndSetNameColumn, 150); });
 
-    function showToast(message) {
-        const toast = document.createElement("div");
-        toast.className = "toast";
-        toast.textContent = message;
-        document.body.appendChild(toast);
-        setTimeout(() => toast.remove(), 3000);
-    }
+  function updateAverage(avg) {
+    const avgSpan = document.getElementById("averageVote");
+    if (avgSpan) avgSpan.textContent = avg != null ? avg : "N/A";
+  }
+  function toggleView(revealed) {
+    document.querySelectorAll(".pre-vote").forEach(e => e.style.display = revealed ? "none" : "block");
+    document.querySelectorAll(".post-vote").forEach(e => e.style.display = revealed ? "block" : "none");
+  }
+  function showResults(participants, avg) { toggleView(true); updateAverage(avg); }
+
+  function showToast(message) {
+    const toast = document.createElement("div");
+    toast.className = "toast";
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 3000);
+  }
 </script>
 
 <div class="container">
-    <div class="toolbar">
-        <label for="themeSelect" class="sr-only">Theme</label>
-        <select id="themeSelect" class="theme-select" aria-label="Theme auswählen">
-            <option value="dark">Dark</option>
-            <option value="light">Light</option>
-            <option value="system">System</option>
-        </select>
+  <!-- Floating theme toggle (no vertical space) -->
+  <button id="themeToggle" class="theme-toggle" title="Toggle light/dark mode" aria-label="Toggle light/dark mode">🌙</button>
+
+  <h1>🃏 RBS' Estimation Poker</h1>
+  <div class="main-info">
+    <p>🆔 Raum: <strong th:text="${roomCode}">demo</strong></p>
+    <p>👤 Du bist: <strong th:text="${participantName}">Gast</strong></p>
+  </div>
+
+  <h2>Teilnehmende:</h2>
+  <ul id="liveParticipantList"></ul>
+
+  <div class="pre-vote">
+    <p><strong>Karte auswählen:</strong></p>
+
+    <div class="card-grid">
+      <button type="button" th:each="cardValue : ${cardsRow1}"
+              th:text="${cardValue}" th:attr="data-card=${cardValue}"
+              th:onclick="|sendVote(this.getAttribute('data-card'))|">
+        <span class="checkmark">✔</span>
+      </button>
+    </div>
+    <div class="card-grid">
+      <button type="button" th:each="cardValue : ${cardsRow2}"
+              th:text="${cardValue}" th:attr="data-card=${cardValue}"
+              th:onclick="|sendVote(this.getAttribute('data-card'))|">
+        <span class="checkmark">✔</span>
+      </button>
+    </div>
+    <div class="card-grid">
+      <button type="button" th:each="cardValue : ${cardsRow3}"
+              th:text="${cardValue}" th:attr="data-card=${cardValue}"
+              th:onclick="|sendVote(this.getAttribute('data-card'))|">
+        <span class="checkmark">✔</span>
+      </button>
     </div>
 
-    <h1>🃏 RBS' Estimation Poker</h1>
-    <div class="main-info">
-        <p>🆔 Raum: <strong th:text="${roomCode}">demo</strong></p>
-        <p>👤 Du bist: <strong th:text="${participantName}">Gast</strong></p>
-    </div>
+    <button type="button" id="revealButton" class="button" style="display: none;" onclick="revealCards()">🟡 Karten aufdecken</button>
+  </div>
 
-    <h2>Teilnehmende:</h2>
-    <ul id="liveParticipantList"></ul>
-
-    <div class="pre-vote">
-        <p><strong>Karte auswählen:</strong></p>
-
-        <div class="card-grid">
-            <button type="button" th:each="cardValue : ${cardsRow1}"
-                    th:text="${cardValue}"
-                    th:attr="data-card=${cardValue}"
-                    th:onclick="|sendVote(this.getAttribute('data-card'))|">
-                <span class="checkmark">✔</span>
-            </button>
-        </div>
-        <div class="card-grid">
-            <button type="button" th:each="cardValue : ${cardsRow2}"
-                    th:text="${cardValue}"
-                    th:attr="data-card=${cardValue}"
-                    th:onclick="|sendVote(this.getAttribute('data-card'))|">
-                <span class="checkmark">✔</span>
-            </button>
-        </div>
-        <div class="card-grid">
-            <button type="button" th:each="cardValue : ${cardsRow3}"
-                    th:text="${cardValue}"
-                    th:attr="data-card=${cardValue}"
-                    th:onclick="|sendVote(this.getAttribute('data-card'))|">
-                <span class="checkmark">✔</span>
-            </button>
-        </div>
-
-        <button type="button" id="revealButton" class="button" style="display: none;" onclick="revealCards()">🟡 Karten aufdecken</button>
-    </div>
-
-    <div class="post-vote" style="display: none;">
-        <p class="average-label">⌀ Durchschnitt: <span id="averageVote">–</span></p>
-        <button type="button" id="resetButton" class="button" style="display: none;" onclick="resetRoom()">🔄 Neue Runde starten</button>
-    </div>
+  <div class="post-vote" style="display: none;">
+    <p class="average-label">⌀ Durchschnitt: <span id="averageVote">–</span></p>
+    <button type="button" id="resetButton" class="button" style="display: none;" onclick="resetRoom()">🔄 Neue Runde starten</button>
+  </div>
 </div>
 
 <!-- Keep inline toast style (can be externalized later) -->
 <style>
 .toast {
-    position: fixed; top: 20px; right: 20px; background-color: #333; color: white;
-    padding: 12px 20px; border-radius: 8px; opacity: 0.9; z-index: 9999; font-size: 14px;
-    animation: fadein 0.5s, fadeout 0.5s 2.5s;
+  position: fixed; top: 20px; right: 20px; background-color: #333; color: white;
+  padding: 12px 20px; border-radius: 8px; opacity: 0.9; z-index: 9999; font-size: 14px;
+  animation: fadein 0.5s, fadeout 0.5s 2.5s;
 }
 @keyframes fadein { from { opacity: 0; transform: translateY(-10px);} to { opacity: 0.9; transform: translateY(0);} }
 @keyframes fadeout { from { opacity: 0.9; } to { opacity: 0; } }

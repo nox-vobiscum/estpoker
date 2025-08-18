@@ -1,232 +1,192 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org" lang="de">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="color-scheme" content="dark light">
-    <title>RBS' Estimation Poker</title>
-    <link rel="icon" href="https://noxvobiscum.at/wp-content/uploads/2022/09/cropped-nvb-favicon-32x32.png" sizes="32x32" />
-    <!-- Early theme apply to reduce FOUC -->
-    <script>
-      (function(){
-        try {
-          var t = localStorage.getItem('estpoker-theme') || 'dark';
-          if (t === 'system') { document.documentElement.removeAttribute('data-theme'); }
-          else { document.documentElement.setAttribute('data-theme', t); }
-        } catch(e){}
-      })();
-    </script>
-    <link rel="stylesheet" th:href="@{/styles.css}">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <title>RBS' Estimation Poker</title>
+  <link rel="icon" href="https://noxvobiscum.at/wp-content/uploads/2022/09/cropped-nvb-favicon-32x32.png" sizes="32x32" />
+  <!-- Early theme apply to avoid FOUC -->
+  <script>
+    (function(){
+      try {
+        var t = localStorage.getItem('estpoker-theme') || 'dark';
+        if (t === 'system') { document.documentElement.removeAttribute('data-theme'); }
+        else { document.documentElement.setAttribute('data-theme', t); }
+      } catch(e){}
+    })();
+  </script>
+  <link rel="stylesheet" th:href="@{/styles.css}">
 </head>
 <body>
 <div class="container">
-    <div class="toolbar">
-        <label for="themeSelect" class="sr-only">Theme</label>
-        <select id="themeSelect" class="theme-select" aria-label="Theme auswählen">
-            <option value="dark">Dark</option>
-            <option value="light">Light</option>
-            <option value="system">System</option>
-        </select>
+  <!-- Floating theme toggle (no vertical space) -->
+  <button id="themeToggle" class="theme-toggle" title="Toggle light/dark mode" aria-label="Toggle light/dark mode">🌙</button>
+
+  <h1>🃏 RBS' Estimation Poker</h1>
+
+  <!-- Fehleranzeige -->
+  <div th:if="${error != null or param.error != null}"
+       class="error"
+       th:text="${error != null ? error : param.error}">Fehlermeldung</div>
+
+  <form th:action="@{/join}" method="post" id="joinForm" class="join-form">
+    <div class="form-row">
+      <div class="form-field">
+        <label for="participantName">Dein Name</label>
+        <input type="text" id="participantName" name="participantName"
+               th:value="${param.participantName != null ? param.participantName : participantName}">
+      </div>
+
+      <div class="form-field">
+        <label for="roomCode">Raumcode / Name</label>
+        <div style="display:grid; gap:6px;">
+          <input type="text" id="roomCode" name="roomCode"
+                 th:value="${param.roomCode != null ? param.roomCode : roomCode}">
+          <div id="nameCheck" class="hint" aria-live="polite"></div>
+        </div>
+      </div>
     </div>
 
-    <h1>🃏 RBS' Estimation Poker</h1>
+    <div class="checkbox-row">
+      <input type="checkbox" id="persistent" name="persistent"
+             th:checked="${(param.persistent != null) or (persistent == true)}">
+      <label for="persistent">Diesen Raum dauerhaft speichern</label>
+    </div>
+    <p class="hint">
+      Erzeugt einen Deep-Link (<code>/room/{ID}</code>). Der Raum bleibt bestehen, bis der Auto-Cleanup greift.
+    </p>
 
-    <!-- Fehleranzeige -->
-    <div th:if="${error != null or param.error != null}"
-         class="error"
-         th:text="${error != null ? error : param.error}">Fehlermeldung</div>
+    <div id="testRoomWrap" class="checkbox-row hidden">
+      <input type="checkbox" id="testRoom" name="testRoom"
+             th:checked="${(param.testRoom != null) or (testRoom == true)}">
+      <label for="testRoom">Nur Test-Raum</label>
+    </div>
+    <p id="testRoomHint" class="hint hidden">
+      Markiert den Raum als Test – wird schneller automatisch gelöscht (z. B. nach 7 Tagen).
+    </p>
 
-    <form th:action="@{/join}" method="post" id="joinForm" class="join-form">
-        <div class="form-row">
-            <div class="form-field">
-                <label for="participantName">Dein Name</label>
-                <input type="text"
-                       id="participantName"
-                       name="participantName"
-                       th:value="${param.participantName != null ? param.participantName : participantName}">
-            </div>
-
-            <div class="form-field">
-                <label for="roomCode">Raumcode / Name</label>
-                <div style="display:grid; gap:6px;">
-                    <input type="text"
-                           id="roomCode"
-                           name="roomCode"
-                           th:value="${param.roomCode != null ? param.roomCode : roomCode}">
-                    <!-- Live-Status für Namensverfügbarkeit -->
-                    <div id="nameCheck" class="hint" aria-live="polite"></div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Persistenter Raum -->
-        <div class="checkbox-row">
-            <input type="checkbox"
-                   id="persistent"
-                   name="persistent"
-                   th:checked="${(param.persistent != null) or (persistent == true)}">
-            <label for="persistent">Diesen Raum dauerhaft speichern</label>
-        </div>
-        <p class="hint">
-            Erzeugt einen Deep-Link (<code>/room/{ID}</code>). Der Raum bleibt bestehen,
-            bis der Auto-Cleanup greift.
-        </p>
-
-        <!-- Test-Raum (nur sichtbar bei persistent) -->
-        <div id="testRoomWrap" class="checkbox-row hidden">
-            <input type="checkbox"
-                   id="testRoom"
-                   name="testRoom"
-                   th:checked="${(param.testRoom != null) or (testRoom == true)}">
-            <label for="testRoom">Nur Test-Raum</label>
-        </div>
-        <p id="testRoomHint" class="hint hidden">
-            Markiert den Raum als Test – wird schneller automatisch gelöscht (z. B. nach 7 Tagen).
-        </p>
-
-        <div class="form-actions">
-            <button type="submit" class="button">Beitreten</button>
-        </div>
-    </form>
+    <div class="form-actions">
+      <button type="submit" class="button">Beitreten</button>
+    </div>
+  </form>
 </div>
 
 <!-- JS -->
 <script th:inline="javascript">
-    // Theme switcher (shared)
-    (function(){
-        const sel = document.getElementById('themeSelect');
-        try {
-            const saved = localStorage.getItem('estpoker-theme') || 'dark';
-            sel.value = saved;
-            sel.addEventListener('change', function(){
-                const v = sel.value;
-                try {
-                    localStorage.setItem('estpoker-theme', v);
-                } catch(e){}
-                if (v === 'system') {
-                    document.documentElement.removeAttribute('data-theme');
-                } else {
-                    document.documentElement.setAttribute('data-theme', v);
-                }
-            });
-        } catch(e){}
-    })();
+  // Theme toggle (button)
+  (function(){
+    function currentTheme() {
+      const attr = document.documentElement.getAttribute('data-theme');
+      if (attr) return attr;
+      try { return matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'; } catch(e){ return 'dark'; }
+    }
+    function setTheme(t) {
+      if (t === 'system') {
+        document.documentElement.removeAttribute('data-theme');
+      } else {
+        document.documentElement.setAttribute('data-theme', t);
+      }
+      try { localStorage.setItem('estpoker-theme', t); } catch(e){}
+      const btn = document.getElementById('themeToggle');
+      if (btn) btn.textContent = (t === 'light') ? '🌞' : '🌙';
+    }
+    // init icon from saved/system
+    try {
+      const saved = localStorage.getItem('estpoker-theme') || 'dark';
+      const effective = (saved === 'system') ? currentTheme() : saved;
+      const btn = document.getElementById('themeToggle');
+      if (btn) btn.textContent = (effective === 'light') ? '🌞' : '🌙';
+    } catch(e){}
+    // click toggles light/dark (no extra space)
+    document.addEventListener('click', function(ev){
+      const btn = document.getElementById('themeToggle');
+      if (!btn || ev.target !== btn) return;
+      let cur = currentTheme();
+      const next = (cur === 'light') ? 'dark' : 'light';
+      setTheme(next);
+    });
+  })();
 
-    (function () {
-        const persistent = document.getElementById('persistent');
-        const testWrap = document.getElementById('testRoomWrap');
-        const testHint = document.getElementById('testRoomHint');
-        const testRoom = document.getElementById('testRoom');
-        const roomCodeEl = document.getElementById('roomCode');
-        const participantEl = document.getElementById('participantName');
-        const nameCheck = document.getElementById('nameCheck');
-        const joinButton = document.querySelector('#joinForm button[type="submit"]');
-        const joinForm = document.getElementById('joinForm');
+  (function () {
+    const persistent = document.getElementById('persistent');
+    const testWrap = document.getElementById('testRoomWrap');
+    const testHint = document.getElementById('testRoomHint');
+    const testRoom = document.getElementById('testRoom');
+    const roomCodeEl = document.getElementById('roomCode');
+    const participantEl = document.getElementById('participantName');
+    const nameCheck = document.getElementById('nameCheck');
+    const joinButton = document.querySelector('#joinForm button[type="submit"]');
+    const joinForm = document.getElementById('joinForm');
 
-        let nameTaken = false;
+    let nameTaken = false;
 
-        function isEmpty(s) { return !s || s.trim().length === 0; }
-        function isSubmittable() {
-            if (isEmpty(participantEl.value) || isEmpty(roomCodeEl.value)) return false;
-            if (persistent.checked && nameTaken) return false;
-            return true;
-        }
+    function isEmpty(s) { return !s || s.trim().length === 0; }
+    function isSubmittable() {
+      if (isEmpty(participantEl.value) || isEmpty(roomCodeEl.value)) return false;
+      if (persistent.checked && nameTaken) return false;
+      return true;
+    }
+    function updateSubmitEnabled() { joinButton.disabled = !isSubmittable(); }
 
-        function updateSubmitEnabled() {
-            joinButton.disabled = !isSubmittable();
-        }
+    function setStatusLoading() { nameCheck.textContent = "Prüfe Verfügbarkeit…"; nameCheck.className = "hint loading"; nameTaken = false; updateSubmitEnabled(); }
+    function setStatusOK() { nameCheck.textContent = "✅ Name ist frei"; nameCheck.className = "hint ok"; nameTaken = false; updateSubmitEnabled(); }
+    function setStatusBad() { nameCheck.textContent = "❌ Name ist vergeben"; nameCheck.className = "hint bad"; nameTaken = true; updateSubmitEnabled(); }
+    function setStatusEmpty() { nameCheck.textContent = ""; nameCheck.className = "hint"; nameTaken = false; updateSubmitEnabled(); }
 
-        function setStatusLoading() {
-            nameCheck.textContent = "Prüfe Verfügbarkeit…";
-            nameCheck.classList.remove("ok","bad");
-            nameCheck.classList.add("loading");
-            nameTaken = false;
-            updateSubmitEnabled();
-        }
-        function setStatusOK() {
-            nameCheck.textContent = "✅ Name ist frei";
-            nameCheck.classList.remove("bad","loading");
-            nameCheck.classList.add("ok");
-            nameTaken = false;
-            updateSubmitEnabled();
-        }
-        function setStatusBad() {
-            nameCheck.textContent = "❌ Name ist vergeben";
-            nameCheck.classList.remove("ok","loading");
-            nameCheck.classList.add("bad");
-            nameTaken = true;
-            updateSubmitEnabled();
-        }
-        function setStatusEmpty() {
-            nameCheck.textContent = "";
-            nameCheck.classList.remove("ok","bad","loading");
-            nameTaken = false;
-            updateSubmitEnabled();
-        }
+    function syncTestVisibility() {
+      const show = persistent.checked;
+      testWrap.classList.toggle('hidden', !show);
+      testHint.classList.toggle('hidden', !show);
+      if (!show && testRoom) testRoom.checked = false;
+      if (!show) setStatusEmpty();
+      updateSubmitEnabled();
+    }
 
-        function syncTestVisibility() {
-            const show = persistent.checked;
-            testWrap.classList.toggle('hidden', !show);
-            testHint.classList.toggle('hidden', !show);
-            if (!show && testRoom) testRoom.checked = false;
-            if (!show) setStatusEmpty();
-            updateSubmitEnabled();
-        }
+    let debounceTimer = null;
+    let currentAbort = null;
 
-        // Debounce + Abort
-        let debounceTimer = null;
-        let currentAbort = null;
+    async function checkNameAvailability(name) {
+      if (!persistent.checked) { setStatusEmpty(); return; }
+      const trimmed = (name || "").trim();
+      if (trimmed.length === 0) { setStatusEmpty(); return; }
 
-        async function checkNameAvailability(name) {
-            if (!persistent.checked) { setStatusEmpty(); return; }
-            const trimmed = (name || "").trim();
-            if (trimmed.length === 0) { setStatusEmpty(); return; }
+      if (currentAbort) currentAbort.abort();
+      currentAbort = new AbortController();
+      const { signal } = currentAbort;
 
-            if (currentAbort) currentAbort.abort();
-            currentAbort = new AbortController();
-            const { signal } = currentAbort;
+      setStatusLoading();
+      try {
+        const resp = await fetch(`/api/rooms/check?name=` + encodeURIComponent(trimmed), { signal });
+        if (!resp.ok) throw new Error("Bad response: " + resp.status);
+        const taken = await resp.json();
+        if (signal.aborted) return;
+        if (taken === true) setStatusBad(); else setStatusOK();
+      } catch (e) {
+        if (signal.aborted) return;
+        setStatusEmpty();
+        console.warn("Name check failed:", e);
+      }
+    }
 
-            setStatusLoading();
-            try {
-                const resp = await fetch(`/api/rooms/check?name=` + encodeURIComponent(trimmed), { signal });
-                if (!resp.ok) throw new Error("Bad response: " + resp.status);
-                const taken = await resp.json();
-                if (signal.aborted) return;
-                if (taken === true) setStatusBad(); else setStatusOK();
-            } catch (e) {
-                if (signal.aborted) return;
-                setStatusEmpty();
-                console.warn("Name check failed:", e);
-            }
-        }
+    function scheduleCheck() { clearTimeout(debounceTimer); debounceTimer = setTimeout(() => checkNameAvailability(roomCodeEl.value), 250); }
 
-        function scheduleCheck() {
-            clearTimeout(debounceTimer);
-            debounceTimer = setTimeout(() => checkNameAvailability(roomCodeEl.value), 250);
-        }
+    joinForm.addEventListener('submit', function (event) {
+      if (!isSubmittable()) {
+        event.preventDefault();
+        joinButton.classList.add('shake');
+        setTimeout(() => joinButton.classList.remove('shake'), 400);
+      }
+    });
 
-        // Submit guard + subtle feedback
-        joinForm.addEventListener('submit', function (event) {
-            if (!isSubmittable()) {
-                event.preventDefault();
-                joinButton.classList.add('shake');
-                setTimeout(() => joinButton.classList.remove('shake'), 400);
-            }
-        });
+    syncTestVisibility();
+    if (persistent.checked) scheduleCheck();
 
-        // Init
-        syncTestVisibility();
-        if (persistent.checked) scheduleCheck();
-
-        // Events
-        persistent.addEventListener('change', () => {
-            syncTestVisibility();
-            if (persistent.checked) scheduleCheck(); else setStatusEmpty();
-        });
-        roomCodeEl.addEventListener('input', () => { scheduleCheck(); updateSubmitEnabled(); });
-        participantEl.addEventListener('input', updateSubmitEnabled);
-        updateSubmitEnabled();
-    })();
+    persistent.addEventListener('change', () => { syncTestVisibility(); if (persistent.checked) scheduleCheck(); else setStatusEmpty(); });
+    roomCodeEl.addEventListener('input', () => { scheduleCheck(); updateSubmitEnabled(); });
+    participantEl.addEventListener('input', updateSubmitEnabled);
+    updateSubmitEnabled();
+  })();
 </script>
 </body>
 </html>
