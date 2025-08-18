@@ -1,4 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 3 2">
+  <!-- Hintergrund: Rot oben & unten über Basis -->
   <rect width="3" height="2" fill="#ed2939"/>
-  <rect width="3" height="0.6667" y="0.6667" fill="#ffffff"/>
+  <!-- Weißer Mittelstreifen: 1/3 der Höhe -->
+  <rect y="0.6666667" width="3" height="0.6666667" fill="#ffffff"/>
 </svg>
