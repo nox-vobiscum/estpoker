@@ -8,288 +8,48 @@
   <link rel="icon" href="https://noxvobiscum.at/wp-content/uploads/2022/09/cropped-nvb-favicon-32x32.png" sizes="32x32" />
   <!-- Early theme apply -->
   <script>
-    (function(){try{
-      var t=localStorage.getItem('estpoker-theme')||'dark';
-      if(t==='system')document.documentElement.removeAttribute('data-theme');
-      else document.documentElement.setAttribute('data-theme',t);
-    }catch(e){}})();
+    (function(){
+      try {
+        var t = localStorage.getItem('estpoker-theme') || 'dark';
+        if (t === 'system') document.documentElement.removeAttribute('data-theme');
+        else document.documentElement.setAttribute('data-theme', t);
+      } catch(e){}
+    })();
   </script>
   <link rel="stylesheet" th:href="@{/styles.css}">
 </head>
 <body>
-<script th:inline="javascript">
-  // ===== THEME (light/dark/system) =====
-  (function(){
-    function currentTheme(){
-      const a=document.documentElement.getAttribute('data-theme');
-      if(a) return a;
-      try{ return matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'; }catch(e){ return 'dark'; }
-    }
-    function setTheme(t){
-      if(t==='system') document.documentElement.removeAttribute('data-theme');
-      else document.documentElement.setAttribute('data-theme',t);
-      try{ localStorage.setItem('estpoker-theme',t);}catch(e){}
-      updateThemeButtons(t==='system'? 'system' : t);
-    }
-    function updateThemeButtons(active){
-      const ids=['themeLight','themeDark','themeSystem'];
-      ids.forEach(id=>{
-        const btn=document.getElementById(id);
-        if(!btn) return;
-        const isActive=(id==='themeLight'&&active==='light')||(id==='themeDark'&&active==='dark')||(id==='themeSystem'&&active==='system');
-        btn.classList.toggle('active', isActive);
-        btn.setAttribute('aria-pressed', String(isActive));
-      });
-    }
-    document.addEventListener('DOMContentLoaded', function(){
-      const saved = localStorage.getItem('estpoker-theme') || 'dark';
-      updateThemeButtons(saved==='system' ? 'system' : saved);
-
-      const bLight = document.getElementById('themeLight');
-      const bDark  = document.getElementById('themeDark');
-      const bSys   = document.getElementById('themeSystem');
-      if(bLight) bLight.addEventListener('click', ()=>setTheme('light'));
-      if(bDark)  bDark.addEventListener('click', ()=>setTheme('dark'));
-      if(bSys)   bSys.addEventListener('click', ()=>setTheme('system'));
-    });
-  })();
-
-  // ===== LANGUAGE =====
-  (function(){
-    function nextLang(){ const cur=(document.documentElement.lang||'en').toLowerCase(); return cur.startsWith('de')?'en':'de'; }
-    function setSplit(lang){
-      const a=document.querySelector('#langToggle .flag-a');
-      const b=document.querySelector('#langToggle .flag-b');
-      if(!a||!b) return;
-      if(String(lang).toLowerCase().startsWith('de')){ a.src='/flags/de.svg'; b.src='/flags/at.svg'; }
-      else { a.src='/flags/us.svg'; b.src='/flags/gb.svg'; }
-    }
-    function safeUrlWithLang(lang){
-      const url=new URL(window.location.href);
-      url.searchParams.set('lang',lang);
-      return url.toString();
-    }
-    document.addEventListener('DOMContentLoaded', function(){
-      setSplit(document.documentElement.lang||'en');
-      const lbtn=document.getElementById('langToggle');
-      if(lbtn) lbtn.addEventListener('click', function(){
-        const to=nextLang(); setSplit(to); window.location.replace(safeUrlWithLang(to));
-      });
-    });
-  })();
-
-  // ===== MENU OVERLAY =====
-  (function(){
-    function openMenu(){
-      const o=document.getElementById('menuOverlay'); if(!o) return;
-      o.classList.remove('hidden');
-      document.getElementById('menuButton')?.setAttribute('aria-expanded','true');
-      setTimeout(()=>document.getElementById('themeLight')?.focus(), 0);
-    }
-    function closeMenu(){
-      const o=document.getElementById('menuOverlay'); if(!o) return;
-      o.classList.add('hidden');
-      document.getElementById('menuButton')?.setAttribute('aria-expanded','false');
-      document.getElementById('menuButton')?.focus();
-    }
-    document.addEventListener('DOMContentLoaded', function(){
-      const mb=document.getElementById('menuButton');
-      const mc=document.getElementById('menuClose');
-      const ov=document.getElementById('menuOverlay');
-      if(mb) mb.addEventListener('click', openMenu);
-      if(mc) mc.addEventListener('click', closeMenu);
-      if(ov) ov.addEventListener('click', (e)=>{ if(e.target.classList.contains('menu-backdrop')) closeMenu(); });
-      document.addEventListener('keydown', (e)=>{ if(e.key==='Escape' && !document.getElementById('menuOverlay')?.classList.contains('hidden')) closeMenu(); });
-    });
-  })();
-
-  // ===== GAME WS & UI =====
-  let participantName = /*[[${participantName}]]*/ "Guest";
-  let roomCode = /*[[${roomCode}]]*/ "demo";
-  let selectedCard = null;
-  let votesRevealed = false;
-  let isHost = false;
-  let resizeTimer = null;
-
-  const wsProtocol = location.protocol === "https:" ? "wss://" : "ws://";
-  const socketUrl = wsProtocol + location.host + "/gameSocket?roomCode=" + roomCode + "&participantName=" + participantName;
-  const socket = new WebSocket(socketUrl);
-
-  socket.onopen = () => console.log("✅ Connected");
-
-  const MSG_HOST_YOU   = /*[[#{toast.youAreHost}]]*/ 'Host {old} left. You are now host!';
-  const MSG_HOST_OTHER = /*[[#{toast.hostOther}]]*/ 'Host {old} left. {new} is now host.';
-
-  socket.onmessage = (event) => {
-    const data = JSON.parse(event.data);
-
-    if (data.type === "voteUpdate") {
-      const prevVotesRevealed = votesRevealed;
-      const participants = Array.isArray(data.participants) ? data.participants : [];
-
-      votesRevealed = data.votesRevealed;
-      isHost = participants.find(p => p.name === participantName)?.isHost === true;
-
-      document.getElementById("revealButton").style.display = isHost && !votesRevealed ? "inline-block" : "none";
-      document.getElementById("resetButton").style.display  = isHost && votesRevealed ? "inline-block" : "none";
-
-      updateParticipantList(participants, votesRevealed);
-
-      if (votesRevealed) { showResults(participants, data.averageVote); }
-      else { toggleView(false); updateAverage(null); }
-
-      if (prevVotesRevealed && !votesRevealed) { clearCardSelection(); }
-      if (!votesRevealed && participants.every(p => p.vote == null)) { clearCardSelection(); }
-
-      highlightSelectedCard();
-    } else if (data.type === "hostChanged") {
-      const { oldHost, newHost } = data;
-      showToast(newHost === participantName
-        ? MSG_HOST_YOU.replace('{old}', oldHost)
-        : MSG_HOST_OTHER.replace('{old}', oldHost).replace('{new}', newHost)
-      );
-    }
-  };
-
-  function sendVote(cardValue) { socket.send("vote:" + participantName + ":" + cardValue); selectedCard = cardValue; highlightSelectedCard(); }
-  function clearCardSelection(){ selectedCard = null; try { localStorage.removeItem('selectedCard'); } catch(e){} highlightSelectedCard(); }
-
-  function highlightSelectedCard() {
-    document.querySelectorAll(".card-grid button").forEach(btn => {
-      const card = btn.getAttribute("data-card");
-      const isSelected = !votesRevealed && card === selectedCard;
-      btn.classList.toggle("selected", isSelected);
-      const check = btn.querySelector(".checkmark");
-      if (check) check.style.display = isSelected ? "block" : "none";
-    });
-  }
-
-  function revealCards() { if (isHost) socket.send("revealCards"); }
-  function resetRoom()   { if (isHost) socket.send("resetRoom"); clearCardSelection(); }
-
-  function updateParticipantList(participants, revealed) {
-    const list = document.getElementById("liveParticipantList");
-    if (!list) return;
-    list.innerHTML = "";
-
-    participants.forEach(p => {
-      const li = document.createElement("li");
-      li.classList.add("participant-row");
-      li.dataset.hasvote = p.vote !== null;
-
-      if (p.disconnected) li.classList.add("disconnected");
-      if (p.isHost) li.classList.add("is-host");
-
-      const icon = document.createElement("span");
-      icon.className = p.isHost
-        ? "participant-icon host"
-        : (p.disconnected ? "participant-icon inactive" : "participant-icon");
-      icon.textContent = p.isHost ? "👑" : (p.disconnected ? "💤" : "👤");
-
-      const nameSpan = document.createElement("span");
-      nameSpan.className = "name";
-      nameSpan.textContent = p.name;
-
-      const rightWrap = document.createElement("div");
-      rightWrap.className = "row-right";
-
-      if (revealed) {
-        const voteChip = document.createElement("span");
-        voteChip.className = "vote-chip";
-        const v = p.vote != null ? String(p.vote) : null;
-        voteChip.textContent = v != null ? v : "—";
-        if (v && !/^\d+$/.test(v)) voteChip.classList.add("special");
-        rightWrap.appendChild(voteChip);
-      } else {
-        if (!p.disconnected && p.vote != null) {
-          const status = document.createElement("span");
-          status.className = "status-icon done";
-          status.textContent = "✅";
-          rightWrap.appendChild(status);
-        } else if (!p.disconnected) {
-          const status = document.createElement("span");
-          status.className = "status-icon pending";
-          status.textContent = "⏳";
-          rightWrap.appendChild(status);
-        }
-      }
-
-      li.appendChild(icon);
-      li.appendChild(nameSpan);
-      li.appendChild(rightWrap);
-      list.appendChild(li);
-    });
-
-    measureAndSetNameColumn();
-  }
-
-  function measureAndSetNameColumn() {
-    const list = document.getElementById("liveParticipantList");
-    if (!list) return;
-    const names = Array.from(list.querySelectorAll(".name"));
-    const maxTextWidth = names.reduce((m, el) => Math.max(m, el.offsetWidth || 0), 0);
-    list.style.setProperty("--name-text-col", Math.ceil(maxTextWidth) + "px");
-  }
-
-  window.addEventListener("resize", () => {
-    clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(measureAndSetNameColumn, 150);
-  });
-
-  function updateAverage(avg) {
-    const avgSpan = document.getElementById("averageVote");
-    if (avgSpan) avgSpan.textContent = avg != null ? avg : "N/A";
-  }
-  function toggleView(revealed) {
-    document.querySelectorAll(".pre-vote").forEach(e => e.style.display = revealed ? "none" : "block");
-    document.querySelectorAll(".post-vote").forEach(e => e.style.display = revealed ? "block" : "none");
-  }
-  function showResults(participants, avg) { toggleView(true); updateAverage(avg); }
-
-  function showToast(message) {
-    const toast = document.createElement("div");
-    toast.className = "toast";
-    document.body.appendChild(toast);
-    toast.textContent = message;
-    setTimeout(() => toast.remove(), 3000);
-  }
-</script>
-
-<!-- Hamburger button -->
-<button id="menuButton" class="menu-button" aria-label="Open menu" aria-haspopup="dialog" aria-expanded="false" title="Menu">☰</button>
+<!-- Hamburger (morphs to ✕ when open) -->
+<button id="menuButton" class="menu-button" aria-expanded="false" aria-controls="appMenuOverlay" aria-label="Open menu">☰</button>
 
 <!-- Overlay Menu -->
-<div id="menuOverlay" class="menu-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="menuTitle">
-  <div class="menu-backdrop"></div>
+<div id="appMenuOverlay" class="menu-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="menuTitle">
+  <div class="menu-backdrop" data-close></div>
   <div class="menu-panel">
     <div class="menu-header">
-      <h3 id="menuTitle" th:text="#{menu.title}">Settings</h3>
-      <button id="menuClose" class="icon-btn" aria-label="Close">✕</button>
+      <h3 id="menuTitle" th:text="#{menu.title}">Menu</h3>
     </div>
-
     <div class="menu-section">
+      <!-- Language -->
+      <button id="langRow" class="menu-item" type="button" aria-label="Switch language">
+        <span class="mi-icon">
+          <span class="flag-split" aria-hidden="true">
+            <img class="flag flag-a" src="/flags/us.svg" alt="">
+            <img class="flag flag-b" src="/flags/gb.svg" alt="">
+          </span>
+        </span>
+        <span><span th:text="#{menu.language}">Language</span>: <strong id="langCurrent">English</strong></span>
+      </button>
+
+      <!-- Theme -->
       <div class="menu-group">
         <div class="group-title" th:text="#{menu.theme}">Theme</div>
         <div class="menu-choice">
-          <button id="themeLight" class="choice-btn" aria-pressed="false">
-            <span class="mi-icon" aria-hidden="true">🌞</span><span th:text="#{theme.light}">Light</span>
-          </button>
-          <button id="themeDark" class="choice-btn" aria-pressed="false">
-            <span class="mi-icon" aria-hidden="true">🌙</span><span th:text="#{theme.dark}">Dark</span>
-          </button>
-          <button id="themeSystem" class="choice-btn" aria-pressed="false">
-            <span class="mi-icon" aria-hidden="true">🖥️</span><span th:text="#{theme.system}">System</span>
-          </button>
+          <button id="themeLight"  class="choice-btn" type="button"><span class="mi-icon" aria-hidden="true">🌞</span><span th:text="#{theme.light}">Light</span></button>
+          <button id="themeDark"   class="choice-btn" type="button"><span class="mi-icon" aria-hidden="true">🌙</span><span th:text="#{theme.dark}">Dark</span></button>
+          <button id="themeSystem" class="choice-btn" type="button"><span class="mi-icon" aria-hidden="true">🖥️</span><span th:text="#{theme.system}">System</span></button>
         </div>
       </div>
-
-      <button id="langToggle" class="menu-item">
-        <span class="mi-icon flag-split" aria-hidden="true">
-          <img class="flag flag-a" src="/flags/us.svg" alt="">
-          <img class="flag flag-b" src="/flags/gb.svg" alt="">
-        </span>
-        <span class="mi-text" th:text="#{title.lang}">Switch language</span>
-      </button>
     </div>
   </div>
 </div>
@@ -297,6 +57,7 @@
 <div class="container">
   <h1 th:text="#{ui.heading}">🃏 RBS' Estimation Poker</h1>
 
+  <!-- Aligned info rows -->
   <dl class="main-info">
     <dt><span class="mi-icon" aria-hidden="true">🆔</span><span class="mi-label" th:text="#{label.room}">Room:</span></dt>
     <dd><strong th:text="${roomCode}">demo</strong></dd>
@@ -304,9 +65,6 @@
     <dt><span class="mi-icon" aria-hidden="true">👤</span><span class="mi-label" th:text="#{label.you}">You are:</span></dt>
     <dd><strong th:text="${participantName}">Guest</strong></dd>
   </dl>
-
-  <h2 th:text="#{label.participants}">Participants:</h2>
-  <ul id="liveParticipantList"></ul>
 
   <h2 th:text="#{label.selectCard}">Choose a card:</h2>
 
@@ -338,17 +96,269 @@
   </div>
 
   <div class="post-vote" style="display:none;">
-    <p class="average-label"><span th:text="#{label.average}">Average:</span> <span id="averageVote">–</span></p>
+    <p class="average-label"><span th:text="#{label.average}">Avg:</span> <span id="averageVote">–</span></p>
     <button type="button" id="resetButton" class="button" style="display:none;"
             th:text="#{button.reset}" onclick="resetRoom()">Start new round</button>
   </div>
+
+  <h2 th:text="#{label.participants}">Participants</h2>
+  <ul id="liveParticipantList"></ul>
 </div>
 
+<script th:inline="javascript">
+/* ===== Menu open/close (morph ☰ ⇄ ✕) ===== */
+(function(){
+  const btn = document.getElementById('menuButton');
+  const overlay = document.getElementById('appMenuOverlay');
+  const backdrop = overlay?.querySelector('[data-close]');
+
+  function openMenu(){
+    document.body.classList.add('menu-open');
+    overlay.classList.remove('hidden');
+    btn.classList.add('open');
+    btn.setAttribute('aria-expanded','true');
+    btn.setAttribute('aria-label','Close menu');
+    btn.textContent = '✕';
+  }
+  function closeMenu(){
+    document.body.classList.remove('menu-open');
+    overlay.classList.add('hidden');
+    btn.classList.remove('open');
+    btn.setAttribute('aria-expanded','false');
+    btn.setAttribute('aria-label','Open menu');
+    btn.textContent = '☰';
+  }
+  function toggleMenu(){ overlay.classList.contains('hidden') ? openMenu() : closeMenu(); }
+
+  btn?.addEventListener('click', toggleMenu);
+  backdrop?.addEventListener('click', closeMenu);
+  window.addEventListener('keydown', (e)=>{ if(e.key==='Escape') closeMenu(); });
+})();
+
+/* ===== Theme handling ===== */
+(function(){
+  const bLight  = document.getElementById('themeLight');
+  const bDark   = document.getElementById('themeDark');
+  const bSystem = document.getElementById('themeSystem');
+
+  function currentTheme(){
+    const attr = document.documentElement.getAttribute('data-theme');
+    if (attr) return attr;
+    try { return matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'; }
+    catch(e){ return 'dark'; }
+  }
+  function applyTheme(t){
+    if (t === 'system') document.documentElement.removeAttribute('data-theme');
+    else document.documentElement.setAttribute('data-theme', t);
+    try { localStorage.setItem('estpoker-theme', t); } catch(e){}
+    setActive(t === 'system' ? 'system' : (t==='light'?'light':'dark'));
+  }
+  function setActive(key){
+    [bLight,bDark,bSystem].forEach(btn=>btn && btn.classList.remove('active'));
+    ({light:bLight, dark:bDark, system:bSystem}[key])?.classList.add('active');
+  }
+
+  document.addEventListener('DOMContentLoaded', function(){
+    const saved = localStorage.getItem('estpoker-theme') || 'dark';
+    setActive(saved==='system' ? 'system' : saved);
+    bLight?.addEventListener('click', ()=>applyTheme('light'));
+    bDark?.addEventListener('click',  ()=>applyTheme('dark'));
+    bSystem?.addEventListener('click',()=>applyTheme('system'));
+  });
+})();
+
+/* ===== Language switch ===== */
+(function(){
+  const langRow = document.getElementById('langRow');
+  const cur = (document.documentElement.lang || 'en').toLowerCase();
+  const a = langRow?.querySelector('.flag-a');
+  const b = langRow?.querySelector('.flag-b');
+  const label = document.getElementById('langCurrent');
+
+  function setSplit(lang){
+    if (!a || !b) return;
+    if (String(lang).startsWith('de')) { a.src='/flags/de.svg'; b.src='/flags/at.svg'; label && (label.textContent='Deutsch'); }
+    else { a.src='/flags/us.svg'; b.src='/flags/gb.svg'; label && (label.textContent='English'); }
+  }
+  function nextLang(){ return cur.startsWith('de') ? 'en' : 'de'; }
+  function switchLang(to){
+    const url = new URL(window.location.href);
+    url.searchParams.set('lang', to);
+    window.location.replace(url.toString());
+  }
+
+  document.addEventListener('DOMContentLoaded', function(){
+    setSplit(cur);
+    langRow?.addEventListener('click', function(){
+      const to = nextLang();
+      setSplit(to);
+      switchLang(to);
+    });
+  });
+})();
+
+/* ===== Game logic (unchanged) ===== */
+let participantName = /*[[${participantName}]]*/ "Guest";
+let roomCode = /*[[${roomCode}]]*/ "demo";
+let selectedCard = null;
+let votesRevealed = false;
+let isHost = false;
+let resizeTimer = null;
+
+const wsProtocol = location.protocol === "https:" ? "wss://" : "ws://";
+const socketUrl = wsProtocol + location.host + "/gameSocket?roomCode=" + roomCode + "&participantName=" + participantName;
+const socket = new WebSocket(socketUrl);
+
+socket.onopen = () => console.log("✅ Connected");
+
+const MSG_HOST_YOU   = /*[[#{toast.youAreHost}]]*/ 'Host {old} left. You are now host!';
+const MSG_HOST_OTHER = /*[[#{toast.hostOther}]]*/ 'Host {old} left. {new} is now host.';
+
+socket.onmessage = (event) => {
+  const data = JSON.parse(event.data);
+
+  if (data.type === "voteUpdate") {
+    const prevVotesRevealed = votesRevealed;
+    const participants = Array.isArray(data.participants) ? data.participants : [];
+
+    votesRevealed = data.votesRevealed;
+    isHost = participants.find(p => p.name === participantName)?.isHost === true;
+
+    document.getElementById("revealButton").style.display = isHost && !votesRevealed ? "inline-block" : "none";
+    document.getElementById("resetButton").style.display  = isHost && votesRevealed ? "inline-block" : "none";
+
+    updateParticipantList(participants, votesRevealed);
+
+    if (votesRevealed) { showResults(participants, data.averageVote); }
+    else { toggleView(false); updateAverage(null); }
+
+    if (prevVotesRevealed && !votesRevealed) { clearCardSelection(); }
+    if (!votesRevealed && participants.every(p => p.vote == null)) { clearCardSelection(); }
+
+    highlightSelectedCard();
+  } else if (data.type === "hostChanged") {
+    const { oldHost, newHost } = data;
+    showToast(newHost === participantName
+      ? MSG_HOST_YOU.replace('{old}', oldHost)
+      : MSG_HOST_OTHER.replace('{old}', oldHost).replace('{new}', newHost)
+    );
+  }
+};
+
+function sendVote(cardValue) { socket.send("vote:" + participantName + ":" + cardValue); selectedCard = cardValue; highlightSelectedCard(); }
+function clearCardSelection(){ selectedCard = null; try { localStorage.removeItem('selectedCard'); } catch(e){} highlightSelectedCard(); }
+
+function highlightSelectedCard() {
+  document.querySelectorAll(".card-grid button").forEach(btn => {
+    const card = btn.getAttribute("data-card");
+    const isSelected = !votesRevealed && card === selectedCard;
+    btn.classList.toggle("selected", isSelected);
+    const check = btn.querySelector(".checkmark");
+    if (check) check.style.display = isSelected ? "block" : "none";
+  });
+}
+
+function revealCards() { if (isHost) socket.send("revealCards"); }
+function resetRoom()   { if (isHost) socket.send("resetRoom"); clearCardSelection(); }
+
+// Render participant list
+function updateParticipantList(participants, revealed) {
+  const list = document.getElementById("liveParticipantList");
+  if (!list) return;
+  list.innerHTML = "";
+
+  participants.forEach(p => {
+    const li = document.createElement("li");
+    li.classList.add("participant-row");
+    li.dataset.hasvote = p.vote !== null;
+
+    if (p.disconnected) li.classList.add("disconnected");
+    if (p.isHost) li.classList.add("is-host");
+
+    const icon = document.createElement("span");
+    icon.className = p.isHost
+      ? "participant-icon host"
+      : (p.disconnected ? "participant-icon inactive" : "participant-icon");
+    icon.textContent = p.isHost ? "👑" : (p.disconnected ? "💤" : "👤");
+
+    const nameSpan = document.createElement("span");
+    nameSpan.className = "name";
+    nameSpan.textContent = p.name;
+
+    const rightWrap = document.createElement("div");
+    rightWrap.className = "row-right";
+
+    if (revealed) {
+      const voteChip = document.createElement("span");
+      voteChip.className = "vote-chip";
+      const v = p.vote != null ? String(p.vote) : null;
+      voteChip.textContent = v != null ? v : "—";
+      if (v && !/^\d+$/.test(v)) voteChip.classList.add("special");
+      rightWrap.appendChild(voteChip);
+    } else {
+      if (!p.disconnected && p.vote != null) {
+        const status = document.createElement("span");
+        status.className = "status-icon done";
+        status.textContent = "✅";
+        rightWrap.appendChild(status);
+      } else if (!p.disconnected) {
+        const status = document.createElement("span");
+        status.className = "status-icon pending";
+        status.textContent = "⏳";
+        rightWrap.appendChild(status);
+      }
+    }
+
+    li.appendChild(icon);
+    li.appendChild(nameSpan);
+    li.appendChild(rightWrap);
+    list.appendChild(li);
+  });
+
+  measureAndSetNameColumn();
+}
+
+function measureAndSetNameColumn() {
+  const list = document.getElementById("liveParticipantList");
+  if (!list) return;
+  const names = Array.from(list.querySelectorAll(".name"));
+  const maxTextWidth = names.reduce((m, el) => Math.max(m, el.offsetWidth || 0), 0);
+  list.style.setProperty("--name-text-col", Math.ceil(maxTextWidth) + "px");
+}
+
+window.addEventListener("resize", () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(measureAndSetNameColumn, 150);
+});
+
+function updateAverage(avg) {
+  const avgSpan = document.getElementById("averageVote");
+  if (avgSpan) avgSpan.textContent = avg != null ? avg : "N/A";
+}
+function toggleView(revealed) {
+  document.querySelectorAll(".pre-vote").forEach(e => e.style.display = revealed ? "none" : "block");
+  document.querySelectorAll(".post-vote").forEach(e => e.style.display = revealed ? "block" : "none");
+}
+function showResults(participants, avg) { toggleView(true); updateAverage(avg); }
+
+function showToast(message) {
+  const toast = document.createElement("div");
+  toast.className = "toast";
+  document.body.appendChild(toast);
+  toast.textContent = message;
+  setTimeout(() => toast.remove(), 3000);
+}
+</script>
+
+<!-- Keep inline toast CSS local to this template -->
 <style>
-.toast{ position:fixed; top:20px; right:20px; background:#333; color:#fff; padding:12px 20px; border-radius:8px; opacity:.9; z-index:9999; font-size:14px;
-        animation: fadein .5s, fadeout .5s 2.5s; }
-@keyframes fadein{ from{opacity:0; transform:translateY(-10px);} to{opacity:.9; transform:translateY(0);} }
-@keyframes fadeout{ from{opacity:.9;} to{opacity:0;} }
+.toast {
+  position: fixed; top: 20px; right: 20px; background-color: #333; color: white;
+  padding: 12px 20px; border-radius: 8px; opacity: 0.9; z-index: 9999; font-size: 14px;
+  animation: fadein 0.5s, fadeout 0.5s 2.5s;
+}
+@keyframes fadein { from { opacity: 0; transform: translateY(-10px);} to { opacity: 0.9; transform: translateY(0);} }
+@keyframes fadeout { from { opacity: 0.9; } to { opacity: 0; } }
 </style>
 </body>
 </html>

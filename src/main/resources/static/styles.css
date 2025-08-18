@@ -27,10 +27,10 @@
     --gap-sm: 8px;
 
     /* Cards sizing */
-    --card-min-desktop: 46px;   /* minimum card width on desktop */
-    --card-max-desktop: 84px;   /* maximum card width on desktop (limits height) */
-    --card-min-mobile: 40px;    /* minimum card width on mobile */
-    --card-max-mobile: 72px;    /* maximum card width on mobile */
+    --card-min-desktop: 46px;
+    --card-max-desktop: 84px;
+    --card-min-mobile: 40px;
+    --card-max-mobile: 72px;
 
     /* Spacing */
     --pre-vote-margin-desktop: 2.2rem;
@@ -95,6 +95,9 @@ strong { color: var(--text-strong); }
 }
 .menu-button:hover { filter: brightness(1.06); border-color: #4a4a4a; }
 .menu-button:active { transform: translateY(1px) scale(0.98); }
+
+/* Hide header close if you ever add one and use morph pattern */
+/* .menu-open .menu-header .icon-btn { display: none; } */
 
 /* ===== Menu overlay ===== */
 
@@ -184,9 +187,6 @@ strong { color: var(--text-strong); }
     box-shadow: 0 0 0 2px rgba(0,122,204,0.20);
 }
 
-/* If you prefer 3 rows instead of 3 columns for theme choices:
-   replace grid-template-columns with 1fr and increase gap. */
-
 /* ===== Landing page / form layout ===== */
 .landing-container {
     display: flex; flex-direction: column; align-items: center;
@@ -257,7 +257,6 @@ button.shake { animation: shake .4s; }
 /* ===== Card grid ===== */
 .card-grid {
     display: grid;
-    /* cap column width so cards don't grow too tall; allows more columns to wrap */
     grid-template-columns: repeat(auto-fit, minmax(var(--card-min-desktop), var(--card-max-desktop)));
     gap: 8px;
     margin: 1rem 0;
@@ -271,13 +270,11 @@ button.shake { animation: shake .4s; }
     border-radius: 10px;
     cursor: pointer;
     transition: transform .15s ease, box-shadow .2s ease, background .2s ease, border-color .2s ease;
-    /* larger, responsive label text without growing the card */
     font-size: clamp(1.05rem, 2.2vw, 1.3rem);
     text-align: center;
     color: var(--text);
     position: relative;
-    /* make shorter by using a landscape-ish ratio (width / height) */
-    aspect-ratio: 5 / 3;
+    aspect-ratio: 5 / 3; /* your current preferred look */
 }
 .card-grid button:hover {
     background: #36383c;
@@ -374,7 +371,6 @@ li { margin-bottom: 0.4rem; line-height: 1.5; font-size: 1rem; }
     body { padding: 1rem; }
     .landing-container { margin-top: 5vh; }
 
-    /* use mobile caps so cards stay compact on small screens */
     .card-grid {
         grid-template-columns: repeat(auto-fit, minmax(var(--card-min-mobile), var(--card-max-mobile)));
         gap: 6px;
@@ -391,6 +387,6 @@ li { margin-bottom: 0.4rem; line-height: 1.5; font-size: 1rem; }
     h1, h2 { font-size: calc(1.2rem * 1.2); }
     ul li { font-size: calc(0.95rem * 1.2); line-height: 1.45; }
 
-    /* leave a bit of room for the fixed hamburger without adding a visible bar */
+    /* Leave room for fixed hamburger without adding a visible bar */
     .container h1:first-child { margin-top: 1.6rem; }
 }
