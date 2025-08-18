@@ -146,7 +146,7 @@
         voteChip.className = "vote-chip";
         const v = p.vote != null ? String(p.vote) : null;
         voteChip.textContent = v != null ? v : "—";
-        if (v && !/^\d+$/.test(v)) voteChip.classList.add("special"); // ☕️/💬 etc.
+        if (v && !/^\d+$/.test(v)) voteChip.classList.add("special");
         rightWrap.appendChild(voteChip);
       } else {
         if (!p.disconnected && p.vote != null) {
@@ -223,6 +223,9 @@
     <dd><strong th:text="${participantName}">Guest</strong></dd>
   </dl>
 
+  <h2 th:text="#{label.participants}">Participants:</h2>
+  <ul id="liveParticipantList"></ul>
+
   <h2 th:text="#{label.selectCard}">Choose a card:</h2>
 
   <div class="pre-vote">
@@ -253,7 +256,7 @@
   </div>
 
   <div class="post-vote" style="display:none;">
-    <p class="average-label"><span th:text="#{label.average}">Avg:</span> <span id="averageVote">–</span></p>
+    <p class="average-label"><span th:text="#{label.average}">Average:</span> <span id="averageVote">–</span></p>
     <button type="button" id="resetButton" class="button" style="display:none;"
             th:text="#{button.reset}" onclick="resetRoom()">Start new round</button>
   </div>
