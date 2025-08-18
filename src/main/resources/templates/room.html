@@ -28,17 +28,20 @@
             // Keep previous state to detect a round reset from the server
             const prevVotesRevealed = votesRevealed;
 
+            // Safely normalize participants array to avoid errors on unexpected payloads
+            const participants = Array.isArray(data.participants) ? data.participants : [];
+
             votesRevealed = data.votesRevealed;
-            isHost = data.participants.find(p => p.name === participantName)?.isHost === true;
+            isHost = participants.find(p => p.name === participantName)?.isHost === true;
 
             // Host-only buttons visibility
             document.getElementById("revealButton").style.display = isHost && !votesRevealed ? "inline-block" : "none";
             document.getElementById("resetButton").style.display = isHost && votesRevealed ? "inline-block" : "none";
 
-            updateParticipantList(data.participants, votesRevealed);
+            updateParticipantList(participants, votesRevealed);
 
             if (votesRevealed) {
-                showResults(data.participants, data.averageVote);
+                showResults(participants, data.averageVote);
             } else {
                 toggleView(false);
                 updateAverage(null);
@@ -50,7 +53,7 @@
                 clearCardSelection();
             }
             // Case 2 (extra safety): no one has a vote -> treat as fresh round
-            if (!votesRevealed && Array.isArray(data.participants) && data.participants.every(p => p.vote == null)) {
+            if (!votesRevealed && participants.every(p => p.vote == null)) {
                 clearCardSelection();
             }
             // ------------------------------------------------------
