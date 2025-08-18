@@ -74,11 +74,38 @@ public class GameController {
         model.addAttribute("cardsRow2", new String[]{"8", "13", "20", "40"});
         model.addAttribute("cardsRow3", new String[]{"❓", "💬", "☕"});
 
-        return "room";
+        return "redirect:/room?roomCode=" + org.springframework.web.util.UriUtils.encodeQueryParam(effectiveRoomCode, java.nio.charset.StandardCharsets.UTF_8)
+       + "&participantName=" + org.springframework.web.util.UriUtils.encodeQueryParam(pName, java.nio.charset.StandardCharsets.UTF_8);
     }
 
     // --- Hilfsfunktionen ---
     private static String safeTrim(String s) {
         return s == null ? "" : s.trim();
+    }
+
+
+    @GetMapping("/room")
+    public String getRoom(
+            @RequestParam(name = "roomCode", required = false) String roomCode,
+            @RequestParam(name = "participantName", required = false) String participantName,
+            Model model) {
+
+        String rCode = safeTrim(roomCode);
+        String pName = safeTrim(participantName);
+
+        if (rCode.isEmpty() || pName.isEmpty()) {
+            model.addAttribute("error", "Missing room or participant");
+            return "index";
+        }
+
+        model.addAttribute("participantName", pName);
+        model.addAttribute("roomCode", rCode);
+
+        // Same card rows as in POST /join
+        model.addAttribute("cardsRow1", new String[]{"1", "2", "3", "5"});
+        model.addAttribute("cardsRow2", new String[]{"8", "13", "20", "40"});
+        model.addAttribute("cardsRow3", new String[]{"❓", "💬", "☕"});
+
+        return "room";
     }
 }
