@@ -27,24 +27,15 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         Room room = gameService.getOrCreateRoom(roomCode);
         room.addOrReactivateParticipant(participantName);
 
-        // Ensure flags are correct on (re)join (defensive, independent of Room impl)
-        Participant p = room.getParticipant(participantName);
-        if (p != null) {
-            p.setActive(true);
-            p.setDisconnected(false);
-        }
+        // NEW: cancel any pending disconnect for same user (reload / language switch)
+        gameService.cancelPendingDisconnect(room, participantName);
 
-        System.out.println("✅ Host nach Join: " + (room.getHost() != null ? room.getHost().getName() : "–"));
-
-        // Map session -> room and session -> participant
         gameService.addSession(session, room);
         gameService.trackParticipant(session, participantName);
 
-        // Broadcast fresh state to everyone, then to the new session (ordering OK)
+        // Broadcast to all first, then send to the new one (stable order)
         gameService.broadcastRoomState(room);
         gameService.sendRoomStateToSingleSession(room, session);
-
-        System.out.println("🧠 Teilnehmer '" + participantName + "' hat Raum '" + roomCode + "' betreten.");
     }
 
     @Override
@@ -81,23 +72,10 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
 
         gameService.removeSession(session);
 
+        // NEW: do not immediately broadcast; schedule with grace window
         if (room != null && participantName != null) {
-            Participant participant = room.getParticipant(participantName);
-            if (participant != null) {
-                // Mark fully disconnected (both flags) so UI shows sleeping row consistently
-                participant.setActive(false);
-                participant.setDisconnected(true);
-            }
-
-            String newHostName = room.assignNewHostIfNecessary(participantName);
-            if (newHostName != null) {
-                gameService.broadcastHostChange(room, participantName, newHostName);
-            }
-
-            gameService.broadcastRoomState(room);
+            gameService.scheduleDisconnect(room, participantName);
         }
-
-        System.out.println("📴 Verbindung geschlossen: " + session.getId() + ", Teilnehmer: " + participantName);
     }
 
     private String getQueryParam(@NonNull WebSocketSession session, String key) {

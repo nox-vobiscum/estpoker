@@ -6,7 +6,6 @@
   <meta name="color-scheme" content="dark light">
   <title th:text="#{app.title}">RBS' Estimation Poker</title>
   <link rel="icon" href="https://noxvobiscum.at/wp-content/uploads/2022/09/cropped-nvb-favicon-32x32.png" sizes="32x32" />
-  <!-- Early theme apply -->
   <script>
     (function(){
       try {
@@ -19,7 +18,7 @@
   <link rel="stylesheet" th:href="@{/styles.css}">
 </head>
 <body>
-<!-- Hamburger (morphs ☰ → ✕) -->
+<!-- Hamburger -->
 <button id="menuButton" class="menu-button" aria-expanded="false" aria-controls="appMenuOverlay" aria-label="Open menu">☰</button>
 
 <!-- Overlay Menu -->
@@ -54,6 +53,11 @@
   </div>
 </div>
 
+<!-- Hidden fallback form for /i18n -->
+<form id="i18nForm" th:action="@{/i18n}" method="post" class="hidden">
+  <input type="hidden" name="lang" id="i18nLang">
+</form>
+
 <div class="container">
   <h1 th:text="#{ui.heading}">🃏 RBS' Estimation Poker</h1>
 
@@ -65,6 +69,10 @@
     <dt><span class="mi-icon" aria-hidden="true">👤</span><span class="mi-label" th:text="#{label.you}">You are:</span></dt>
     <dd><strong th:text="${participantName}">Guest</strong></dd>
   </dl>
+
+  <!-- Participants ABOVE card grid -->
+  <h2 th:text="#{label.participants}">Participants</h2>
+  <ul id="liveParticipantList"></ul>
 
   <h2 th:text="#{label.selectCard}">Choose a card:</h2>
 
@@ -100,13 +108,10 @@
     <button type="button" id="resetButton" class="button" style="display:none;"
             th:text="#{button.reset}" onclick="resetRoom()">Start new round</button>
   </div>
-
-  <h2 th:text="#{label.participants}">Participants</h2>
-  <ul id="liveParticipantList"></ul>
 </div>
 
 <script th:inline="javascript">
-/* ===== Menu open/close (morph ☰ ⇄ ✕) + Focus Trap ===== */
+/* ===== Menu (morph + simple focus trap) ===== */
 (function(){
   const btn = document.getElementById('menuButton');
   const overlay = document.getElementById('appMenuOverlay');
@@ -153,7 +158,7 @@
   window.addEventListener('keydown', (e)=>{ if(e.key==='Escape') closeMenu(); });
 })();
 
-/* ===== Theme handling ===== */
+/* ===== Theme ===== */
 (function(){
   const bLight  = document.getElementById('themeLight');
   const bDark   = document.getElementById('themeDark');
@@ -163,29 +168,28 @@
     if (t === 'system') document.documentElement.removeAttribute('data-theme');
     else document.documentElement.setAttribute('data-theme', t);
     try { localStorage.setItem('estpoker-theme', t); } catch(e){}
-    setActive(t === 'system' ? 'system' : (t==='light'?'light':'dark'));
-  }
-  function setActive(key){
-    [bLight,bDark,bSystem].forEach(btn=>btn && btn.classList.remove('active'));
-    ({light:bLight, dark:bDark, system:bSystem}[key])?.classList.add('active');
+    [bLight,bDark,bSystem].forEach(x=>x&&x.classList.remove('active'));
+    ({light:bLight, dark:bDark, system:bSystem}[t||'dark'])?.classList.add('active');
   }
 
   document.addEventListener('DOMContentLoaded', function(){
     const saved = localStorage.getItem('estpoker-theme') || 'dark';
-    setActive(saved==='system' ? 'system' : saved);
+    ({light:bLight, dark:bDark, system:bSystem}[saved])?.classList.add('active');
     bLight?.addEventListener('click', ()=>applyTheme('light'));
     bDark?.addEventListener('click',  ()=>applyTheme('dark'));
     bSystem?.addEventListener('click',()=>applyTheme('system'));
   });
 })();
 
-/* ===== Language switch ===== */
+/* ===== Language: POST /i18n (fetch + form fallback) ===== */
 (function(){
-  const langRow = document.getElementById('langRow');
-  const cur = (document.documentElement.lang || 'en').toLowerCase();
-  const a = langRow?.querySelector('.flag-a');
-  const b = langRow?.querySelector('.flag-b');
+  const row   = document.getElementById('langRow');
+  const cur   = (document.documentElement.lang || 'en').toLowerCase();
+  const a     = row?.querySelector('.flag-a');
+  const b     = row?.querySelector('.flag-b');
   const label = document.getElementById('langCurrent');
+  const form  = document.getElementById('i18nForm');
+  const input = document.getElementById('i18nLang');
 
   function setSplit(lang){
     if (!a || !b) return;
@@ -193,15 +197,25 @@
     else { a.src='/flags/us.svg'; b.src='/flags/gb.svg'; if (label) label.textContent='English'; }
   }
   function nextLang(){ return cur.startsWith('de') ? 'en' : 'de'; }
-  function switchLang(to){
-    const url = new URL(window.location.href);
-    url.searchParams.set('lang', to);
-    window.location.replace(url.toString());
+
+  async function switchLang(to){
+    try{
+      const resp = await fetch('/i18n', {
+        method:'POST',
+        headers:{'Content-Type':'application/x-www-form-urlencoded'},
+        body:'lang='+encodeURIComponent(to),
+        credentials:'same-origin'
+      });
+      location.reload();
+    }catch(e){
+      if(form && input){ input.value = to; form.submit(); }
+      else { location.reload(); }
+    }
   }
 
   document.addEventListener('DOMContentLoaded', function(){
     setSplit(cur);
-    langRow?.addEventListener('click', function(){
+    row?.addEventListener('click', function(){
       const to = nextLang();
       setSplit(to);
       switchLang(to);
@@ -209,7 +223,7 @@
   });
 })();
 
-/* ===== Game logic (unchanged) ===== */
+/* === Game logic (unchanged) === */
 let participantName = /*[[${participantName}]]*/ "Guest";
 let roomCode = /*[[${roomCode}]]*/ "demo";
 let selectedCard = null;
@@ -362,7 +376,7 @@ function showToast(message) {
 }
 </script>
 
-<!-- Keep inline toast CSS local to this template -->
+<!-- Tiny local toast CSS kept inline -->
 <style>
 .toast {
   position: fixed; top: 20px; right: 20px; background-color: #333; color: white;

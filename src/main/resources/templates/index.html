@@ -6,7 +6,7 @@
   <meta name="color-scheme" content="dark light">
   <title th:text="#{app.title}">RBS' Estimation Poker</title>
   <link rel="icon" href="https://noxvobiscum.at/wp-content/uploads/2022/09/cropped-nvb-favicon-32x32.png" sizes="32x32" />
-  <!-- Early theme apply (prevents flash) -->
+  <!-- Early theme apply -->
   <script>
     (function(){
       try {
@@ -19,7 +19,7 @@
   <link rel="stylesheet" th:href="@{/styles.css}">
 </head>
 <body>
-<!-- Hamburger (morphs ☰ → ✕) -->
+<!-- Hamburger (morphs to ✕ when open) -->
 <button id="menuButton" class="menu-button" aria-expanded="false" aria-controls="appMenuOverlay" aria-label="Open menu">☰</button>
 
 <!-- Overlay Menu -->
@@ -55,13 +55,18 @@
   </div>
 </div>
 
-<h1 th:text="#{ui.heading}">🃏 RBS' Estimation Poker</h1>
-
-<!-- Error message -->
-<div th:if="${error != null or param.error != null}" class="error"
-     th:text="${error != null ? error : param.error}">Error</div>
+<!-- Hidden fallback form for /i18n (in case fetch is blocked) -->
+<form id="i18nForm" th:action="@{/i18n}" method="post" class="hidden">
+  <input type="hidden" name="lang" id="i18nLang">
+</form>
 
 <div class="container landing-container">
+  <h1 th:text="#{ui.heading}">🃏 RBS' Estimation Poker</h1>
+
+  <!-- Error message -->
+  <div th:if="${error != null or param.error != null}" class="error"
+       th:text="${error != null ? error : param.error}">Error</div>
+
   <form th:action="@{/join}" method="post" id="joinForm" class="join-form">
     <div class="form-row">
       <div class="form-field">
@@ -103,8 +108,7 @@
 
     <!-- Hint when feature is off -->
     <p class="hint"
-       th:if="${@environment.getProperty('features.persistentRooms.enabled','false') != 'true'}"
-       th:text="#{hint.persistOff}">
+       th:if="${@environment.getProperty('features.persistentRooms.enabled','false') != 'true'}">
       Persistent rooms are not available on this deployment.
     </p>
 
@@ -115,45 +119,27 @@
 </div>
 
 <script>
-/* ===== Menu open/close (morph ☰ ⇄ ✕) + Focus Trap ===== */
+/* ===== Menu open/close (morph ☰ ⇄ ✕) ===== */
 (function(){
   const btn = document.getElementById('menuButton');
   const overlay = document.getElementById('appMenuOverlay');
-  const panel = overlay?.querySelector('.menu-panel');
   const backdrop = overlay?.querySelector('[data-close]');
-  let lastFocus = null;
-
-  function focusables(){
-    return panel.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
-  }
-  function trapTab(e){
-    if (e.key !== 'Tab' || overlay.classList.contains('hidden')) return;
-    const f = focusables(); if (!f.length) return;
-    const first = f[0], last = f[f.length-1];
-    if (e.shiftKey && document.activeElement === first) { last.focus(); e.preventDefault(); }
-    else if (!e.shiftKey && document.activeElement === last) { first.focus(); e.preventDefault(); }
-  }
 
   function openMenu(){
     document.body.classList.add('menu-open');
     overlay.classList.remove('hidden');
     btn.classList.add('open');
     btn.setAttribute('aria-expanded','true');
-    btn.setAttribute('aria-label', /*[[#{menu.close}]]*/ 'Close menu');
+    btn.setAttribute('aria-label','Close menu');
     btn.textContent = '✕';
-    lastFocus = document.activeElement;
-    setTimeout(()=>focusables()[0]?.focus(), 0);
-    window.addEventListener('keydown', trapTab);
   }
   function closeMenu(){
     document.body.classList.remove('menu-open');
     overlay.classList.add('hidden');
     btn.classList.remove('open');
     btn.setAttribute('aria-expanded','false');
-    btn.setAttribute('aria-label', /*[[#{menu.open}]]*/ 'Open menu');
+    btn.setAttribute('aria-label','Open menu');
     btn.textContent = '☰';
-    window.removeEventListener('keydown', trapTab);
-    lastFocus?.focus();
   }
   function toggleMenu(){ overlay.classList.contains('hidden') ? openMenu() : closeMenu(); }
 
@@ -172,29 +158,28 @@
     if (t === 'system') document.documentElement.removeAttribute('data-theme');
     else document.documentElement.setAttribute('data-theme', t);
     try { localStorage.setItem('estpoker-theme', t); } catch(e){}
-    setActive(t === 'system' ? 'system' : (t==='light'?'light':'dark'));
-  }
-  function setActive(key){
-    [bLight,bDark,bSystem].forEach(btn=>btn && btn.classList.remove('active'));
-    ({light:bLight, dark:bDark, system:bSystem}[key])?.classList.add('active');
+    [bLight,bDark,bSystem].forEach(x=>x&&x.classList.remove('active'));
+    ({light:bLight, dark:bDark, system:bSystem}[t||'dark'])?.classList.add('active');
   }
 
   document.addEventListener('DOMContentLoaded', function(){
     const saved = localStorage.getItem('estpoker-theme') || 'dark';
-    setActive(saved==='system' ? 'system' : saved);
+    ({light:bLight, dark:bDark, system:bSystem}[saved])?.classList.add('active');
     bLight?.addEventListener('click', ()=>applyTheme('light'));
     bDark?.addEventListener('click',  ()=>applyTheme('dark'));
     bSystem?.addEventListener('click',()=>applyTheme('system'));
   });
 })();
 
-/* ===== Language switch (EN/DE) ===== */
+/* ===== Language: POST /i18n (with fetch + form fallback) ===== */
 (function(){
-  const langRow = document.getElementById('langRow');
-  const cur = (document.documentElement.lang || 'en').toLowerCase();
-  const a = langRow?.querySelector('.flag-a');
-  const b = langRow?.querySelector('.flag-b');
+  const row   = document.getElementById('langRow');
+  const cur   = (document.documentElement.lang || 'en').toLowerCase();
+  const a     = row?.querySelector('.flag-a');
+  const b     = row?.querySelector('.flag-b');
   const label = document.getElementById('langCurrent');
+  const form  = document.getElementById('i18nForm');
+  const input = document.getElementById('i18nLang');
 
   function setSplit(lang){
     if (!a || !b) return;
@@ -202,100 +187,33 @@
     else { a.src='/flags/us.svg'; b.src='/flags/gb.svg'; if (label) label.textContent='English'; }
   }
   function nextLang(){ return cur.startsWith('de') ? 'en' : 'de'; }
-  function switchLang(to){
-    const url = new URL(window.location.href);
-    url.searchParams.set('lang', to);
-    window.location.replace(url.toString()); // GET → avoids 405
+
+  async function switchLang(to){
+    // try fetch
+    try{
+      const resp = await fetch('/i18n', {
+        method:'POST',
+        headers:{'Content-Type':'application/x-www-form-urlencoded'},
+        body:'lang='+encodeURIComponent(to),
+        credentials:'same-origin'
+      });
+      // regardless of status, reload to render locale from session
+      location.reload();
+    }catch(e){
+      // fallback: oldschool form POST (guaranteed network entry)
+      if(form && input){ input.value = to; form.submit(); }
+      else { location.reload(); }
+    }
   }
 
   document.addEventListener('DOMContentLoaded', function(){
     setSplit(cur);
-    langRow?.addEventListener('click', function(){
+    row?.addEventListener('click', function(){
       const to = nextLang();
       setSplit(to);
       switchLang(to);
     });
   });
-})();
-
-/* ===== Landing page form (robust when persist UI hidden) ===== */
-(function () {
-  const persistent = document.getElementById('persistent'); // may be null
-  const testWrap   = document.getElementById('testRoomWrap'); // may be null
-  const testHint   = document.getElementById('testRoomHint'); // may be null
-  const testRoom   = document.getElementById('testRoom');     // may be null
-  const roomCodeEl = document.getElementById('roomCode');
-  const participantEl = document.getElementById('participantName');
-  const nameCheck  = document.getElementById('nameCheck');
-  const joinButton = document.querySelector('#joinForm button[type="submit"]');
-  const joinForm   = document.getElementById('joinForm');
-
-  let nameTaken = false;
-
-  const MSG_CHECKING = /*[[#{status.checking}]]*/ 'Checking availability…';
-  const MSG_FREE     = /*[[#{status.free}]]*/ '✅ Name is available';
-  const MSG_TAKEN    = /*[[#{status.taken}]]*/ '❌ Name is taken';
-
-  function isEmpty(s){ return !s || s.trim().length===0; }
-  function isPersistChecked(){ return persistent && persistent.checked; }
-
-  function isSubmittable(){
-    if (isEmpty(participantEl.value) || isEmpty(roomCodeEl.value)) return false;
-    if (isPersistChecked() && nameTaken) return false;
-    return true;
-  }
-  function updateSubmitEnabled(){ joinButton.disabled=!isSubmittable(); }
-
-  function setStatusLoading(){ nameCheck.textContent=MSG_CHECKING; nameCheck.className="hint loading"; nameTaken=false; updateSubmitEnabled(); }
-  function setStatusOK(){ nameCheck.textContent=MSG_FREE; nameCheck.className="hint ok"; nameTaken=false; updateSubmitEnabled(); }
-  function setStatusBad(){ nameCheck.textContent=MSG_TAKEN; nameCheck.className="hint bad"; nameTaken=true; updateSubmitEnabled(); }
-  function setStatusEmpty(){ nameCheck.textContent=""; nameCheck.className="hint"; nameTaken=false; updateSubmitEnabled(); }
-
-  function syncTestVisibility(){
-    if (!persistent) return;
-    const show = isPersistChecked();
-    if (testWrap) testWrap.classList.toggle('hidden', !show);
-    if (testHint) testHint.classList.toggle('hidden', !show);
-    if (!show && testRoom) testRoom.checked = false;
-    if (!show) setStatusEmpty();
-    updateSubmitEnabled();
-  }
-
-  let debounceTimer=null, currentAbort=null;
-
-  async function checkNameAvailability(name){
-    if (!isPersistChecked()) { setStatusEmpty(); return; }
-    const trimmed=(name||"").trim(); if (trimmed.length===0){ setStatusEmpty(); return; }
-
-    if (currentAbort) currentAbort.abort();
-    currentAbort=new AbortController(); const {signal}=currentAbort;
-
-    setStatusLoading();
-    try{
-      const resp=await fetch(`/api/rooms/check?name=`+encodeURIComponent(trimmed),{signal});
-      if(!resp.ok) throw new Error("Bad response: "+resp.status);
-      const taken=await resp.json(); if(signal.aborted) return;
-      if(taken===true) setStatusBad(); else setStatusOK();
-    }catch(e){
-      if (signal.aborted) return;
-      setStatusEmpty();
-      console.warn("Name check failed:", e);
-    }
-  }
-  function scheduleCheck(){ clearTimeout(debounceTimer); debounceTimer=setTimeout(()=>checkNameAvailability(roomCodeEl.value),250); }
-
-  joinForm.addEventListener('submit', function (event) {
-    if (!isSubmittable()) { event.preventDefault(); joinButton.classList.add('shake'); setTimeout(()=>joinButton.classList.remove('shake'),400); }
-  });
-
-  if (persistent) {
-    syncTestVisibility();
-    if (isPersistChecked()) scheduleCheck();
-    persistent.addEventListener('change', ()=>{ syncTestVisibility(); if (isPersistChecked()) scheduleCheck(); else setStatusEmpty(); });
-  }
-  roomCodeEl.addEventListener('input', ()=>{ if (isPersistChecked()) scheduleCheck(); updateSubmitEnabled(); });
-  participantEl.addEventListener('input', updateSubmitEnabled);
-  updateSubmitEnabled();
 })();
 </script>
 </body>
