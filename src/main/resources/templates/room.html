@@ -121,6 +121,7 @@
   function revealCards() { if (isHost) socket.send("revealCards"); }
   function resetRoom() { if (isHost) socket.send("resetRoom"); clearCardSelection(); }
 
+  // Render participant list as: [icon][name text][status]
   function updateParticipantList(participants, revealed) {
     const list = document.getElementById("liveParticipantList");
     if (!list) return;
@@ -211,9 +212,17 @@
   <button id="themeToggle" class="theme-toggle" title="Toggle light/dark mode" aria-label="Toggle light/dark mode">🌙</button>
 
   <h1>🃏 RBS' Estimation Poker</h1>
-  <div class="main-info">
-    <p>🆔 Raum: <strong th:text="${roomCode}">demo</strong></p>
-    <p>👤 Du bist: <strong th:text="${participantName}">Gast</strong></p>
+
+  <!-- New info grid (labels above values) -->
+  <div class="info-grid">
+    <div class="info-item">
+      <div class="info-label">🆔 Raum</div>
+      <div class="info-value" th:text="${roomCode}">demo</div>
+    </div>
+    <div class="info-item">
+      <div class="info-label">👤 Du bist</div>
+      <div class="info-value" th:text="${participantName}">Gast</div>
+    </div>
   </div>
 
   <h2>Teilnehmende:</h2>
