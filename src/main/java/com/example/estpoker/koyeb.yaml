@@ -1,0 +1,23 @@
+services:
+  - name: estpoker
+    type: web
+    docker:
+      context: .
+      dockerfile: Dockerfile
+    env:
+      - key: SPRING_PROFILES_ACTIVE
+        value: prod-h2
+      # Später für Neon:
+      # - key: JDBC_URL
+      #   value: jdbc:postgresql://<host>/<db>?sslmode=require
+      # - key: DB_USER
+      #   value: <user>
+      # - key: DB_PASSWORD
+      #   value: <password>
+      # - key: features.persistentRooms.enabled
+      #   value: "true"
+    ports:
+      - port: 8080
+        protocol: http
+    routes:
+      - path: /

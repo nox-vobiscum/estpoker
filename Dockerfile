@@ -22,8 +22,16 @@ FROM eclipse-temurin:21-jre-alpine
 
 WORKDIR /app
 
+# curl für HEALTHCHECK installieren (Alpine)
+RUN apk add --no-cache curl
+
+# App-JAR aus Build-Stage kopieren
 COPY --from=build /app/target/*.jar app.jar
 
 EXPOSE 8080
 
 ENTRYPOINT ["java", "-jar", "app.jar"]
+
+# Container-Healthcheck: Homepage muss 200 liefern
+HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
+  CMD curl -fsS http://127.0.0.1:8080/ || exit 1
