@@ -6,30 +6,57 @@
   <meta name="color-scheme" content="dark light">
   <title th:text="#{app.title}">RBS' Estimation Poker</title>
   <link rel="icon" href="https://noxvobiscum.at/wp-content/uploads/2022/09/cropped-nvb-favicon-32x32.png" sizes="32x32" />
+  <!-- Early theme apply -->
   <script>
-    (function(){try{var t=localStorage.getItem('estpoker-theme')||'dark';
+    (function(){try{
+      var t=localStorage.getItem('estpoker-theme')||'dark';
       if(t==='system')document.documentElement.removeAttribute('data-theme');
-      else document.documentElement.setAttribute('data-theme',t);}catch(e){}})();
+      else document.documentElement.setAttribute('data-theme',t);
+    }catch(e){}})();
   </script>
   <link rel="stylesheet" th:href="@{/styles.css}">
 </head>
 <body>
 <script th:inline="javascript">
+  // ===== THEME (light/dark/system) =====
   (function(){
-    function currentTheme(){const a=document.documentElement.getAttribute('data-theme'); if(a) return a;
-      try{ return matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'; }catch(e){ return 'dark'; } }
-    function setTheme(t){ if(t==='system')document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme',t);
-      try{localStorage.setItem('estpoker-theme',t);}catch(e){}; const b=document.getElementById('themeToggle'); if(b) b.textContent=(t==='light')?'🌞':'🌙'; }
+    function currentTheme(){
+      const a=document.documentElement.getAttribute('data-theme');
+      if(a) return a;
+      try{ return matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'; }catch(e){ return 'dark'; }
+    }
+    function setTheme(t){
+      if(t==='system') document.documentElement.removeAttribute('data-theme');
+      else document.documentElement.setAttribute('data-theme',t);
+      try{ localStorage.setItem('estpoker-theme',t);}catch(e){}
+      updateThemeButtons(t==='system'? 'system' : t);
+    }
+    function updateThemeButtons(active){
+      const ids=['themeLight','themeDark','themeSystem'];
+      ids.forEach(id=>{
+        const btn=document.getElementById(id);
+        if(!btn) return;
+        const isActive=(id==='themeLight'&&active==='light')||(id==='themeDark'&&active==='dark')||(id==='themeSystem'&&active==='system');
+        btn.classList.toggle('active', isActive);
+        btn.setAttribute('aria-pressed', String(isActive));
+      });
+    }
     document.addEventListener('DOMContentLoaded', function(){
-      const saved=localStorage.getItem('estpoker-theme')||'dark';
-      const eff=(saved==='system')?currentTheme():saved;
-      const b=document.getElementById('themeToggle'); if(b) b.textContent=(eff==='light')?'🌞':'🌙';
-      if(b) b.addEventListener('click', ()=>setTheme(currentTheme()==='light'?'dark':'light'));
+      const saved = localStorage.getItem('estpoker-theme') || 'dark';
+      updateThemeButtons(saved==='system' ? 'system' : saved);
+
+      const bLight = document.getElementById('themeLight');
+      const bDark  = document.getElementById('themeDark');
+      const bSys   = document.getElementById('themeSystem');
+      if(bLight) bLight.addEventListener('click', ()=>setTheme('light'));
+      if(bDark)  bDark.addEventListener('click', ()=>setTheme('dark'));
+      if(bSys)   bSys.addEventListener('click', ()=>setTheme('system'));
     });
   })();
 
+  // ===== LANGUAGE =====
   (function(){
-    function nextLang(){const cur=(document.documentElement.lang||'en').toLowerCase();return cur.startsWith('de')?'en':'de';}
+    function nextLang(){ const cur=(document.documentElement.lang||'en').toLowerCase(); return cur.startsWith('de')?'en':'de'; }
     function setSplit(lang){
       const a=document.querySelector('#langToggle .flag-a');
       const b=document.querySelector('#langToggle .flag-b');
@@ -37,21 +64,46 @@
       if(String(lang).toLowerCase().startsWith('de')){ a.src='/flags/de.svg'; b.src='/flags/at.svg'; }
       else { a.src='/flags/us.svg'; b.src='/flags/gb.svg'; }
     }
-    function safeRoomUrlWithLang(lang){
+    function safeUrlWithLang(lang){
       const url=new URL(window.location.href);
       url.searchParams.set('lang',lang);
       return url.toString();
     }
     document.addEventListener('DOMContentLoaded', function(){
       setSplit(document.documentElement.lang||'en');
-      const btn=document.getElementById('langToggle');
-      if(btn) btn.addEventListener('click', function(){
-        const to=nextLang(); setSplit(to);
-        window.location.replace(safeRoomUrlWithLang(to)); // GET -> vermeidet 405
+      const lbtn=document.getElementById('langToggle');
+      if(lbtn) lbtn.addEventListener('click', function(){
+        const to=nextLang(); setSplit(to); window.location.replace(safeUrlWithLang(to));
       });
     });
   })();
 
+  // ===== MENU OVERLAY =====
+  (function(){
+    function openMenu(){
+      const o=document.getElementById('menuOverlay'); if(!o) return;
+      o.classList.remove('hidden');
+      document.getElementById('menuButton')?.setAttribute('aria-expanded','true');
+      setTimeout(()=>document.getElementById('themeLight')?.focus(), 0);
+    }
+    function closeMenu(){
+      const o=document.getElementById('menuOverlay'); if(!o) return;
+      o.classList.add('hidden');
+      document.getElementById('menuButton')?.setAttribute('aria-expanded','false');
+      document.getElementById('menuButton')?.focus();
+    }
+    document.addEventListener('DOMContentLoaded', function(){
+      const mb=document.getElementById('menuButton');
+      const mc=document.getElementById('menuClose');
+      const ov=document.getElementById('menuOverlay');
+      if(mb) mb.addEventListener('click', openMenu);
+      if(mc) mc.addEventListener('click', closeMenu);
+      if(ov) ov.addEventListener('click', (e)=>{ if(e.target.classList.contains('menu-backdrop')) closeMenu(); });
+      document.addEventListener('keydown', (e)=>{ if(e.key==='Escape' && !document.getElementById('menuOverlay')?.classList.contains('hidden')) closeMenu(); });
+    });
+  })();
+
+  // ===== GAME WS & UI =====
   let participantName = /*[[${participantName}]]*/ "Guest";
   let roomCode = /*[[${roomCode}]]*/ "demo";
   let selectedCard = null;
@@ -203,16 +255,46 @@
   }
 </script>
 
-<div class="container">
-  <button id="themeToggle" class="theme-toggle" th:title="#{title.theme}" aria-label="Toggle light/dark mode">🌙</button>
-  <button id="langToggle" class="lang-toggle" th:title="#{title.lang}" aria-label="Switch language">
-    <span class="flag-split" aria-hidden="true">
-      <img class="flag flag-a" src="/flags/us.svg" alt="" />
-      <img class="flag flag-b" src="/flags/gb.svg" alt="" />
-    </span>
-    <span class="visually-hidden">Language</span>
-  </button>
+<!-- Hamburger button -->
+<button id="menuButton" class="menu-button" aria-label="Open menu" aria-haspopup="dialog" aria-expanded="false" title="Menu">☰</button>
 
+<!-- Overlay Menu -->
+<div id="menuOverlay" class="menu-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="menuTitle">
+  <div class="menu-backdrop"></div>
+  <div class="menu-panel">
+    <div class="menu-header">
+      <h3 id="menuTitle" th:text="#{menu.title}">Settings</h3>
+      <button id="menuClose" class="icon-btn" aria-label="Close">✕</button>
+    </div>
+
+    <div class="menu-section">
+      <div class="menu-group">
+        <div class="group-title" th:text="#{menu.theme}">Theme</div>
+        <div class="menu-choice">
+          <button id="themeLight" class="choice-btn" aria-pressed="false">
+            <span class="mi-icon" aria-hidden="true">🌞</span><span th:text="#{theme.light}">Light</span>
+          </button>
+          <button id="themeDark" class="choice-btn" aria-pressed="false">
+            <span class="mi-icon" aria-hidden="true">🌙</span><span th:text="#{theme.dark}">Dark</span>
+          </button>
+          <button id="themeSystem" class="choice-btn" aria-pressed="false">
+            <span class="mi-icon" aria-hidden="true">🖥️</span><span th:text="#{theme.system}">System</span>
+          </button>
+        </div>
+      </div>
+
+      <button id="langToggle" class="menu-item">
+        <span class="mi-icon flag-split" aria-hidden="true">
+          <img class="flag flag-a" src="/flags/us.svg" alt="">
+          <img class="flag flag-b" src="/flags/gb.svg" alt="">
+        </span>
+        <span class="mi-text" th:text="#{title.lang}">Switch language</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="container">
   <h1 th:text="#{ui.heading}">🃏 RBS' Estimation Poker</h1>
 
   <dl class="main-info">
