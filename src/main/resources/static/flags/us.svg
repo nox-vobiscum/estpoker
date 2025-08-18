@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 19 10">
+  <!-- base white -->
+  <rect width="19" height="10" fill="#fff"/>
+  <!-- red stripes -->
+  <g fill="#B22234">
+    <rect y="0"    width="19" height="0.769"/>
+    <rect y="1.538" width="19" height="0.769"/>
+    <rect y="3.076" width="19" height="0.769"/>
+    <rect y="4.615" width="19" height="0.769"/>
+    <rect y="6.153" width="19" height="0.769"/>
+    <rect y="7.692" width="19" height="0.769"/>
+    <rect y="9.230" width="19" height="0.769"/>
+  </g>
+  <!-- canton -->
+  <rect width="7.6" height="5.3846" fill="#3C3B6E"/>
+  <!-- simple star dots -->
+  <g fill="#fff" opacity="0.9">
+    <circle cx="0.9" cy="0.9" r="0.15"/>
+    <circle cx="1.9" cy="0.9" r="0.15"/>
+    <circle cx="2.9" cy="0.9" r="0.15"/>
+    <circle cx="0.9" cy="1.8" r="0.15"/>
+    <circle cx="1.9" cy="1.8" r="0.15"/>
+    <circle cx="2.9" cy="1.8" r="0.15"/>
+    <circle cx="0.9" cy="2.7" r="0.15"/>
+    <circle cx="1.9" cy="2.7" r="0.15"/>
+    <circle cx="2.9" cy="2.7" r="0.15"/>
+  </g>
+</svg>

@@ -6,23 +6,20 @@
   <meta name="color-scheme" content="dark light">
   <title th:text="#{app.title}">RBS' Estimation Poker</title>
   <link rel="icon" href="https://noxvobiscum.at/wp-content/uploads/2022/09/cropped-nvb-favicon-32x32.png" sizes="32x32" />
-  <!-- Early theme apply -->
   <script>
     (function(){
       try {
         var t = localStorage.getItem('estpoker-theme') || 'dark';
-        if (t === 'system') { document.documentElement.removeAttribute('data-theme'); }
-        else { document.documentElement.setAttribute('data-theme', t); }
+        if (t === 'system') document.documentElement.removeAttribute('data-theme');
+        else document.documentElement.setAttribute('data-theme', t);
       } catch(e){}
     })();
   </script>
   <link rel="stylesheet" th:href="@{/styles.css}">
-  <!-- Twemoji (robustes Flaggen-Fallback als SVG) -->
-  <script src="https://cdn.jsdelivr.net/npm/twemoji@14.0.2/dist/twemoji.min.js" crossorigin="anonymous"></script>
 </head>
 <body>
 <script th:inline="javascript">
-  // Theme toggle
+  // ===== Theme toggle =====
   (function(){
     function currentTheme(){ const a=document.documentElement.getAttribute('data-theme'); if(a) return a; try{ return matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'; }catch(e){ return 'dark'; } }
     function setTheme(t){ if(t==='system') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', t);
@@ -33,25 +30,32 @@
     });
   })();
 
-  // Language toggle (split flags + ?lang=…)
+  // ===== Language toggle (split flags + ?lang=…) =====
   (function(){
-    function nextLang(){ const cur=document.documentElement.lang||'en'; return cur.toLowerCase().startsWith('de')?'en':'de'; }
-    function switchLang(to){ const url=new URL(window.location.href); url.searchParams.set('lang', to); window.location.href=url.toString(); }
-    function setSplitIcon(currentLang){
-      const btn=document.getElementById('langToggle'); if(!btn) return;
-      const a=btn.querySelector('.flag-a'); const b=btn.querySelector('.flag-b');
-      if(String(currentLang).toLowerCase().startsWith('de')){ a.textContent='🇩🇪'; b.textContent='🇦🇹'; }
-      else{ a.textContent='🇺🇸'; b.textContent='🇬🇧'; }
-      if (window.twemoji){ twemoji.parse(a, {folder:'svg', ext:'.svg'}); twemoji.parse(b, {folder:'svg', ext:'.svg'}); }
+    function nextLang(){ const cur=(document.documentElement.lang||'en').toLowerCase(); return cur.startsWith('de')?'en':'de'; }
+    function switchLang(to){ const url=new URL(window.location.href); url.searchParams.set('lang', to); window.location.replace(url.toString()); } // GET => fixes 405
+    function injectSplitFlags(currentLang){
+      const btn = document.getElementById('langToggle'); if(!btn) return;
+      const tplId = (String(currentLang).toLowerCase().startsWith('de')) ? 'tpl-flags-de' : 'tpl-flags-en';
+      const tpl = document.getElementById(tplId);
+      if (tpl && 'content' in tpl) {
+        btn.innerHTML = '';
+        btn.appendChild(tpl.content.cloneNode(true));
+      }
     }
     document.addEventListener('DOMContentLoaded', function(){
-      const cur=document.documentElement.lang||'en';
-      setSplitIcon(cur);
+      const cur = document.documentElement.lang || 'en';
+      injectSplitFlags(cur);
       const btn=document.getElementById('langToggle');
-      if(btn) btn.addEventListener('click', function(){ setSplitIcon(nextLang()); switchLang(nextLang()); });
+      if(btn) btn.addEventListener('click', function(){
+        const to = nextLang();
+        injectSplitFlags(to); // optimistic
+        switchLang(to);
+      });
     });
   })();
 
+  // ===== Game client =====
   let participantName = /*[[${participantName}]]*/ "Guest";
   let roomCode = /*[[${roomCode}]]*/ "demo";
   let selectedCard = null;
@@ -115,7 +119,6 @@
   function revealCards() { if (isHost) socket.send("revealCards"); }
   function resetRoom()   { if (isHost) socket.send("resetRoom"); clearCardSelection(); }
 
-  // Render participant list
   function updateParticipantList(participants, revealed) {
     const list = document.getElementById("liveParticipantList");
     if (!list) return;
@@ -130,9 +133,7 @@
       if (p.isHost) li.classList.add("is-host");
 
       const icon = document.createElement("span");
-      icon.className = p.isHost
-        ? "participant-icon host"
-        : (p.disconnected ? "participant-icon inactive" : "participant-icon");
+      icon.className = p.isHost ? "participant-icon host" : (p.disconnected ? "participant-icon inactive" : "participant-icon");
       icon.textContent = p.isHost ? "👑" : (p.disconnected ? "💤" : "👤");
 
       const nameSpan = document.createElement("span");
@@ -147,18 +148,16 @@
         voteChip.className = "vote-chip";
         const v = p.vote != null ? String(p.vote) : null;
         voteChip.textContent = v != null ? v : "—";
-        if (v && !/^\d+$/.test(v)) voteChip.classList.add("special");
+        if (v && !/^\d+$/.test(v)) voteChip.classList.add("special"); // ☕️ 💬 etc.
         rightWrap.appendChild(voteChip);
       } else {
         if (!p.disconnected && p.vote != null) {
           const status = document.createElement("span");
-          status.className = "status-icon done";
-          status.textContent = "✅";
+          status.className = "status-icon done"; status.textContent = "✅";
           rightWrap.appendChild(status);
         } else if (!p.disconnected) {
           const status = document.createElement("span");
-          status.className = "status-icon pending";
-          status.textContent = "⏳";
+          status.className = "status-icon pending"; status.textContent = "⏳";
           rightWrap.appendChild(status);
         }
       }
@@ -179,17 +178,10 @@
     const maxTextWidth = names.reduce((m, el) => Math.max(m, el.offsetWidth || 0), 0);
     list.style.setProperty("--name-text-col", Math.ceil(maxTextWidth) + "px");
   }
-
   window.addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(measureAndSetNameColumn, 150); });
 
-  function updateAverage(avg) {
-    const avgSpan = document.getElementById("averageVote");
-    if (avgSpan) avgSpan.textContent = avg != null ? avg : "N/A";
-  }
-  function toggleView(revealed) {
-    document.querySelectorAll(".pre-vote").forEach(e => e.style.display = revealed ? "none" : "block");
-    document.querySelectorAll(".post-vote").forEach(e => e.style.display = revealed ? "block" : "none");
-  }
+  function updateAverage(avg) { const avgSpan = document.getElementById("averageVote"); if (avgSpan) avgSpan.textContent = avg != null ? avg : "N/A"; }
+  function toggleView(revealed) { document.querySelectorAll(".pre-vote").forEach(e => e.style.display = revealed ? "none" : "block"); document.querySelectorAll(".post-vote").forEach(e => e.style.display = revealed ? "block" : "none"); }
   function showResults(participants, avg) { toggleView(true); updateAverage(avg); }
 
   function showToast(message) {
@@ -204,18 +196,11 @@
 <div class="container">
   <!-- Floating toggles -->
   <button id="themeToggle" class="theme-toggle" th:title="#{title.theme}" aria-label="Toggle light/dark mode">🌙</button>
-
-  <button id="langToggle" class="lang-toggle" th:title="#{title.lang}" aria-label="Switch language">
-    <span class="flag-split" aria-hidden="true">
-      <span class="flag flag-a">🇺🇸</span>
-      <span class="flag flag-b">🇬🇧</span>
-    </span>
-    <span class="visually-hidden">Language</span>
-  </button>
+  <button id="langToggle" class="lang-toggle" th:title="#{title.lang}" aria-label="Switch language"></button>
 
   <h1 th:text="#{ui.heading}">🃏 RBS' Estimation Poker</h1>
 
-  <!-- Ausgerichtete Kopfzeilen-Zeilen -->
+  <!-- Kopfbereich: symmetrisch ausgerichtet (Icon | Label | Wert) -->
   <dl class="main-info">
     <dt><span class="mi-icon" aria-hidden="true">🆔</span><span class="mi-label" th:text="#{label.room}">Room:</span></dt>
     <dd><strong th:text="${roomCode}">demo</strong></dd>
@@ -254,11 +239,62 @@
   </div>
 
   <div class="post-vote" style="display:none;">
+    <!-- Average: bewusst klein + gleich große Zahl -->
     <p class="average-label"><span th:text="#{label.average}">Avg:</span> <span id="averageVote">–</span></p>
     <button type="button" id="resetButton" class="button" style="display:none;"
             th:text="#{button.reset}" onclick="resetRoom()">Start new round</button>
   </div>
 </div>
+
+<!-- Split-flag templates (identisch zu index.html, lokal & exakt) -->
+<template id="tpl-flags-en">
+  <span class="flag-split" aria-hidden="true">
+    <!-- US -->
+    <svg class="flag flag-a" viewBox="0 0 7410 3900" role="img" aria-label="United States flag">
+      <path d="M0,0h7410v3900H0" fill="#b31942"/>
+      <path d="M0,450H7410m0,600H0m0,600H7410m0,600H0m0,600H7410m0,600H0" stroke="#FFF" stroke-width="300"/>
+      <path d="M0,0h2964v2100H0" fill="#0a3161"/>
+      <g fill="#FFF">
+        <g id="s18"><g id="s9"><g id="s5"><g id="s4">
+          <path id="s" d="M247,90 317.53423,307.082039 132.873218,172.917961H361.126782L176.46577,307.082039z"/>
+          <use xlink:href="#s" y="420"/><use xlink:href="#s" y="840"/><use xlink:href="#s" y="1260"/>
+        </g><use xlink:href="#s" y="1680"/></g>
+        <use xlink:href="#s4" x="247" y="210"/></g>
+        <use xlink:href="#s9" x="494"/></g>
+        <use xlink:href="#s18" x="988"/><use xlink:href="#s9" x="1976"/><use xlink:href="#s5" x="2470"/>
+      </g>
+    </svg>
+    <!-- GB -->
+    <svg class="flag flag-b" viewBox="0 0 12 6" role="img" aria-label="United Kingdom flag">
+      <rect width="12" height="6" fill="#012169"/>
+      <path d="M0,0 L12,6 M12,0 L0,6" stroke="#FFF" stroke-width="1.2"/>
+      <defs>
+        <clipPath id="uk-top"><path d="M0,0H12V3L0,0Z"/></clipPath>
+        <clipPath id="uk-bottom"><path d="M0,6H12V3L0,6Z"/></clipPath>
+      </defs>
+      <path d="M0,0 L12,6" stroke="#C8102E" stroke-width="0.8" clip-path="url(#uk-top)"/>
+      <path d="M12,0 L0,6" stroke="#C8102E" stroke-width="0.8" clip-path="url(#uk-bottom)"/>
+      <path d="M6,0V6 M0,3H12" stroke="#FFF" stroke-width="2"/>
+      <path d="M6,0V6 M0,3H12" stroke="#C8102E" stroke-width="1.2"/>
+    </svg>
+  </span>
+</template>
+
+<template id="tpl-flags-de">
+  <span class="flag-split" aria-hidden="true">
+    <!-- DE -->
+    <svg class="flag flag-a" viewBox="0 0 5 3" role="img" aria-label="Germany flag">
+      <rect width="5" height="3" fill="#000000"/>
+      <rect width="5" height="2" y="1" fill="#DD0000"/>
+      <rect width="5" height="1" y="2" fill="#FFCE00"/>
+    </svg>
+    <!-- AT -->
+    <svg class="flag flag-b" viewBox="0 0 6 4" role="img" aria-label="Austria flag">
+      <rect width="6" height="4" fill="#ED2939"/>
+      <rect width="6" height="2" y="1" fill="#FFFFFF"/>
+    </svg>
+  </span>
+</template>
 
 <!-- Keep inline toast style (can be externalized later) -->
 <style>
