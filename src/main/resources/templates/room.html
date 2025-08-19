@@ -5,11 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="dark light">
   <title th:text="#{app.title}">RBS' Estimation Poker</title>
-  <link rel="icon" type="image/svg+xml" th:href="@{/favicon.svg}" href="/favicon.svg">
-  <link rel="icon" type="image/png" sizes="32x32" th:href="@{/favicon-32x32.png}" href="/favicon-32x32.png">
-  <link rel="icon" type="image/png" sizes="16x16" th:href="@{/favicon-16x16.png}" href="/favicon-16x16.png">
-  <link rel="alternate icon" sizes="any" th:href="@{/favicon.ico}" href="/favicon.ico">
-  <link rel="apple-touch-icon" th:href="@{/apple-touch-icon.png}" href="/apple-touch-icon.png">
+
+  <!-- Optional (nur lokal): <meta name="public-origin" content="http://192.168.0.23:8080"> -->
+
   <script>
     (function(){try{
       var t=localStorage.getItem('estpoker-theme')||'dark';
@@ -18,6 +16,13 @@
     }catch(e){}})();
   </script>
   <link rel="stylesheet" th:href="@{/styles.css}">
+
+  <!-- Falls du bereits Favicons lokal eingebunden hast, kannst du diese 5 Zeilen beibehalten -->
+  <link rel="icon" type="image/svg+xml" th:href="@{/favicon.svg}" href="/favicon.svg">
+  <link rel="icon" type="image/png" sizes="32x32" th:href="@{/favicon-32x32.png}" href="/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" th:href="@{/favicon-16x16.png}" href="/favicon-16x16.png">
+  <link rel="alternate icon" sizes="any" th:href="@{/favicon.ico}" href="/favicon.ico">
+  <link rel="apple-touch-icon" th:href="@{/apple-touch-icon.png}" href="/apple-touch-icon.png">
 </head>
 <body>
 <button id="menuButton" class="menu-button" aria-expanded="false" aria-controls="appMenuOverlay" aria-label="Open menu">☰</button>
@@ -129,6 +134,8 @@
     </div>
     <div class="qr-body">
       <canvas id="qrCanvas" width="0" height="0" aria-hidden="true"></canvas>
+      <!-- Sichtbar: tatsächlicher Deeplink (debug-freundlich, ohne Stilbruch) -->
+      <p id="qrUrlText" style="text-align:center;word-break:break-all;opacity:.85;margin-top:8px;" aria-live="polite"></p>
     </div>
     <div class="qr-actions">
       <button id="qrCopy" class="button" type="button" th:text="#{invite.qr.copy}">Copy QR</button>
@@ -183,7 +190,7 @@
   backdrop?.addEventListener('click', closeMenu);
   window.addEventListener('keydown', (e)=>{ if(e.key==='Escape') closeMenu(); });
 
-  // Expose a minimal close hook for QR open
+  // Hook für QR-Open
   window.__closeMenuIfOpen = () => { if (!overlay.classList.contains('hidden')) closeMenu(); };
 })();
 
@@ -423,25 +430,37 @@ function showToast(message) {
 
 /* ===== Invite: deep link + QR overlay ===== */
 (function(){
-  const copyBtn = document.getElementById('copyRoomLink');
-  const openQrBtn = document.getElementById('openQr');
-  const overlay = document.getElementById('qrOverlay');
-  const dialog  = overlay?.querySelector('.qr-dialog');
+  const copyBtn  = document.getElementById('copyRoomLink');
+  const openQrBtn= document.getElementById('openQr');
+  const overlay  = document.getElementById('qrOverlay');
+  const dialog   = overlay?.querySelector('.qr-dialog');
   const backdrop = overlay?.querySelector('[data-close]');
   const qrCanvas = document.getElementById('qrCanvas');
   const qrCopy   = document.getElementById('qrCopy');
   const qrClose  = document.getElementById('qrClose');
+  const qrUrlTxt = document.getElementById('qrUrlText');
 
   const TXT_LINK_COPIED = /*[[#{invite.linkCopied}]]*/ 'Link copied to clipboard';
   const TXT_QR_COPIED   = /*[[#{invite.qr.copied}]]*/ 'QR image copied';
   const TXT_COPY_FAILED = /*[[#{notify.copyFailed}]]*/ 'Copy failed';
 
+  function readPublicOriginOverride(){
+    try{
+      const meta = document.querySelector('meta[name="public-origin"]');
+      if (meta && meta.content) return meta.content.trim().replace(/\/+$/,'');
+      const ls = localStorage.getItem('estpoker-public-origin');
+      if (ls) return ls.trim().replace(/\/+$/,'');
+    }catch(e){}
+    return null;
+  }
+
   function deepLink(){
-    const u = new URL('/room', location.origin);
+    // robust: immer absolut über URL()
+    const base = readPublicOriginOverride() || location.origin;
+    const u = new URL('/room', base);
     u.searchParams.set('roomCode', roomCode);
     return u.toString();
   }
-
 
   async function copyText(text){
     try{
@@ -478,12 +497,14 @@ function showToast(message) {
 
   copyBtn?.addEventListener('click', ()=>copyText(deepLink()));
 
+  // ⭐ Robuster QR + sichtbarer Payload
   openQrBtn?.addEventListener('click', ()=>{
-    // Draw (or redraw) QR
     try{
       const url = deepLink();
-      // Preferred visual size ~ 320 px, margin 4 modules
-      window.SimpleQR.drawTo(qrCanvas, url, {size: 320, margin: 4});
+      if (qrUrlTxt) qrUrlTxt.textContent = url; // sichtbar
+      console.log('[Invite] roomCode=%o deepLink=%o', roomCode, url);
+
+      window.SimpleQR.drawTo(qrCanvas, url, { size: 512, margin: 8, ecl: 'Q' });
       openOverlay();
     }catch(e){
       console.error(e);
@@ -515,7 +536,8 @@ function showToast(message) {
 })();
 </script>
 
-<script src="/js/qr.js?v=3"></script>
+<!-- Encoder: Cache-Bust nicht vergessen -->
+<script src="/js/qr.js?v=4"></script>
 
 <!-- Local toast keyframes to avoid duplication -->
 <style>
