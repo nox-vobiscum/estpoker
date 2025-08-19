@@ -437,9 +437,11 @@ function showToast(message) {
   const TXT_COPY_FAILED = /*[[#{notify.copyFailed}]]*/ 'Copy failed';
 
   function deepLink(){
-    const base = location.origin;
-    return base + "/room?roomCode=" + encodeURIComponent(roomCode);
+    const u = new URL('/room', location.origin);
+    u.searchParams.set('roomCode', roomCode);
+    return u.toString();
   }
+
 
   async function copyText(text){
     try{
@@ -513,7 +515,7 @@ function showToast(message) {
 })();
 </script>
 
-<script src="/js/qr.js"></script>
+<script src="/js/qr.js?v=3"></script>
 
 <!-- Local toast keyframes to avoid duplication -->
 <style>
