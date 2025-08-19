@@ -23,17 +23,29 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     public void afterConnectionEstablished(@NonNull WebSocketSession session) {
         String roomCode = getQueryParam(session, "roomCode");
         String participantName = getQueryParam(session, "participantName");
+        String cid = getQueryParam(session, "cid"); // <- stabile Client-ID
 
         Room room = gameService.getOrCreateRoom(roomCode);
-        room.addOrReactivateParticipant(participantName);
 
-        // NEW: cancel any pending disconnect for same user (reload / language switch)
+        // Falls gleicher Client (cid) im selben Room mit anderem Namen zurückkommt → rename
+        String existingName = gameService.getClientName(roomCode, cid);
+        if (cid != null && existingName != null && !existingName.equals(participantName)) {
+            String finalName = room.renameParticipant(existingName, participantName);
+            if (finalName != null) {
+                participantName = finalName; // weiter mit tatsächlich verwendeten Namen
+            }
+        }
+
+        // (Neu) letzten Namen des Clients merken
+        gameService.rememberClientName(roomCode, cid, participantName);
+
+        // Add/reactivate & Grace-Handling wie gehabt
+        room.addOrReactivateParticipant(participantName);
         gameService.cancelPendingDisconnect(room, participantName);
 
         gameService.addSession(session, room);
         gameService.trackParticipant(session, participantName);
 
-        // Broadcast to all first, then send to the new one (stable order)
         gameService.broadcastRoomState(room);
         gameService.sendRoomStateToSingleSession(room, session);
     }
@@ -72,7 +84,6 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
 
         gameService.removeSession(session);
 
-        // NEW: do not immediately broadcast; schedule with grace window
         if (room != null && participantName != null) {
             gameService.scheduleDisconnect(room, participantName);
         }
@@ -83,9 +94,9 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         if (uri == null || uri.getQuery() == null) return null;
 
         for (String param : uri.getQuery().split("&")) {
-            String[] kv = param.split("=");
+            String[] kv = param.split("=", 2);
             if (kv.length == 2 && kv[0].equals(key)) {
-                return kv[1];
+                return kv[1]; // (optional: URL-Decoding)
             }
         }
         return null;

@@ -55,10 +55,10 @@
   <!-- Aligned info rows (single line each) -->
   <dl class="main-info">
     <dt><span class="mi-icon" aria-hidden="true">🆔</span><span class="mi-label" th:text="#{label.room}">Room:</span></dt>
-    <dd><strong th:text="${roomCode}">demo</strong></dd>
+    <dd><strong id="roomCodeVal" th:text="${roomCode}">demo</strong></dd>
 
     <dt><span class="mi-icon" aria-hidden="true">👤</span><span class="mi-label" th:text="#{label.you}">You are:</span></dt>
-    <dd><strong th:text="${participantName}">Guest</strong></dd>
+    <dd><strong id="youName" th:text="${participantName}">Guest</strong></dd>
   </dl>
 
   <!-- Participants ABOVE card grid -->
@@ -214,8 +214,26 @@ let votesRevealed = false;
 let isHost = false;
 let resizeTimer = null;
 
+// stabile Client-ID pro Browser
+const cid = (function(){
+  try {
+    let id = localStorage.getItem('ep-cid');
+    if (!id) {
+      id = (crypto.randomUUID ? crypto.randomUUID()
+           : (Math.random().toString(36).slice(2) + Date.now()));
+      localStorage.setItem('ep-cid', id);
+    }
+    return id;
+  } catch(e){
+    return Math.random().toString(36).slice(2) + Date.now();
+  }
+})();
+
 const wsProtocol = location.protocol === "https:" ? "wss://" : "ws://";
-const socketUrl = wsProtocol + location.host + "/gameSocket?roomCode=" + roomCode + "&participantName=" + participantName;
+const socketUrl = wsProtocol + location.host
+  + "/gameSocket?roomCode=" + encodeURIComponent(roomCode)
+  + "&participantName=" + encodeURIComponent(participantName)
+  + "&cid=" + encodeURIComponent(cid);
 const socket = new WebSocket(socketUrl);
 
 socket.onopen = () => console.log("✅ Connected");
@@ -225,6 +243,13 @@ const MSG_HOST_OTHER = /*[[#{toast.hostOther}]]*/ 'Host {old} left. {new} is now
 
 socket.onmessage = (event) => {
   const data = JSON.parse(event.data);
+
+  // Optional: Server kann deinen effektiven Namen mitsenden (z.B. nach Rename via cid)
+  if (data.yourName && data.yourName !== participantName) {
+    participantName = data.yourName;
+    const youEl = document.getElementById("youName");
+    if (youEl) youEl.textContent = participantName;
+  }
 
   if (data.type === "voteUpdate") {
     const prevVotesRevealed = votesRevealed;
@@ -347,7 +372,7 @@ function toggleView(revealed) {
   document.querySelectorAll(".pre-vote").forEach(e => e.style.display = revealed ? "none" : "block");
   document.querySelectorAll(".post-vote").forEach(e => e.style.display = revealed ? "block" : "none");
   const h = document.getElementById("selectCardHeader");
-  if (h) h.style.display = revealed ? "none" : "block"; /* hide "choose a card" after reveal */
+  if (h) h.style.display = revealed ? "none" : "block";
 }
 function showResults(participants, avg) { toggleView(true); updateAverage(avg); }
 

@@ -17,9 +17,21 @@ public class GameService {
     private final Map<String, Room> rooms = new ConcurrentHashMap<>();
     private final Map<WebSocketSession, Room> sessionToRoomMap = new ConcurrentHashMap<>();
     private final Map<WebSocketSession, String> sessionToParticipantMap = new ConcurrentHashMap<>();
+
+    // Neu: stabile Client-ID -> letzter bekannter Name (pro Room)
+    private final Map<String, String> clientToName = new ConcurrentHashMap<>();
+    private static String mapKey(String roomCode, String cid) { return roomCode + "|" + cid; }
+    public String getClientName(String roomCode, String cid) {
+        if (cid == null) return null;
+        return clientToName.get(mapKey(roomCode, cid));
+    }
+    public void rememberClientName(String roomCode, String cid, String name) {
+        if (cid != null) clientToName.put(mapKey(roomCode, cid), name);
+    }
+
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    // --- NEW: disconnect grace window (~2s) ---
+    // --- Disconnect-Grace (~2s) ---
     private static final long DISCONNECT_GRACE_MS = 2000L;
     private final ScheduledExecutorService scheduler =
             Executors.newSingleThreadScheduledExecutor(r -> {
@@ -30,30 +42,21 @@ public class GameService {
     private final Map<String, ScheduledFuture<?>> pendingDisconnects = new ConcurrentHashMap<>();
     private static String key(Room room, String name) { return room.getCode() + "|" + name; }
 
-    public Room getOrCreateRoom(String roomCode) {
-        return rooms.computeIfAbsent(roomCode, Room::new);
-    }
-
-    public Room getRoom(String roomCode) {
-        return rooms.get(roomCode);
-    }
+    public Room getOrCreateRoom(String roomCode) { return rooms.computeIfAbsent(roomCode, Room::new); }
+    public Room getRoom(String roomCode) { return rooms.get(roomCode); }
 
     public void addSession(WebSocketSession session, Room room) {
         sessionToRoomMap.put(session, room);
     }
-
     public void trackParticipant(WebSocketSession session, String participantName) {
         sessionToParticipantMap.put(session, participantName);
     }
-
     public Room getRoomForSession(WebSocketSession session) {
         return sessionToRoomMap.get(session);
     }
-
     public String getParticipantName(WebSocketSession session) {
         return sessionToParticipantMap.get(session);
     }
-
     public void removeSession(WebSocketSession session) {
         sessionToRoomMap.remove(session);
         sessionToParticipantMap.remove(session);
@@ -61,16 +64,12 @@ public class GameService {
 
     public void revealCards(String roomCode) {
         Room room = rooms.get(roomCode);
-        if (room != null) {
-            room.setCardsRevealed(true);
-        }
+        if (room != null) room.setCardsRevealed(true);
     }
 
     public void resetVotes(String roomCode) {
         Room room = rooms.get(roomCode);
-        if (room != null) {
-            room.reset();
-        }
+        if (room != null) room.reset();
     }
 
     public Optional<Double> calculateAverageVote(Room room) {
@@ -199,29 +198,24 @@ public class GameService {
         return all;
     }
 
-    // --- NEW: schedule / cancel disconnect handling ---
+    // --- Disconnect-Grace Window ---
 
     public void cancelPendingDisconnect(Room room, String participantName) {
         String k = key(room, participantName);
         ScheduledFuture<?> f = pendingDisconnects.remove(k);
-        if (f != null) {
-            f.cancel(false);
-        }
+        if (f != null) f.cancel(false);
     }
 
     public void scheduleDisconnect(Room room, String participantName) {
         if (room == null || participantName == null) return;
         String k = key(room, participantName);
 
-        // Cancel previous if any, then (re-)schedule
         cancelPendingDisconnect(room, participantName);
 
         ScheduledFuture<?> f = scheduler.schedule(() -> {
             try {
                 Participant participant = room.getParticipant(participantName);
-                if (participant != null) {
-                    participant.setActive(false);
-                }
+                if (participant != null) participant.setActive(false);
 
                 String newHostName = room.assignNewHostIfNecessary(participantName);
                 if (newHostName != null) {
