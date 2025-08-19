@@ -45,6 +45,19 @@
           <button id="themeSystem" class="choice-btn" type="button"><span class="mi-icon" aria-hidden="true">🖥️</span><span th:text="#{theme.system}">System</span></button>
         </div>
       </div>
+
+      <!-- Invite: Link/QR -->
+      <div class="menu-group">
+        <div class="group-title" th:text="#{menu.invite}">Invite</div>
+        <button id="copyRoomLink" class="menu-item" type="button">
+          <span class="mi-icon" aria-hidden="true">🔗</span>
+          <span th:text="#{invite.copyLink}">Copy link to this room</span>
+        </button>
+        <button id="openQr" class="menu-item" type="button">
+          <span class="mi-icon" aria-hidden="true">🔳</span>
+          <span th:text="#{invite.makeQr}">Generate QR code</span>
+        </button>
+      </div>
     </div>
   </div>
 </div>
@@ -102,6 +115,23 @@
   </div>
 </div>
 
+<!-- QR Overlay (modal) -->
+<div id="qrOverlay" class="qr-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="qrTitle">
+  <div class="qr-backdrop" data-close></div>
+  <div class="qr-dialog" role="document">
+    <div class="qr-header">
+      <h3 id="qrTitle" th:text="#{invite.qr.title}">Join via QR</h3>
+      <button id="qrClose" class="qr-close" aria-label="Close">✕</button>
+    </div>
+    <div class="qr-body">
+      <canvas id="qrCanvas" width="0" height="0" aria-hidden="true"></canvas>
+    </div>
+    <div class="qr-actions">
+      <button id="qrCopy" class="button" type="button" th:text="#{invite.qr.copy}">Copy QR</button>
+    </div>
+  </div>
+</div>
+
 <script th:inline="javascript">
 /* ===== Menu (morph + focus trap) ===== */
 (function(){
@@ -148,6 +178,9 @@
   btn?.addEventListener('click', toggleMenu);
   backdrop?.addEventListener('click', closeMenu);
   window.addEventListener('keydown', (e)=>{ if(e.key==='Escape') closeMenu(); });
+
+  // Expose a minimal close hook for QR open
+  window.__closeMenuIfOpen = () => { if (!overlay.classList.contains('hidden')) closeMenu(); };
 })();
 
 /* ===== Theme ===== */
@@ -383,7 +416,100 @@ function showToast(message) {
   toast.textContent = message;
   setTimeout(() => toast.remove(), 3000);
 }
+
+/* ===== Invite: deep link + QR overlay ===== */
+(function(){
+  const copyBtn = document.getElementById('copyRoomLink');
+  const openQrBtn = document.getElementById('openQr');
+  const overlay = document.getElementById('qrOverlay');
+  const dialog  = overlay?.querySelector('.qr-dialog');
+  const backdrop = overlay?.querySelector('[data-close]');
+  const qrCanvas = document.getElementById('qrCanvas');
+  const qrCopy   = document.getElementById('qrCopy');
+  const qrClose  = document.getElementById('qrClose');
+
+  const TXT_LINK_COPIED = /*[[#{invite.linkCopied}]]*/ 'Link copied to clipboard';
+  const TXT_QR_COPIED   = /*[[#{invite.qr.copied}]]*/ 'QR image copied';
+  const TXT_COPY_FAILED = /*[[#{notify.copyFailed}]]*/ 'Copy failed';
+
+  function deepLink(){
+    const base = location.origin;
+    return base + "/room?roomCode=" + encodeURIComponent(roomCode);
+  }
+
+  async function copyText(text){
+    try{
+      await navigator.clipboard.writeText(text);
+      showToast(TXT_LINK_COPIED);
+    }catch(e){
+      console.warn(e);
+      showToast(TXT_COPY_FAILED);
+    }
+  }
+
+  function openOverlay(){
+    window.__closeMenuIfOpen?.();
+    overlay.classList.remove('hidden');
+    document.body.classList.add('menu-open'); // lock scroll
+    setTimeout(()=>qrCopy?.focus(),0);
+    window.addEventListener('keydown', onKey);
+  }
+  function closeOverlay(){
+    overlay.classList.add('hidden');
+    document.body.classList.remove('menu-open');
+    window.removeEventListener('keydown', onKey);
+  }
+  function onKey(e){
+    if(e.key==='Escape'){ closeOverlay(); return; }
+    if(e.key==='Tab'){
+      const focusables = dialog.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+      if(!focusables.length) return;
+      const first = focusables[0], last = focusables[focusables.length-1];
+      if(e.shiftKey && document.activeElement === first){ last.focus(); e.preventDefault(); }
+      else if(!e.shiftKey && document.activeElement === last){ first.focus(); e.preventDefault(); }
+    }
+  }
+
+  copyBtn?.addEventListener('click', ()=>copyText(deepLink()));
+
+  openQrBtn?.addEventListener('click', ()=>{
+    // Draw (or redraw) QR
+    try{
+      const url = deepLink();
+      // Preferred visual size ~ 320 px, margin 4 modules
+      window.SimpleQR.drawTo(qrCanvas, url, {size: 320, margin: 4});
+      openOverlay();
+    }catch(e){
+      console.error(e);
+      showToast('QR error');
+    }
+  });
+
+  backdrop?.addEventListener('click', closeOverlay);
+  qrClose?.addEventListener('click', closeOverlay);
+
+  qrCopy?.addEventListener('click', async ()=>{
+    try{
+      await new Promise((resolve, reject)=>{
+        qrCanvas.toBlob(async (blob)=>{
+          try{
+            if(!blob) return reject(new Error('No blob'));
+            const item = new ClipboardItem({[blob.type]: blob});
+            await navigator.clipboard.write([item]);
+            resolve();
+          }catch(err){ reject(err); }
+        }, 'image/png');
+      });
+      showToast(TXT_QR_COPIED);
+    }catch(e){
+      console.warn(e);
+      showToast(TXT_COPY_FAILED);
+    }
+  });
+})();
 </script>
+
+<script src="/js/qr.js"></script>
 
 <!-- Local toast keyframes to avoid duplication -->
 <style>

@@ -36,7 +36,7 @@ public class GameController {
                            @RequestParam(required = false, defaultValue = "false") boolean testRoom,
                            Model model) {
 
-        // Trim und "effectively final" Variablen für Lambda
+        // Trim und "effectively final" Variablen
         final String pName = safeTrim(participantName);
         final String requestedRoomName = safeTrim(roomCode);
 
@@ -75,14 +75,13 @@ public class GameController {
         model.addAttribute("cardsRow3", new String[]{"❓", "💬", "☕"});
 
         return "redirect:/room?roomCode=" + org.springframework.web.util.UriUtils.encodeQueryParam(effectiveRoomCode, java.nio.charset.StandardCharsets.UTF_8)
-       + "&participantName=" + org.springframework.web.util.UriUtils.encodeQueryParam(pName, java.nio.charset.StandardCharsets.UTF_8);
+                + "&participantName=" + org.springframework.web.util.UriUtils.encodeQueryParam(pName, java.nio.charset.StandardCharsets.UTF_8);
     }
 
     // --- Hilfsfunktionen ---
     private static String safeTrim(String s) {
-        return s == null ? "" : s.trim();
+        return (s == null) ? "" : s.trim();
     }
-
 
     @GetMapping("/room")
     public String getRoom(
@@ -93,15 +92,23 @@ public class GameController {
         String rCode = safeTrim(roomCode);
         String pName = safeTrim(participantName);
 
-        if (rCode.isEmpty() || pName.isEmpty()) {
+        // Ohne Room → zurück zur Startseite
+        if (rCode.isEmpty()) {
             model.addAttribute("error", "Missing room or participant");
             return "index";
         }
 
+        // Deep-Link ohne participantName → Invite-Seite anzeigen
+        if (pName.isEmpty()) {
+            model.addAttribute("roomCode", rCode);
+            return "invite";
+        }
+
+        // Mit beiden Parametern → direkt ins Spiel
         model.addAttribute("participantName", pName);
         model.addAttribute("roomCode", rCode);
 
-        // Same card rows as in POST /join
+        // Gleiche Kartenreihen wie in POST /join
         model.addAttribute("cardsRow1", new String[]{"1", "2", "3", "5"});
         model.addAttribute("cardsRow2", new String[]{"8", "13", "20", "40"});
         model.addAttribute("cardsRow3", new String[]{"❓", "💬", "☕"});
