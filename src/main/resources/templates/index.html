@@ -5,7 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="dark light">
   <title th:text="#{app.title}">RBS' Estimation Poker</title>
-  <link rel="icon" href="https://noxvobiscum.at/wp-content/uploads/2022/09/cropped-nvb-favicon-32x32.png" sizes="32x32" />
+  <link rel="icon" type="image/svg+xml" th:href="@{/favicon.svg}" href="/favicon.svg">
+  <link rel="icon" type="image/png" sizes="32x32" th:href="@{/favicon-32x32.png}" href="/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" th:href="@{/favicon-16x16.png}" href="/favicon-16x16.png">
+  <link rel="alternate icon" sizes="any" th:href="@{/favicon.ico}" href="/favicon.ico">
+  <link rel="apple-touch-icon" th:href="@{/apple-touch-icon.png}" href="/apple-touch-icon.png">
   <!-- Early theme apply (prevents flash) -->
   <script>
     (function(){try{
