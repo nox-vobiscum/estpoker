@@ -5,6 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="dark light">
   <title th:text="#{app.title}">RBS' Estimation Poker</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="alternate icon" href="/favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
   <script>
     (function(){try{
       var t=localStorage.getItem('estpoker-theme')||'dark';
@@ -13,13 +18,6 @@
     }catch(e){}})();
   </script>
   <link rel="stylesheet" th:href="@{/styles.css}">
-
-  <!-- Favicon set (falls noch nicht überall ergänzt) -->
-  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-  <link rel="alternate icon" href="/favicon.ico" sizes="any">
-  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
-  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
-  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 </head>
 <body>
 <button id="menuButton" class="menu-button" aria-expanded="false" aria-controls="appMenuOverlay" aria-label="Open menu">☰</button>
@@ -52,17 +50,21 @@
         </div>
       </div>
 
-      <!-- Invite: Link/QR -->
+      <!-- Invite: Link (QR vorerst deaktiviert) -->
       <div class="menu-group">
         <div class="group-title" th:text="#{menu.invite}">Invite</div>
         <button id="copyRoomLink" class="menu-item" type="button">
           <span class="mi-icon" aria-hidden="true">🔗</span>
           <span th:text="#{invite.copyLink}">Copy link to this room</span>
         </button>
+
+        <!--
+        QR-Funktion vorerst deaktiviert
         <button id="openQr" class="menu-item" type="button">
           <span class="mi-icon" aria-hidden="true">🔳</span>
           <span th:text="#{invite.makeQr}">Generate QR code</span>
         </button>
+        -->
       </div>
     </div>
   </div>
@@ -121,7 +123,9 @@
   </div>
 </div>
 
-<!-- QR Overlay (modal) -->
+<!--
+QR Overlay (modal) vorerst deaktiviert
+
 <div id="qrOverlay" class="qr-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="qrTitle">
   <div class="qr-backdrop" data-close></div>
   <div class="qr-dialog" role="document">
@@ -130,17 +134,14 @@
       <button id="qrClose" class="qr-close" aria-label="Close">✕</button>
     </div>
     <div class="qr-body">
-      <!-- Canvas bleibt als Renderziel (für Clipboard), wird aber nicht angezeigt -->
-      <canvas id="qrCanvas" width="0" height="0" aria-hidden="true" hidden></canvas>
-      <!-- Angezeigt wird die PNG aus dem Canvas -->
-      <img id="qrImg" alt="QR code" style="width:min(90vw,512px);height:auto;border-radius:10px;background:#fff;display:block;">
-      <p id="qrUrlText" style="text-align:center;word-break:break-all;opacity:.85;margin-top:8px;" aria-live="polite"></p>
+      <canvas id="qrCanvas" width="0" height="0" aria-hidden="true"></canvas>
     </div>
     <div class="qr-actions">
       <button id="qrCopy" class="button" type="button" th:text="#{invite.qr.copy}">Copy QR</button>
     </div>
   </div>
 </div>
+-->
 
 <script th:inline="javascript">
 /* ===== Menu (morph + focus trap) ===== */
@@ -189,6 +190,7 @@
   backdrop?.addEventListener('click', closeMenu);
   window.addEventListener('keydown', (e)=>{ if(e.key==='Escape') closeMenu(); });
 
+  // Hook (bleibt für später ungenutzt, harmless)
   window.__closeMenuIfOpen = () => { if (!overlay.classList.contains('hidden')) closeMenu(); };
 })();
 
@@ -286,6 +288,7 @@ const MSG_HOST_OTHER = /*[[#{toast.hostOther}]]*/ 'Host {old} left. {new} is now
 socket.onmessage = (event) => {
   const data = JSON.parse(event.data);
 
+  // Optional: Server kann deinen effektiven Namen mitsenden (z.B. nach Rename via cid)
   if (data.yourName && data.yourName !== participantName) {
     participantName = data.yourName;
     const youEl = document.getElementById("youName");
@@ -425,27 +428,16 @@ function showToast(message) {
   setTimeout(() => toast.remove(), 3000);
 }
 
-/* ===== Invite: deep link + QR overlay ===== */
+/* ===== Invite: nur Deep-Link in Clipboard (QR vorerst aus) ===== */
 (function(){
-  const copyBtn  = document.getElementById('copyRoomLink');
-  const openQrBtn= document.getElementById('openQr');
-  const overlay  = document.getElementById('qrOverlay');
-  const dialog   = overlay?.querySelector('.qr-dialog');
-  const backdrop = overlay?.querySelector('[data-close]');
-  const qrCanvas = document.getElementById('qrCanvas');
-  const qrImg    = document.getElementById('qrImg');
-  const qrCopy   = document.getElementById('qrCopy');
-  const qrClose  = document.getElementById('qrClose');
-  const qrUrlTxt = document.getElementById('qrUrlText');
+  const copyBtn = document.getElementById('copyRoomLink');
 
   const TXT_LINK_COPIED = /*[[#{invite.linkCopied}]]*/ 'Link copied to clipboard';
-  const TXT_QR_COPIED   = /*[[#{invite.qr.copied}]]*/ 'QR image copied';
   const TXT_COPY_FAILED = /*[[#{notify.copyFailed}]]*/ 'Copy failed';
 
   function deepLink(){
-    const u = new URL('/room', location.origin);
-    u.searchParams.set('roomCode', roomCode);
-    return u.toString();
+    const base = location.origin;
+    return base + "/room?roomCode=" + encodeURIComponent(roomCode);
   }
 
   async function copyText(text){
@@ -458,81 +450,12 @@ function showToast(message) {
     }
   }
 
-  function openOverlay(){
-    window.__closeMenuIfOpen?.();
-    overlay.classList.remove('hidden');
-    document.body.classList.add('menu-open');
-    setTimeout(()=>qrCopy?.focus(),0);
-    window.addEventListener('keydown', onKey);
-  }
-  function closeOverlay(){
-    overlay.classList.add('hidden');
-    document.body.classList.remove('menu-open');
-    window.removeEventListener('keydown', onKey);
-  }
-  function onKey(e){
-    if(e.key==='Escape'){ closeOverlay(); return; }
-    if(e.key==='Tab'){
-      const focusables = dialog.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
-      if(!focusables.length) return;
-      const first = focusables[0], last = focusables[focusables.length-1];
-      if(e.shiftKey && document.activeElement === first){ last.focus(); e.preventDefault(); }
-      else if(!e.shiftKey && document.activeElement === last){ first.focus(); e.preventDefault(); }
-    }
-  }
-
   copyBtn?.addEventListener('click', ()=>copyText(deepLink()));
-
-  // QR anzeigen: Canvas rendern -> PNG ins <img>
-  openQrBtn?.addEventListener('click', ()=>{
-    try{
-      const url = deepLink();
-      if (qrUrlTxt) qrUrlTxt.textContent = url;
-
-      // Robuste Parameter
-      window.SimpleQR.drawTo(qrCanvas, url, { size: 512, margin: 12, ecl: 'H' });
-
-      // Canvas -> PNG für die Anzeige (verhindert die diagonale Schraffur)
-      qrCanvas.toBlob((blob)=>{
-        if (!blob) return;
-        const obj = URL.createObjectURL(blob);
-        qrImg.src = obj;
-        qrImg.onload = () => URL.revokeObjectURL(obj);
-      }, 'image/png');
-
-      openOverlay();
-    }catch(e){
-      console.error(e);
-      showToast('QR error');
-    }
-  });
-
-  backdrop?.addEventListener('click', closeOverlay);
-  qrClose?.addEventListener('click', closeOverlay);
-
-  qrCopy?.addEventListener('click', async ()=>{
-    try{
-      await new Promise((resolve, reject)=>{
-        qrCanvas.toBlob(async (blob)=>{
-          try{
-            if(!blob) return reject(new Error('No blob'));
-            const item = new ClipboardItem({[blob.type]: blob});
-            await navigator.clipboard.write([item]);
-            resolve();
-          }catch(err){ reject(err); }
-        }, 'image/png');
-      });
-      showToast(TXT_QR_COPIED);
-    }catch(e){
-      console.warn(e);
-      showToast(TXT_COPY_FAILED);
-    }
-  });
 })();
 </script>
 
-<!-- Encoder (mit Cache-Bust) -->
-<script src="/js/qr.js?v=4"></script>
+<!-- QR-JS vorerst entfernt -->
+<!-- <script src="/js/qr.js"></script> -->
 
 <!-- Local toast keyframes to avoid duplication -->
 <style>
