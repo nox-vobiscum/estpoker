@@ -81,17 +81,33 @@ strong { color: var(--text-strong); }
 
 /* Header info block (single line per row, aligned) */
 .main-info{
-  display:grid;
-  grid-template-columns: max-content 1fr;
+  display: grid;
+  grid-template-columns: max-content 1fr; /* col1: label, col2: value */
   column-gap: 10px;
   row-gap: 6px;
   align-items: center;
   margin-bottom: 1.5rem;
 }
-.main-info dt{ margin:0; display:contents; }
-.main-info dd{ margin:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.main-info .mi-label{ white-space:nowrap; }
-.main-info .mi-icon{ margin-right:6px; }
+
+/* WICHTIG: NICHT display: contents! */
+.main-info dt{
+  margin: 0;
+  grid-column: 1;
+  display: inline-flex;           /* hält Icon + Label in EINER Zelle */
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;            /* Label bleibt einzeilig */
+}
+.main-info dd{
+  margin: 0;
+  grid-column: 2;
+  min-width: 0;                   /* erlaubt Ellipsis in Grids */
+  white-space: nowrap;            /* Wert bleibt einzeilig */
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.main-info .mi-icon{ line-height: 1; }
+.main-info .mi-label{ opacity: .95; }
 
 /* ===== App menu (hamburger) ===== */
 .menu-button {
