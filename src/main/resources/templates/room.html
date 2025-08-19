@@ -133,7 +133,9 @@
       <button id="qrClose" class="qr-close" aria-label="Close">✕</button>
     </div>
     <div class="qr-body">
-      <canvas id="qrCanvas" width="0" height="0" aria-hidden="true"></canvas>
+      <canvas id="qrCanvas" width="0" height="0" aria-hidden="true"
+        style="width:min(90vw, 512px); height:auto;"></canvas>
+
       <!-- Sichtbar: tatsächlicher Deeplink (debug-freundlich, ohne Stilbruch) -->
       <p id="qrUrlText" style="text-align:center;word-break:break-all;opacity:.85;margin-top:8px;" aria-live="polite"></p>
     </div>
@@ -504,7 +506,7 @@ function showToast(message) {
       if (qrUrlTxt) qrUrlTxt.textContent = url; // sichtbar
       console.log('[Invite] roomCode=%o deepLink=%o', roomCode, url);
 
-      window.SimpleQR.drawTo(qrCanvas, url, { size: 512, margin: 8, ecl: 'Q' });
+      window.SimpleQR.drawTo(qrCanvas, url, { size: 512, margin: 12, ecl: 'H' });
       openOverlay();
     }catch(e){
       console.error(e);
