@@ -18,11 +18,11 @@
   <link rel="stylesheet" th:href="@{/styles.css}">
 
   <!-- Falls du bereits Favicons lokal eingebunden hast, kannst du diese 5 Zeilen beibehalten -->
-  <link rel="icon" type="image/svg+xml" th:href="@{/favicon.svg}" href="/favicon.svg">
-  <link rel="icon" type="image/png" sizes="32x32" th:href="@{/favicon-32x32.png}" href="/favicon-32x32.png">
-  <link rel="icon" type="image/png" sizes="16x16" th:href="@{/favicon-16x16.png}" href="/favicon-16x16.png">
-  <link rel="alternate icon" sizes="any" th:href="@{/favicon.ico}" href="/favicon.ico">
-  <link rel="apple-touch-icon" th:href="@{/apple-touch-icon.png}" href="/apple-touch-icon.png">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="alternate icon" href="/favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 </head>
 <body>
 <button id="menuButton" class="menu-button" aria-expanded="false" aria-controls="appMenuOverlay" aria-label="Open menu">☰</button>
@@ -72,7 +72,10 @@
 </div>
 
 <div class="container">
-  <h1 th:text="#{ui.heading}">🃏 RBS' Estimation Poker</h1>
+  <h1>
+  <img src="/favicon.svg" alt="" width="22" height="22" class="brandmark" decoding="async">
+  <span th:text="#{ui.heading}">RBS' Estimation Poker</span>
+  </h1>
 
   <!-- Aligned info rows (single line each) -->
   <dl class="main-info">
