@@ -6,23 +6,18 @@
   <meta name="color-scheme" content="dark light">
   <title th:text="#{app.title}">RBS' Estimation Poker</title>
   <link rel="icon" href="https://noxvobiscum.at/wp-content/uploads/2022/09/cropped-nvb-favicon-32x32.png" sizes="32x32" />
-  <!-- Early theme apply -->
   <script>
-    (function(){
-      try {
-        var t = localStorage.getItem('estpoker-theme') || 'dark';
-        if (t === 'system') document.documentElement.removeAttribute('data-theme');
-        else document.documentElement.setAttribute('data-theme', t);
-      } catch(e){}
-    })();
+    (function(){try{
+      var t=localStorage.getItem('estpoker-theme')||'dark';
+      if(t==='system')document.documentElement.removeAttribute('data-theme');
+      else document.documentElement.setAttribute('data-theme',t);
+    }catch(e){}})();
   </script>
   <link rel="stylesheet" th:href="@{/styles.css}">
 </head>
 <body>
-<!-- Hamburger -->
 <button id="menuButton" class="menu-button" aria-expanded="false" aria-controls="appMenuOverlay" aria-label="Open menu">☰</button>
 
-<!-- Overlay Menu -->
 <div id="appMenuOverlay" class="menu-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="menuTitle">
   <div class="menu-backdrop" data-close></div>
   <div class="menu-panel">
@@ -54,15 +49,10 @@
   </div>
 </div>
 
-<!-- Hidden form as fallback for language switch -->
-<form id="i18nForm" action="/i18n" method="post" class="hidden">
-  <input type="hidden" name="lang" id="i18nLang">
-</form>
-
 <div class="container">
   <h1 th:text="#{ui.heading}">🃏 RBS' Estimation Poker</h1>
 
-  <!-- Aligned info rows -->
+  <!-- Aligned info rows (single line each) -->
   <dl class="main-info">
     <dt><span class="mi-icon" aria-hidden="true">🆔</span><span class="mi-label" th:text="#{label.room}">Room:</span></dt>
     <dd><strong th:text="${roomCode}">demo</strong></dd>
@@ -75,7 +65,8 @@
   <h2 th:text="#{label.participants}">Participants</h2>
   <ul id="liveParticipantList"></ul>
 
-  <h2 th:text="#{label.selectCard}">Choose a card:</h2>
+  <!-- Select header will hide after reveal -->
+  <h2 id="selectCardHeader" th:text="#{label.selectCard}">Choose a card:</h2>
 
   <div class="pre-vote">
     <div class="card-grid">
@@ -182,7 +173,7 @@
   });
 })();
 
-/* ===== Language switch: fetch POST → reload; fallback → hidden form ===== */
+/* ===== Language: POST /i18n, then reload (URL unchanged) ===== */
 (function(){
   const row   = document.getElementById('langRow');
   const cur   = (document.documentElement.lang || 'en').toLowerCase();
@@ -195,35 +186,27 @@
     if (String(lang).startsWith('de')) { a.src='/flags/de.svg'; b.src='/flags/at.svg'; if (label) label.textContent='Deutsch'; }
     else { a.src='/flags/us.svg'; b.src='/flags/gb.svg'; if (label) label.textContent='English'; }
   }
-  setSplit(cur);
+  function nextLang(){ return cur.startsWith('de') ? 'en' : 'de'; }
 
-  async function postLang(to){
-    try{
-      await fetch('/i18n', {
-        method:'POST',
-        headers:{'Content-Type':'application/x-www-form-urlencoded'},
-        body:'lang='+encodeURIComponent(to),
-        credentials: 'same-origin',
-        cache: 'no-store'
-      });
-      location.reload();
-    }catch(err){
-      console.warn('fetch /i18n failed, falling back to form submit', err);
-      // Fallback: hidden form submit (and safety reload timer)
-      document.getElementById('i18nLang').value = to;
-      document.getElementById('i18nForm').submit();
-      setTimeout(()=>location.reload(), 300);
-    }
+  function switchLang(to){
+    fetch('/i18n', {
+      method:'POST',
+      headers:{'Content-Type':'application/x-www-form-urlencoded'},
+      body:'lang='+encodeURIComponent(to)
+    }).finally(()=>location.reload());
   }
 
-  row?.addEventListener('click', function(){
-    const to = cur.startsWith('de') ? 'en' : 'de';
-    setSplit(to);
-    postLang(to);
+  document.addEventListener('DOMContentLoaded', function(){
+    setSplit(cur);
+    row?.addEventListener('click', function(){
+      const to = nextLang();
+      setSplit(to);
+      switchLang(to);
+    });
   });
 })();
 
-/* ===== Game logic (unchanged) ===== */
+/* ===== Game logic ===== */
 let participantName = /*[[${participantName}]]*/ "Guest";
 let roomCode = /*[[${roomCode}]]*/ "demo";
 let selectedCard = null;
@@ -287,7 +270,6 @@ function highlightSelectedCard() {
 function revealCards() { if (isHost) socket.send("revealCards"); }
 function resetRoom()   { if (isHost) socket.send("resetRoom"); clearCardSelection(); }
 
-// Render participant list
 function updateParticipantList(participants, revealed) {
   const list = document.getElementById("liveParticipantList");
   if (!list) return;
@@ -364,6 +346,8 @@ function updateAverage(avg) {
 function toggleView(revealed) {
   document.querySelectorAll(".pre-vote").forEach(e => e.style.display = revealed ? "none" : "block");
   document.querySelectorAll(".post-vote").forEach(e => e.style.display = revealed ? "block" : "none");
+  const h = document.getElementById("selectCardHeader");
+  if (h) h.style.display = revealed ? "none" : "block"; /* hide "choose a card" after reveal */
 }
 function showResults(participants, avg) { toggleView(true); updateAverage(avg); }
 
@@ -376,7 +360,7 @@ function showToast(message) {
 }
 </script>
 
-<!-- Tiny local toast CSS (kept here as before) -->
+<!-- Local toast keyframes to avoid duplication -->
 <style>
 .toast {
   position: fixed; top: 20px; right: 20px; background-color: #333; color: white;

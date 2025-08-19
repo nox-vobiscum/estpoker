@@ -8,13 +8,11 @@
   <link rel="icon" href="https://noxvobiscum.at/wp-content/uploads/2022/09/cropped-nvb-favicon-32x32.png" sizes="32x32" />
   <!-- Early theme apply (prevents flash) -->
   <script>
-    (function(){
-      try {
-        var t = localStorage.getItem('estpoker-theme') || 'dark';
-        if (t === 'system') document.documentElement.removeAttribute('data-theme');
-        else document.documentElement.setAttribute('data-theme', t);
-      } catch(e){}
-    })();
+    (function(){try{
+      var t=localStorage.getItem('estpoker-theme')||'dark';
+      if(t==='system')document.documentElement.removeAttribute('data-theme');
+      else document.documentElement.setAttribute('data-theme',t);
+    }catch(e){}})();
   </script>
   <link rel="stylesheet" th:href="@{/styles.css}">
 </head>
@@ -27,7 +25,7 @@
   <div class="menu-backdrop" data-close></div>
   <div class="menu-panel">
     <div class="menu-header">
-      <h3 id="menuTitle" th:text="#{menu.title}">Menu</h3>
+      <h3 id="menuTitle" th:text="#{menu.title}">Settings</h3>
     </div>
 
     <div class="menu-section">
@@ -55,18 +53,13 @@
   </div>
 </div>
 
-<!-- Hidden form for language switch (reliable POST + redirect back) -->
-<form id="i18nForm" action="/i18n" method="post" class="hidden">
-  <input type="hidden" name="lang" id="i18nLang">
-</form>
-
-<h1 th:text="#{ui.heading}">🃏 RBS' Estimation Poker</h1>
-
-<!-- Error message -->
-<div th:if="${error != null or param.error != null}" class="error"
-     th:text="${error != null ? error : param.error}">Error</div>
-
 <div class="container landing-container">
+  <h1 th:text="#{ui.heading}">🃏 RBS' Estimation Poker</h1>
+
+  <!-- Error message -->
+  <div th:if="${error != null or param.error != null}" class="error"
+       th:text="${error != null ? error : param.error}">Error</div>
+
   <form th:action="@{/join}" method="post" id="joinForm" class="join-form">
     <div class="form-row">
       <div class="form-field">
@@ -119,11 +112,24 @@
 </div>
 
 <script>
-/* ===== Menu open/close (morph ☰ ⇄ ✕) ===== */
+/* ===== Menu open/close (morph ☰ ⇄ ✕) + Focus Trap ===== */
 (function(){
   const btn = document.getElementById('menuButton');
   const overlay = document.getElementById('appMenuOverlay');
+  const panel = overlay?.querySelector('.menu-panel');
   const backdrop = overlay?.querySelector('[data-close]');
+  let lastFocus = null;
+
+  function focusables(){
+    return panel.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+  }
+  function trapTab(e){
+    if (e.key !== 'Tab' || overlay.classList.contains('hidden')) return;
+    const f = focusables(); if (!f.length) return;
+    const first = f[0], last = f[f.length-1];
+    if (e.shiftKey && document.activeElement === first) { last.focus(); e.preventDefault(); }
+    else if (!e.shiftKey && document.activeElement === last) { first.focus(); e.preventDefault(); }
+  }
 
   function openMenu(){
     document.body.classList.add('menu-open');
@@ -132,6 +138,9 @@
     btn.setAttribute('aria-expanded','true');
     btn.setAttribute('aria-label','Close menu');
     btn.textContent = '✕';
+    lastFocus = document.activeElement;
+    setTimeout(()=>focusables()[0]?.focus(), 0);
+    window.addEventListener('keydown', trapTab);
   }
   function closeMenu(){
     document.body.classList.remove('menu-open');
@@ -140,6 +149,8 @@
     btn.setAttribute('aria-expanded','false');
     btn.setAttribute('aria-label','Open menu');
     btn.textContent = '☰';
+    window.removeEventListener('keydown', trapTab);
+    lastFocus?.focus();
   }
   function toggleMenu(){ overlay.classList.contains('hidden') ? openMenu() : closeMenu(); }
 
@@ -158,7 +169,7 @@
     if (t === 'system') document.documentElement.removeAttribute('data-theme');
     else document.documentElement.setAttribute('data-theme', t);
     try { localStorage.setItem('estpoker-theme', t); } catch(e){}
-    [bLight,bDark,bSystem].forEach(btn=>btn && btn.classList.remove('active'));
+    [bLight,bDark,bSystem].forEach(x=>x&&x.classList.remove('active'));
     ({light:bLight, dark:bDark, system:bSystem}[t||'dark'])?.classList.add('active');
   }
 
@@ -171,7 +182,7 @@
   });
 })();
 
-/* ===== Language switch via hidden form (POST /i18n → 303 back) ===== */
+/* ===== Language: POST /i18n, then reload (URL unchanged) ===== */
 (function(){
   const row   = document.getElementById('langRow');
   const cur   = (document.documentElement.lang || 'en').toLowerCase();
@@ -184,16 +195,27 @@
     if (String(lang).startsWith('de')) { a.src='/flags/de.svg'; b.src='/flags/at.svg'; if (label) label.textContent='Deutsch'; }
     else { a.src='/flags/us.svg'; b.src='/flags/gb.svg'; if (label) label.textContent='English'; }
   }
-  setSplit(cur);
+  function nextLang(){ return cur.startsWith('de') ? 'en' : 'de'; }
 
-  row?.addEventListener('click', function(){
-    const to = cur.startsWith('de') ? 'en' : 'de';
-    document.getElementById('i18nLang').value = to;
-    document.getElementById('i18nForm').submit();
+  function switchLang(to){
+    fetch('/i18n', {
+      method:'POST',
+      headers:{'Content-Type':'application/x-www-form-urlencoded'},
+      body:'lang='+encodeURIComponent(to)
+    }).finally(()=>location.reload());
+  }
+
+  document.addEventListener('DOMContentLoaded', function(){
+    setSplit(cur);
+    row?.addEventListener('click', function(){
+      const to = nextLang();
+      setSplit(to);
+      switchLang(to);
+    });
   });
 })();
 
-/* ===== Landing page form JS (Name-Check etc.) ===== */
+/* ===== Name availability (unchanged) ===== */
 (function () {
   const persistent = document.getElementById('persistent'); // may be null
   const testWrap   = document.getElementById('testRoomWrap'); // may be null
