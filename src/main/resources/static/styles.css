@@ -503,6 +503,14 @@ li { margin-bottom: 0.4rem; line-height: 1.5; font-size: 1rem; }
 
 .average-label.consensus { color: var(--ok); font-weight: 700; }
 .average-label.consensus #averageVote { font-weight: 800; }
+.consensus-row { white-space: nowrap; }
+
+.consensus-row.is-consensus .value { animation: pulseOnce .5s ease; }
+@keyframes pulseOnce {
+  0% { transform: scale(0.96); filter: brightness(1.05); }
+  60% { transform: scale(1.03); }
+  100% { transform: scale(1); }
+}
 
 /* Toasts */
 .toast {
