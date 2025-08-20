@@ -88,6 +88,18 @@
           <span th:text="#{invite.copyLink}">Copy link to this room</span>
         </button>
       </div>
+
+      <!-- Room actions (host only) -->
+      <div class="menu-group">
+        <div class="group-title" th:text="#{menu.room}">Room</div>
+        <button id="closeRoomBtn" class="menu-item danger" type="button" style="display:none;">
+          <span class="mi-icon" aria-hidden="true">🗙</span>
+          <span th:text="#{room.close}">Close room for everyone</span>
+        </button>
+        <p id="closeHint" class="hint" style="display:none;" th:text="#{room.close.hint}">
+          Closes this room for all participants and returns to the start page.
+        </p>
+      </div>
     </div>
   </div>
 </div>
@@ -98,11 +110,13 @@
     <span th:text="#{ui.heading}">RBS' Estimation Poker</span>
   </h1>
 
+  <!-- Info: zuerst dein Name, dann die Room-ID -->
   <dl class="main-info">
-    <dt><span class="mi-icon" aria-hidden="true">🆔</span><span class="mi-label" th:text="#{label.room}">Room:</span></dt>
-    <dd><strong id="roomCodeVal" th:text="${roomCode}">demo</strong></dd>
     <dt><span class="mi-icon" aria-hidden="true">👤</span><span class="mi-label" th:text="#{label.you}">You are:</span></dt>
     <dd><strong id="youName" th:text="${participantName}">Guest</strong></dd>
+
+    <dt><span class="mi-icon" aria-hidden="true">🆔</span><span class="mi-label" th:text="#{label.room}">Room:</span></dt>
+    <dd><strong id="roomCodeVal" th:text="${roomCode}">demo</strong></dd>
   </dl>
 
   <h2 th:text="#{label.participants}">Participants</h2>
@@ -111,10 +125,27 @@
   <h2 id="selectCardHeader" th:text="#{label.selectCard}">Choose a card:</h2>
 
   <div class="pre-vote">
-    <!-- Ein einziges Grid für normale Karten -->
-    <div id="cardsGrid" class="card-grid"></div>
-    <!-- Sonderkarten in eigener Zeile darunter -->
-    <div id="cardsGridSpecial" class="card-grid specials"></div>
+    <div class="card-grid">
+      <button type="button" th:each="cardValue : ${cardsRow1}"
+              th:text="${cardValue}" th:attr="data-card=${cardValue}"
+              th:onclick="|sendVote(this.getAttribute('data-card'))|">
+        <span class="checkmark">✔</span>
+      </button>
+    </div>
+    <div class="card-grid">
+      <button type="button" th:each="cardValue : ${cardsRow2}"
+              th:text="${cardValue}" th:attr="data-card=${cardValue}"
+              th:onclick="|sendVote(this.getAttribute('data-card'))|">
+        <span class="checkmark">✔</span>
+      </button>
+    </div>
+    <div class="card-grid">
+      <button type="button" th:each="cardValue : ${cardsRow3}"
+              th:text="${cardValue}" th:attr="data-card=${cardValue}"
+              th:onclick="|sendVote(this.getAttribute('data-card'))|">
+        <span class="checkmark">✔</span>
+      </button>
+    </div>
 
     <button type="button" id="revealButton" class="button" style="display:none;"
             th:text="#{button.reveal}" onclick="revealCards()">Reveal cards</button>
@@ -147,8 +178,27 @@ let currentSequenceId = 'fib-scrum';
     if (e.shiftKey && document.activeElement === first) { last.focus(); e.preventDefault(); }
     else if (!e.shiftKey && document.activeElement === last) { first.focus(); e.preventDefault(); }
   }
-  function openMenu(){ document.body.classList.add('menu-open'); overlay.classList.remove('hidden'); btn.classList.add('open'); btn.setAttribute('aria-expanded','true'); btn.setAttribute('aria-label', /*[[#{menu.close}]]*/ 'Close menu'); btn.textContent = '✕'; lastFocus = document.activeElement; setTimeout(()=>focusables()[0]?.focus(), 0); window.addEventListener('keydown', trapTab); }
-  function closeMenu(){ document.body.classList.remove('menu-open'); overlay.classList.add('hidden'); btn.classList.remove('open'); btn.setAttribute('aria-expanded','false'); btn.setAttribute('aria-label', /*[[#{menu.open}]]*/ 'Open menu'); btn.textContent = '☰'; window.removeEventListener('keydown', trapTab); lastFocus?.focus(); }
+  function openMenu(){
+    document.body.classList.add('menu-open');
+    overlay.classList.remove('hidden');
+    btn.classList.add('open');
+    btn.setAttribute('aria-expanded','true');
+    btn.setAttribute('aria-label', /*[[#{menu.close}]]*/ 'Close menu');
+    btn.textContent = '✕';
+    lastFocus = document.activeElement;
+    setTimeout(()=>focusables()[0]?.focus(), 0);
+    window.addEventListener('keydown', trapTab);
+  }
+  function closeMenu(){
+    document.body.classList.remove('menu-open');
+    overlay.classList.add('hidden');
+    btn.classList.remove('open');
+    btn.setAttribute('aria-expanded','false');
+    btn.setAttribute('aria-label', /*[[#{menu.open}]]*/ 'Open menu');
+    btn.textContent = '☰';
+    window.removeEventListener('keydown', trapTab);
+    lastFocus?.focus();
+  }
   function toggleMenu(){ overlay.classList.contains('hidden') ? openMenu() : closeMenu(); }
 
   btn?.addEventListener('click', toggleMenu);
@@ -218,7 +268,7 @@ let votesRevealed = false;
 let isHost = false;
 let resizeTimer = null;
 
-/* Sequences (client mirror) */
+// Sequences (client mirror)
 const SEQ_BASE = {
   'fib-orig':  ["0","1","2","3","5","8","13","21","34","55"],
   'fib-scrum': ["1","2","3","5","8","13","20","40"],
@@ -227,65 +277,26 @@ const SEQ_BASE = {
   'tshirt':    ["XS","S","M","L","XL","XXL","XXXL"],
 };
 const SPECIALS = ["❓","💬","☕"];
-const SPECIAL_SET = new Set(SPECIALS);
-const TSHIRT_ORDER = ["XS","S","M","L","XL","XXL","XXXL"];
-
-/* Sorting helpers: numeric (incl. 1/2), t-shirt order, else large */
-function sortKey(v){
-  if (v === "1/2") return 0.5;
-  const n = Number(v);
-  if (!Number.isNaN(n)) return n;
-  const ti = TSHIRT_ORDER.indexOf(v);
-  if (ti !== -1) return 1000 + ti;
-  return 9999;
-}
-function compareValues(a,b){ return sortKey(a) - sortKey(b); }
-
-/* Build rows: 4 pro Zeile, Specials in eigene letzte Reihe */
+function deckFor(id){ const base = SEQ_BASE[id] || SEQ_BASE["fib-scrum"]; return base.concat(SPECIALS); }
+function splitIntoRows(arr, rows=3){ const out=[...Array(rows)].map(()=>[]); for(let i=0;i<arr.length;i++) out[i%rows].push(arr[i]); return out; }
 function renderCards(deck){
-  const pre = document.querySelector('.pre-vote');
-  if (!pre) return;
-  const revealBtn = document.getElementById('revealButton');
-
-  /* remove existing rows */
-  pre.querySelectorAll('.card-grid').forEach(g => g.remove());
-
-  /* split + sort */
-  const normals = deck.filter(v => !SPECIAL_SET.has(v)).sort(compareValues);
-  const specials = deck.filter(v => SPECIAL_SET.has(v)); // Reihenfolge wie in SPECIALS
-
-  /* chunk normals into rows of 4 */
-  for (let i=0; i<normals.length; i+=4){
-    const row = document.createElement('div');
-    row.className = 'card-grid';
-    normals.slice(i, i+4).forEach(val => row.appendChild(makeCardButton(val)));
-    pre.insertBefore(row, revealBtn);
-  }
-
-  /* specials row (falls vorhanden) */
-  if (specials.length){
-    const srow = document.createElement('div');
-    srow.className = 'card-grid';
-    specials.forEach(val => srow.appendChild(makeCardButton(val)));
-    pre.insertBefore(srow, revealBtn);
-  }
-
+  const rows = splitIntoRows(deck, 3);
+  const grids = document.querySelectorAll('.pre-vote .card-grid');
+  grids.forEach((grid, idx) => {
+    grid.innerHTML = '';
+    (rows[idx] || []).forEach(val => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.setAttribute('data-card', val);
+      btn.onclick = () => sendVote(val);
+      btn.textContent = val;
+      const chk = document.createElement('span'); chk.className='checkmark'; chk.textContent='✔';
+      btn.appendChild(chk);
+      grid.appendChild(btn);
+    });
+  });
   highlightSelectedCard();
 }
-function makeCardButton(val){
-  const btn = document.createElement('button');
-  btn.type = 'button';
-  btn.setAttribute('data-card', val);
-  btn.onclick = () => sendVote(val);
-  btn.textContent = val;
-
-  const chk = document.createElement('span');
-  chk.className = 'checkmark';
-  chk.textContent = '✔';
-  btn.appendChild(chk);
-  return btn;
-}
-
 function syncSequenceUI(){
   const radios = document.querySelectorAll('#seqChoice input[name="seq"]');
   radios.forEach(r => {
@@ -296,9 +307,8 @@ function syncSequenceUI(){
   const hint = document.getElementById('seqHint');
   if (hint) hint.style.display = isHost ? 'none' : 'block';
 }
-
 document.addEventListener('DOMContentLoaded', () => {
-  renderCards((SEQ_BASE[currentSequenceId] || SEQ_BASE['fib-scrum']).concat(SPECIALS));
+  renderCards(deckFor(currentSequenceId));
   syncSequenceUI();
   const seqChoice = document.getElementById('seqChoice');
   seqChoice?.addEventListener('change', (e)=>{
@@ -309,7 +319,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 
-/* stabile Client-ID pro Browser */
+// stabile Client-ID pro Browser
 const cid = (function(){
   try {
     let id = localStorage.getItem('ep-cid');
@@ -339,18 +349,17 @@ const MSG_HOST_OTHER = /*[[#{toast.hostOther}]]*/ 'Host {old} left. {new} is now
 socket.onmessage = (event) => {
   const data = JSON.parse(event.data);
 
-  /* --- sequence info from server (part of voteUpdate) --- */
+  // --- sequence info from server (part of voteUpdate) ---
   if (data.sequenceId) {
     const changed = (currentSequenceId !== data.sequenceId);
     currentSequenceId = data.sequenceId;
     syncSequenceUI();
-    if (Array.isArray(data.cards) && data.cards.length) {
+    if (Array.isArray(data.cards)) {
       if (changed) clearCardSelection();
       renderCards(data.cards);
     }
   }
 
-  /* optional rename from server */
   if (data.yourName && data.yourName !== participantName) {
     participantName = data.yourName;
     const youEl = document.getElementById("youName");
@@ -367,6 +376,12 @@ socket.onmessage = (event) => {
     document.getElementById("revealButton").style.display = isHost && !votesRevealed ? "inline-block" : "none";
     document.getElementById("resetButton").style.display  = isHost && votesRevealed ? "inline-block" : "none";
 
+    // host-only room close button on/off
+    const closeBtn = document.getElementById('closeRoomBtn');
+    const closeHint = document.getElementById('closeHint');
+    if (closeBtn) closeBtn.style.display = isHost ? 'grid' : 'none';
+    if (closeHint) closeHint.style.display = isHost ? 'block' : 'none';
+
     updateParticipantList(participants, votesRevealed);
 
     if (votesRevealed) { showResults(participants, data.averageVote); }
@@ -382,12 +397,25 @@ socket.onmessage = (event) => {
       ? MSG_HOST_YOU.replace('{old}', oldHost)
       : MSG_HOST_OTHER.replace('{old}', oldHost).replace('{new}', newHost)
     );
+  } else if (data.type === "roomClosed") {
+    // Server says: room is closed => go back to landing
+    const target = data.redirect || "/";
+    location.replace(target);
   }
 };
 
+// host-only action: close room
+document.addEventListener('DOMContentLoaded', () => {
+  const closeBtn = document.getElementById('closeRoomBtn');
+  closeBtn?.addEventListener('click', () => {
+    if (!isHost) return;
+    const ok = confirm(/*[[#{room.close.confirm}]]*/ "Close this room for everyone now?");
+    if (ok) socket.send("closeRoom");
+  });
+});
+
 function sendVote(cardValue) { socket.send("vote:" + participantName + ":" + cardValue); selectedCard = cardValue; highlightSelectedCard(); }
 function clearCardSelection(){ selectedCard = null; try { localStorage.removeItem('selectedCard'); } catch(e){} highlightSelectedCard(); }
-
 function highlightSelectedCard() {
   document.querySelectorAll(".card-grid button").forEach(btn => {
     const card = btn.getAttribute("data-card");
@@ -397,7 +425,6 @@ function highlightSelectedCard() {
     if (check) check.style.display = isSelected ? "flex" : "none";
   });
 }
-
 function revealCards() { if (isHost) socket.send("revealCards"); }
 function resetRoom()   { if (isHost) socket.send("resetRoom"); clearCardSelection(); }
 
@@ -405,12 +432,10 @@ function updateParticipantList(participants, revealed) {
   const list = document.getElementById("liveParticipantList");
   if (!list) return;
   list.innerHTML = "";
-
   participants.forEach(p => {
     const li = document.createElement("li");
     li.classList.add("participant-row");
     li.dataset.hasvote = p.vote !== null;
-
     if (p.disconnected) li.classList.add("disconnected");
     if (p.isHost) li.classList.add("is-host");
 
@@ -426,8 +451,8 @@ function updateParticipantList(participants, revealed) {
       voteChip.className = "vote-chip";
       const v = p.vote != null ? String(p.vote) : null;
       voteChip.textContent = v != null ? v : "—";
-      if (v) voteChip.setAttribute('data-val', v);  // für ☕-Styling
-      if (v && !/^\d+(\.?\d+)?$/.test(v)) voteChip.classList.add("special");
+      if (v) voteChip.dataset.val = v;             // ☕ größer darstellen (CSS)
+      if (v && !/^\d+$/.test(v)) voteChip.classList.add("special");
       rightWrap.appendChild(voteChip);
     } else {
       if (!p.disconnected && p.vote != null) {
@@ -442,10 +467,8 @@ function updateParticipantList(participants, revealed) {
     li.appendChild(icon); li.appendChild(nameSpan); li.appendChild(rightWrap);
     list.appendChild(li);
   });
-
   measureAndSetNameColumn();
 }
-
 function measureAndSetNameColumn() {
   const list = document.getElementById("liveParticipantList");
   if (!list) return;
@@ -486,15 +509,11 @@ function showToast(message) {
 })();
 </script>
 
-
+<!-- small toast css inlined to avoid duplication -->
 <style>
-.toast {
-  position: fixed; top: 20px; right: 20px; background-color: #333; color: white;
-  padding: 12px 20px; border-radius: 8px; opacity: 0.9; z-index: 9999; font-size: 14px;
-  animation: fadein 0.5s, fadeout 0.5s 2.5s;
-}
-@keyframes fadein { from { opacity: 0; transform: translateY(-10px);} to { opacity: 0.9; transform: translateY(0);} }
-@keyframes fadeout { from { opacity: 0.9; } to { opacity: 0; } }
+.toast{position:fixed;top:20px;right:20px;background-color:rgba(51,51,51,.95);color:#fff;padding:12px 20px;border-radius:10px;z-index:9999;font-size:14px;box-shadow:0 6px 16px rgba(0,0,0,.25);transform:translateY(-10px);opacity:0;animation:fadein .22s ease forwards,fadeout .4s ease 2.4s forwards}
+@keyframes fadein{to{opacity:.95;transform:translateY(0)}}
+@keyframes fadeout{to{opacity:0}}
 </style>
 </body>
 </html>

@@ -27,16 +27,19 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
 
         Room room = gameService.getOrCreateRoom(roomCode);
 
-        // ggf. Rename per cid
+        // Falls gleicher Client (cid) im selben Room mit anderem Namen zurückkommt → rename
         String existingName = gameService.getClientName(roomCode, cid);
         if (cid != null && existingName != null && !existingName.equals(participantName)) {
             String finalName = room.renameParticipant(existingName, participantName);
             if (finalName != null) {
-                participantName = finalName;
+                participantName = finalName; // weiter mit tatsächlich verwendeten Namen
             }
         }
+
+        // letzten Namen des Clients merken
         gameService.rememberClientName(roomCode, cid, participantName);
 
+        // Add/reactivate & Grace-Handling
         room.addOrReactivateParticipant(participantName);
         gameService.cancelPendingDisconnect(room, participantName);
 
@@ -58,6 +61,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             if (parts.length == 3) {
                 String participantName = parts[1];
                 String card = parts[2];
+
                 Participant participant = room.getParticipant(participantName);
                 if (participant != null) {
                     participant.setCard(card);
@@ -67,17 +71,29 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         } else if ("revealCards".equals(payload)) {
             room.setCardsRevealed(true);
             gameService.broadcastRoomState(room);
+
         } else if ("resetRoom".equals(payload)) {
             room.reset();
             gameService.broadcastRoomState(room);
+
         } else if (payload.startsWith("setSequence:")) {
             String seqId = payload.substring("setSequence:".length());
             String me = gameService.getParticipantName(session);
             if (me != null) {
-                Participant meP = room.getParticipant(me);
+                var meP = room.getParticipant(me);
                 if (meP != null && meP.isHost()) {
                     room.setSequence(seqId);      // setzt + reset intern
                     gameService.broadcastRoomState(room);
+                }
+            }
+
+        } else if ("closeRoom".equals(payload)) {
+            // nur Host darf schließen
+            String me = gameService.getParticipantName(session);
+            if (me != null) {
+                Participant p = room.getParticipant(me);
+                if (p != null && p.isHost()) {
+                    gameService.closeRoom(room); // broadcast roomClosed + Sessions schließen + aufräumen
                 }
             }
         }
@@ -98,9 +114,12 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     private String getQueryParam(@NonNull WebSocketSession session, String key) {
         URI uri = session.getUri();
         if (uri == null || uri.getQuery() == null) return null;
+
         for (String param : uri.getQuery().split("&")) {
             String[] kv = param.split("=", 2);
-            if (kv.length == 2 && kv[0].equals(key)) return kv[1];
+            if (kv.length == 2 && kv[0].equals(key)) {
+                return kv[1]; // (optional: URL-Decoding)
+            }
         }
         return null;
     }
