@@ -5,15 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="dark light">
   <title th:text="#{app.title}">RBS' Estimation Poker</title>
-
-  <!-- Favicon set -->
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
   <link rel="alternate icon" href="/favicon.ico" sizes="any">
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-
-  <!-- Early theme apply -->
   <script>
     (function(){try{
       var t=localStorage.getItem('estpoker-theme')||'dark';
@@ -21,12 +17,9 @@
       else document.documentElement.setAttribute('data-theme',t);
     }catch(e){}})();
   </script>
-
   <link rel="stylesheet" th:href="@{/styles.css}">
 </head>
 <body>
-
-<!-- Hamburger -->
 <button id="menuButton" class="menu-button" aria-expanded="false" aria-controls="appMenuOverlay" aria-label="Open menu">☰</button>
 
 <!-- Overlay Menu -->
@@ -118,27 +111,10 @@
   <h2 id="selectCardHeader" th:text="#{label.selectCard}">Choose a card:</h2>
 
   <div class="pre-vote">
-    <div class="card-grid">
-      <button type="button" th:each="cardValue : ${cardsRow1}"
-              th:text="${cardValue}" th:attr="data-card=${cardValue}"
-              th:onclick="|sendVote(this.getAttribute('data-card'))|">
-        <span class="checkmark">✔</span>
-      </button>
-    </div>
-    <div class="card-grid">
-      <button type="button" th:each="cardValue : ${cardsRow2}"
-              th:text="${cardValue}" th:attr="data-card=${cardValue}"
-              th:onclick="|sendVote(this.getAttribute('data-card'))|">
-        <span class="checkmark">✔</span>
-      </button>
-    </div>
-    <div class="card-grid">
-      <button type="button" th:each="cardValue : ${cardsRow3}"
-              th:text="${cardValue}" th:attr="data-card=${cardValue}"
-              th:onclick="|sendVote(this.getAttribute('data-card'))|">
-        <span class="checkmark">✔</span>
-      </button>
-    </div>
+    <!-- Ein einziges Grid für normale Karten -->
+    <div id="cardsGrid" class="card-grid"></div>
+    <!-- Sonderkarten in eigener Zeile darunter -->
+    <div id="cardsGridSpecial" class="card-grid specials"></div>
 
     <button type="button" id="revealButton" class="button" style="display:none;"
             th:text="#{button.reveal}" onclick="revealCards()">Reveal cards</button>
@@ -152,10 +128,10 @@
 </div>
 
 <script th:inline="javascript">
-/* Default sequence (client-side mirror) */
+/* Default sequence */
 let currentSequenceId = 'fib-scrum';
 
-/* ===== Menu (morph + focus trap) ===== */
+/* ===== Menu open/close + focus trap ===== */
 (function(){
   const btn = document.getElementById('menuButton');
   const overlay = document.getElementById('appMenuOverlay');
@@ -255,13 +231,13 @@ let currentSequenceId = 'fib-scrum';
 
 /* ===== Game logic ===== */
 let participantName = /*[[${participantName}]]*/ "Guest";
-let roomCode = /*[[${roomCode}]]*/ "demo";
-let selectedCard = null;
-let votesRevealed = false;
-let isHost = false;
-let resizeTimer = null;
+let roomCode        = /*[[${roomCode}]]*/ "demo";
+let selectedCard    = null;
+let votesRevealed   = false;
+let isHost          = false;
+let resizeTimer     = null;
 
-/* Client-side mirror (nur Fallback/Initial) */
+// Sequences (client mirror)
 const SEQ_BASE = {
   'fib-orig':  ["0","1","2","3","5","8","13","21","34","55"],
   'fib-scrum': ["1","2","3","5","8","13","20","40"],
@@ -270,26 +246,51 @@ const SEQ_BASE = {
   'tshirt':    ["XS","S","M","L","XL","XXL","XXXL"],
 };
 const SPECIALS = ["❓","💬","☕"];
-function deckFor(id){ const base = SEQ_BASE[id] || SEQ_BASE["fib-scrum"]; return base.concat(SPECIALS); }
-function splitIntoRows(arr, rows=3){ const out=[...Array(rows)].map(()=>[]); for(let i=0;i<arr.length;i++) out[i%rows].push(arr[i]); return out; }
+
+/* Helpers for sorting */
+function isNumericToken(v){ return /^\d+$/.test(v) || v === "1/2"; }
+function numericValue(v){
+  if (v === "1/2") return 0.5;
+  if (/^\d+$/.test(v)) return parseInt(v, 10);
+  return Number.NaN;
+}
+
+/* Render: 4 pro Zeile, Sonderkarten eigene Zeile */
 function renderCards(deck){
-  const rows = splitIntoRows(deck, 3);
-  const grids = document.querySelectorAll('.pre-vote .card-grid');
-  grids.forEach((grid, idx) => {
-    grid.innerHTML = '';
-    (rows[idx] || []).forEach(val => {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.setAttribute('data-card', val);
-      btn.onclick = () => sendVote(val);
-      btn.textContent = val;
-      const chk = document.createElement('span'); chk.className='checkmark'; chk.textContent='✔';
-      btn.appendChild(chk);
-      grid.appendChild(btn);
-    });
-  });
+  const gridMain   = document.getElementById('cardsGrid');
+  const gridSpec   = document.getElementById('cardsGridSpecial');
+  if (!gridMain || !gridSpec) return;
+
+  gridMain.innerHTML = '';
+  gridSpec.innerHTML = '';
+
+  const specials = deck.filter(v => SPECIALS.includes(v));
+  let normals   = deck.filter(v => !SPECIALS.includes(v));
+
+  // Nach Möglichkeit numerisch sortieren – ansonsten Reihenfolge beibehalten (z.B. T-Shirt)
+  if (normals.every(isNumericToken)) {
+    normals = normals.slice().sort((a,b)=>numericValue(a)-numericValue(b));
+  }
+
+  function makeBtn(val){
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.setAttribute('data-card', val);
+    btn.onclick = () => sendVote(val);
+    btn.textContent = val;
+    const chk = document.createElement('span');
+    chk.className = 'checkmark';
+    chk.textContent = '✔';
+    btn.appendChild(chk);
+    return btn;
+  }
+
+  normals.forEach(v => gridMain.appendChild(makeBtn(v)));
+  specials.forEach(v => gridSpec.appendChild(makeBtn(v)));
+
   highlightSelectedCard();
 }
+
 function syncSequenceUI(){
   const radios = document.querySelectorAll('#seqChoice input[name="seq"]');
   radios.forEach(r => {
@@ -300,8 +301,9 @@ function syncSequenceUI(){
   const hint = document.getElementById('seqHint');
   if (hint) hint.style.display = isHost ? 'none' : 'block';
 }
+
 document.addEventListener('DOMContentLoaded', () => {
-  renderCards(deckFor(currentSequenceId));  // fallback initial
+  renderCards(SEQ_BASE[currentSequenceId].concat(SPECIALS));
   syncSequenceUI();
   const seqChoice = document.getElementById('seqChoice');
   seqChoice?.addEventListener('change', (e)=>{
@@ -342,7 +344,7 @@ const MSG_HOST_OTHER = /*[[#{toast.hostOther}]]*/ 'Host {old} left. {new} is now
 socket.onmessage = (event) => {
   const data = JSON.parse(event.data);
 
-  // server-driven sequence (comes with voteUpdate)
+  // Sequence info vom Server (im voteUpdate)
   if (data.sequenceId) {
     const changed = (currentSequenceId !== data.sequenceId);
     currentSequenceId = data.sequenceId;
@@ -353,7 +355,6 @@ socket.onmessage = (event) => {
     }
   }
 
-  // server may confirm your effective name (rename by cid)
   if (data.yourName && data.yourName !== participantName) {
     participantName = data.yourName;
     const youEl = document.getElementById("youName");
@@ -459,14 +460,6 @@ function toggleView(revealed) {
 }
 function showResults(participants, avg) { toggleView(true); updateAverage(avg); }
 
-function showToast(message) {
-  const toast = document.createElement("div");
-  toast.className = "toast";
-  document.body.appendChild(toast);
-  toast.textContent = message;
-  setTimeout(() => toast.remove(), 3000);
-}
-
 /* Invite: Deep-Link only */
 (function(){
   const copyBtn = document.getElementById('copyRoomLink');
@@ -479,9 +472,16 @@ function showToast(message) {
   }
   copyBtn?.addEventListener('click', ()=>copyText(deepLink()));
 })();
+
+function showToast(message) {
+  const toast = document.createElement("div");
+  toast.className = "toast";
+  document.body.appendChild(toast);
+  toast.textContent = message;
+  setTimeout(() => toast.remove(), 3000);
+}
 </script>
 
-<!-- local toast animation -->
 <style>
 .toast {
   position: fixed; top: 20px; right: 20px; background-color: #333; color: white;

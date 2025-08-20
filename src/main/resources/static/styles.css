@@ -155,7 +155,11 @@ strong { color: var(--text-strong); }
   /* wichtig: damit das Panel nie abgeschnitten wirkt */
   max-height: calc(100vh - 24px);
   overflow: auto;
+
+  /* ▼ konsistente Schrift im Menü */
+  font-family: inherit;
 }
+.menu-panel * { font-family: inherit; } /* sorgt für identische Fonts */
 @keyframes slideIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
 
 .menu-header {
@@ -232,23 +236,27 @@ strong { color: var(--text-strong); }
   box-shadow: 0 0 0 2px rgba(0,122,204,0.20);
 }
 
-/* ===== Sequence radios (vertical) ===== */
+/* ===== Sequence radios (vertical, JEDE Option eigene Zeile) ===== */
 .menu-choice.vertical { display: grid; gap: 8px; }
-@media (min-width: 420px) { .menu-choice.vertical { grid-template-columns: 1fr 1fr; } }
+#seqChoice.menu-choice { grid-template-columns: 1fr; } /* immer 1 Spalte */
 
 .radio-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: 20px 1fr;
   align-items: center;
   gap: 10px;
   padding: 10px 12px;
+  min-height: 36px;
   border-radius: 10px;
   background: var(--panel-2);
   border: 1px solid var(--border);
   user-select: none;
   transition: background 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+  font-size: 0.95rem;
+  line-height: 1.2;
 }
 .radio-row:hover { background: var(--panel-2-hover); border-color: var(--accent); box-shadow: 0 0 0 2px rgba(0,122,204,0.12); }
-.radio-row input[type="radio"] { width: 18px; height: 18px; accent-color: var(--accent); margin: 0; }
+.radio-row input[type="radio"] { width: 18px; height: 18px; accent-color: var(--accent); margin: 0; transform: translateY(1px); }
 .radio-row.disabled { opacity: .55; cursor: not-allowed; }
 /* checked state hervorheben */
 .radio-row:has(input[type="radio"]:checked) {
@@ -278,6 +286,7 @@ strong { color: var(--text-strong); }
   width: 100%;
   outline: none;
   transition: box-shadow 180ms ease, border-color 180ms ease, background 180ms ease;
+  font-family: inherit;
 }
 .form-field input[type="text"]:focus {
   border-color: var(--accent);
@@ -325,11 +334,16 @@ strong { color: var(--text-strong); }
 button.shake { animation: shake .4s; }
 
 /* ===== Card grid ===== */
+/* Fix: immer 4 pro Zeile (Desktop), Specials separat unten */
 .card-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(var(--card-min-desktop), var(--card-max-desktop)));
+  grid-template-columns: repeat(4, minmax(var(--card-min-desktop), var(--card-max-desktop)));
   gap: 8px;
   margin: 1rem 0;
+}
+.card-grid.specials {
+  grid-template-columns: repeat(3, minmax(var(--card-min-desktop), var(--card-max-desktop)));
+  justify-content: start;
 }
 .card-grid button {
   display: inline-block;
@@ -465,10 +479,16 @@ li { margin-bottom: 0.4rem; line-height: 1.5; font-size: 1rem; }
 /* ===== Responsiveness ===== */
 @media (max-width: 600px) {
   body { padding: 1rem; }
+
+  /* mobile: 3 pro Zeile */
   .card-grid {
-    grid-template-columns: repeat(auto-fit, minmax(var(--card-min-mobile), var(--card-max-mobile)));
+    grid-template-columns: repeat(3, minmax(var(--card-min-mobile), var(--card-max-mobile)));
     gap: 6px;
   }
+  .card-grid.specials {
+    grid-template-columns: repeat(3, minmax(var(--card-min-mobile), var(--card-max-mobile)));
+  }
+
   .card-grid button {
     padding: 0.6rem;
     font-size: clamp(1.2rem, 6vw, 1.6rem);
