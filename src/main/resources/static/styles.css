@@ -1,3 +1,6 @@
+/* src/main/resources/static/styles.css */
+/* === Estimation Poker – full CSS === */
+
 :root {
   /* === Theme variables (VS Code Dark inspired) === */
   --bg: #1e1e1e;
@@ -151,7 +154,7 @@ strong { color: var(--text-strong); }
 .menu-panel {
   position: absolute;
   top: 12px; right: 12px;
-  width: min(96vw, 360px);               /* etwas großzügiger, vermeidet Überhang */
+  width: min(96vw, 360px);
   max-width: calc(100vw - 24px);
   background: var(--panel);
   color: var(--text);
@@ -250,9 +253,13 @@ strong { color: var(--text-strong); }
   box-shadow: 0 0 0 2px rgba(0,122,204,0.20);
 }
 
-/* ===== Sequence radios (vertical + kompakt) ===== */
-.menu-choice.vertical { display: grid; gap: 8px; font-family: inherit; }
-@media (min-width: 420px) { .menu-choice.vertical { grid-template-columns: 1fr 1fr; } }
+/* ===== Sequence radios (immer EINSPALTIG & kompakt) ===== */
+.menu-choice.vertical {
+  display: grid;
+  grid-template-columns: 1fr !important; /* erzwingt 1 Spalte auf allen Breakpoints */
+  gap: 8px;
+  font-family: inherit;
+}
 
 .radio-row {
   display: flex;
@@ -452,7 +459,7 @@ li { margin-bottom: 0.4rem; line-height: 1.5; font-size: 1rem; }
   opacity: 0; transform: translateY(6px); animation: chipIn 220ms ease forwards;
 }
 .vote-chip.special { background: #334155; border-color: #475569; box-shadow: none; color: var(--text-strong); }
-/* ☕ besser erkennbar – per JS data-val setzen (voteChip.dataset.val = v) */
+/* ☕ besser erkennbar – per JS: voteChip.dataset.val = v */
 .vote-chip[data-val="☕"] { font-size: 1.25rem; padding: 0.1rem 0.55rem; }
 @keyframes chipIn { to { opacity: 1; transform: translateY(0); } }
 
@@ -499,7 +506,10 @@ li { margin-bottom: 0.4rem; line-height: 1.5; font-size: 1rem; }
 
 #qrCanvas { image-rendering: pixelated; width: 320px; height: 320px; border-radius: 10px; background: #fff; }
 
-@media (prefers-reduced-motion: reduce) { .menu-panel, .qr-dialog { animation: none; } }
+/* reduziert Bewegung */
+@media (prefers-reduced-motion: reduce) {
+  .menu-panel, .qr-dialog { animation: none; }
+}
 
 /* ===== Responsiveness / Mobile optimizations ===== */
 @media (max-width: 600px) {
@@ -533,6 +543,7 @@ li { margin-bottom: 0.4rem; line-height: 1.5; font-size: 1rem; }
   margin-right: 8px;
   width: 22px; height: 22px;
 }
+
 /* destructive menu action */
 .menu-item.danger{
   background:#3a2a2a;
