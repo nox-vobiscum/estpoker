@@ -125,26 +125,29 @@
   <h2 id="selectCardHeader" th:text="#{label.selectCard}">Choose a card:</h2>
 
   <div class="pre-vote">
-    <div class="card-grid">
-      <button type="button" th:each="cardValue : ${cardsRow1}"
-              th:text="${cardValue}" th:attr="data-card=${cardValue}"
-              th:onclick="|sendVote(this.getAttribute('data-card'))|">
-        <span class="checkmark">✔</span>
-      </button>
-    </div>
-    <div class="card-grid">
-      <button type="button" th:each="cardValue : ${cardsRow2}"
-              th:text="${cardValue}" th:attr="data-card=${cardValue}"
-              th:onclick="|sendVote(this.getAttribute('data-card'))|">
-        <span class="checkmark">✔</span>
-      </button>
-    </div>
-    <div class="card-grid">
-      <button type="button" th:each="cardValue : ${cardsRow3}"
-              th:text="${cardValue}" th:attr="data-card=${cardValue}"
-              th:onclick="|sendVote(this.getAttribute('data-card'))|">
-        <span class="checkmark">✔</span>
-      </button>
+    <!-- Kartenbereich: initial serverseitig (3 Reihen), danach vollständig per JS ersetzt -->
+    <div id="cardsArea">
+      <div class="card-grid">
+        <button type="button" th:each="cardValue : ${cardsRow1}"
+                th:text="${cardValue}" th:attr="data-card=${cardValue}"
+                th:onclick="|sendVote(this.getAttribute('data-card'))|">
+          <span class="checkmark">✔</span>
+        </button>
+      </div>
+      <div class="card-grid">
+        <button type="button" th:each="cardValue : ${cardsRow2}"
+                th:text="${cardValue}" th:attr="data-card=${cardValue}"
+                th:onclick="|sendVote(this.getAttribute('data-card'))|">
+          <span class="checkmark">✔</span>
+        </button>
+      </div>
+      <div class="card-grid">
+        <button type="button" th:each="cardValue : ${cardsRow3}"
+                th:text="${cardValue}" th:attr="data-card=${cardValue}"
+                th:onclick="|sendVote(this.getAttribute('data-card'))|">
+          <span class="checkmark">✔</span>
+        </button>
+      </div>
     </div>
 
     <button type="button" id="revealButton" class="button" style="display:none;"
@@ -159,9 +162,6 @@
 </div>
 
 <script th:inline="javascript">
-/* Default sequence (client-side) */
-let currentSequenceId = 'fib-scrum';
-
 /* ===== Menu (morph + focus trap) ===== */
 (function(){
   const btn = document.getElementById('menuButton');
@@ -267,24 +267,27 @@ let selectedCard = null;
 let votesRevealed = false;
 let isHost = false;
 let resizeTimer = null;
+let currentSequenceId = 'fib-scrum'; // wird vom Server überschrieben
 
-// Sequences (client mirror)
-const SEQ_BASE = {
-  'fib-orig':  ["0","1","2","3","5","8","13","21","34","55"],
-  'fib-scrum': ["1","2","3","5","8","13","20","40"],
-  'fib-enh':   ["0","1/2","1","2","3","5","8","13","20","40"],
-  'pow2':      ["2","4","8","16","32"],
-  'tshirt':    ["XS","S","M","L","XL","XXL","XXXL"],
-};
-const SPECIALS = ["❓","💬","☕"];
-function deckFor(id){ const base = SEQ_BASE[id] || SEQ_BASE["fib-scrum"]; return base.concat(SPECIALS); }
-function splitIntoRows(arr, rows=3){ const out=[...Array(rows)].map(()=>[]); for(let i=0;i<arr.length;i++) out[i%rows].push(arr[i]); return out; }
+const SPECIALS = new Set(["❓","💬","☕"]);
+
+/** Render: 4 pro Reihe; Specials immer in eigener letzter Reihe, Reihenfolge bleibt erhalten */
 function renderCards(deck){
-  const rows = splitIntoRows(deck, 3);
-  const grids = document.querySelectorAll('.pre-vote .card-grid');
-  grids.forEach((grid, idx) => {
-    grid.innerHTML = '';
-    (rows[idx] || []).forEach(val => {
+  const area = document.getElementById('cardsArea');
+  if (!area || !Array.isArray(deck)) return;
+
+  const regular = deck.filter(v => !SPECIALS.has(v));
+  const specials = deck.filter(v =>  SPECIALS.has(v));
+
+  area.innerHTML = '';
+
+  // Regular: chunk by 4, Reihenfolge beibehalten
+  for (let i=0;i<regular.length;i+=4){
+    const row = regular.slice(i, i+4);
+    const grid = document.createElement('div');
+    grid.className = 'card-grid';
+    grid.style.gridTemplateColumns = 'repeat(4, minmax(0, 1fr))';
+    row.forEach(val => {
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.setAttribute('data-card', val);
@@ -292,11 +295,33 @@ function renderCards(deck){
       btn.textContent = val;
       const chk = document.createElement('span'); chk.className='checkmark'; chk.textContent='✔';
       btn.appendChild(chk);
+      area.appendChild(grid);
       grid.appendChild(btn);
     });
-  });
+    area.appendChild(grid);
+  }
+
+  // Specials in eigener Reihe (so viele Spalten wie nötig)
+  if (specials.length){
+    const sgrid = document.createElement('div');
+    sgrid.className = 'card-grid';
+    sgrid.style.gridTemplateColumns = `repeat(${Math.min(4, specials.length)}, minmax(0, 1fr))`;
+    specials.forEach(val=>{
+      const btn = document.createElement('button');
+      btn.type='button';
+      btn.setAttribute('data-card', val);
+      btn.onclick = () => sendVote(val);
+      btn.textContent = val;
+      const chk = document.createElement('span'); chk.className='checkmark'; chk.textContent='✔';
+      btn.appendChild(chk);
+      sgrid.appendChild(btn);
+    });
+    area.appendChild(sgrid);
+  }
+
   highlightSelectedCard();
 }
+
 function syncSequenceUI(){
   const radios = document.querySelectorAll('#seqChoice input[name="seq"]');
   radios.forEach(r => {
@@ -307,14 +332,16 @@ function syncSequenceUI(){
   const hint = document.getElementById('seqHint');
   if (hint) hint.style.display = isHost ? 'none' : 'block';
 }
+
 document.addEventListener('DOMContentLoaded', () => {
-  renderCards(deckFor(currentSequenceId));
+  // Initiale (server-gerenderte) Buttons bleiben bis der Server-Status eintrifft.
   syncSequenceUI();
   const seqChoice = document.getElementById('seqChoice');
   seqChoice?.addEventListener('change', (e)=>{
     const val = e.target?.value;
     if (!val) return;
     if (!isHost) { showToast(/*[[#{sequence.onlyHost}]]*/ 'Only the host can change the sequence'); syncSequenceUI(); return; }
+    // Server setzt Sequenz, schickt neues Deck zurück
     socket.send('setSequence:' + val);
   });
 });
@@ -349,14 +376,13 @@ const MSG_HOST_OTHER = /*[[#{toast.hostOther}]]*/ 'Host {old} left. {new} is now
 socket.onmessage = (event) => {
   const data = JSON.parse(event.data);
 
-  // --- sequence info from server (part of voteUpdate) ---
+  // Sequenz + Karten vom Server
   if (data.sequenceId) {
-    const changed = (currentSequenceId !== data.sequenceId);
     currentSequenceId = data.sequenceId;
     syncSequenceUI();
     if (Array.isArray(data.cards)) {
-      if (changed) clearCardSelection();
-      renderCards(data.cards);
+      clearCardSelection();      // neue Sequenz → Auswahl zurücksetzen
+      renderCards(data.cards);   // 4er-Reihen + Sonderkartenzeile
     }
   }
 
@@ -382,13 +408,15 @@ socket.onmessage = (event) => {
     if (closeBtn) closeBtn.style.display = isHost ? 'grid' : 'none';
     if (closeHint) closeHint.style.display = isHost ? 'block' : 'none';
 
+    // Karten ggf. mitliefern (einige Server-Implementationen tun das bei jedem Update)
+    if (Array.isArray(data.cards)) renderCards(data.cards);
+
     updateParticipantList(participants, votesRevealed);
 
     if (votesRevealed) { showResults(participants, data.averageVote); }
     else { toggleView(false); updateAverage(null); }
 
-    if (prevVotesRevealed && !votesRevealed) { clearCardSelection(); }
-    if (!votesRevealed && participants.every(p => p.vote == null)) { clearCardSelection(); }
+    if (prevVotesRevealed && !votesRevealed) clearCardSelection();
 
     highlightSelectedCard();
   } else if (data.type === "hostChanged") {
@@ -398,7 +426,6 @@ socket.onmessage = (event) => {
       : MSG_HOST_OTHER.replace('{old}', oldHost).replace('{new}', newHost)
     );
   } else if (data.type === "roomClosed") {
-    // Server says: room is closed => go back to landing
     const target = data.redirect || "/";
     location.replace(target);
   }
