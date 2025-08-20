@@ -23,23 +23,21 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     public void afterConnectionEstablished(@NonNull WebSocketSession session) {
         String roomCode = getQueryParam(session, "roomCode");
         String participantName = getQueryParam(session, "participantName");
-        String cid = getQueryParam(session, "cid"); // <- stabile Client-ID
+        String cid = getQueryParam(session, "cid"); // stabile Client-ID
 
         Room room = gameService.getOrCreateRoom(roomCode);
 
-        // Falls gleicher Client (cid) im selben Room mit anderem Namen zurückkommt → rename
+        // gleicher Client (cid) kommt mit anderem Namen zurück → rename
         String existingName = gameService.getClientName(roomCode, cid);
         if (cid != null && existingName != null && !existingName.equals(participantName)) {
             String finalName = room.renameParticipant(existingName, participantName);
             if (finalName != null) {
-                participantName = finalName; // weiter mit tatsächlich verwendeten Namen
+                participantName = finalName;
             }
         }
 
-        // (Neu) letzten Namen des Clients merken
         gameService.rememberClientName(roomCode, cid, participantName);
 
-        // Add/reactivate & Grace-Handling wie gehabt
         room.addOrReactivateParticipant(participantName);
         gameService.cancelPendingDisconnect(room, participantName);
 
@@ -61,7 +59,6 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             if (parts.length == 3) {
                 String participantName = parts[1];
                 String card = parts[2];
-
                 Participant participant = room.getParticipant(participantName);
                 if (participant != null) {
                     participant.setCard(card);
@@ -74,6 +71,16 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         } else if ("resetRoom".equals(payload)) {
             room.reset();
             gameService.broadcastRoomState(room);
+        } else if (payload.startsWith("setSequence:")) {
+            String seqId = payload.substring("setSequence:".length());
+            String me = gameService.getParticipantName(session);
+            if (me != null) {
+                Participant meP = room.getParticipant(me);
+                if (meP != null && meP.isHost()) {
+                    room.setSequence(seqId); // setzt + reset intern
+                    gameService.broadcastRoomState(room);
+                }
+            }
         }
     }
 

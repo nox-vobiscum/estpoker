@@ -10,9 +10,28 @@ public class Room {
     private boolean votesRevealed = false;
     private Participant host;
 
+    // --- NEW: sequence state ---
+    private String sequenceId = CardSequences.DEFAULT_ID;
+    private List<String> currentCards = CardSequences.deckWithSpecials(sequenceId);
+
     public Room(String code) { this.code = code; }
 
     public String getCode() { return code; }
+
+    // === Sequence API ===
+    public synchronized String getSequenceId() { return sequenceId; }
+    public synchronized List<String> getCurrentCards() {
+        if (currentCards == null) currentCards = CardSequences.deckWithSpecials(sequenceId);
+        return currentCards;
+    }
+    public synchronized void setSequence(String newId) {
+        String norm = CardSequences.normalize(newId);
+        if (!Objects.equals(this.sequenceId, norm)) {
+            this.sequenceId = norm;
+            this.currentCards = CardSequences.deckWithSpecials(norm);
+            this.reset(); // neue Runde beim Sequenzwechsel
+        }
+    }
 
     public synchronized void addParticipant(Participant p, boolean asHost) {
         nameToParticipant.put(p.getName(), p);
@@ -23,13 +42,8 @@ public class Room {
         }
     }
 
-    public synchronized Participant getParticipant(String name) {
-        return nameToParticipant.get(name);
-    }
-
-    public synchronized List<Participant> getParticipants() {
-        return participants;
-    }
+    public synchronized Participant getParticipant(String name) { return nameToParticipant.get(name); }
+    public synchronized List<Participant> getParticipants() { return participants; }
 
     public synchronized void setCardsRevealed(boolean revealed) { this.votesRevealed = revealed; }
     public synchronized boolean areVotesRevealed() { return votesRevealed; }
@@ -63,7 +77,6 @@ public class Room {
         Participant p = nameToParticipant.remove(name);
         if (p != null) {
             participants.remove(p);
-            // Host-Umschaltung macht assignNewHostIfNecessary(...)
         }
     }
 
@@ -116,8 +129,7 @@ public class Room {
         return null;
     }
 
-    // ===== Rename-Support (Map-Key + Objektname aktualisieren, Kollisionen vermeiden) =====
-
+    // Rename
     private String uniqueName(String desired) {
         String base = (desired == null || desired.isBlank()) ? "Guest" : desired;
         String candidate = base;
@@ -129,10 +141,6 @@ public class Room {
         return candidate;
     }
 
-    /**
-     * Benennt einen Teilnehmer um (identische Instanz bleibt erhalten).
-     * Gibt den final verwendeten neuen Namen zurück oder null, wenn oldName unbekannt.
-     */
     public synchronized String renameParticipant(String oldName, String desiredNewName) {
         Participant p = nameToParticipant.remove(oldName);
         if (p == null) return null;
@@ -140,18 +148,12 @@ public class Room {
         String newName = desiredNewName;
         if (newName == null || newName.isBlank()) newName = oldName;
 
-        // Falls sich der Name tatsächlich ändert und es eine Kollision gibt, eindeutigen Namen wählen
         if (!oldName.equals(newName) && nameToParticipant.containsKey(newName)) {
             newName = uniqueName(newName);
         }
 
-        // Objektname ändern + Map-Key erneuern
         p.setName(newName);
         nameToParticipant.put(newName, p);
-
-        // participants-Liste enthält die gleiche Instanz -> keine Änderung nötig
-        // Host-Status hängt an der Instanz -> bleibt erhalten
-
         return newName;
     }
 }

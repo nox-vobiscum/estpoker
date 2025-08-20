@@ -22,12 +22,14 @@
 <body>
 <button id="menuButton" class="menu-button" aria-expanded="false" aria-controls="appMenuOverlay" aria-label="Open menu">☰</button>
 
+<!-- Overlay Menu -->
 <div id="appMenuOverlay" class="menu-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="menuTitle">
   <div class="menu-backdrop" data-close></div>
   <div class="menu-panel">
     <div class="menu-header">
       <h3 id="menuTitle" th:text="#{menu.title}">Settings</h3>
     </div>
+
     <div class="menu-section">
       <!-- Language -->
       <button id="langRow" class="menu-item" type="button" aria-label="Switch language">
@@ -50,6 +52,34 @@
         </div>
       </div>
 
+      <!-- Card sequence -->
+      <div class="menu-group">
+        <div class="group-title" th:text="#{menu.sequence}">Card sequence</div>
+        <div id="seqChoice" class="menu-choice vertical">
+          <label class="radio-row">
+            <input type="radio" name="seq" value="fib-scrum" checked>
+            <span th:text="#{sequence.fib.scrum}">Fibonacci adapted I (Scrum)</span>
+          </label>
+          <label class="radio-row">
+            <input type="radio" name="seq" value="fib-orig">
+            <span th:text="#{sequence.fib.orig}">Fibonacci (original)</span>
+          </label>
+          <label class="radio-row">
+            <input type="radio" name="seq" value="fib-enh">
+            <span th:text="#{sequence.fib.enh}">Fibonacci adapted II (enhanced)</span>
+          </label>
+          <label class="radio-row">
+            <input type="radio" name="seq" value="pow2">
+            <span th:text="#{sequence.pow2}">Powers of 2</span>
+          </label>
+          <label class="radio-row">
+            <input type="radio" name="seq" value="tshirt">
+            <span th:text="#{sequence.tshirt}">T-Shirt sizes</span>
+          </label>
+        </div>
+        <p id="seqHint" class="hint" th:text="#{sequence.onlyHost}">Only the host can change the sequence</p>
+      </div>
+
       <!-- Invite: Link (QR vorerst deaktiviert) -->
       <div class="menu-group">
         <div class="group-title" th:text="#{menu.invite}">Invite</div>
@@ -57,14 +87,7 @@
           <span class="mi-icon" aria-hidden="true">🔗</span>
           <span th:text="#{invite.copyLink}">Copy link to this room</span>
         </button>
-
-        <!--
-        QR-Funktion vorerst deaktiviert
-        <button id="openQr" class="menu-item" type="button">
-          <span class="mi-icon" aria-hidden="true">🔳</span>
-          <span th:text="#{invite.makeQr}">Generate QR code</span>
-        </button>
-        -->
+        <!-- QR-Funktion vorerst deaktiviert -->
       </div>
     </div>
   </div>
@@ -76,20 +99,16 @@
     <span th:text="#{ui.heading}">RBS' Estimation Poker</span>
   </h1>
 
-  <!-- Aligned info rows (single line each) -->
   <dl class="main-info">
     <dt><span class="mi-icon" aria-hidden="true">🆔</span><span class="mi-label" th:text="#{label.room}">Room:</span></dt>
     <dd><strong id="roomCodeVal" th:text="${roomCode}">demo</strong></dd>
-
     <dt><span class="mi-icon" aria-hidden="true">👤</span><span class="mi-label" th:text="#{label.you}">You are:</span></dt>
     <dd><strong id="youName" th:text="${participantName}">Guest</strong></dd>
   </dl>
 
-  <!-- Participants ABOVE card grid -->
   <h2 th:text="#{label.participants}">Participants</h2>
   <ul id="liveParticipantList"></ul>
 
-  <!-- Select header will hide after reveal -->
   <h2 id="selectCardHeader" th:text="#{label.selectCard}">Choose a card:</h2>
 
   <div class="pre-vote">
@@ -126,27 +145,10 @@
   </div>
 </div>
 
-<!--
-QR Overlay (modal) vorerst deaktiviert
-
-<div id="qrOverlay" class="qr-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="qrTitle">
-  <div class="qr-backdrop" data-close></div>
-  <div class="qr-dialog" role="document">
-    <div class="qr-header">
-      <h3 id="qrTitle" th:text="#{invite.qr.title}">Join via QR</h3>
-      <button id="qrClose" class="qr-close" aria-label="Close">✕</button>
-    </div>
-    <div class="qr-body">
-      <canvas id="qrCanvas" width="0" height="0" aria-hidden="true"></canvas>
-    </div>
-    <div class="qr-actions">
-      <button id="qrCopy" class="button" type="button" th:text="#{invite.qr.copy}">Copy QR</button>
-    </div>
-  </div>
-</div>
--->
-
 <script th:inline="javascript">
+/* Default sequence (client-side) */
+let currentSequenceId = 'fib-scrum';
+
 /* ===== Menu (morph + focus trap) ===== */
 (function(){
   const btn = document.getElementById('menuButton');
@@ -155,9 +157,7 @@ QR Overlay (modal) vorerst deaktiviert
   const backdrop = overlay?.querySelector('[data-close]');
   let lastFocus = null;
 
-  function focusables(){
-    return panel.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
-  }
+  function focusables(){ return panel.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'); }
   function trapTab(e){
     if (e.key !== 'Tab' || overlay.classList.contains('hidden')) return;
     const f = focusables(); if (!f.length) return;
@@ -165,7 +165,6 @@ QR Overlay (modal) vorerst deaktiviert
     if (e.shiftKey && document.activeElement === first) { last.focus(); e.preventDefault(); }
     else if (!e.shiftKey && document.activeElement === last) { first.focus(); e.preventDefault(); }
   }
-
   function openMenu(){
     document.body.classList.add('menu-open');
     overlay.classList.remove('hidden');
@@ -193,7 +192,6 @@ QR Overlay (modal) vorerst deaktiviert
   backdrop?.addEventListener('click', closeMenu);
   window.addEventListener('keydown', (e)=>{ if(e.key==='Escape') closeMenu(); });
 
-  // Hook (bleibt für später ungenutzt, harmless)
   window.__closeMenuIfOpen = () => { if (!overlay.classList.contains('hidden')) closeMenu(); };
 })();
 
@@ -220,7 +218,7 @@ QR Overlay (modal) vorerst deaktiviert
   });
 })();
 
-/* ===== Language: POST /i18n, then reload (URL unchanged) ===== */
+/* ===== Language: POST /i18n ===== */
 (function(){
   const row   = document.getElementById('langRow');
   const cur   = (document.documentElement.lang || 'en').toLowerCase();
@@ -234,13 +232,9 @@ QR Overlay (modal) vorerst deaktiviert
     else { a.src='/flags/us.svg'; b.src='/flags/gb.svg'; if (label) label.textContent='English'; }
   }
   function nextLang(){ return cur.startsWith('de') ? 'en' : 'de'; }
-
   function switchLang(to){
-    fetch('/i18n', {
-      method:'POST',
-      headers:{'Content-Type':'application/x-www-form-urlencoded'},
-      body:'lang='+encodeURIComponent(to)
-    }).finally(()=>location.reload());
+    fetch('/i18n', { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:'lang='+encodeURIComponent(to) })
+      .finally(()=>location.reload());
   }
 
   document.addEventListener('DOMContentLoaded', function(){
@@ -260,6 +254,57 @@ let selectedCard = null;
 let votesRevealed = false;
 let isHost = false;
 let resizeTimer = null;
+
+// Sequences (client mirror)
+const SEQ_BASE = {
+  'fib-orig':  ["0","1","2","3","5","8","13","21","34","55"],
+  'fib-scrum': ["1","2","3","5","8","13","20","40"],
+  'fib-enh':   ["0","1/2","1","2","3","5","8","13","20","40"],
+  'pow2':      ["2","4","8","16","32"],
+  'tshirt':    ["XS","S","M","L","XL","XXL","XXXL"],
+};
+const SPECIALS = ["❓","💬","☕"];
+function deckFor(id){ const base = SEQ_BASE[id] || SEQ_BASE["fib-scrum"]; return base.concat(SPECIALS); }
+function splitIntoRows(arr, rows=3){ const out=[...Array(rows)].map(()=>[]); for(let i=0;i<arr.length;i++) out[i%rows].push(arr[i]); return out; }
+function renderCards(deck){
+  const rows = splitIntoRows(deck, 3);
+  const grids = document.querySelectorAll('.pre-vote .card-grid');
+  grids.forEach((grid, idx) => {
+    grid.innerHTML = '';
+    (rows[idx] || []).forEach(val => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.setAttribute('data-card', val);
+      btn.onclick = () => sendVote(val);
+      btn.textContent = val;
+      const chk = document.createElement('span'); chk.className='checkmark'; chk.textContent='✔';
+      btn.appendChild(chk);
+      grid.appendChild(btn);
+    });
+  });
+  highlightSelectedCard();
+}
+function syncSequenceUI(){
+  const radios = document.querySelectorAll('#seqChoice input[name="seq"]');
+  radios.forEach(r => {
+    r.checked = (r.value === currentSequenceId);
+    r.disabled = !isHost;
+    r.closest('.radio-row')?.classList.toggle('disabled', !isHost);
+  });
+  const hint = document.getElementById('seqHint');
+  if (hint) hint.style.display = isHost ? 'none' : 'block';
+}
+document.addEventListener('DOMContentLoaded', () => {
+  renderCards(deckFor(currentSequenceId));
+  syncSequenceUI();
+  const seqChoice = document.getElementById('seqChoice');
+  seqChoice?.addEventListener('change', (e)=>{
+    const val = e.target?.value;
+    if (!val) return;
+    if (!isHost) { showToast(/*[[#{sequence.onlyHost}]]*/ 'Only the host can change the sequence'); syncSequenceUI(); return; }
+    socket.send('setSequence:' + val);
+  });
+});
 
 // stabile Client-ID pro Browser
 const cid = (function(){
@@ -291,7 +336,17 @@ const MSG_HOST_OTHER = /*[[#{toast.hostOther}]]*/ 'Host {old} left. {new} is now
 socket.onmessage = (event) => {
   const data = JSON.parse(event.data);
 
-  // Optional: Server kann deinen effektiven Namen mitsenden (z.B. nach Rename via cid)
+  // --- sequence info from server (part of voteUpdate) ---
+  if (data.sequenceId) {
+    const changed = (currentSequenceId !== data.sequenceId);
+    currentSequenceId = data.sequenceId;
+    syncSequenceUI();
+    if (Array.isArray(data.cards)) {
+      if (changed) clearCardSelection();
+      renderCards(data.cards);
+    }
+  }
+
   if (data.yourName && data.yourName !== participantName) {
     participantName = data.yourName;
     const youEl = document.getElementById("youName");
@@ -328,7 +383,6 @@ socket.onmessage = (event) => {
 
 function sendVote(cardValue) { socket.send("vote:" + participantName + ":" + cardValue); selectedCard = cardValue; highlightSelectedCard(); }
 function clearCardSelection(){ selectedCard = null; try { localStorage.removeItem('selectedCard'); } catch(e){} highlightSelectedCard(); }
-
 function highlightSelectedCard() {
   document.querySelectorAll(".card-grid button").forEach(btn => {
     const card = btn.getAttribute("data-card");
@@ -338,7 +392,6 @@ function highlightSelectedCard() {
     if (check) check.style.display = isSelected ? "block" : "none";
   });
 }
-
 function revealCards() { if (isHost) socket.send("revealCards"); }
 function resetRoom()   { if (isHost) socket.send("resetRoom"); clearCardSelection(); }
 
@@ -346,27 +399,19 @@ function updateParticipantList(participants, revealed) {
   const list = document.getElementById("liveParticipantList");
   if (!list) return;
   list.innerHTML = "";
-
   participants.forEach(p => {
     const li = document.createElement("li");
     li.classList.add("participant-row");
     li.dataset.hasvote = p.vote !== null;
-
     if (p.disconnected) li.classList.add("disconnected");
     if (p.isHost) li.classList.add("is-host");
 
     const icon = document.createElement("span");
-    icon.className = p.isHost
-      ? "participant-icon host"
-      : (p.disconnected ? "participant-icon inactive" : "participant-icon");
+    icon.className = p.isHost ? "participant-icon host" : (p.disconnected ? "participant-icon inactive" : "participant-icon");
     icon.textContent = p.isHost ? "👑" : (p.disconnected ? "💤" : "👤");
 
-    const nameSpan = document.createElement("span");
-    nameSpan.className = "name";
-    nameSpan.textContent = p.name;
-
-    const rightWrap = document.createElement("div");
-    rightWrap.className = "row-right";
+    const nameSpan = document.createElement("span"); nameSpan.className = "name"; nameSpan.textContent = p.name;
+    const rightWrap = document.createElement("div"); rightWrap.className = "row-right";
 
     if (revealed) {
       const voteChip = document.createElement("span");
@@ -377,27 +422,19 @@ function updateParticipantList(participants, revealed) {
       rightWrap.appendChild(voteChip);
     } else {
       if (!p.disconnected && p.vote != null) {
-        const status = document.createElement("span");
-        status.className = "status-icon done";
-        status.textContent = "✅";
+        const status = document.createElement("span"); status.className = "status-icon done"; status.textContent = "✅";
         rightWrap.appendChild(status);
       } else if (!p.disconnected) {
-        const status = document.createElement("span");
-        status.className = "status-icon pending";
-        status.textContent = "⏳";
+        const status = document.createElement("span"); status.className = "status-icon pending"; status.textContent = "⏳";
         rightWrap.appendChild(status);
       }
     }
 
-    li.appendChild(icon);
-    li.appendChild(nameSpan);
-    li.appendChild(rightWrap);
+    li.appendChild(icon); li.appendChild(nameSpan); li.appendChild(rightWrap);
     list.appendChild(li);
   });
-
   measureAndSetNameColumn();
 }
-
 function measureAndSetNameColumn() {
   const list = document.getElementById("liveParticipantList");
   if (!list) return;
@@ -405,21 +442,13 @@ function measureAndSetNameColumn() {
   const maxTextWidth = names.reduce((m, el) => Math.max(m, el.offsetWidth || 0), 0);
   list.style.setProperty("--name-text-col", Math.ceil(maxTextWidth) + "px");
 }
+window.addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(measureAndSetNameColumn, 150); });
 
-window.addEventListener("resize", () => {
-  clearTimeout(resizeTimer);
-  resizeTimer = setTimeout(measureAndSetNameColumn, 150);
-});
-
-function updateAverage(avg) {
-  const avgSpan = document.getElementById("averageVote");
-  if (avgSpan) avgSpan.textContent = avg != null ? avg : "N/A";
-}
+function updateAverage(avg) { const avgSpan = document.getElementById("averageVote"); if (avgSpan) avgSpan.textContent = avg != null ? avg : "N/A"; }
 function toggleView(revealed) {
   document.querySelectorAll(".pre-vote").forEach(e => e.style.display = revealed ? "none" : "block");
   document.querySelectorAll(".post-vote").forEach(e => e.style.display = revealed ? "block" : "none");
-  const h = document.getElementById("selectCardHeader");
-  if (h) h.style.display = revealed ? "none" : "block";
+  const h = document.getElementById("selectCardHeader"); if (h) h.style.display = revealed ? "none" : "block";
 }
 function showResults(participants, avg) { toggleView(true); updateAverage(avg); }
 
@@ -431,36 +460,21 @@ function showToast(message) {
   setTimeout(() => toast.remove(), 3000);
 }
 
-/* ===== Invite: nur Deep-Link in Clipboard (QR vorerst aus) ===== */
+/* Invite: Deep-Link only */
 (function(){
   const copyBtn = document.getElementById('copyRoomLink');
-
   const TXT_LINK_COPIED = /*[[#{invite.linkCopied}]]*/ 'Link copied to clipboard';
   const TXT_COPY_FAILED = /*[[#{notify.copyFailed}]]*/ 'Copy failed';
 
-  function deepLink(){
-    const base = location.origin;
-    return base + "/room?roomCode=" + encodeURIComponent(roomCode);
-  }
-
+  function deepLink(){ return location.origin + "/room?roomCode=" + encodeURIComponent(roomCode); }
   async function copyText(text){
-    try{
-      await navigator.clipboard.writeText(text);
-      showToast(TXT_LINK_COPIED);
-    }catch(e){
-      console.warn(e);
-      showToast(TXT_COPY_FAILED);
-    }
+    try{ await navigator.clipboard.writeText(text); showToast(TXT_LINK_COPIED); }
+    catch(e){ console.warn(e); showToast(TXT_COPY_FAILED); }
   }
-
   copyBtn?.addEventListener('click', ()=>copyText(deepLink()));
 })();
 </script>
 
-<!-- QR-JS vorerst entfernt -->
-<!-- <script src="/js/qr.js"></script> -->
-
-<!-- Local toast keyframes to avoid duplication -->
 <style>
 .toast {
   position: fixed; top: 20px; right: 20px; background-color: #333; color: white;
