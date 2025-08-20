@@ -125,28 +125,22 @@
   <h2 id="selectCardHeader" th:text="#{label.selectCard}">Choose a card:</h2>
 
   <div class="pre-vote">
-    <!-- Kartenbereich: initial serverseitig (3 Reihen), danach vollständig per JS ersetzt -->
+    <!-- Server-seitige Erst-Buttons (ohne grünen Haken) -->
     <div id="cardsArea">
       <div class="card-grid">
         <button type="button" th:each="cardValue : ${cardsRow1}"
                 th:text="${cardValue}" th:attr="data-card=${cardValue}"
-                th:onclick="|sendVote(this.getAttribute('data-card'))|">
-          <span class="checkmark">✔</span>
-        </button>
+                th:onclick="|sendVote(this.getAttribute('data-card'))|">1</button>
       </div>
       <div class="card-grid">
         <button type="button" th:each="cardValue : ${cardsRow2}"
                 th:text="${cardValue}" th:attr="data-card=${cardValue}"
-                th:onclick="|sendVote(this.getAttribute('data-card'))|">
-          <span class="checkmark">✔</span>
-        </button>
+                th:onclick="|sendVote(this.getAttribute('data-card'))|">2</button>
       </div>
       <div class="card-grid">
         <button type="button" th:each="cardValue : ${cardsRow3}"
                 th:text="${cardValue}" th:attr="data-card=${cardValue}"
-                th:onclick="|sendVote(this.getAttribute('data-card'))|">
-          <span class="checkmark">✔</span>
-        </button>
+                th:onclick="|sendVote(this.getAttribute('data-card'))|">3</button>
       </div>
     </div>
 
@@ -156,6 +150,11 @@
 
   <div class="post-vote" style="display:none;">
     <p class="average-label"><span th:text="#{label.average}">Avg:</span> <span id="averageVote">–</span></p>
+    <!-- Consensus-Label -->
+    <p class="average-label" id="consensusRow" style="display:none;">
+      <span id="consensusText">Consensus</span>
+    </p>
+
     <button type="button" id="resetButton" class="button" style="display:none;"
             th:text="#{button.reset}" onclick="resetRoom()">Start new round</button>
   </div>
@@ -267,29 +266,25 @@ let selectedCard = null;
 let votesRevealed = false;
 let isHost = false;
 let resizeTimer = null;
-let currentSequenceId = 'fib-scrum'; // wird vom Server überschrieben
-let currentDeckSig = "";             // <- merkt die aktuelle Deck-Zusammensetzung
+let currentSequenceId = 'fib-scrum'; // server overwrites
+let currentDeckSig = "";             // <- Track current deck content
 
 const SPECIALS = new Set(["❓","💬","☕"]);
 
-/** Button Helper */
+/** Button Helper (ohne grünen Haken) */
 function addCardButton(grid, val){
   const btn = document.createElement('button');
   btn.type = 'button';
   btn.setAttribute('data-card', val);
   btn.onclick = () => sendVote(val);
   btn.textContent = val;
-  const chk = document.createElement('span'); chk.className='checkmark'; chk.textContent='✔';
-  btn.appendChild(chk);
   grid.appendChild(btn);
 }
 
-/** Einfache Signatur des Decks, um Änderungen zu erkennen */
-function deckSig(arr){
-  return Array.isArray(arr) ? arr.join("|") : "";
-}
+/** Deck-Signatur (zum Erkennen von Inhaltsänderungen) */
+function deckSig(arr){ return Array.isArray(arr) ? arr.join("|") : ""; }
 
-/** Render: Desktop = auto-fit (aus CSS), Mobile = 4 pro Reihe; Specials in eigener Reihe */
+/** Render: Desktop = auto-fit (aus CSS), Mobile = 4 pro Reihe; Specials in eigener Zeile */
 function renderCards(deck){
   const area = document.getElementById('cardsArea');
   if (!area || !Array.isArray(deck)) return;
@@ -299,13 +294,11 @@ function renderCards(deck){
 
   area.innerHTML = '';
 
-  // Regular in eine Grid-Zeile (CSS regelt Spaltenanzahl)
   const grid = document.createElement('div');
   grid.className = 'card-grid';
   regular.forEach(val => addCardButton(grid, val));
   area.appendChild(grid);
 
-  // Specials in eigene letzte Zeile
   if (specials.length){
     const sgrid = document.createElement('div');
     sgrid.className = 'card-grid';
@@ -328,14 +321,12 @@ function syncSequenceUI(){
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  // Initial: serverseitige Buttons bleiben bis erstes Server-Update eintrifft.
   syncSequenceUI();
   const seqChoice = document.getElementById('seqChoice');
   seqChoice?.addEventListener('change', (e)=>{
     const val = e.target?.value;
     if (!val) return;
     if (!isHost) { showToast(/*[[#{sequence.onlyHost}]]*/ 'Only the host can change the sequence'); syncSequenceUI(); return; }
-    // Server setzt Sequenz, sendet neues Deck
     socket.send('setSequence:' + val);
   });
 });
@@ -370,7 +361,7 @@ const MSG_HOST_OTHER = /*[[#{toast.hostOther}]]*/ 'Host {old} left. {new} is now
 socket.onmessage = (event) => {
   const data = JSON.parse(event.data);
 
-  // Sequenz + Karten vom Server: nur neu rendern, wenn sich Sequenz ODER Deck geändert hat
+  // Sequenz + Karten vom Server (neu rendern, wenn ID ODER Inhalt geändert hat)
   if (data.sequenceId) {
     const newSig = deckSig(data.cards);
     const needRerender =
@@ -403,7 +394,6 @@ socket.onmessage = (event) => {
     document.getElementById("revealButton").style.display = isHost && !votesRevealed ? "inline-block" : "none";
     document.getElementById("resetButton").style.display  = isHost && votesRevealed ? "inline-block" : "none";
 
-    // host-only room close button on/off
     const closeBtn = document.getElementById('closeRoomBtn');
     const closeHint = document.getElementById('closeHint');
     if (closeBtn) closeBtn.style.display = isHost ? 'grid' : 'none';
@@ -412,7 +402,7 @@ socket.onmessage = (event) => {
     updateParticipantList(participants, votesRevealed);
 
     if (votesRevealed) { showResults(participants, data.averageVote); }
-    else { toggleView(false); updateAverage(null); }
+    else { toggleView(false); updateAverage(null); document.getElementById('consensusRow').style.display='none'; }
 
     if (prevVotesRevealed && !votesRevealed) clearCardSelection();
 
@@ -445,9 +435,7 @@ function highlightSelectedCard() {
   document.querySelectorAll(".card-grid button").forEach(btn => {
     const card = btn.getAttribute("data-card");
     const isSelected = !votesRevealed && card === selectedCard;
-    btn.classList.toggle("selected", isSelected);
-    const check = btn.querySelector(".checkmark");
-    if (check) check.style.display = isSelected ? "flex" : "none";
+    btn.classList.toggle("selected", isSelected);   // kein Checkmark mehr
   });
 }
 function revealCards() { if (isHost) socket.send("revealCards"); }
@@ -476,7 +464,7 @@ function updateParticipantList(participants, revealed) {
       voteChip.className = "vote-chip";
       const v = p.vote != null ? String(p.vote) : null;
       voteChip.textContent = v != null ? v : "—";
-      voteChip.dataset.val = v != null ? v : "";   // ☕-CSS greift zuverlässig
+      voteChip.dataset.val = v != null ? v : "";
       if (v && !/^\d+$/.test(v)) voteChip.classList.add("special");
       rightWrap.appendChild(voteChip);
     } else {
@@ -503,16 +491,67 @@ function measureAndSetNameColumn() {
 }
 window.addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(measureAndSetNameColumn, 150); });
 
+/* „-“ statt „N/A“ */
 function updateAverage(avg) {
   const avgSpan = document.getElementById("averageVote");
-  if (avgSpan) avgSpan.textContent = avg != null ? avg : "-";  // „-“ statt „N/A“
+  if (avgSpan) avgSpan.textContent = avg != null ? avg : "-";
 }
+
+/* ===== Consensus-Logik (Client-seitig) ===== */
+function parseVoteNumeric(s){
+  if (!s) return null;
+  s = String(s).trim();
+  if (SPECIALS.has(s)) return null;
+  if (s === "½" || s === "1/2" || s === "0,5") return 0.5;
+  if (/^\d+\s*\/\s*\d+$/.test(s)) {
+    const [a,b] = s.split("/").map(x=>parseFloat(x.replace(',','.')));
+    return b ? (a/b) : null;
+  }
+  const n = parseFloat(s.replace(',','.'));
+  return Number.isFinite(n) ? n : null;
+}
+
+function updateConsensus(participants){
+  const row = document.getElementById('consensusRow');
+  const txt = document.getElementById('consensusText');
+  if (!row || !txt) return;
+
+  const active = participants.filter(p => !p.disconnected);
+  if (!active.length) { row.style.display='none'; return; }
+
+  // alle aktiven müssen eine numerische Stimme haben
+  const nums = [];
+  for (const p of active) {
+    if (p.vote == null) { row.style.display='none'; return; }
+    const n = parseVoteNumeric(p.vote);
+    if (n == null) { row.style.display='none'; return; }
+    nums.push(n);
+  }
+  const first = Math.round(nums[0]*1000)/1000;
+  const allSame = nums.every(v => Math.round(v*1000)/1000 === first);
+
+  if (allSame) {
+    // hübsch anzeigen (Ganzzahl ohne Nachkommastellen, sonst max .5)
+    const val = (Math.abs(first - Math.round(first)) < 1e-9)
+      ? String(Math.round(first))
+      : String(first).replace('.', ','); // leichte DE-Note
+    txt.textContent = `Consensus: ${val}`;
+    row.style.display = 'block';
+  } else {
+    row.style.display = 'none';
+  }
+}
+
 function toggleView(revealed) {
   document.querySelectorAll(".pre-vote").forEach(e => e.style.display = revealed ? "none" : "block");
   document.querySelectorAll(".post-vote").forEach(e => e.style.display = revealed ? "block" : "none");
   const h = document.getElementById("selectCardHeader"); if (h) h.style.display = revealed ? "none" : "block";
 }
-function showResults(participants, avg) { toggleView(true); updateAverage(avg); }
+function showResults(participants, avg) {
+  toggleView(true);
+  updateAverage(avg);
+  updateConsensus(participants); // <- Consensus prüfen/anzeigen
+}
 
 function showToast(message) {
   const toast = document.createElement("div");
