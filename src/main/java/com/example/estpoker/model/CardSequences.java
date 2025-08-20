@@ -2,7 +2,8 @@ package com.example.estpoker.model;
 
 import java.text.NumberFormat;
 import java.util.*;
-import java.util.stream.Collectors;
+import java.util.Locale;
+import java.util.OptionalDouble;
 
 public final class CardSequences {
 
@@ -16,7 +17,7 @@ public final class CardSequences {
         "0,5", 0.5
     );
 
-    // Deine Kartensätze (mit „½“ in fib-enh + XXS bei T-Shirt)
+    // Kartensätze (mit „½“ in fib-enh + XXS bei T-Shirt)
     public static final Map<String, List<String>> SEQUENCES = Map.of(
         "fib-orig",  List.of("0","1","2","3","5","8","13","21","34","55"),
         "fib-scrum", List.of("1","2","3","5","8","13","20","40"),
@@ -33,7 +34,7 @@ public final class CardSequences {
         s = s.trim();
         if (s.isEmpty() || SPECIALS.contains(s)) return OptionalDouble.empty();
 
-        // Alias (½, 1/2, 0,5 ...)
+        // Aliasse (½, 1/2, 0,5 ...)
         Double alias = ALIASES.get(s);
         if (alias != null) return OptionalDouble.of(alias);
 
@@ -56,8 +57,9 @@ public final class CardSequences {
         }
     }
 
-    /** Durchschnitt aus Stimmen (Strings). Specials werden ignoriert. */
+    /** Durchschnitt aus Stimmen (Strings). Specials/T-Shirt etc. werden ignoriert. */
     public static OptionalDouble averageOfStrings(Collection<String> votes) {
+        if (votes == null || votes.isEmpty()) return OptionalDouble.empty();
         return votes.stream()
                 .map(CardSequences::parseNumeric)
                 .filter(OptionalDouble::isPresent)
@@ -65,10 +67,13 @@ public final class CardSequences {
                 .average();
     }
 
-    /** Schönes Format für die Anzeige (z.B. nach Locale deutsch mit Komma). */
+    /** Anzeigeformat (locale-gerecht, ohne unnötige Nachkommastellen). */
     public static String formatAverage(OptionalDouble avgOpt, Locale locale) {
-        if (avgOpt.isEmpty()) return "–";
-        NumberFormat nf = NumberFormat.getNumberInstance(locale);
+        if (avgOpt == null || avgOpt.isEmpty()) return "–";
+        NumberFormat nf = NumberFormat.getNumberInstance(
+                (locale != null) ? locale : Locale.getDefault()
+        );
+        nf.setGroupingUsed(false);
         nf.setMaximumFractionDigits(2);
         nf.setMinimumFractionDigits(0);
         return nf.format(avgOpt.getAsDouble());
