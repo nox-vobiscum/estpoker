@@ -125,7 +125,7 @@
   <h2 id="selectCardHeader" th:text="#{label.selectCard}">Choose a card:</h2>
 
   <div class="pre-vote">
-    <!-- Server-seitige Erst-Buttons (ohne grünen Haken) -->
+    <!-- Erst-Buttons (ohne grünen Haken) -->
     <div id="cardsArea">
       <div class="card-grid">
         <button type="button" th:each="cardValue : ${cardsRow1}"
@@ -149,10 +149,10 @@
   </div>
 
   <div class="post-vote" style="display:none;">
-    <p class="average-label"><span th:text="#{label.average}">Avg:</span> <span id="averageVote">–</span></p>
-    <!-- Consensus-Label -->
-    <p class="average-label" id="consensusRow" style="display:none;">
-      <span id="consensusText">Consensus</span>
+    <!-- Avg/Consensus (wird dynamisch umgeschaltet) -->
+    <p class="average-label">
+      <span id="avgLabel" th:text="#{label.average}">Avg:</span>
+      <span id="averageVote">–</span>
     </p>
 
     <button type="button" id="resetButton" class="button" style="display:none;"
@@ -267,11 +267,15 @@ let votesRevealed = false;
 let isHost = false;
 let resizeTimer = null;
 let currentSequenceId = 'fib-scrum'; // server overwrites
-let currentDeckSig = "";             // <- Track current deck content
+let currentDeckSig = "";             // track current deck
 
 const SPECIALS = new Set(["❓","💬","☕"]);
 
-/** Button Helper (ohne grünen Haken) */
+/** i18n Fallbacks für die Labels */
+const TXT_AVG  = /*[[#{label.average}]]*/ 'Avg:';
+const TXT_CONS = /*[[#{label.consensus}]]*/ 'Consensus:';
+
+/** Button Helper (kein grüner Haken mehr) */
 function addCardButton(grid, val){
   const btn = document.createElement('button');
   btn.type = 'button';
@@ -281,10 +285,10 @@ function addCardButton(grid, val){
   grid.appendChild(btn);
 }
 
-/** Deck-Signatur (zum Erkennen von Inhaltsänderungen) */
+/** Deck-Signatur */
 function deckSig(arr){ return Array.isArray(arr) ? arr.join("|") : ""; }
 
-/** Render: Desktop = auto-fit (aus CSS), Mobile = 4 pro Reihe; Specials in eigener Zeile */
+/** Render: Desktop auto-fit; Specials in eigener Zeile */
 function renderCards(deck){
   const area = document.getElementById('cardsArea');
   if (!area || !Array.isArray(deck)) return;
@@ -361,7 +365,7 @@ const MSG_HOST_OTHER = /*[[#{toast.hostOther}]]*/ 'Host {old} left. {new} is now
 socket.onmessage = (event) => {
   const data = JSON.parse(event.data);
 
-  // Sequenz + Karten vom Server (neu rendern, wenn ID ODER Inhalt geändert hat)
+  // Sequenz + Karten
   if (data.sequenceId) {
     const newSig = deckSig(data.cards);
     const needRerender =
@@ -401,8 +405,13 @@ socket.onmessage = (event) => {
 
     updateParticipantList(participants, votesRevealed);
 
-    if (votesRevealed) { showResults(participants, data.averageVote); }
-    else { toggleView(false); updateAverage(null); document.getElementById('consensusRow').style.display='none'; }
+    if (votesRevealed) {
+      showResults(participants, data.averageVote);
+    } else {
+      toggleView(false);
+      updateAverage(null);
+      setConsensusUI(false);  // Label zurück auf Avg
+    }
 
     if (prevVotesRevealed && !votesRevealed) clearCardSelection();
 
@@ -435,7 +444,7 @@ function highlightSelectedCard() {
   document.querySelectorAll(".card-grid button").forEach(btn => {
     const card = btn.getAttribute("data-card");
     const isSelected = !votesRevealed && card === selectedCard;
-    btn.classList.toggle("selected", isSelected);   // kein Checkmark mehr
+    btn.classList.toggle("selected", isSelected);
   });
 }
 function revealCards() { if (isHost) socket.send("revealCards"); }
@@ -497,7 +506,16 @@ function updateAverage(avg) {
   if (avgSpan) avgSpan.textContent = avg != null ? avg : "-";
 }
 
-/* ===== Consensus-Logik (Client-seitig) ===== */
+/* ===== Consensus-UI (Label & Farbe, Zahl bleibt die vom Server) ===== */
+function setConsensusUI(on){
+  const row = document.querySelector('.average-label');
+  const lbl = document.getElementById('avgLabel');
+  if (!row || !lbl) return;
+  lbl.textContent = on ? TXT_CONS : TXT_AVG;
+  row.classList.toggle('consensus', !!on);
+}
+
+/* Numerik-Parser für Consensus-Check */
 function parseVoteNumeric(s){
   if (!s) return null;
   s = String(s).trim();
@@ -511,35 +529,20 @@ function parseVoteNumeric(s){
   return Number.isFinite(n) ? n : null;
 }
 
+/* Prüft Consensus und toggelt UI */
 function updateConsensus(participants){
-  const row = document.getElementById('consensusRow');
-  const txt = document.getElementById('consensusText');
-  if (!row || !txt) return;
-
   const active = participants.filter(p => !p.disconnected);
-  if (!active.length) { row.style.display='none'; return; }
+  if (!active.length) { setConsensusUI(false); return; }
 
-  // alle aktiven müssen eine numerische Stimme haben
   const nums = [];
   for (const p of active) {
-    if (p.vote == null) { row.style.display='none'; return; }
+    if (p.vote == null) { setConsensusUI(false); return; }
     const n = parseVoteNumeric(p.vote);
-    if (n == null) { row.style.display='none'; return; }
-    nums.push(n);
+    if (n == null) { setConsensusUI(false); return; }
+    nums.push(Math.round(n*1000)/1000);
   }
-  const first = Math.round(nums[0]*1000)/1000;
-  const allSame = nums.every(v => Math.round(v*1000)/1000 === first);
-
-  if (allSame) {
-    // hübsch anzeigen (Ganzzahl ohne Nachkommastellen, sonst max .5)
-    const val = (Math.abs(first - Math.round(first)) < 1e-9)
-      ? String(Math.round(first))
-      : String(first).replace('.', ','); // leichte DE-Note
-    txt.textContent = `Consensus: ${val}`;
-    row.style.display = 'block';
-  } else {
-    row.style.display = 'none';
-  }
+  const allSame = nums.every(v => v === nums[0]);
+  setConsensusUI(allSame);
 }
 
 function toggleView(revealed) {
@@ -550,7 +553,7 @@ function toggleView(revealed) {
 function showResults(participants, avg) {
   toggleView(true);
   updateAverage(avg);
-  updateConsensus(participants); // <- Consensus prüfen/anzeigen
+  updateConsensus(participants);
 }
 
 function showToast(message) {
@@ -576,7 +579,7 @@ function showToast(message) {
 })();
 </script>
 
-<!-- small toast css inlined to avoid duplication -->
+<!-- small toast css inlined + consensus style -->
 <style>
 .toast{position:fixed;top:20px;right:20px;background-color:rgba(51,51,51,.95);color:#fff;padding:12px 20px;border-radius:10px;z-index:9999;font-size:14px;box-shadow:0 6px 16px rgba(0,0,0,.25);transform:translateY(-10px);opacity:0;animation:fadein .22s ease forwards,fadeout .4s ease 2.4s forwards}
 @keyframes fadein{to{opacity:.95;transform:translateY(0)}}

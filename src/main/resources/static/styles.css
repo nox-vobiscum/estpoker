@@ -501,6 +501,9 @@ li { margin-bottom: 0.4rem; line-height: 1.5; font-size: 1rem; }
 .average-label #averageVote { font-size: 0.85rem; font-weight: 600; opacity: 0; animation: avgIn 240ms ease forwards; }
 @keyframes avgIn { to { opacity: 1; } }
 
+.average-label.consensus { color: var(--ok); font-weight: 700; }
+.average-label.consensus #averageVote { font-weight: 800; }
+
 /* Toasts */
 .toast {
   position: fixed; top: 20px; right: 20px; background-color: rgba(51,51,51,0.95); color: white;
