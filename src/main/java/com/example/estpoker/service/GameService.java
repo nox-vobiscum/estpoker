@@ -88,6 +88,47 @@ public class GameService {
         return CardSequences.averageOfStrings(votes);
     }
 
+    /** === Auto-Reveal Hilfen === */
+
+    /** Gültig = gesetzt und keine Sonderkarte (❓💬☕). */
+    public boolean isValidVote(String v) {
+        return v != null && !CardSequences.SPECIALS.contains(v);
+    }
+
+    /** Alle AKTIVEN Teilnehmenden haben eine gültige Stimme abgegeben? */
+    public boolean allActiveParticipantsHaveValidVotes(Room room) {
+        if (room == null) return false;
+        synchronized (room) {
+            for (Participant p : room.getParticipants()) {
+                if (p.isActive()) {
+                    String v = p.getVote();
+                    if (v == null || !isValidVote(v)) {
+                        return false;
+                    }
+                }
+            }
+            return true;
+        }
+    }
+
+    /**
+     * Setzt votesRevealed=true, wenn noch nicht aufgedeckt und alle aktiven gültig gevotet haben.
+     * Berücksichtigt die Raum-Einstellung `autoRevealEnabled`.
+     * @return true, wenn Auto-Reveal ausgelöst wurde.
+     */
+    public boolean maybeAutoReveal(Room room) {
+        if (room == null) return false;
+        synchronized (room) {
+            if (room.isAutoRevealEnabled()
+                    && !room.areVotesRevealed()
+                    && allActiveParticipantsHaveValidVotes(room)) {
+                room.setCardsRevealed(true);
+                return true;
+            }
+            return false;
+        }
+    }
+
     public void broadcastToRoom(Room room, String message) {
         sessionToRoomMap.entrySet().removeIf(entry -> {
             WebSocketSession session = entry.getKey();
@@ -138,6 +179,9 @@ public class GameService {
             payload.put("sequenceId", room.getSequenceId());
             payload.put("cards", room.getCurrentCards());
 
+            // === Auto-Reveal Flag mitsenden ===
+            payload.put("autoRevealEnabled", room.isAutoRevealEnabled());
+
             String json = objectMapper.writeValueAsString(payload);
             broadcastToRoom(room, json);
         } catch (IOException e) {
@@ -173,6 +217,9 @@ public class GameService {
 
             payload.put("sequenceId", room.getSequenceId());
             payload.put("cards", room.getCurrentCards());
+
+            // === Auto-Reveal Flag mitsenden ===
+            payload.put("autoRevealEnabled", room.isAutoRevealEnabled());
 
             String json = objectMapper.writeValueAsString(payload);
 

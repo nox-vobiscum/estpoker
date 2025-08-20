@@ -65,6 +65,10 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                 Participant participant = room.getParticipant(participantName);
                 if (participant != null) {
                     participant.setCard(card);
+
+                    // ★ Auto-Reveal ggf. auslösen (beachtet room.isAutoRevealEnabled())
+                    gameService.maybeAutoReveal(room);
+
                     gameService.broadcastRoomState(room);
                 }
             }
@@ -83,6 +87,24 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                 var meP = room.getParticipant(me);
                 if (meP != null && meP.isHost()) {
                     room.setSequence(seqId);      // setzt + reset intern
+                    gameService.broadcastRoomState(room);
+                }
+            }
+
+        } else if (payload.startsWith("setAutoReveal:")) {
+            // Format: setAutoReveal:true|false  (nur Host)
+            String me = gameService.getParticipantName(session);
+            boolean wantOn = Boolean.parseBoolean(payload.substring("setAutoReveal:".length()));
+            if (me != null) {
+                Participant p = room.getParticipant(me);
+                if (p != null && p.isHost()) {
+                    room.setAutoRevealEnabled(wantOn);
+
+                    // Wenn gerade eingeschaltet: sofort prüfen, ob Auto-Reveal jetzt greifen soll
+                    if (wantOn) {
+                        gameService.maybeAutoReveal(room);
+                    }
+
                     gameService.broadcastRoomState(room);
                 }
             }

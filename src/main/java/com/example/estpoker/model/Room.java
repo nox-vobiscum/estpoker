@@ -15,6 +15,9 @@ public class Room {
     private boolean votesRevealed = false;
     private Participant host;
 
+    // === Auto-Reveal per Room ===
+    private boolean autoRevealEnabled = true; // default: ON
+
     // ===== Card sequence (server-managed) =====
     private String sequenceId = "fib-scrum";
     private List<String> currentCards = computeDeck(sequenceId);
@@ -202,4 +205,8 @@ public class Room {
         nameToParticipant.put(newName, p);
         return newName;
     }
+
+    // === Auto-Reveal getter/setter ===
+    public synchronized boolean isAutoRevealEnabled() { return autoRevealEnabled; }
+    public synchronized void setAutoRevealEnabled(boolean on) { this.autoRevealEnabled = on; }
 }
