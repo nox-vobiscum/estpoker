@@ -128,10 +128,10 @@
 </div>
 
 <script th:inline="javascript">
-/* Default sequence */
+/* Default sequence (client-side) */
 let currentSequenceId = 'fib-scrum';
 
-/* ===== Menu open/close + focus trap ===== */
+/* ===== Menu (morph + focus trap) ===== */
 (function(){
   const btn = document.getElementById('menuButton');
   const overlay = document.getElementById('appMenuOverlay');
@@ -147,27 +147,8 @@ let currentSequenceId = 'fib-scrum';
     if (e.shiftKey && document.activeElement === first) { last.focus(); e.preventDefault(); }
     else if (!e.shiftKey && document.activeElement === last) { first.focus(); e.preventDefault(); }
   }
-  function openMenu(){
-    document.body.classList.add('menu-open');
-    overlay.classList.remove('hidden');
-    btn.classList.add('open');
-    btn.setAttribute('aria-expanded','true');
-    btn.setAttribute('aria-label', /*[[#{menu.close}]]*/ 'Close menu');
-    btn.textContent = '✕';
-    lastFocus = document.activeElement;
-    setTimeout(()=>focusables()[0]?.focus(), 0);
-    window.addEventListener('keydown', trapTab);
-  }
-  function closeMenu(){
-    document.body.classList.remove('menu-open');
-    overlay.classList.add('hidden');
-    btn.classList.remove('open');
-    btn.setAttribute('aria-expanded','false');
-    btn.setAttribute('aria-label', /*[[#{menu.open}]]*/ 'Open menu');
-    btn.textContent = '☰';
-    window.removeEventListener('keydown', trapTab);
-    lastFocus?.focus();
-  }
+  function openMenu(){ document.body.classList.add('menu-open'); overlay.classList.remove('hidden'); btn.classList.add('open'); btn.setAttribute('aria-expanded','true'); btn.setAttribute('aria-label', /*[[#{menu.close}]]*/ 'Close menu'); btn.textContent = '✕'; lastFocus = document.activeElement; setTimeout(()=>focusables()[0]?.focus(), 0); window.addEventListener('keydown', trapTab); }
+  function closeMenu(){ document.body.classList.remove('menu-open'); overlay.classList.add('hidden'); btn.classList.remove('open'); btn.setAttribute('aria-expanded','false'); btn.setAttribute('aria-label', /*[[#{menu.open}]]*/ 'Open menu'); btn.textContent = '☰'; window.removeEventListener('keydown', trapTab); lastFocus?.focus(); }
   function toggleMenu(){ overlay.classList.contains('hidden') ? openMenu() : closeMenu(); }
 
   btn?.addEventListener('click', toggleMenu);
@@ -231,13 +212,13 @@ let currentSequenceId = 'fib-scrum';
 
 /* ===== Game logic ===== */
 let participantName = /*[[${participantName}]]*/ "Guest";
-let roomCode        = /*[[${roomCode}]]*/ "demo";
-let selectedCard    = null;
-let votesRevealed   = false;
-let isHost          = false;
-let resizeTimer     = null;
+let roomCode = /*[[${roomCode}]]*/ "demo";
+let selectedCard = null;
+let votesRevealed = false;
+let isHost = false;
+let resizeTimer = null;
 
-// Sequences (client mirror)
+/* Sequences (client mirror) */
 const SEQ_BASE = {
   'fib-orig':  ["0","1","2","3","5","8","13","21","34","55"],
   'fib-scrum': ["1","2","3","5","8","13","20","40"],
@@ -246,49 +227,63 @@ const SEQ_BASE = {
   'tshirt':    ["XS","S","M","L","XL","XXL","XXXL"],
 };
 const SPECIALS = ["❓","💬","☕"];
+const SPECIAL_SET = new Set(SPECIALS);
+const TSHIRT_ORDER = ["XS","S","M","L","XL","XXL","XXXL"];
 
-/* Helpers for sorting */
-function isNumericToken(v){ return /^\d+$/.test(v) || v === "1/2"; }
-function numericValue(v){
+/* Sorting helpers: numeric (incl. 1/2), t-shirt order, else large */
+function sortKey(v){
   if (v === "1/2") return 0.5;
-  if (/^\d+$/.test(v)) return parseInt(v, 10);
-  return Number.NaN;
+  const n = Number(v);
+  if (!Number.isNaN(n)) return n;
+  const ti = TSHIRT_ORDER.indexOf(v);
+  if (ti !== -1) return 1000 + ti;
+  return 9999;
 }
+function compareValues(a,b){ return sortKey(a) - sortKey(b); }
 
-/* Render: 4 pro Zeile, Sonderkarten eigene Zeile */
+/* Build rows: 4 pro Zeile, Specials in eigene letzte Reihe */
 function renderCards(deck){
-  const gridMain   = document.getElementById('cardsGrid');
-  const gridSpec   = document.getElementById('cardsGridSpecial');
-  if (!gridMain || !gridSpec) return;
+  const pre = document.querySelector('.pre-vote');
+  if (!pre) return;
+  const revealBtn = document.getElementById('revealButton');
 
-  gridMain.innerHTML = '';
-  gridSpec.innerHTML = '';
+  /* remove existing rows */
+  pre.querySelectorAll('.card-grid').forEach(g => g.remove());
 
-  const specials = deck.filter(v => SPECIALS.includes(v));
-  let normals   = deck.filter(v => !SPECIALS.includes(v));
+  /* split + sort */
+  const normals = deck.filter(v => !SPECIAL_SET.has(v)).sort(compareValues);
+  const specials = deck.filter(v => SPECIAL_SET.has(v)); // Reihenfolge wie in SPECIALS
 
-  // Nach Möglichkeit numerisch sortieren – ansonsten Reihenfolge beibehalten (z.B. T-Shirt)
-  if (normals.every(isNumericToken)) {
-    normals = normals.slice().sort((a,b)=>numericValue(a)-numericValue(b));
+  /* chunk normals into rows of 4 */
+  for (let i=0; i<normals.length; i+=4){
+    const row = document.createElement('div');
+    row.className = 'card-grid';
+    normals.slice(i, i+4).forEach(val => row.appendChild(makeCardButton(val)));
+    pre.insertBefore(row, revealBtn);
   }
 
-  function makeBtn(val){
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.setAttribute('data-card', val);
-    btn.onclick = () => sendVote(val);
-    btn.textContent = val;
-    const chk = document.createElement('span');
-    chk.className = 'checkmark';
-    chk.textContent = '✔';
-    btn.appendChild(chk);
-    return btn;
+  /* specials row (falls vorhanden) */
+  if (specials.length){
+    const srow = document.createElement('div');
+    srow.className = 'card-grid';
+    specials.forEach(val => srow.appendChild(makeCardButton(val)));
+    pre.insertBefore(srow, revealBtn);
   }
-
-  normals.forEach(v => gridMain.appendChild(makeBtn(v)));
-  specials.forEach(v => gridSpec.appendChild(makeBtn(v)));
 
   highlightSelectedCard();
+}
+function makeCardButton(val){
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.setAttribute('data-card', val);
+  btn.onclick = () => sendVote(val);
+  btn.textContent = val;
+
+  const chk = document.createElement('span');
+  chk.className = 'checkmark';
+  chk.textContent = '✔';
+  btn.appendChild(chk);
+  return btn;
 }
 
 function syncSequenceUI(){
@@ -303,7 +298,7 @@ function syncSequenceUI(){
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  renderCards(SEQ_BASE[currentSequenceId].concat(SPECIALS));
+  renderCards((SEQ_BASE[currentSequenceId] || SEQ_BASE['fib-scrum']).concat(SPECIALS));
   syncSequenceUI();
   const seqChoice = document.getElementById('seqChoice');
   seqChoice?.addEventListener('change', (e)=>{
@@ -314,7 +309,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 
-// stabile Client-ID pro Browser
+/* stabile Client-ID pro Browser */
 const cid = (function(){
   try {
     let id = localStorage.getItem('ep-cid');
@@ -344,17 +339,18 @@ const MSG_HOST_OTHER = /*[[#{toast.hostOther}]]*/ 'Host {old} left. {new} is now
 socket.onmessage = (event) => {
   const data = JSON.parse(event.data);
 
-  // Sequence info vom Server (im voteUpdate)
+  /* --- sequence info from server (part of voteUpdate) --- */
   if (data.sequenceId) {
     const changed = (currentSequenceId !== data.sequenceId);
     currentSequenceId = data.sequenceId;
     syncSequenceUI();
-    if (Array.isArray(data.cards)) {
+    if (Array.isArray(data.cards) && data.cards.length) {
       if (changed) clearCardSelection();
       renderCards(data.cards);
     }
   }
 
+  /* optional rename from server */
   if (data.yourName && data.yourName !== participantName) {
     participantName = data.yourName;
     const youEl = document.getElementById("youName");
@@ -391,15 +387,17 @@ socket.onmessage = (event) => {
 
 function sendVote(cardValue) { socket.send("vote:" + participantName + ":" + cardValue); selectedCard = cardValue; highlightSelectedCard(); }
 function clearCardSelection(){ selectedCard = null; try { localStorage.removeItem('selectedCard'); } catch(e){} highlightSelectedCard(); }
+
 function highlightSelectedCard() {
   document.querySelectorAll(".card-grid button").forEach(btn => {
     const card = btn.getAttribute("data-card");
     const isSelected = !votesRevealed && card === selectedCard;
     btn.classList.toggle("selected", isSelected);
     const check = btn.querySelector(".checkmark");
-    if (check) check.style.display = isSelected ? "block" : "none";
+    if (check) check.style.display = isSelected ? "flex" : "none";
   });
 }
+
 function revealCards() { if (isHost) socket.send("revealCards"); }
 function resetRoom()   { if (isHost) socket.send("resetRoom"); clearCardSelection(); }
 
@@ -407,10 +405,12 @@ function updateParticipantList(participants, revealed) {
   const list = document.getElementById("liveParticipantList");
   if (!list) return;
   list.innerHTML = "";
+
   participants.forEach(p => {
     const li = document.createElement("li");
     li.classList.add("participant-row");
     li.dataset.hasvote = p.vote !== null;
+
     if (p.disconnected) li.classList.add("disconnected");
     if (p.isHost) li.classList.add("is-host");
 
@@ -426,7 +426,8 @@ function updateParticipantList(participants, revealed) {
       voteChip.className = "vote-chip";
       const v = p.vote != null ? String(p.vote) : null;
       voteChip.textContent = v != null ? v : "—";
-      if (v && !/^\d+$/.test(v)) voteChip.classList.add("special");
+      if (v) voteChip.setAttribute('data-val', v);  // für ☕-Styling
+      if (v && !/^\d+(\.?\d+)?$/.test(v)) voteChip.classList.add("special");
       rightWrap.appendChild(voteChip);
     } else {
       if (!p.disconnected && p.vote != null) {
@@ -441,8 +442,10 @@ function updateParticipantList(participants, revealed) {
     li.appendChild(icon); li.appendChild(nameSpan); li.appendChild(rightWrap);
     list.appendChild(li);
   });
+
   measureAndSetNameColumn();
 }
+
 function measureAndSetNameColumn() {
   const list = document.getElementById("liveParticipantList");
   if (!list) return;
@@ -460,19 +463,6 @@ function toggleView(revealed) {
 }
 function showResults(participants, avg) { toggleView(true); updateAverage(avg); }
 
-/* Invite: Deep-Link only */
-(function(){
-  const copyBtn = document.getElementById('copyRoomLink');
-  const TXT_LINK_COPIED = /*[[#{invite.linkCopied}]]*/ 'Link copied to clipboard';
-  const TXT_COPY_FAILED = /*[[#{notify.copyFailed}]]*/ 'Copy failed';
-  function deepLink(){ return location.origin + "/room?roomCode=" + encodeURIComponent(roomCode); }
-  async function copyText(text){
-    try{ await navigator.clipboard.writeText(text); showToast(TXT_LINK_COPIED); }
-    catch(e){ console.warn(e); showToast(TXT_COPY_FAILED); }
-  }
-  copyBtn?.addEventListener('click', ()=>copyText(deepLink()));
-})();
-
 function showToast(message) {
   const toast = document.createElement("div");
   toast.className = "toast";
@@ -480,7 +470,22 @@ function showToast(message) {
   toast.textContent = message;
   setTimeout(() => toast.remove(), 3000);
 }
+
+/* Invite: Deep-Link only */
+(function(){
+  const copyBtn = document.getElementById('copyRoomLink');
+  const TXT_LINK_COPIED = /*[[#{invite.linkCopied}]]*/ 'Link copied to clipboard';
+  const TXT_COPY_FAILED = /*[[#{notify.copyFailed}]]*/ 'Copy failed';
+
+  function deepLink(){ return location.origin + "/room?roomCode=" + encodeURIComponent(roomCode); }
+  async function copyText(text){
+    try{ await navigator.clipboard.writeText(text); showToast(TXT_LINK_COPIED); }
+    catch(e){ console.warn(e); showToast(TXT_COPY_FAILED); }
+  }
+  copyBtn?.addEventListener('click', ()=>copyText(deepLink()));
+})();
 </script>
+
 
 <style>
 .toast {

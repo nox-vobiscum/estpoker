@@ -28,7 +28,7 @@
   --gap: 12px;
   --gap-sm: 8px;
 
-  /* Cards sizing */
+  /* Cards sizing (desktop defaults) */
   --card-min-desktop: 46px;
   --card-max-desktop: 84px;
   --card-min-mobile: 40px;
@@ -36,7 +36,7 @@
 
   /* Spacing */
   --pre-vote-margin-desktop: 2.2rem;
-  --pre-vote-margin-mobile: 1.8rem;
+  --pre-vote-margin-mobile: 1.1rem;
 
   /* Participant list columns */
   --icon-col-width: 1.5rem;
@@ -76,7 +76,11 @@ body.menu-open { overflow: hidden; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 .container { max-width: 800px; margin: 0 auto; padding: 1rem; }
-h1, h2 { color: var(--text-strong); margin-bottom: 2rem; font-size: 1.1rem; }
+
+/* Headings: H1 bleibt, H2 kleiner (auch für „Teilnehmende“/„Karte wählen“) */
+h1 { color: var(--text-strong); margin-bottom: 2rem; font-size: 1.1rem; }
+h2 { color: var(--text-strong); margin: 1.2rem 0 .8rem; font-size: .98rem; }
+
 strong { color: var(--text-strong); }
 
 /* Header & Title img */
@@ -90,7 +94,7 @@ strong { color: var(--text-strong); }
   column-gap: 10px;
   row-gap: 6px;
   align-items: center;
-  margin-bottom: 1.5rem;
+  margin-bottom: 1.2rem;
 }
 .main-info dt{
   margin: 0;
@@ -152,14 +156,11 @@ strong { color: var(--text-strong); }
   box-shadow: var(--shadow);
   padding: 10px;
   animation: slideIn 180ms ease both;
-  /* wichtig: damit das Panel nie abgeschnitten wirkt */
+
+  /* wichtig: Panel wirkt nie abgeschnitten */
   max-height: calc(100vh - 24px);
   overflow: auto;
-
-  /* ▼ konsistente Schrift im Menü */
-  font-family: inherit;
 }
-.menu-panel * { font-family: inherit; } /* sorgt für identische Fonts */
 @keyframes slideIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
 
 .menu-header {
@@ -205,6 +206,7 @@ strong { color: var(--text-strong); }
 .menu-group { display: grid; gap: 8px; }
 .group-title { font-size: 0.9rem; color: var(--text); opacity: .92; padding: 0 2px; }
 
+/* Theme buttons row */
 .menu-choice {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -236,29 +238,25 @@ strong { color: var(--text-strong); }
   box-shadow: 0 0 0 2px rgba(0,122,204,0.20);
 }
 
-/* ===== Sequence radios (vertical, JEDE Option eigene Zeile) ===== */
+/* ===== Sequence radios (vertical + kompakt) ===== */
 .menu-choice.vertical { display: grid; gap: 8px; }
-#seqChoice.menu-choice { grid-template-columns: 1fr; } /* immer 1 Spalte */
+@media (min-width: 420px) { .menu-choice.vertical { grid-template-columns: 1fr 1fr; } }
 
 .radio-row {
-  display: grid;
-  grid-template-columns: 20px 1fr;
+  display: flex;
   align-items: center;
   gap: 10px;
   padding: 10px 12px;
-  min-height: 36px;
   border-radius: 10px;
   background: var(--panel-2);
   border: 1px solid var(--border);
   user-select: none;
   transition: background 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
-  font-size: 0.95rem;
-  line-height: 1.2;
 }
 .radio-row:hover { background: var(--panel-2-hover); border-color: var(--accent); box-shadow: 0 0 0 2px rgba(0,122,204,0.12); }
-.radio-row input[type="radio"] { width: 18px; height: 18px; accent-color: var(--accent); margin: 0; transform: translateY(1px); }
+.radio-row input[type="radio"] { width: 18px; height: 18px; accent-color: var(--accent); margin: 0; }
 .radio-row.disabled { opacity: .55; cursor: not-allowed; }
-/* checked state hervorheben */
+/* checked state */
 .radio-row:has(input[type="radio"]:checked) {
   border-color: var(--accent);
   box-shadow: 0 0 0 2px rgba(0,122,204,0.20);
@@ -286,7 +284,6 @@ strong { color: var(--text-strong); }
   width: 100%;
   outline: none;
   transition: box-shadow 180ms ease, border-color 180ms ease, background 180ms ease;
-  font-family: inherit;
 }
 .form-field input[type="text"]:focus {
   border-color: var(--accent);
@@ -308,7 +305,7 @@ strong { color: var(--text-strong); }
 
 /* Buttons */
 .button {
-  margin-top: 1.5rem;
+  margin-top: 1.2rem;
   height: var(--h-button);
   padding: 0 1.2rem;
   background: var(--accent);
@@ -326,24 +323,15 @@ strong { color: var(--text-strong); }
 .button:disabled { opacity: .6; cursor: not-allowed; }
 
 /* Submit feedback */
-@keyframes shake {
-  0%,100% { transform: translateX(0); }
-  20%,60% { transform: translateX(-6px); }
-  40%,80% { transform: translateX(6px); }
-}
+@keyframes shake { 0%,100%{transform:translateX(0)} 20%,60%{transform:translateX(-6px)} 40%,80%{transform:translateX(6px)} }
 button.shake { animation: shake .4s; }
 
 /* ===== Card grid ===== */
-/* Fix: immer 4 pro Zeile (Desktop), Specials separat unten */
 .card-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(var(--card-min-desktop), var(--card-max-desktop)));
+  grid-template-columns: repeat(auto-fit, minmax(var(--card-min-desktop), var(--card-max-desktop)));
   gap: 8px;
   margin: 1rem 0;
-}
-.card-grid.specials {
-  grid-template-columns: repeat(3, minmax(var(--card-min-desktop), var(--card-max-desktop)));
-  justify-content: start;
 }
 .card-grid button {
   display: inline-block;
@@ -377,17 +365,25 @@ button.selected {
   transform: scale(1.03);
 }
 
-/* Checkmark (pre-reveal) */
-.card-grid .checkmark {
+/* Checkmark badge (immer gleich – grüner Haken im weißen Kreis) */
+.card-grid .checkmark{
   position: absolute;
-  top: 6px; right: 8px;
-  font-size: 0.95rem; color: var(--ok);
-  background: var(--bg); border-radius: 999px; padding: 0 6px; line-height: 1.05;
-  display: none; box-shadow: 0 0 4px var(--ok);
-  opacity: 0; transform: scale(0.9);
-  transition: opacity 180ms ease, transform 180ms ease;
+  top: 6px; right: 6px;
+  width: 20px; height: 20px;
+  border-radius: 999px;
+  background: #fff;
+  color: #16a34a;                 /* green-600 */
+  border: 2px solid #16a34a;
+  display: none;                  /* sichtbar nur bei .selected */
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 14px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.35);
+  z-index: 2;
 }
-button.selected .checkmark { display: block; opacity: 1; transform: scale(1); }
+button.selected .checkmark { display: flex; }
 
 /* ===== Participant list ===== */
 ul { list-style: none; padding: 0; margin: 0; }
@@ -415,12 +411,15 @@ li { margin-bottom: 0.4rem; line-height: 1.5; font-size: 1rem; }
 
 .row-right { display: inline-flex; align-items: center; justify-content: flex-start; gap: 6px; }
 
+/* Disconnected */
 #liveParticipantList li.disconnected { color: #888; font-style: italic; text-decoration: none; }
 
+/* Status icons */
 .status-icon { font-size: 1rem; line-height: 1; display: inline-flex; align-items: center; }
 .status-icon.done { color: var(--ok); filter: drop-shadow(0 0 2px rgba(76,175,80,.6)); }
 .status-icon.pending { color: var(--warn); opacity: .95; }
 
+/* Vote chip */
 .vote-chip {
   display: inline-block; padding: 0.15rem 0.5rem; border-radius: 8px;
   background-color: var(--ok); color: #fff; font-weight: bold;
@@ -428,7 +427,9 @@ li { margin-bottom: 0.4rem; line-height: 1.5; font-size: 1rem; }
   font-size: 0.95rem; line-height: 1.2; min-width: 2ch; text-align: center;
   opacity: 0; transform: translateY(6px); animation: chipIn 220ms ease forwards;
 }
+/* Sonderkarten (❓ 💬 ☕) leicht anders und ☕ größer für Erkennbarkeit */
 .vote-chip.special { background: #334155; border-color: #475569; box-shadow: none; color: var(--text-strong); }
+.vote-chip[data-val="☕"] { font-size: 1.25rem; padding: 0.1rem 0.55rem; }
 @keyframes chipIn { to { opacity: 1; transform: translateY(0); } }
 
 /* Pre/Post vote blocks + Average */
@@ -476,30 +477,31 @@ li { margin-bottom: 0.4rem; line-height: 1.5; font-size: 1rem; }
 
 @media (prefers-reduced-motion: reduce) { .menu-panel, .qr-dialog { animation: none; } }
 
-/* ===== Responsiveness ===== */
+/* ===== Responsiveness / Mobile optimizations ===== */
 @media (max-width: 600px) {
   body { padding: 1rem; }
+  h2 { font-size: .92rem; margin: .9rem 0 .6rem; }
 
-  /* mobile: 3 pro Zeile */
-  .card-grid {
-    grid-template-columns: repeat(3, minmax(var(--card-min-mobile), var(--card-max-mobile)));
-    gap: 6px;
-  }
-  .card-grid.specials {
-    grid-template-columns: repeat(3, minmax(var(--card-min-mobile), var(--card-max-mobile)));
-  }
-
+  /* Karten: exakt 4 pro Reihe auf Phones */
+  .card-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
   .card-grid button {
-    padding: 0.6rem;
-    font-size: clamp(1.2rem, 6vw, 1.6rem);
-    margin: 0.25rem;
-    line-height: 1.2;
+    padding: 0.5rem;
+    font-size: clamp(1rem, 4.2vw, 1.25rem);
+    margin: 0.2rem;
     aspect-ratio: 5 / 3;
   }
-  .button { width: 100%; font-size: calc(1rem * 1.2); }
-  h1, h2 { font-size: calc(1.2rem * 1.2); }
-  ul li { font-size: calc(0.95rem * 1.2); line-height: 1.45; }
-  .container h1:first-child { margin-top: 1.6rem; }
+
+  /* bring actions näher/optional sticky */
+  .pre-vote { margin-top: var(--pre-vote-margin-mobile); }
+  #revealButton, #resetButton {
+    position: sticky;
+    bottom: 12px;
+    box-shadow: 0 10px 24px rgba(0,0,0,.22);
+    z-index: 5;
+  }
+
+  ul li { font-size: 1.05rem; line-height: 1.45; }
+  .container h1:first-child { margin-top: 1.2rem; }
 }
 
 .brandmark {
