@@ -208,16 +208,43 @@ strong { color: var(--text-strong); }
 }
 .menu-item .mi-icon { font-size: 18px; line-height: 1; }
 
-/* Split-flag icon */
-.flag-split {
-  position: relative; display: inline-flex; width: 24px; height: 16px; overflow: hidden; border-radius: 3px; border: 1px solid var(--border);
+/* Split-flag icon – exakt diagonale Trennlinie */
+.flag-split{
+  position: relative;
+  display: inline-block;
+  width: 24px;
+  height: 16px;
+  overflow: hidden;
+  border-radius: 3px;
+  border: 1px solid var(--border);
 }
-.flag-split .flag { width: 24px; height: 16px; object-fit: cover; }
-.flag-split .flag-b { position: absolute; right: 0; clip-path: polygon(50% 0, 100% 0, 100% 100%, 0 100%); }
 
-/* Theme choice group */
-.menu-group { display: grid; gap: 8px; font-family: inherit; }
-.group-title { font-size: 0.85rem; color: var(--text); opacity: .92; padding: 0 2px; }
+/* Beide Flaggen absolut positionieren + minimaler "Bleed",
+   damit keine 1px-Lücke sichtbar wird */
+.flag-split .flag{
+  position: absolute;
+  inset: -0.5px;                 /* 0.5px Überstand rundum */
+  width: calc(100% + 1px);
+  height: calc(100% + 1px);
+  object-fit: cover;
+}
+
+/* rechte/obere Hälfte wird über die linke gelegt */
+.flag-split .flag-b{
+  z-index: 1;
+
+  /* Präzise 45°-Maske: von links-unten (transparent) nach rechts-oben (sichtbar) */
+  -webkit-mask-image: linear-gradient(135deg, transparent 49.5%, black 50%);
+          mask-image: linear-gradient(135deg, transparent 49.5%, black 50%);
+}
+
+/* Fallback, falls Masken nicht unterstützt werden */
+@supports not (mask-image: linear-gradient(#000,#000)) {
+  .flag-split .flag-b{
+    clip-path: polygon(100% 0, 100% 100%, 0 100%);   /* Diagonale von (0,100) nach (100,0) */
+  }
+}
+
 
 /* Theme buttons row */
 .menu-choice {
