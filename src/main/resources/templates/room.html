@@ -451,7 +451,7 @@ function updateParticipantList(participants, revealed) {
       voteChip.className = "vote-chip";
       const v = p.vote != null ? String(p.vote) : null;
       voteChip.textContent = v != null ? v : "—";
-      if (v) voteChip.dataset.val = v;             // ☕ größer darstellen (CSS)
+      voteChip.dataset.val = v != null ? v : "";   // ☕-CSS greift zuverlässig
       if (v && !/^\d+$/.test(v)) voteChip.classList.add("special");
       rightWrap.appendChild(voteChip);
     } else {
