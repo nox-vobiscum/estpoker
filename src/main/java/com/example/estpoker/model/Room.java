@@ -19,39 +19,30 @@ public class Room {
     private String sequenceId = "fib-scrum";
     private List<String> currentCards = computeDeck(sequenceId);
 
-    // Base sequences (numbers already in ascending order)
-    private static final Map<String, List<String>> SEQ_BASE = Map.of(
-            "fib-orig",  List.of("0","1","2","3","5","8","13","21","34","55"),
-            "fib-scrum", List.of("1","2","3","5","8","13","20","40"),
-            "fib-enh",   List.of("0","1/2","1","2","3","5","8","13","20","40"),
-            "pow2",      List.of("2","4","8","16","32"),
-            "tshirt",    List.of("XS","S","M","L","XL","XXL","XXXL")
-    );
-    private static final List<String> SPECIALS = List.of("❓","💬","☕");
-
-    public Room(String code) {
-        this.code = code;
-    }
-
-    /* ------------ Sequence helpers ------------ */
-
+    // --- Keine Duplikate mehr: Deck aus CardSequences.SEQUENCES + CardSequences.SPECIALS bauen
     private static List<String> computeDeck(String seqId) {
-        List<String> base = new ArrayList<>(SEQ_BASE.getOrDefault(seqId, SEQ_BASE.get("fib-scrum")));
-        // keep given order; append specials as own trailing "row"
-        List<String> out = new ArrayList<>(base.size() + SPECIALS.size());
+        List<String> base = new ArrayList<>(
+                CardSequences.SEQUENCES.getOrDefault(seqId, CardSequences.SEQUENCES.get("fib-scrum"))
+        );
+        // Reihenfolge beibehalten, Specials hinten anhängen
+        List<String> out = new ArrayList<>(base.size() + CardSequences.SPECIALS.size());
         out.addAll(base);
-        out.addAll(SPECIALS);
+        out.addAll(CardSequences.SPECIALS);
         return out;
     }
 
     /** Sets the active sequence (unknown id falls back to "fib-scrum") and resets votes. */
     public synchronized void setSequence(String seqId) {
-        if (!SEQ_BASE.containsKey(seqId)) {
+        if (!CardSequences.SEQUENCES.containsKey(seqId)) {
             seqId = "fib-scrum";
         }
         this.sequenceId = seqId;
         this.currentCards = computeDeck(seqId);
         reset(); // start a fresh round when sequence changes
+    }
+
+    public Room(String code) {
+        this.code = code;
     }
 
     public synchronized String getSequenceId() {
