@@ -21,24 +21,15 @@ public class GameService {
     // stabile Client-ID -> letzter bekannter Name (pro Room)
     private final Map<String, String> clientToName = new ConcurrentHashMap<>();
     private static String mapKey(String roomCode, String cid) { return roomCode + "|" + cid; }
-    public String getClientName(String roomCode, String cid) {
-        if (cid == null) return null;
-        return clientToName.get(mapKey(roomCode, cid));
-    }
-    public void rememberClientName(String roomCode, String cid, String name) {
-        if (cid != null) clientToName.put(mapKey(roomCode, cid), name);
-    }
+    public String getClientName(String roomCode, String cid) { return cid == null ? null : clientToName.get(mapKey(roomCode, cid)); }
+    public void rememberClientName(String roomCode, String cid, String name) { if (cid != null) clientToName.put(mapKey(roomCode, cid), name); }
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    // Disconnect-Grace (~2s)
+    // Disconnect grace
     private static final long DISCONNECT_GRACE_MS = 2000L;
     private final ScheduledExecutorService scheduler =
-            Executors.newSingleThreadScheduledExecutor(r -> {
-                Thread t = new Thread(r, "disconnect-grace");
-                t.setDaemon(true);
-                return t;
-            });
+            Executors.newSingleThreadScheduledExecutor(r -> { Thread t=new Thread(r,"disconnect-grace"); t.setDaemon(true); return t; });
     private final Map<String, ScheduledFuture<?>> pendingDisconnects = new ConcurrentHashMap<>();
     private static String key(Room room, String name) { return room.getCode() + "|" + name; }
 
@@ -52,7 +43,7 @@ public class GameService {
     public void removeSession(WebSocketSession session) { sessionToRoomMap.remove(session); sessionToParticipantMap.remove(session); }
 
     public void revealCards(String roomCode) { Room room = rooms.get(roomCode); if (room != null) room.setCardsRevealed(true); }
-    public void resetVotes(String roomCode)   { Room room = rooms.get(roomCode); if (room != null) room.reset(); }
+    public void resetVotes(String roomCode) { Room room = rooms.get(roomCode); if (room != null) room.reset(); }
 
     public Optional<Double> calculateAverageVote(Room room) {
         return room.getParticipants().stream()
@@ -94,13 +85,15 @@ public class GameService {
 
             payload.put("participants", participants);
             payload.put("votesRevealed", room.areVotesRevealed());
-            payload.put("sequenceId", room.getSequenceId());
-            payload.put("cards", room.getCurrentCards());
 
             Optional<Double> avg = calculateAverageVote(room);
             payload.put("averageVote", room.areVotesRevealed()
                     ? avg.map(a -> String.format("%.1f", a)).orElse("N/A")
                     : null);
+
+            // NEW: sequence + cards
+            payload.put("sequenceId", room.getSequenceId());
+            payload.put("cards", room.getDeck());
 
             String json = objectMapper.writeValueAsString(payload);
             broadcastToRoom(room, json);
@@ -127,13 +120,14 @@ public class GameService {
 
             payload.put("participants", participants);
             payload.put("votesRevealed", room.areVotesRevealed());
-            payload.put("sequenceId", room.getSequenceId());
-            payload.put("cards", room.getCurrentCards());
 
             Optional<Double> avg = calculateAverageVote(room);
             payload.put("averageVote", room.areVotesRevealed()
                     ? avg.map(a -> String.format("%.1f", a)).orElse("N/A")
                     : null);
+
+            payload.put("sequenceId", room.getSequenceId());
+            payload.put("cards", room.getDeck());
 
             String json = objectMapper.writeValueAsString(payload);
             if (targetSession.isOpen()) targetSession.sendMessage(new TextMessage(json));
@@ -168,34 +162,25 @@ public class GameService {
         return all;
     }
 
-    // Disconnect-Grace Window
+    // disconnect grace
     public void cancelPendingDisconnect(Room room, String participantName) {
         String k = key(room, participantName);
         ScheduledFuture<?> f = pendingDisconnects.remove(k);
         if (f != null) f.cancel(false);
     }
-
     public void scheduleDisconnect(Room room, String participantName) {
         if (room == null || participantName == null) return;
         String k = key(room, participantName);
-
         cancelPendingDisconnect(room, participantName);
-
         ScheduledFuture<?> f = scheduler.schedule(() -> {
             try {
                 Participant participant = room.getParticipant(participantName);
                 if (participant != null) participant.setActive(false);
-
                 String newHostName = room.assignNewHostIfNecessary(participantName);
-                if (newHostName != null) {
-                    broadcastHostChange(room, participantName, newHostName);
-                }
+                if (newHostName != null) broadcastHostChange(room, participantName, newHostName);
                 broadcastRoomState(room);
-            } finally {
-                pendingDisconnects.remove(k);
-            }
+            } finally { pendingDisconnects.remove(k); }
         }, DISCONNECT_GRACE_MS, TimeUnit.MILLISECONDS);
-
         pendingDisconnects.put(k, f);
     }
 }

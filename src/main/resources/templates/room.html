@@ -5,11 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="dark light">
   <title th:text="#{app.title}">RBS' Estimation Poker</title>
+
+  <!-- Favicon set -->
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
   <link rel="alternate icon" href="/favicon.ico" sizes="any">
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+
+  <!-- Early theme apply -->
   <script>
     (function(){try{
       var t=localStorage.getItem('estpoker-theme')||'dark';
@@ -17,9 +21,12 @@
       else document.documentElement.setAttribute('data-theme',t);
     }catch(e){}})();
   </script>
+
   <link rel="stylesheet" th:href="@{/styles.css}">
 </head>
 <body>
+
+<!-- Hamburger -->
 <button id="menuButton" class="menu-button" aria-expanded="false" aria-controls="appMenuOverlay" aria-label="Open menu">☰</button>
 
 <!-- Overlay Menu -->
@@ -80,14 +87,13 @@
         <p id="seqHint" class="hint" th:text="#{sequence.onlyHost}">Only the host can change the sequence</p>
       </div>
 
-      <!-- Invite: Link (QR vorerst deaktiviert) -->
+      <!-- Invite -->
       <div class="menu-group">
         <div class="group-title" th:text="#{menu.invite}">Invite</div>
         <button id="copyRoomLink" class="menu-item" type="button">
           <span class="mi-icon" aria-hidden="true">🔗</span>
           <span th:text="#{invite.copyLink}">Copy link to this room</span>
         </button>
-        <!-- QR-Funktion vorerst deaktiviert -->
       </div>
     </div>
   </div>
@@ -146,7 +152,7 @@
 </div>
 
 <script th:inline="javascript">
-/* Default sequence (client-side) */
+/* Default sequence (client-side mirror) */
 let currentSequenceId = 'fib-scrum';
 
 /* ===== Menu (morph + focus trap) ===== */
@@ -255,7 +261,7 @@ let votesRevealed = false;
 let isHost = false;
 let resizeTimer = null;
 
-// Sequences (client mirror)
+/* Client-side mirror (nur Fallback/Initial) */
 const SEQ_BASE = {
   'fib-orig':  ["0","1","2","3","5","8","13","21","34","55"],
   'fib-scrum': ["1","2","3","5","8","13","20","40"],
@@ -295,7 +301,7 @@ function syncSequenceUI(){
   if (hint) hint.style.display = isHost ? 'none' : 'block';
 }
 document.addEventListener('DOMContentLoaded', () => {
-  renderCards(deckFor(currentSequenceId));
+  renderCards(deckFor(currentSequenceId));  // fallback initial
   syncSequenceUI();
   const seqChoice = document.getElementById('seqChoice');
   seqChoice?.addEventListener('change', (e)=>{
@@ -336,7 +342,7 @@ const MSG_HOST_OTHER = /*[[#{toast.hostOther}]]*/ 'Host {old} left. {new} is now
 socket.onmessage = (event) => {
   const data = JSON.parse(event.data);
 
-  // --- sequence info from server (part of voteUpdate) ---
+  // server-driven sequence (comes with voteUpdate)
   if (data.sequenceId) {
     const changed = (currentSequenceId !== data.sequenceId);
     currentSequenceId = data.sequenceId;
@@ -347,6 +353,7 @@ socket.onmessage = (event) => {
     }
   }
 
+  // server may confirm your effective name (rename by cid)
   if (data.yourName && data.yourName !== participantName) {
     participantName = data.yourName;
     const youEl = document.getElementById("youName");
@@ -465,7 +472,6 @@ function showToast(message) {
   const copyBtn = document.getElementById('copyRoomLink');
   const TXT_LINK_COPIED = /*[[#{invite.linkCopied}]]*/ 'Link copied to clipboard';
   const TXT_COPY_FAILED = /*[[#{notify.copyFailed}]]*/ 'Copy failed';
-
   function deepLink(){ return location.origin + "/room?roomCode=" + encodeURIComponent(roomCode); }
   async function copyText(text){
     try{ await navigator.clipboard.writeText(text); showToast(TXT_LINK_COPIED); }
@@ -475,6 +481,7 @@ function showToast(message) {
 })();
 </script>
 
+<!-- local toast animation -->
 <style>
 .toast {
   position: fixed; top: 20px; right: 20px; background-color: #333; color: white;

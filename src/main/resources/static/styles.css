@@ -152,16 +152,20 @@ strong { color: var(--text-strong); }
   box-shadow: var(--shadow);
   padding: 10px;
   animation: slideIn 180ms ease both;
+  /* wichtig: damit das Panel nie abgeschnitten wirkt */
+  max-height: calc(100vh - 24px);
+  overflow: auto;
 }
 @keyframes slideIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
 
 .menu-header {
   display: flex; align-items: center; justify-content: space-between;
   padding: 6px 6px 8px 6px; border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; background: var(--panel); z-index: 1;
 }
 .menu-header h3 { margin: 0; font-size: 0.95rem; color: var(--text-strong); }
 
-.menu-section { display: grid; gap: 8px; padding: 10px 4px 4px 4px; }
+.menu-section { display: grid; gap: 10px; padding: 10px 4px 12px 4px; }
 
 /* Language row item */
 .menu-item {
@@ -197,24 +201,6 @@ strong { color: var(--text-strong); }
 .menu-group { display: grid; gap: 8px; }
 .group-title { font-size: 0.9rem; color: var(--text); opacity: .92; padding: 0 2px; }
 
-/* ===== Sequence radios (vertical) ===== */
-.menu-choice.vertical { display: grid; gap: 8px; }
-.radio-row {
-  display: grid;
-  grid-template-columns: 20px 1fr;
-  align-items: center;
-  gap: 10px;
-  padding: 10px;
-  border-radius: 10px;
-  background: var(--panel-2);
-  border: 1px solid var(--border);
-  user-select: none;
-}
-.radio-row:hover { background: var(--panel-2-hover); border-color: var(--accent); box-shadow: 0 0 0 2px rgba(0,122,204,0.12); }
-.radio-row input[type="radio"] { accent-color: var(--accent); margin: 0; }
-.radio-row.disabled { opacity: .6; cursor: not-allowed; }
-
-
 .menu-choice {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -244,6 +230,31 @@ strong { color: var(--text-strong); }
 .choice-btn.active {
   border-color: var(--accent);
   box-shadow: 0 0 0 2px rgba(0,122,204,0.20);
+}
+
+/* ===== Sequence radios (vertical) ===== */
+.menu-choice.vertical { display: grid; gap: 8px; }
+@media (min-width: 420px) { .menu-choice.vertical { grid-template-columns: 1fr 1fr; } }
+
+.radio-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  user-select: none;
+  transition: background 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+}
+.radio-row:hover { background: var(--panel-2-hover); border-color: var(--accent); box-shadow: 0 0 0 2px rgba(0,122,204,0.12); }
+.radio-row input[type="radio"] { width: 18px; height: 18px; accent-color: var(--accent); margin: 0; }
+.radio-row.disabled { opacity: .55; cursor: not-allowed; }
+/* checked state hervorheben */
+.radio-row:has(input[type="radio"]:checked) {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(0,122,204,0.20);
+  background: color-mix(in srgb, var(--panel-2) 84%, var(--accent) 16%);
 }
 
 /* ===== Landing page / form layout ===== */
@@ -390,15 +401,12 @@ li { margin-bottom: 0.4rem; line-height: 1.5; font-size: 1rem; }
 
 .row-right { display: inline-flex; align-items: center; justify-content: flex-start; gap: 6px; }
 
-/* Disconnected */
 #liveParticipantList li.disconnected { color: #888; font-style: italic; text-decoration: none; }
 
-/* Status icons */
 .status-icon { font-size: 1rem; line-height: 1; display: inline-flex; align-items: center; }
 .status-icon.done { color: var(--ok); filter: drop-shadow(0 0 2px rgba(76,175,80,.6)); }
 .status-icon.pending { color: var(--warn); opacity: .95; }
 
-/* Vote chip */
 .vote-chip {
   display: inline-block; padding: 0.15rem 0.5rem; border-radius: 8px;
   background-color: var(--ok); color: #fff; font-weight: bold;
@@ -450,10 +458,8 @@ li { margin-bottom: 0.4rem; line-height: 1.5; font-size: 1rem; }
 .qr-body { display: grid; place-items: center; padding: 16px; }
 .qr-actions { display: flex; justify-content: flex-end; gap: 8px; padding: 8px; }
 
-/* Crisp canvas */
 #qrCanvas { image-rendering: pixelated; width: 320px; height: 320px; border-radius: 10px; background: #fff; }
 
-/* Reduced motion */
 @media (prefers-reduced-motion: reduce) { .menu-panel, .qr-dialog { animation: none; } }
 
 /* ===== Responsiveness ===== */

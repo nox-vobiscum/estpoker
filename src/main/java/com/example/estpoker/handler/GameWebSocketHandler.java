@@ -27,7 +27,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
 
         Room room = gameService.getOrCreateRoom(roomCode);
 
-        // gleicher Client (cid) kommt mit anderem Namen zurück → rename
+        // ggf. Rename per cid
         String existingName = gameService.getClientName(roomCode, cid);
         if (cid != null && existingName != null && !existingName.equals(participantName)) {
             String finalName = room.renameParticipant(existingName, participantName);
@@ -35,7 +35,6 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                 participantName = finalName;
             }
         }
-
         gameService.rememberClientName(roomCode, cid, participantName);
 
         room.addOrReactivateParticipant(participantName);
@@ -77,7 +76,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             if (me != null) {
                 Participant meP = room.getParticipant(me);
                 if (meP != null && meP.isHost()) {
-                    room.setSequence(seqId); // setzt + reset intern
+                    room.setSequence(seqId);      // setzt + reset intern
                     gameService.broadcastRoomState(room);
                 }
             }
@@ -99,12 +98,9 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     private String getQueryParam(@NonNull WebSocketSession session, String key) {
         URI uri = session.getUri();
         if (uri == null || uri.getQuery() == null) return null;
-
         for (String param : uri.getQuery().split("&")) {
             String[] kv = param.split("=", 2);
-            if (kv.length == 2 && kv[0].equals(key)) {
-                return kv[1]; // (optional: URL-Decoding)
-            }
+            if (kv.length == 2 && kv[0].equals(key)) return kv[1];
         }
         return null;
     }

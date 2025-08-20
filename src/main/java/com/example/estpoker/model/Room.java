@@ -10,28 +10,37 @@ public class Room {
     private boolean votesRevealed = false;
     private Participant host;
 
-    // --- NEW: sequence state ---
-    private String sequenceId = CardSequences.DEFAULT_ID;
-    private List<String> currentCards = CardSequences.deckWithSpecials(sequenceId);
+    // ==== Sequence support ====
+    private String sequenceId = "fib-scrum";
+    private List<String> currentDeck = new ArrayList<>();
 
+    private static final Map<String, List<String>> SEQUENCES;
+    private static final List<String> SPECIALS = Arrays.asList("❓","💬","☕");
+    static {
+        Map<String, List<String>> m = new HashMap<>();
+        m.put("fib-orig",  Arrays.asList("0","1","2","3","5","8","13","21","34","55"));
+        m.put("fib-scrum", Arrays.asList("1","2","3","5","8","13","20","40"));
+        m.put("fib-enh",   Arrays.asList("0","1/2","1","2","3","5","8","13","20","40"));
+        m.put("pow2",      Arrays.asList("2","4","8","16","32"));
+        m.put("tshirt",    Arrays.asList("XS","S","M","L","XL","XXL","XXXL"));
+        SEQUENCES = Collections.unmodifiableMap(m);
+    }
+    private void ensureDeckInit(){
+        if (currentDeck.isEmpty()) setSequence(sequenceId);
+    }
+    public synchronized void setSequence(String id){
+        if (id == null || !SEQUENCES.containsKey(id)) id = "fib-scrum";
+        this.sequenceId = id;
+        this.currentDeck = new ArrayList<>(SEQUENCES.get(id));
+        this.currentDeck.addAll(SPECIALS);
+        reset(); // neue Runde bei Wechsel
+    }
+    public synchronized String getSequenceId(){ ensureDeckInit(); return sequenceId; }
+    public synchronized List<String> getDeck(){ ensureDeckInit(); return Collections.unmodifiableList(currentDeck); }
+
+    // ==== existing logic ====
     public Room(String code) { this.code = code; }
-
     public String getCode() { return code; }
-
-    // === Sequence API ===
-    public synchronized String getSequenceId() { return sequenceId; }
-    public synchronized List<String> getCurrentCards() {
-        if (currentCards == null) currentCards = CardSequences.deckWithSpecials(sequenceId);
-        return currentCards;
-    }
-    public synchronized void setSequence(String newId) {
-        String norm = CardSequences.normalize(newId);
-        if (!Objects.equals(this.sequenceId, norm)) {
-            this.sequenceId = norm;
-            this.currentCards = CardSequences.deckWithSpecials(norm);
-            this.reset(); // neue Runde beim Sequenzwechsel
-        }
-    }
 
     public synchronized void addParticipant(Participant p, boolean asHost) {
         nameToParticipant.put(p.getName(), p);
@@ -41,42 +50,31 @@ public class Room {
             p.setHost(true);
         }
     }
-
     public synchronized Participant getParticipant(String name) { return nameToParticipant.get(name); }
     public synchronized List<Participant> getParticipants() { return participants; }
 
     public synchronized void setCardsRevealed(boolean revealed) { this.votesRevealed = revealed; }
     public synchronized boolean areVotesRevealed() { return votesRevealed; }
-
     public synchronized Participant getHost() { return host; }
 
     public synchronized void reset() {
         votesRevealed = false;
-        for (Participant p : participants) {
-            p.setVote(null);
-        }
+        for (Participant p : participants) { p.setVote(null); }
     }
 
     public synchronized void markInactive(String name) {
         Participant p = nameToParticipant.get(name);
-        if (p != null) {
-            p.setActive(false);
-            p.setDisconnected(true);
-        }
+        if (p != null) { p.setActive(false); p.setDisconnected(true); }
     }
-
     public synchronized void markActive(String name) {
         Participant p = nameToParticipant.get(name);
-        if (p != null) {
-            p.setActive(true);
-            p.setDisconnected(false);
-        }
+        if (p != null) { p.setActive(true); p.setDisconnected(false); }
     }
-
     public synchronized void removeParticipant(String name) {
         Participant p = nameToParticipant.remove(name);
         if (p != null) {
             participants.remove(p);
+            // Host change handled elsewhere if needed
         }
     }
 
@@ -92,9 +90,7 @@ public class Room {
 
     public synchronized List<Participant> getParticipantsWithVotes() {
         List<Participant> voted = new ArrayList<>();
-        for (Participant p : participants) {
-            if (p.getVote() != null) voted.add(p);
-        }
+        for (Participant p : participants) if (p.getVote() != null) voted.add(p);
         return voted;
     }
 
@@ -129,29 +125,19 @@ public class Room {
         return null;
     }
 
-    // Rename
+    // rename support (keine Doppelten)
     private String uniqueName(String desired) {
         String base = (desired == null || desired.isBlank()) ? "Guest" : desired;
-        String candidate = base;
-        int i = 2;
-        while (nameToParticipant.containsKey(candidate)) {
-            candidate = base + " (" + i + ")";
-            i++;
-        }
+        String candidate = base; int i = 2;
+        while (nameToParticipant.containsKey(candidate)) { candidate = base + " (" + i + ")"; i++; }
         return candidate;
     }
-
     public synchronized String renameParticipant(String oldName, String desiredNewName) {
         Participant p = nameToParticipant.remove(oldName);
         if (p == null) return null;
-
         String newName = desiredNewName;
         if (newName == null || newName.isBlank()) newName = oldName;
-
-        if (!oldName.equals(newName) && nameToParticipant.containsKey(newName)) {
-            newName = uniqueName(newName);
-        }
-
+        if (!oldName.equals(newName) && nameToParticipant.containsKey(newName)) newName = uniqueName(newName);
         p.setName(newName);
         nameToParticipant.put(newName, p);
         return newName;
