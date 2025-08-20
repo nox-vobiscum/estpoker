@@ -268,6 +268,7 @@ let votesRevealed = false;
 let isHost = false;
 let resizeTimer = null;
 let currentSequenceId = 'fib-scrum'; // wird vom Server überschrieben
+let currentDeckSig = "";             // <- merkt die aktuelle Deck-Zusammensetzung
 
 const SPECIALS = new Set(["❓","💬","☕"]);
 
@@ -281,6 +282,11 @@ function addCardButton(grid, val){
   const chk = document.createElement('span'); chk.className='checkmark'; chk.textContent='✔';
   btn.appendChild(chk);
   grid.appendChild(btn);
+}
+
+/** Einfache Signatur des Decks, um Änderungen zu erkennen */
+function deckSig(arr){
+  return Array.isArray(arr) ? arr.join("|") : "";
 }
 
 /** Render: Desktop = auto-fit (aus CSS), Mobile = 4 pro Reihe; Specials in eigener Reihe */
@@ -364,14 +370,20 @@ const MSG_HOST_OTHER = /*[[#{toast.hostOther}]]*/ 'Host {old} left. {new} is now
 socket.onmessage = (event) => {
   const data = JSON.parse(event.data);
 
-  // Sequenz + Karten vom Server (nur hier re-rendern → kein Flackern)
+  // Sequenz + Karten vom Server: nur neu rendern, wenn sich Sequenz ODER Deck geändert hat
   if (data.sequenceId) {
-    const changed = (currentSequenceId !== data.sequenceId);
+    const newSig = deckSig(data.cards);
+    const needRerender =
+      (currentSequenceId !== data.sequenceId) ||
+      (newSig && newSig !== currentDeckSig);
+
     currentSequenceId = data.sequenceId;
     syncSequenceUI();
-    if (changed && Array.isArray(data.cards)) {
+
+    if (needRerender && Array.isArray(data.cards)) {
       clearCardSelection();
       renderCards(data.cards);
+      currentDeckSig = newSig;
     }
   }
 
@@ -493,7 +505,7 @@ window.addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer
 
 function updateAverage(avg) {
   const avgSpan = document.getElementById("averageVote");
-  if (avgSpan) avgSpan.textContent = avg != null ? avg : "-";  // ← „-“ statt „N/A“
+  if (avgSpan) avgSpan.textContent = avg != null ? avg : "-";  // „-“ statt „N/A“
 }
 function toggleView(revealed) {
   document.querySelectorAll(".pre-vote").forEach(e => e.style.display = revealed ? "none" : "block");
