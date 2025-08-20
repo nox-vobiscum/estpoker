@@ -2,6 +2,7 @@ package com.example.estpoker.service;
 
 import com.example.estpoker.model.Participant;
 import com.example.estpoker.model.Room;
+import com.example.estpoker.model.CardSequences;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.web.socket.CloseStatus;
@@ -11,6 +12,7 @@ import org.springframework.web.socket.WebSocketSession;
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.stream.Collectors;
 
 @Service
 public class GameService {
@@ -73,15 +75,18 @@ public class GameService {
         if (room != null) room.reset();
     }
 
-    public Optional<Double> calculateAverageVote(Room room) {
-        return room.getParticipants().stream()
+    /**
+     * Durchschnitt aus allen gültigen Stimmen des Rooms.
+     * Nutzt CardSequences.averageOfStrings -> "½" wird als 0.5 gewertet,
+     * Sonderkarten (❓💬☕) werden ignoriert.
+     */
+    public OptionalDouble calculateAverageVote(Room room) {
+        List<String> votes = room.getParticipants().stream()
                 .map(Participant::getVote)
-                .filter(v -> v != null && v.matches("\\d+"))
-                .mapToInt(Integer::parseInt)
-                .average()
-                .stream()
-                .boxed()
-                .findFirst();
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+
+        return CardSequences.averageOfStrings(votes);
     }
 
     public void broadcastToRoom(Room room, String message) {
@@ -123,12 +128,12 @@ public class GameService {
             payload.put("participants", participants);
             payload.put("votesRevealed", room.areVotesRevealed());
 
-            Optional<Double> avg = calculateAverageVote(room);
-            payload.put("averageVote", room.areVotesRevealed()
-                    ? avg.map(a -> String.format("%.1f", a)).orElse("N/A")
-                    : null);
+            // Durchschnitt (formatierter String je nach Locale)
+            OptionalDouble avg = calculateAverageVote(room);
+            String avgDisplay = CardSequences.formatAverage(avg, Locale.getDefault());
+            payload.put("averageVote", room.areVotesRevealed() ? avgDisplay : null);
 
-            // falls Server Sequenz kennt (optional)
+            // Sequenz + Deck mitsenden (optional, aber dein Client nutzt das)
             payload.put("sequenceId", room.getSequenceId());
             payload.put("cards", room.getCurrentCards());
 
@@ -159,10 +164,9 @@ public class GameService {
             payload.put("participants", participants);
             payload.put("votesRevealed", room.areVotesRevealed());
 
-            Optional<Double> avg = calculateAverageVote(room);
-            payload.put("averageVote", room.areVotesRevealed()
-                    ? avg.map(a -> String.format("%.1f", a)).orElse("N/A")
-                    : null);
+            OptionalDouble avg = calculateAverageVote(room);
+            String avgDisplay = CardSequences.formatAverage(avg, Locale.getDefault());
+            payload.put("averageVote", room.areVotesRevealed() ? avgDisplay : null);
 
             payload.put("sequenceId", room.getSequenceId());
             payload.put("cards", room.getCurrentCards());
