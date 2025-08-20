@@ -149,10 +149,14 @@
   </div>
 
   <div class="post-vote" style="display:none;">
-    <!-- Avg/Consensus (wird dynamisch umgeschaltet) -->
-    <p class="average-label">
-      <span id="avgLabel" th:text="#{label.average}">Avg:</span>
-      <span id="averageVote">–</span>
+    <!-- Ergebniszeile: screenreader-freundlich + für Konsens umschaltbar -->
+    <p id="resultRow"
+       class="average-label consensus-row"
+       role="status"
+       aria-live="polite"
+       aria-atomic="true">
+      <span id="resultLabel" class="label" th:text="#{label.average}">Avg:</span>
+      <span id="averageVote" class="value">–</span>
     </p>
 
     <button type="button" id="resetButton" class="button" style="display:none;"
@@ -508,8 +512,8 @@ function updateAverage(avg) {
 
 /* ===== Consensus-UI (Label & Farbe, Zahl bleibt die vom Server) ===== */
 function setConsensusUI(on){
-  const row = document.querySelector('.average-label');
-  const lbl = document.getElementById('avgLabel');
+  const row = document.getElementById('resultRow');
+  const lbl = document.getElementById('resultLabel');
   if (!row || !lbl) return;
   lbl.textContent = on ? TXT_CONS : TXT_AVG;
   row.classList.toggle('consensus', !!on);
@@ -579,7 +583,7 @@ function showToast(message) {
 })();
 </script>
 
-<!-- small toast css inlined + consensus style -->
+<!-- small toast css inlined + (deine Consensus-Styles sind in styles.css) -->
 <style>
 .toast{position:fixed;top:20px;right:20px;background-color:rgba(51,51,51,.95);color:#fff;padding:12px 20px;border-radius:10px;z-index:9999;font-size:14px;box-shadow:0 6px 16px rgba(0,0,0,.25);transform:translateY(-10px);opacity:0;animation:fadein .22s ease forwards,fadeout .4s ease 2.4s forwards}
 @keyframes fadein{to{opacity:.95;transform:translateY(0)}}
