@@ -592,3 +592,6 @@ li { margin-bottom: 0.4rem; line-height: 1.5; font-size: 1rem; }
   border-color:#ef4444;
   box-shadow:0 0 0 2px rgba(239,68,68,.18);
 }
+
+/* Checkmark-Badge komplett ausblenden */
+.card-grid .checkmark { display: none !important; }
