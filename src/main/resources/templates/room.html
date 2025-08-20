@@ -491,7 +491,10 @@ function measureAndSetNameColumn() {
 }
 window.addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(measureAndSetNameColumn, 150); });
 
-function updateAverage(avg) { const avgSpan = document.getElementById("averageVote"); if (avgSpan) avgSpan.textContent = avg != null ? avg : "N/A"; }
+function updateAverage(avg) {
+  const avgSpan = document.getElementById("averageVote");
+  if (avgSpan) avgSpan.textContent = avg != null ? avg : "-";  // ← „-“ statt „N/A“
+}
 function toggleView(revealed) {
   document.querySelectorAll(".pre-vote").forEach(e => e.style.display = revealed ? "none" : "block");
   document.querySelectorAll(".post-vote").forEach(e => e.style.display = revealed ? "block" : "none");

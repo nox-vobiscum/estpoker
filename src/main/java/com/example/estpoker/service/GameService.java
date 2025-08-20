@@ -85,7 +85,6 @@ public class GameService {
                 .map(Participant::getVote)
                 .filter(Objects::nonNull)
                 .collect(Collectors.toList());
-
         return CardSequences.averageOfStrings(votes);
     }
 
@@ -128,12 +127,14 @@ public class GameService {
             payload.put("participants", participants);
             payload.put("votesRevealed", room.areVotesRevealed());
 
-            // Durchschnitt (formatierter String je nach Locale)
+            // Durchschnitt (formatiert; Fallback genau "-")
             OptionalDouble avg = calculateAverageVote(room);
-            String avgDisplay = CardSequences.formatAverage(avg, Locale.getDefault());
+            String avgDisplay = avg.isPresent()
+                    ? CardSequences.formatAverage(avg, Locale.getDefault())
+                    : "-";
             payload.put("averageVote", room.areVotesRevealed() ? avgDisplay : null);
 
-            // Sequenz + Deck mitsenden (optional, aber dein Client nutzt das)
+            // Sequenz + Deck mitsenden (Client nutzt das)
             payload.put("sequenceId", room.getSequenceId());
             payload.put("cards", room.getCurrentCards());
 
@@ -165,7 +166,9 @@ public class GameService {
             payload.put("votesRevealed", room.areVotesRevealed());
 
             OptionalDouble avg = calculateAverageVote(room);
-            String avgDisplay = CardSequences.formatAverage(avg, Locale.getDefault());
+            String avgDisplay = avg.isPresent()
+                    ? CardSequences.formatAverage(avg, Locale.getDefault())
+                    : "-";
             payload.put("averageVote", room.areVotesRevealed() ? avgDisplay : null);
 
             payload.put("sequenceId", room.getSequenceId());
@@ -274,7 +277,7 @@ public class GameService {
             cancelPendingDisconnect(room, p.getName());
         }
 
-        // 4) Room aus Registry entfernen (ID damit wieder frei — solange keine Persistierung)
+        // 4) Room aus Registry entfernen
         rooms.remove(room.getCode());
     }
 }
