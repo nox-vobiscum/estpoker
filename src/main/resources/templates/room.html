@@ -110,7 +110,7 @@
     <span th:text="#{ui.heading}">RBS' Estimation Poker</span>
   </h1>
 
-  <!-- Info: zuerst dein Name, dann die Room-ID -->
+  <!-- Info -->
   <dl class="main-info">
     <dt><span class="mi-icon" aria-hidden="true">👤</span><span class="mi-label" th:text="#{label.you}">You are:</span></dt>
     <dd><strong id="youName" th:text="${participantName}">Guest</strong></dd>
@@ -271,7 +271,19 @@ let currentSequenceId = 'fib-scrum'; // wird vom Server überschrieben
 
 const SPECIALS = new Set(["❓","💬","☕"]);
 
-/** Render: 4 pro Reihe; Specials immer in eigener letzter Reihe, Reihenfolge bleibt erhalten */
+/** Button Helper */
+function addCardButton(grid, val){
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.setAttribute('data-card', val);
+  btn.onclick = () => sendVote(val);
+  btn.textContent = val;
+  const chk = document.createElement('span'); chk.className='checkmark'; chk.textContent='✔';
+  btn.appendChild(chk);
+  grid.appendChild(btn);
+}
+
+/** Render: Desktop = auto-fit (aus CSS), Mobile = 4 pro Reihe; Specials in eigener Reihe */
 function renderCards(deck){
   const area = document.getElementById('cardsArea');
   if (!area || !Array.isArray(deck)) return;
@@ -281,41 +293,17 @@ function renderCards(deck){
 
   area.innerHTML = '';
 
-  // Regular: chunk by 4, Reihenfolge beibehalten
-  for (let i=0;i<regular.length;i+=4){
-    const row = regular.slice(i, i+4);
-    const grid = document.createElement('div');
-    grid.className = 'card-grid';
-    grid.style.gridTemplateColumns = 'repeat(4, minmax(0, 1fr))';
-    row.forEach(val => {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.setAttribute('data-card', val);
-      btn.onclick = () => sendVote(val);
-      btn.textContent = val;
-      const chk = document.createElement('span'); chk.className='checkmark'; chk.textContent='✔';
-      btn.appendChild(chk);
-      area.appendChild(grid);
-      grid.appendChild(btn);
-    });
-    area.appendChild(grid);
-  }
+  // Regular in eine Grid-Zeile (CSS regelt Spaltenanzahl)
+  const grid = document.createElement('div');
+  grid.className = 'card-grid';
+  regular.forEach(val => addCardButton(grid, val));
+  area.appendChild(grid);
 
-  // Specials in eigener Reihe (so viele Spalten wie nötig)
+  // Specials in eigene letzte Zeile
   if (specials.length){
     const sgrid = document.createElement('div');
     sgrid.className = 'card-grid';
-    sgrid.style.gridTemplateColumns = `repeat(${Math.min(4, specials.length)}, minmax(0, 1fr))`;
-    specials.forEach(val=>{
-      const btn = document.createElement('button');
-      btn.type='button';
-      btn.setAttribute('data-card', val);
-      btn.onclick = () => sendVote(val);
-      btn.textContent = val;
-      const chk = document.createElement('span'); chk.className='checkmark'; chk.textContent='✔';
-      btn.appendChild(chk);
-      sgrid.appendChild(btn);
-    });
+    specials.forEach(val => addCardButton(sgrid, val));
     area.appendChild(sgrid);
   }
 
@@ -334,19 +322,19 @@ function syncSequenceUI(){
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  // Initiale (server-gerenderte) Buttons bleiben bis der Server-Status eintrifft.
+  // Initial: serverseitige Buttons bleiben bis erstes Server-Update eintrifft.
   syncSequenceUI();
   const seqChoice = document.getElementById('seqChoice');
   seqChoice?.addEventListener('change', (e)=>{
     const val = e.target?.value;
     if (!val) return;
     if (!isHost) { showToast(/*[[#{sequence.onlyHost}]]*/ 'Only the host can change the sequence'); syncSequenceUI(); return; }
-    // Server setzt Sequenz, schickt neues Deck zurück
+    // Server setzt Sequenz, sendet neues Deck
     socket.send('setSequence:' + val);
   });
 });
 
-// stabile Client-ID pro Browser
+// stabile Client-ID
 const cid = (function(){
   try {
     let id = localStorage.getItem('ep-cid');
@@ -376,13 +364,14 @@ const MSG_HOST_OTHER = /*[[#{toast.hostOther}]]*/ 'Host {old} left. {new} is now
 socket.onmessage = (event) => {
   const data = JSON.parse(event.data);
 
-  // Sequenz + Karten vom Server
+  // Sequenz + Karten vom Server (nur hier re-rendern → kein Flackern)
   if (data.sequenceId) {
+    const changed = (currentSequenceId !== data.sequenceId);
     currentSequenceId = data.sequenceId;
     syncSequenceUI();
-    if (Array.isArray(data.cards)) {
-      clearCardSelection();      // neue Sequenz → Auswahl zurücksetzen
-      renderCards(data.cards);   // 4er-Reihen + Sonderkartenzeile
+    if (changed && Array.isArray(data.cards)) {
+      clearCardSelection();
+      renderCards(data.cards);
     }
   }
 
@@ -407,9 +396,6 @@ socket.onmessage = (event) => {
     const closeHint = document.getElementById('closeHint');
     if (closeBtn) closeBtn.style.display = isHost ? 'grid' : 'none';
     if (closeHint) closeHint.style.display = isHost ? 'block' : 'none';
-
-    // Karten ggf. mitliefern (einige Server-Implementationen tun das bei jedem Update)
-    if (Array.isArray(data.cards)) renderCards(data.cards);
 
     updateParticipantList(participants, votesRevealed);
 

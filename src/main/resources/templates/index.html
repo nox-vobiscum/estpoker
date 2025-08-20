@@ -109,7 +109,7 @@
     <!-- Hint when feature is off -->
     <p class="hint"
        th:if="${@environment.getProperty('features.persistentRooms.enabled','false') != 'true'}">
-      Persistent rooms are not available on this deployment.
+      <em>(Persistent rooms not available at the moment.)</em></p>
     </p>
 
     <div class="form-actions">
