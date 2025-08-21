@@ -283,7 +283,7 @@ const TXT_MAKE_HOST    = /*[[#{action.makeHost}]]*/ 'Make host';
 const TXT_KICK         = /*[[#{action.kick}]]*/ 'Kick';
 const TXT_KICKED       = /*[[#{toast.kicked}]]*/ 'The host has closed the room for you.';
 
-/** Button Helper (kein grüner Haken mehr) */
+/** Button Helper */
 function addCardButton(grid, val){
   const btn = document.createElement('button');
   btn.type = 'button';
@@ -292,16 +292,14 @@ function addCardButton(grid, val){
   btn.textContent = val;
   grid.appendChild(btn);
 }
-
-/** Deck-Signatur */
 function deckSig(arr){ return Array.isArray(arr) ? arr.join("|") : ""; }
 
-/** Render: Desktop auto-fit; Specials in eigener Zeile */
+/** Render cards */
 function renderCards(deck){
   const area = document.getElementById('cardsArea');
   if (!area || !Array.isArray(deck)) return;
 
-  const regular = deck.filter(v => !SPECIALS.has(v));
+  const regular  = deck.filter(v => !SPECIALS.has(v));
   const specials = deck.filter(v =>  SPECIALS.has(v));
 
   area.innerHTML = '';
@@ -317,10 +315,10 @@ function renderCards(deck){
     specials.forEach(val => addCardButton(sgrid, val));
     area.appendChild(sgrid);
   }
-
   highlightSelectedCard();
 }
 
+/** Host-sensitive controls */
 function syncSequenceUI(){
   const radios = document.querySelectorAll('#seqChoice input[name="seq"]');
   radios.forEach(r => {
@@ -331,7 +329,6 @@ function syncSequenceUI(){
   const hint = document.getElementById('seqHint');
   if (hint) hint.style.display = isHost ? 'none' : 'block';
 }
-
 function syncAutoRevealUI(){
   const row = document.getElementById('autoRevealRow');
   const st  = document.getElementById('arStatus');
@@ -395,16 +392,12 @@ const MSG_HOST_OTHER = /*[[#{toast.hostOther}]]*/ 'Host changed. {new} is now ho
 socket.onmessage = (event) => {
   const data = JSON.parse(event.data);
 
-  // Sequenz + Karten
+  // Karten/Deck (kommt auch in voteUpdate mit)
   if (data.sequenceId) {
     const newSig = deckSig(data.cards);
-    const needRerender =
-      (currentSequenceId !== data.sequenceId) ||
-      (newSig && newSig !== currentDeckSig);
-
+    const needRerender = (currentSequenceId !== data.sequenceId) || (newSig && newSig !== currentDeckSig);
     currentSequenceId = data.sequenceId;
-    syncSequenceUI();
-
+    // BONUS: kein syncSequenceUI() hier (isHost könnte noch veraltet sein)
     if (needRerender && Array.isArray(data.cards)) {
       clearCardSelection();
       renderCards(data.cards);
@@ -427,6 +420,7 @@ socket.onmessage = (event) => {
 
     if (typeof data.autoRevealEnabled === 'boolean') autoRevealEnabled = data.autoRevealEnabled;
     syncAutoRevealUI();
+    syncSequenceUI(); // jetzt, wo isHost stimmt
 
     document.getElementById("revealButton").style.display = isHost && !votesRevealed ? "inline-block" : "none";
     document.getElementById("resetButton").style.display  = isHost && votesRevealed ? "inline-block" : "none";
@@ -447,17 +441,34 @@ socket.onmessage = (event) => {
     }
 
     if (prevVotesRevealed && !votesRevealed) clearCardSelection();
-
     highlightSelectedCard();
+
   } else if (data.type === "hostChanged") {
     const { oldHost, newHost } = data;
+
+    // Sofortige UI-Anpassung (ohne nächsten voteUpdate abzuwarten)
+    const iBecomeHost = (newHost === participantName);
+    const iLoseHost   = (oldHost === participantName);
+    if (iBecomeHost || iLoseHost) {
+      isHost = iBecomeHost;
+
+      document.getElementById("revealButton").style.display = isHost && !votesRevealed ? "inline-block" : "none";
+      document.getElementById("resetButton").style.display  = isHost && votesRevealed ? "inline-block" : "none";
+      const closeBtn  = document.getElementById('closeRoomBtn');
+      const closeHint = document.getElementById('closeHint');
+      if (closeBtn)  closeBtn.style.display  = isHost ? 'grid'  : 'none';
+      if (closeHint) closeHint.style.display = isHost ? 'block' : 'none';
+
+      syncSequenceUI();
+      syncAutoRevealUI();
+    }
+
     showToast(newHost === participantName
       ? MSG_HOST_YOU
       : MSG_HOST_OTHER.replace('{new}', newHost)
     );
 
   } else if (data.type === "kicked") {
-    // Toast-Message für Index vormerken und redirect
     try { localStorage.setItem('ep-toast', TXT_KICKED); } catch(e) {}
     const target = data.redirect || "/";
     location.replace(target);
@@ -466,7 +477,7 @@ socket.onmessage = (event) => {
     const target = data.redirect || "/";
     location.replace(target);
   }
-};
+}; // <--- schließt socket.onmessage sauber
 
 // host-only action: close room
 document.addEventListener('DOMContentLoaded', () => {
@@ -536,7 +547,7 @@ function updateParticipantList(participants, revealed) {
       }
     }
 
-    // Make host (nur sichtbar für aktuellen Host, nicht bei sich selbst & nicht beim aktuellen Host)
+    // Make host
     if (isHost && !p.isHost && p.name !== participantName) {
       const mk = document.createElement("button");
       mk.type = "button";
@@ -557,7 +568,7 @@ function updateParticipantList(participants, revealed) {
       rightWrap.appendChild(mk);
     }
 
-    // Kick (nur sichtbar für aktuellen Host, nicht bei sich selbst & nicht beim aktuellen Host)
+    // Kick
     if (isHost && !p.isHost && p.name !== participantName) {
       const kb = document.createElement("button");
       kb.type = "button";
@@ -607,7 +618,7 @@ function setConsensusUI(on){
   row.classList.toggle('consensus', !!on);
 }
 
-/* Numerik-Parser für Consensus-Check */
+/* Numerik-Parser */
 function parseVoteNumeric(s){
   if (!s) return null;
   s = String(s).trim();
@@ -620,12 +631,9 @@ function parseVoteNumeric(s){
   const n = parseFloat(s.replace(',','.'));
   return Number.isFinite(n) ? n : null;
 }
-
-/* Prüft Consensus und toggelt UI */
 function updateConsensus(participants){
   const active = participants.filter(p => !p.disconnected);
   if (!active.length) { setConsensusUI(false); return; }
-
   const nums = [];
   for (const p of active) {
     if (p.vote == null) { setConsensusUI(false); return; }
