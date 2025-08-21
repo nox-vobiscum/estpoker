@@ -773,3 +773,53 @@ li { margin-bottom: 0.4rem; line-height: 1.5; font-size: 1rem; }
     line-height: 1.1;
   }
 }
+
+/* ========= Light-Mode Kontraste: Host/Kick-Pills & Host-Row ========= */
+
+/* Desktop/Tablet: starke Kontraste, weil Labeltext sichtbar ist */
+:root[data-theme="light"] .row-action.kick {
+  background: #DC2626;         /* red-600 */
+  border-color: #B91C1C;       /* red-700 */
+  color: #ffffff;              /* Text/Label klar lesbar */
+  box-shadow: none;
+}
+:root[data-theme="light"] .row-action.kick:hover {
+  background: #B91C1C;         /* red-700 */
+  border-color: #991B1B;       /* red-800 */
+  box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.18);
+}
+
+:root[data-theme="light"] .row-action.host {
+  background: #2563EB;         /* blue-600 */
+  border-color: #1D4ED8;       /* blue-700 */
+  color: #ffffff;
+}
+:root[data-theme="light"] .row-action.host:hover {
+  background: #1D4ED8;         /* blue-700 */
+  border-color: #1E40AF;       /* blue-800 */
+}
+
+/* Mobile (≤600px): Icon-Only – Hintergrund bewusst heller,
+   damit das rote ❌ und die 👑 aufhellen & klar wirken */
+@media (max-width: 600px) {
+  :root[data-theme="light"] .row-action.kick {
+    background: #FEE2E2;       /* red-100 */
+    border-color: #FCA5A5;     /* red-300 */
+    color: #991B1B;            /* falls Label doch sichtbar wird */
+  }
+  :root[data-theme="light"] .row-action.kick:hover {
+    background: #FECACA;       /* red-200 */
+  }
+
+  :root[data-theme="light"] .row-action.host {
+    background: #DBEAFE;       /* blue-100 */
+    border-color: #93C5FD;     /* blue-300 */
+    color: #1E3A8A;            /* blue-900 (für evtl. Label) */
+  }
+}
+
+/* Host-Zeile Highlight im Light-Mode etwas kräftiger */
+:root[data-theme="light"] #liveParticipantList .participant-row.is-host {
+  background: #E8F1FF;                         /* dezentes Blau */
+  outline-color: rgba(37, 99, 235, 0.35);      /* blue-600 @ 35% */
+}
