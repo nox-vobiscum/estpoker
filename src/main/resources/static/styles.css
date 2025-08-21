@@ -823,3 +823,32 @@ li { margin-bottom: 0.4rem; line-height: 1.5; font-size: 1rem; }
   background: #E8F1FF;                         /* dezentes Blau */
   outline-color: rgba(37, 99, 235, 0.35);      /* blue-600 @ 35% */
 }
+
+/* --- Cross-browser: Host-Action-Pills immer ganz rechts --- */
+#liveParticipantList .participant-row {
+  grid-template-columns: var(--icon-col-width) 1fr auto;
+}
+
+.row-right{
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+}
+
+/* Trick: die linkeste Action bekommt den freien Platz als linken Rand
+   => schiebt den gesamten Actions-Block nach rechts */
+.row-right .row-action{
+  margin-left: auto;
+}
+
+/* Folge-Buttons (z.B. Kick) bekommen normalen Abstand, nicht auto */
+.row-right .row-action + .row-action{
+  margin-left: 8px; /* oder var(--gap, 8px) */
+}
+
+/* Mobile: kompakte Icon-Pills, Chip bleibt links, Actions rechts */
+@media (max-width: 600px){
+  .row-action{ width: 32px; height: 32px; padding: 0; border-radius: 10px; }
+  .row-action .ra-label{ display: none; }
+}
