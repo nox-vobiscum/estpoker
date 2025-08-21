@@ -16,13 +16,12 @@ public class Room {
     private Participant host;
 
     // === Auto-Reveal per Room ===
-    private boolean autoRevealEnabled = true; // default: ON
+    private boolean autoRevealEnabled = false; // default: OFF (geändert)
 
     // ===== Card sequence (server-managed) =====
     private String sequenceId = "fib-scrum";
     private List<String> currentCards = computeDeck(sequenceId);
 
-    // Base sequences (numbers already in ascending order)
     private static final Map<String, List<String>> SEQ_BASE = Map.of(
             "fib-math",  List.of("0","1","2","3","5","8","13","21","34","55"),
             "fib-scrum", List.of("1","2","3","5","8","13","20","40"),
@@ -30,41 +29,29 @@ public class Room {
             "pow2",      List.of("2","4","8","16","32","64","128"),
             "tshirt",    List.of("XXS","XS","S","M","L","XL","XXL","XXXL")
     );
-    // (Lokale SPECIALS entfernt – zentrale Quelle ist CardSequences.SPECIALS)
 
-    public Room(String code) {
-        this.code = code;
-    }
+    public Room(String code) { this.code = code; }
 
     /* ------------ Sequence helpers ------------ */
 
     private static List<String> computeDeck(String seqId) {
         List<String> base = new ArrayList<>(SEQ_BASE.getOrDefault(seqId, SEQ_BASE.get("fib-scrum")));
-        // keep given order; append specials as own trailing "row"
         List<String> out = new ArrayList<>(base.size() + CardSequences.SPECIALS.size());
         out.addAll(base);
-        out.addAll(CardSequences.SPECIALS); // zentrale Reihenfolge
+        out.addAll(CardSequences.SPECIALS);
         return out;
     }
 
     /** Sets the active sequence (unknown id falls back to "fib-scrum") and resets votes. */
     public synchronized void setSequence(String seqId) {
-        if (!SEQ_BASE.containsKey(seqId)) {
-            seqId = "fib-scrum";
-        }
+        if (!SEQ_BASE.containsKey(seqId)) seqId = "fib-scrum";
         this.sequenceId = seqId;
         this.currentCards = computeDeck(seqId);
-        reset(); // start a fresh round when sequence changes
+        reset();
     }
 
-    public synchronized String getSequenceId() {
-        return sequenceId;
-    }
-
-    /** Current deck (base + specials). A copy is returned to keep internal list immutable. */
-    public synchronized List<String> getCurrentCards() {
-        return new ArrayList<>(currentCards);
-    }
+    public synchronized String getSequenceId() { return sequenceId; }
+    public synchronized List<String> getCurrentCards() { return new ArrayList<>(currentCards); }
 
     /* ------------ Basic room info ------------ */
 
@@ -79,13 +66,8 @@ public class Room {
         }
     }
 
-    public synchronized Participant getParticipant(String name) {
-        return nameToParticipant.get(name);
-    }
-
-    public synchronized List<Participant> getParticipants() {
-        return participants;
-    }
+    public synchronized Participant getParticipant(String name) { return nameToParticipant.get(name); }
+    public synchronized List<Participant> getParticipants() { return participants; }
 
     public synchronized void setCardsRevealed(boolean revealed) { this.votesRevealed = revealed; }
     public synchronized boolean areVotesRevealed() { return votesRevealed; }
@@ -94,33 +76,22 @@ public class Room {
 
     public synchronized void reset() {
         votesRevealed = false;
-        for (Participant p : participants) {
-            p.setVote(null);
-        }
+        for (Participant p : participants) p.setVote(null);
     }
 
     public synchronized void markInactive(String name) {
         Participant p = nameToParticipant.get(name);
-        if (p != null) {
-            p.setActive(false);
-            p.setDisconnected(true);
-        }
+        if (p != null) { p.setActive(false); p.setDisconnected(true); }
     }
 
     public synchronized void markActive(String name) {
         Participant p = nameToParticipant.get(name);
-        if (p != null) {
-            p.setActive(true);
-            p.setDisconnected(false);
-        }
+        if (p != null) { p.setActive(true); p.setDisconnected(false); }
     }
 
     public synchronized void removeParticipant(String name) {
         Participant p = nameToParticipant.remove(name);
-        if (p != null) {
-            participants.remove(p);
-            // Host re-assignment is handled by assignNewHostIfNecessary(...)
-        }
+        if (p != null) participants.remove(p);
     }
 
     public synchronized Participant getOrCreateParticipant(String name) {
@@ -135,9 +106,7 @@ public class Room {
 
     public synchronized List<Participant> getParticipantsWithVotes() {
         List<Participant> voted = new ArrayList<>();
-        for (Participant p : participants) {
-            if (p.getVote() != null) voted.add(p);
-        }
+        for (Participant p : participants) if (p.getVote() != null) voted.add(p);
         return voted;
     }
 
@@ -172,35 +141,31 @@ public class Room {
         return null;
     }
 
-    // ===== Rename support (update map key + object name, avoid collisions) =====
+    /** Manuelle Host-Übergabe. true, wenn erfolgreich (Name existiert & nicht bereits Host). */
+    public synchronized boolean transferHostTo(String newHostName) {
+        Participant target = nameToParticipant.get(newHostName);
+        if (target == null) return false;
+        if (host != null && host.getName().equals(newHostName)) return false;
+        if (host != null) host.setHost(false);
+        host = target;
+        target.setHost(true);
+        return true;
+    }
+
+    // ===== Rename support =====
 
     private String uniqueName(String desired) {
         String base = (desired == null || desired.isBlank()) ? "Guest" : desired;
-        String candidate = base;
-        int i = 2;
-        while (nameToParticipant.containsKey(candidate)) {
-            candidate = base + " (" + i + ")";
-            i++;
-        }
+        String candidate = base; int i = 2;
+        while (nameToParticipant.containsKey(candidate)) { candidate = base + " (" + i + ")"; i++; }
         return candidate;
     }
 
-    /**
-     * Renames a participant (keeps the same instance).
-     * Returns the final used new name or null if oldName unknown.
-     */
     public synchronized String renameParticipant(String oldName, String desiredNewName) {
         Participant p = nameToParticipant.remove(oldName);
         if (p == null) return null;
-
-        String newName = desiredNewName;
-        if (newName == null || newName.isBlank()) newName = oldName;
-
-        // if actually changed and collides -> make unique
-        if (!oldName.equals(newName) && nameToParticipant.containsKey(newName)) {
-            newName = uniqueName(newName);
-        }
-
+        String newName = (desiredNewName == null || desiredNewName.isBlank()) ? oldName : desiredNewName;
+        if (!oldName.equals(newName) && nameToParticipant.containsKey(newName)) newName = uniqueName(newName);
         p.setName(newName);
         nameToParticipant.put(newName, p);
         return newName;

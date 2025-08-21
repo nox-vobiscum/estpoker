@@ -27,19 +27,14 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
 
         Room room = gameService.getOrCreateRoom(roomCode);
 
-        // Falls gleicher Client (cid) im selben Room mit anderem Namen zurückkommt → rename
         String existingName = gameService.getClientName(roomCode, cid);
         if (cid != null && existingName != null && !existingName.equals(participantName)) {
             String finalName = room.renameParticipant(existingName, participantName);
-            if (finalName != null) {
-                participantName = finalName; // weiter mit tatsächlich verwendeten Namen
-            }
+            if (finalName != null) participantName = finalName;
         }
 
-        // letzten Namen des Clients merken
         gameService.rememberClientName(roomCode, cid, participantName);
 
-        // Add/reactivate & Grace-Handling
         room.addOrReactivateParticipant(participantName);
         gameService.cancelPendingDisconnect(room, participantName);
 
@@ -61,17 +56,14 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             if (parts.length == 3) {
                 String participantName = parts[1];
                 String card = parts[2];
-
                 Participant participant = room.getParticipant(participantName);
                 if (participant != null) {
                     participant.setCard(card);
-
-                    // ★ Auto-Reveal ggf. auslösen (beachtet room.isAutoRevealEnabled())
-                    gameService.maybeAutoReveal(room);
-
+                    gameService.maybeAutoReveal(room); // respektiert room.isAutoRevealEnabled()
                     gameService.broadcastRoomState(room);
                 }
             }
+
         } else if ("revealCards".equals(payload)) {
             room.setCardsRevealed(true);
             gameService.broadcastRoomState(room);
@@ -86,36 +78,45 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             if (me != null) {
                 var meP = room.getParticipant(me);
                 if (meP != null && meP.isHost()) {
-                    room.setSequence(seqId);      // setzt + reset intern
+                    room.setSequence(seqId); // setzt + reset intern
                     gameService.broadcastRoomState(room);
                 }
             }
 
         } else if (payload.startsWith("setAutoReveal:")) {
-            // Format: setAutoReveal:true|false  (nur Host)
             String me = gameService.getParticipantName(session);
             boolean wantOn = Boolean.parseBoolean(payload.substring("setAutoReveal:".length()));
             if (me != null) {
                 Participant p = room.getParticipant(me);
                 if (p != null && p.isHost()) {
                     room.setAutoRevealEnabled(wantOn);
-
-                    // Wenn gerade eingeschaltet: sofort prüfen, ob Auto-Reveal jetzt greifen soll
-                    if (wantOn) {
-                        gameService.maybeAutoReveal(room);
-                    }
-
+                    if (wantOn) gameService.maybeAutoReveal(room);
                     gameService.broadcastRoomState(room);
                 }
             }
 
+        } else if (payload.startsWith("transferHost:")) {
+            // nur aktueller Host darf Host-Rechte übertragen
+            String me = gameService.getParticipantName(session);
+            String targetName = payload.substring("transferHost:".length());
+            if (me != null) {
+                Participant meP = room.getParticipant(me);
+                if (meP != null && meP.isHost()) {
+                    String oldHost = (room.getHost() != null) ? room.getHost().getName() : me;
+                    boolean ok = room.transferHostTo(targetName);
+                    if (ok) {
+                        gameService.broadcastHostChange(room, oldHost, targetName);
+                        gameService.broadcastRoomState(room);
+                    }
+                }
+            }
+
         } else if ("closeRoom".equals(payload)) {
-            // nur Host darf schließen
             String me = gameService.getParticipantName(session);
             if (me != null) {
                 Participant p = room.getParticipant(me);
                 if (p != null && p.isHost()) {
-                    gameService.closeRoom(room); // broadcast roomClosed + Sessions schließen + aufräumen
+                    gameService.closeRoom(room);
                 }
             }
         }
@@ -125,9 +126,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     public void afterConnectionClosed(@NonNull WebSocketSession session, @NonNull CloseStatus status) {
         Room room = gameService.getRoomForSession(session);
         String participantName = gameService.getParticipantName(session);
-
         gameService.removeSession(session);
-
         if (room != null && participantName != null) {
             gameService.scheduleDisconnect(room, participantName);
         }
@@ -136,12 +135,9 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     private String getQueryParam(@NonNull WebSocketSession session, String key) {
         URI uri = session.getUri();
         if (uri == null || uri.getQuery() == null) return null;
-
         for (String param : uri.getQuery().split("&")) {
             String[] kv = param.split("=", 2);
-            if (kv.length == 2 && kv[0].equals(key)) {
-                return kv[1]; // (optional: URL-Decoding)
-            }
+            if (kv.length == 2 && kv[0].equals(key)) return kv[1];
         }
         return null;
     }

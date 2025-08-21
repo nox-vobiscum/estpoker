@@ -83,11 +83,11 @@
       <!-- Auto-Reveal -->
       <div class="menu-group">
         <div class="group-title" th:text="#{menu.autoreveal}">Auto-reveal</div>
-        <button id="autoRevealRow" class="menu-item" type="button" aria-pressed="true">
+        <button id="autoRevealRow" class="menu-item" type="button" aria-pressed="false">
           <span class="mi-icon" aria-hidden="true">⚡</span>
           <span>
             <span th:text="#{menu.autoreveal}">Auto-reveal</span>:
-            <strong id="arStatus">On</strong>
+            <strong id="arStatus">Off</strong>
           </span>
         </button>
         <p id="arHint" class="hint" th:text="#{autoreveal.onlyHost}">Only the host can change this setting</p>
@@ -268,8 +268,8 @@ let resizeTimer = null;
 let currentSequenceId = 'fib-scrum'; // server overwrites
 let currentDeckSig = "";             // track current deck
 
-// Auto-Reveal (vom Server überschrieben)
-let autoRevealEnabled = true;
+// Auto-Reveal default (Server überschreibt im ersten State)
+let autoRevealEnabled = false;
 
 const SPECIALS = new Set(["❓","💬","☕"]);
 
@@ -279,8 +279,9 @@ const TXT_CONS = /*[[#{label.consensus}]]*/ 'Consensus:';
 const TXT_ON   = /*[[#{toggle.on}]]*/ 'On';
 const TXT_OFF  = /*[[#{toggle.off}]]*/ 'Off';
 const TXT_AR_ONLY_HOST = /*[[#{autoreveal.onlyHost}]]*/ 'Only the host can change this setting.';
+const TXT_MAKE_HOST    = /*[[#{action.makeHost}]]*/ 'Make host';
 
-/** Button Helper */
+/** Card button helper */
 function addCardButton(grid, val){
   const btn = document.createElement('button');
   btn.type = 'button';
@@ -290,10 +291,8 @@ function addCardButton(grid, val){
   grid.appendChild(btn);
 }
 
-/** Deck-Signatur */
 function deckSig(arr){ return Array.isArray(arr) ? arr.join("|") : ""; }
 
-/** Render cards (regular + specials separate rows) */
 function renderCards(deck){
   const area = document.getElementById('cardsArea');
   if (!area || !Array.isArray(deck)) return;
@@ -359,7 +358,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!isHost) { showToast(TXT_AR_ONLY_HOST); syncAutoRevealUI(); return; }
     const next = !autoRevealEnabled;
     socket.send('setAutoReveal:' + next);
-    // UI wird nach Server-ACK (voteUpdate) synchronisiert
   });
 });
 
@@ -387,8 +385,8 @@ const socket = new WebSocket(socketUrl);
 
 socket.onopen = () => console.log("✅ Connected");
 
-const MSG_HOST_YOU   = /*[[#{toast.youAreHost}]]*/ 'Host {old} left. You are now host!';
-const MSG_HOST_OTHER = /*[[#{toast.hostOther}]]*/ 'Host {old} left. {new} is now host.';
+const MSG_HOST_YOU   = /*[[#{toast.youAreHost}]]*/ 'Host changed. You are now host!';
+const MSG_HOST_OTHER = /*[[#{toast.hostOther}]]*/ 'Host changed. {new} is now host.';
 
 socket.onmessage = (event) => {
   const data = JSON.parse(event.data);
@@ -423,10 +421,7 @@ socket.onmessage = (event) => {
     votesRevealed = data.votesRevealed;
     isHost = participants.find(p => p.name === participantName)?.isHost === true;
 
-    // Auto-Reveal Flag vom Server
-    if (typeof data.autoRevealEnabled === 'boolean') {
-      autoRevealEnabled = data.autoRevealEnabled;
-    }
+    if (typeof data.autoRevealEnabled === 'boolean') autoRevealEnabled = data.autoRevealEnabled;
     syncAutoRevealUI();
 
     document.getElementById("revealButton").style.display = isHost && !votesRevealed ? "inline-block" : "none";
@@ -448,13 +443,13 @@ socket.onmessage = (event) => {
     }
 
     if (prevVotesRevealed && !votesRevealed) clearCardSelection();
-
     highlightSelectedCard();
+
   } else if (data.type === "hostChanged") {
     const { oldHost, newHost } = data;
     showToast(newHost === participantName
-      ? MSG_HOST_YOU.replace('{old}', oldHost)
-      : MSG_HOST_OTHER.replace('{old}', oldHost).replace('{new}', newHost)
+      ? MSG_HOST_YOU
+      : MSG_HOST_OTHER.replace('{new}', newHost)
     );
   } else if (data.type === "roomClosed") {
     const target = data.redirect || "/";
@@ -483,6 +478,12 @@ function highlightSelectedCard() {
 }
 function revealCards() { if (isHost) socket.send("revealCards"); }
 function resetRoom()   { if (isHost) socket.send("resetRoom"); clearCardSelection(); }
+
+/** Host übertragen: Helper */
+function transferHost(name){
+  if (!isHost || !name || name === participantName) return;
+  socket.send("transferHost:" + name);
+}
 
 function updateParticipantList(participants, revealed) {
   const list = document.getElementById("liveParticipantList");
@@ -518,6 +519,15 @@ function updateParticipantList(participants, revealed) {
         const status = document.createElement("span"); status.className = "status-icon pending"; status.textContent = "⏳";
         rightWrap.appendChild(status);
       }
+    }
+
+    // Make host button (nur sichtbar für aktuellen Host, nicht bei sich selbst & nicht beim aktuellen Host)
+    if (isHost && !p.isHost && p.name !== participantName) {
+      const mk = document.createElement("button");
+      mk.type = "button";
+      mk.textContent = TXT_MAKE_HOST;     // schlicht; Styling kann später folgen
+      mk.addEventListener('click', () => transferHost(p.name));
+      rightWrap.appendChild(mk);
     }
 
     li.appendChild(icon); li.appendChild(nameSpan); li.appendChild(rightWrap);
@@ -565,7 +575,6 @@ function parseVoteNumeric(s){
 function updateConsensus(participants){
   const active = participants.filter(p => !p.disconnected);
   if (!active.length) { setConsensusUI(false); return; }
-
   const nums = [];
   for (const p of active) {
     if (p.vote == null) { setConsensusUI(false); return; }
