@@ -604,3 +604,43 @@ li { margin-bottom: 0.4rem; line-height: 1.5; font-size: 1rem; }
 .menu-item.danger:hover{
   background:#422b2b; border-color:#ef4444; box-shadow:0 0 0 2px rgba(239,68,68,.18);
 }
+
+/* --- iOS Safari fine-tuning for action pills (host/kick) --- */
+@supports (-webkit-touch-callout: none) {
+  /* Bigger tap target + remove iOS button quirks */
+  #liveParticipantList .row-action {
+    width: 40px;                 /* was 36px in the generic mobile rule */
+    height: 40px;
+    padding: 0;
+    border-radius: 50%;
+    -webkit-appearance: none;
+    appearance: none;
+    background-clip: padding-box;
+    line-height: 1;              /* keep vertical metrics tight */
+  }
+
+  /* Emoji centering & sizing on iOS */
+  #liveParticipantList .row-action .ra-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1em; height: 1em;
+    font-size: 20px;             /* a touch larger for clarity */
+    line-height: 1;
+    transform: translateY(0.5px);/* optical centering for iOS baseline */
+    font-family: "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",system-ui,sans-serif;
+  }
+
+  /* Crisper borders & subtle depth on iOS */
+  #liveParticipantList .row-action.host  { border-color: rgba(59,130,246,.60); box-shadow: 0 1px 6px rgba(59,130,246,.25); }
+  #liveParticipantList .row-action.kick  { border-color: rgba(239,68,68,.60); box-shadow: 0 1px 6px rgba(239,68,68,.25); }
+
+  /* Keep the same alignment logic (first action pill flush right) */
+  #liveParticipantList .row-right > .row-action:first-of-type { margin-left: auto; }
+  #liveParticipantList .row-right :where(.status-icon, .vote-chip) ~ .row-action:first-of-type { margin-left: auto; }
+}
+
+/* Optional: when the screen is small AND iOS, keep spacing tidy */
+@media (max-width: 600px) and (-webkit-touch-callout: none) {
+  #liveParticipantList .row-right { gap: 6px; }
+}
