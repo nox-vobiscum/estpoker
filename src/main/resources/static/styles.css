@@ -728,3 +728,19 @@ li { margin-bottom: 0.4rem; line-height: 1.5; font-size: 1rem; }
   }
 }
 
+/* Der Right-Block soll die ganze Spalte füllen – wichtig fürs Auto-Push */
+.row-right { width: 100%; }
+
+/* Desktop: Nur die Actions ganz nach rechts, Chip/Status bleibt links */
+@media (min-width: 700px) {
+  .row-right { justify-content: flex-start; }         /* NICHT mehr alles rechts */
+  .row-right > .row-action:first-of-type {            /* schiebt die Action-Pills nach rechts */
+    margin-left: auto;
+  }
+}
+
+/* Mobile: Actions NICHT nach rechts schieben */
+@media (max-width: 600px) {
+  .row-right > .row-action:first-of-type { margin-left: 0; }
+}
+
