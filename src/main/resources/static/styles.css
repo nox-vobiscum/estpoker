@@ -645,3 +645,86 @@ li { margin-bottom: 0.4rem; line-height: 1.5; font-size: 1rem; }
   box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.18);
 }
 
+/* === Participant row: mobile-first Layout + Action Pills === */
+
+/* Mobile-first: Ergebnisse links neben den Actions; kompakter rechter Block */
+#liveParticipantList .participant-row {
+  /* Icon | Name (flex) | Right-Block (auto) */
+  grid-template-columns: var(--icon-col-width) 1fr auto;
+}
+
+/* Rechtsspalte (Ergebnis/Status + Actions) – mobil linksbündig */
+.row-right {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;  /* <-- mobil links */
+  gap: 6px;
+}
+
+/* Action-Pill (Make host / Kick) – Grundstil */
+.row-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 0.88rem;
+  line-height: 1;
+  transition: background 180ms ease, border-color 180ms ease, box-shadow 180ms ease, transform 120ms ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.row-action:hover {
+  background: var(--panel-2-hover);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(0,122,204,.12);
+}
+.row-action:active { transform: translateY(1px) scale(.98); }
+
+.row-action .ra-icon { line-height: 1; font-size: 1rem; }
+.row-action .ra-label { font-weight: 600; }
+
+/* Farbvarianten */
+.row-action.host {
+  background: color-mix(in srgb, var(--panel-2) 85%, var(--accent) 15%);
+  border-color: color-mix(in srgb, var(--accent) 65%, transparent);
+}
+.row-action.kick {
+  background: color-mix(in srgb, var(--panel-2) 85%, var(--danger) 15%);
+  border-color: color-mix(in srgb, var(--danger) 65%, transparent);
+  color: #fee2e2;
+}
+
+/* iPhone/Mobile: kompakter (nur Icon), Ergebnisse näher an den Namen rücken */
+@media (max-width: 600px) {
+  .row-action {
+    padding: 6px;
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+  }
+  .row-action .ra-label { display: none; }  /* nur Icon anzeigen */
+  .row-right { gap: 4px; }
+
+  /* Chip etwas kompakter auf engen Displays */
+  .vote-chip {
+    padding: 0.1rem 0.45rem;
+    font-size: 0.9rem;
+    min-width: 2ch;
+  }
+}
+
+/* Desktop: Actions ganz nach rechts schieben */
+@media (min-width: 700px) {
+  #liveParticipantList .participant-row {
+    /* Icon | Name (gemessen) | Right-Block füllt Rest */
+    grid-template-columns: var(--icon-col-width) max(18ch, var(--name-text-col)) 1fr;
+  }
+  .row-right {
+    justify-content: flex-end;   /* <-- Desktop: ganz rechts */
+  }
+}
+
