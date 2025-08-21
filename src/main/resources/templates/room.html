@@ -541,14 +541,20 @@ function updateParticipantList(participants, revealed) {
 
     // Left part: chip or status
     if (revealed) {
-      const voteChip = document.createElement("span");
-      voteChip.className = "vote-chip";
-      const v = p.vote != null ? String(p.vote) : null;
-      voteChip.textContent = v != null ? v : "—";
-      voteChip.dataset.val = v != null ? v : "";
-      if (v && !/^\d+$/.test(v)) voteChip.classList.add("special");
-      rightWrap.appendChild(voteChip);
-    } else {
+  const voteChip = document.createElement("span");
+  voteChip.className = "vote-chip";
+
+  const v = p.vote != null ? String(p.vote) : null;
+  const isNumeric = v != null ? (parseVoteNumeric(v) != null) : false;
+
+  voteChip.textContent = v != null ? v : "—";
+  voteChip.dataset.val = v != null ? v : "";
+
+  // Gray style for "no vote" *or* non-numeric specials (❓, 💬, ☕, etc.)
+  if (!isNumeric) voteChip.classList.add("special");
+
+  rightWrap.appendChild(voteChip);
+} else {
       if (!p.disconnected && p.vote != null) {
         const status = document.createElement("span");
         status.className = "status-icon done";
