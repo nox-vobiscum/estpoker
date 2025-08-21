@@ -744,3 +744,32 @@ li { margin-bottom: 0.4rem; line-height: 1.5; font-size: 1rem; }
   .row-right > .row-action:first-of-type { margin-left: 0; }
 }
 
+/* --- iPhone tweak: Host-Buttons rechts + saubere Ausrichtung --- */
+@media (max-width: 600px) {
+  /* Right-Block füllt die Spalte */
+  .row-right { width: 100%; display: inline-flex; align-items: center; gap: 6px; }
+
+  /* Nur die erste Action-Pill (Make host) nach rechts schieben; Chip/⏳ bleibt links davon */
+  .row-right > .row-action:first-of-type { margin-left: auto; }
+
+  /* Kompakte, gleich hohe Icon-Pills (wirkt ruhiger neben dem Chip) */
+  .row-action {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border-radius: 10px;
+  }
+  .row-action .ra-label { display: none; }
+  .row-action .ra-icon {
+    display: inline-block;
+    font-size: 18px;
+    line-height: 1;
+    transform: translateY(1px); /* minimal vertikal justiert (Safari) */
+  }
+
+  /* Chip leicht kompakter, damit optisch mittig zur 32px-Pill */
+  .vote-chip {
+    padding: 0.1rem 0.5rem;
+    line-height: 1.1;
+  }
+}
