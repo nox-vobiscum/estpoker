@@ -138,6 +138,7 @@
   <h2 id="selectCardHeader" th:text="#{label.selectCard}">Choose a card:</h2>
 
   <div class="pre-vote">
+    <!-- Karten werden clientseitig aus 'cards' gerendert -->
     <div id="cardsArea"></div>
 
     <button type="button" id="revealButton" class="button" style="display:none;"
@@ -202,7 +203,6 @@
   btn?.addEventListener('click', toggleMenu);
   backdrop?.addEventListener('click', closeMenu);
   window.addEventListener('keydown', (e)=>{ if(e.key==='Escape') closeMenu(); });
-
   window.__closeMenuIfOpen = () => { if (!overlay.classList.contains('hidden')) closeMenu(); };
 })();
 
@@ -280,8 +280,10 @@ const TXT_ON   = /*[[#{toggle.on}]]*/ 'On';
 const TXT_OFF  = /*[[#{toggle.off}]]*/ 'Off';
 const TXT_AR_ONLY_HOST = /*[[#{autoreveal.onlyHost}]]*/ 'Only the host can change this setting.';
 const TXT_MAKE_HOST    = /*[[#{action.makeHost}]]*/ 'Make host';
+const TXT_KICK         = /*[[#{action.kick}]]*/ 'Kick';
+const TXT_KICKED       = /*[[#{toast.kicked}]]*/ 'The host has closed the room for you.';
 
-/** Card button helper */
+/** Button Helper (kein grüner Haken mehr) */
 function addCardButton(grid, val){
   const btn = document.createElement('button');
   btn.type = 'button';
@@ -291,8 +293,10 @@ function addCardButton(grid, val){
   grid.appendChild(btn);
 }
 
+/** Deck-Signatur */
 function deckSig(arr){ return Array.isArray(arr) ? arr.join("|") : ""; }
 
+/** Render: Desktop auto-fit; Specials in eigener Zeile */
 function renderCards(deck){
   const area = document.getElementById('cardsArea');
   if (!area || !Array.isArray(deck)) return;
@@ -443,14 +447,21 @@ socket.onmessage = (event) => {
     }
 
     if (prevVotesRevealed && !votesRevealed) clearCardSelection();
-    highlightSelectedCard();
 
+    highlightSelectedCard();
   } else if (data.type === "hostChanged") {
     const { oldHost, newHost } = data;
     showToast(newHost === participantName
       ? MSG_HOST_YOU
       : MSG_HOST_OTHER.replace('{new}', newHost)
     );
+
+  } else if (data.type === "kicked") {
+    // Toast-Message für Index vormerken und redirect
+    try { localStorage.setItem('ep-toast', TXT_KICKED); } catch(e) {}
+    const target = data.redirect || "/";
+    location.replace(target);
+
   } else if (data.type === "roomClosed") {
     const target = data.redirect || "/";
     location.replace(target);
@@ -479,10 +490,14 @@ function highlightSelectedCard() {
 function revealCards() { if (isHost) socket.send("revealCards"); }
 function resetRoom()   { if (isHost) socket.send("resetRoom"); clearCardSelection(); }
 
-/** Host übertragen: Helper */
+/** Host übertragen & Kick */
 function transferHost(name){
   if (!isHost || !name || name === participantName) return;
   socket.send("transferHost:" + name);
+}
+function kick(name){
+  if (!isHost || !name || name === participantName) return;
+  socket.send("kick:" + name);
 }
 
 function updateParticipantList(participants, revealed) {
@@ -521,28 +536,47 @@ function updateParticipantList(participants, revealed) {
       }
     }
 
-    // Make host button – hübsch (Icon-Pill), nur sichtbar für aktuellen Host
-if (isHost && !p.isHost && p.name !== participantName) {
-  const mk = document.createElement("button");
-  mk.type = "button";
-  mk.className = "row-action host";
-  mk.setAttribute("aria-label", TXT_MAKE_HOST + ": " + p.name);
-  mk.title = TXT_MAKE_HOST + ": " + p.name;
+    // Make host (nur sichtbar für aktuellen Host, nicht bei sich selbst & nicht beim aktuellen Host)
+    if (isHost && !p.isHost && p.name !== participantName) {
+      const mk = document.createElement("button");
+      mk.type = "button";
+      mk.className = "row-action host";
+      mk.setAttribute("aria-label", TXT_MAKE_HOST + ": " + p.name);
+      mk.title = TXT_MAKE_HOST + ": " + p.name;
 
-  const ic = document.createElement("span");
-  ic.className = "ra-icon";
-  ic.textContent = "👑";
+      const ic = document.createElement("span");
+      ic.className = "ra-icon";
+      ic.textContent = "👑";
 
-  const lab = document.createElement("span");
-  lab.className = "ra-label";
-  lab.textContent = TXT_MAKE_HOST;
+      const lab = document.createElement("span");
+      lab.className = "ra-label";
+      lab.textContent = TXT_MAKE_HOST;
 
-  mk.appendChild(ic);
-  mk.appendChild(lab);
-  mk.addEventListener("click", () => transferHost(p.name));
-  rightWrap.appendChild(mk);
-}
+      mk.appendChild(ic); mk.appendChild(lab);
+      mk.addEventListener("click", () => transferHost(p.name));
+      rightWrap.appendChild(mk);
+    }
 
+    // Kick (nur sichtbar für aktuellen Host, nicht bei sich selbst & nicht beim aktuellen Host)
+    if (isHost && !p.isHost && p.name !== participantName) {
+      const kb = document.createElement("button");
+      kb.type = "button";
+      kb.className = "row-action kick";
+      kb.setAttribute("aria-label", TXT_KICK + ": " + p.name);
+      kb.title = TXT_KICK + ": " + p.name;
+
+      const ic2 = document.createElement("span");
+      ic2.className = "ra-icon";
+      ic2.textContent = "🗙";
+
+      const lab2 = document.createElement("span");
+      lab2.className = "ra-label";
+      lab2.textContent = TXT_KICK;
+
+      kb.appendChild(ic2); kb.appendChild(lab2);
+      kb.addEventListener("click", () => kick(p.name));
+      rightWrap.appendChild(kb);
+    }
 
     li.appendChild(icon); li.appendChild(nameSpan); li.appendChild(rightWrap);
     list.appendChild(li);
@@ -573,6 +607,7 @@ function setConsensusUI(on){
   row.classList.toggle('consensus', !!on);
 }
 
+/* Numerik-Parser für Consensus-Check */
 function parseVoteNumeric(s){
   if (!s) return null;
   s = String(s).trim();
@@ -586,9 +621,11 @@ function parseVoteNumeric(s){
   return Number.isFinite(n) ? n : null;
 }
 
+/* Prüft Consensus und toggelt UI */
 function updateConsensus(participants){
   const active = participants.filter(p => !p.disconnected);
   if (!active.length) { setConsensusUI(false); return; }
+
   const nums = [];
   for (const p of active) {
     if (p.vote == null) { setConsensusUI(false); return; }

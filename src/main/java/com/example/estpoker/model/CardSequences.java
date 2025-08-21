@@ -26,8 +26,8 @@ public final class CardSequences {
     // (optional) zentrale Sequenz-Registry – Keys passen zu Room.SEQ_BASE
     public static final Map<String, List<String>> SEQUENCES = Map.of(
         "fib-math",  List.of("0","1","2","3","5","8","13","21","34","55"),
-        "fib-scrum", List.of("1","2","3","5","8","13","20","40"),
-        "fib-enh",   List.of("0","½","1","2","3","5","8","13","20","40"),
+        "fib-scrum", List.of("1","2","3","5","8","13","20","40","100"),
+        "fib-enh",   List.of("0","½","1","2","3","5","8","13","20","40","100"),
         "pow2",      List.of("2","4","8","16","32"),
         "tshirt",    List.of("XXS","XS","S","M","L","XL","XXL","XXXL")
     );

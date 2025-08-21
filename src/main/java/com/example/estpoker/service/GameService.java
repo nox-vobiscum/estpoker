@@ -114,7 +114,6 @@ public class GameService {
     /**
      * Setzt votesRevealed=true, wenn noch nicht aufgedeckt und alle aktiven gültig gevotet haben.
      * Berücksichtigt die Raum-Einstellung `autoRevealEnabled`.
-     * @return true, wenn Auto-Reveal ausgelöst wurde.
      */
     public boolean maybeAutoReveal(Room room) {
         if (room == null) return false;
@@ -168,18 +167,16 @@ public class GameService {
             payload.put("participants", participants);
             payload.put("votesRevealed", room.areVotesRevealed());
 
-            // Durchschnitt (formatiert; Fallback genau "-")
             OptionalDouble avg = calculateAverageVote(room);
             String avgDisplay = avg.isPresent()
                     ? CardSequences.formatAverage(avg, Locale.getDefault())
                     : "-";
             payload.put("averageVote", room.areVotesRevealed() ? avgDisplay : null);
 
-            // Sequenz + Deck mitsenden (Client nutzt das)
             payload.put("sequenceId", room.getSequenceId());
             payload.put("cards", room.getCurrentCards());
 
-            // === Auto-Reveal Flag mitsenden ===
+            // Auto-Reveal Flag mitsenden
             payload.put("autoRevealEnabled", room.isAutoRevealEnabled());
 
             String json = objectMapper.writeValueAsString(payload);
@@ -218,7 +215,6 @@ public class GameService {
             payload.put("sequenceId", room.getSequenceId());
             payload.put("cards", room.getCurrentCards());
 
-            // === Auto-Reveal Flag mitsenden ===
             payload.put("autoRevealEnabled", room.isAutoRevealEnabled());
 
             String json = objectMapper.writeValueAsString(payload);
@@ -289,6 +285,55 @@ public class GameService {
         }, DISCONNECT_GRACE_MS, TimeUnit.MILLISECONDS);
 
         pendingDisconnects.put(k, f);
+    }
+
+    // ===== Teilnehmer kicken (nur Host ruft via Handler auf) =====
+    public void kickParticipant(Room room, String targetName) {
+        if (room == null || targetName == null) return;
+
+        // 1) An gekickte Sessions "kicked" senden + schließen, und Mappings vorab entfernen
+        String json;
+        try {
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("type", "kicked");
+            payload.put("redirect", "/"); // index/startseite
+            json = objectMapper.writeValueAsString(payload);
+        } catch (IOException e) {
+            json = "{\"type\":\"kicked\",\"redirect\":\"/\"}";
+        }
+
+        List<WebSocketSession> targetSessions = new ArrayList<>();
+        for (Map.Entry<WebSocketSession, Room> e : sessionToRoomMap.entrySet()) {
+            if (room.equals(e.getValue())) {
+                WebSocketSession s = e.getKey();
+                String name = sessionToParticipantMap.get(s);
+                if (targetName.equals(name)) {
+                    targetSessions.add(s);
+                }
+            }
+        }
+        for (WebSocketSession s : targetSessions) {
+            try {
+                if (s.isOpen()) s.sendMessage(new TextMessage(json));
+            } catch (IOException ignored) {}
+            // Entferne Mappings, damit afterConnectionClosed nicht mehr greift
+            sessionToRoomMap.remove(s);
+            sessionToParticipantMap.remove(s);
+            try { s.close(new CloseStatus(4001, "Kicked")); } catch (IOException ignored) {}
+        }
+
+        // 2) Pending Disconnect-Jobs abbrechen und aus Room entfernen
+        cancelPendingDisconnect(room, targetName);
+        room.removeParticipant(targetName);
+
+        // 3) Falls (unerwartet) Host war -> neuen Host bestimmen & melden
+        String newHost = room.assignNewHostIfNecessary(targetName);
+        if (newHost != null) {
+            broadcastHostChange(room, targetName, newHost);
+        }
+
+        // 4) Room-State an verbleibende senden
+        broadcastRoomState(room);
     }
 
     // ===== Room schließen (Host) =====

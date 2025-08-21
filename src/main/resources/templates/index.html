@@ -303,5 +303,26 @@
   updateSubmitEnabled();
 })();
 </script>
+
+
+<script>
+  (function(){
+    try{
+      const msg = localStorage.getItem('ep-toast');
+      if (msg) {
+        localStorage.removeItem('ep-toast');
+        // einfacher Toast ohne CSS-Dependencies:
+        const t=document.createElement('div');
+        t.className='toast'; t.textContent=msg;
+        document.body.appendChild(t);
+        setTimeout(()=>t.remove(), 3000);
+      }
+    }catch(e){}
+  })();
+</script>
+
+
+
+
 </body>
 </html>

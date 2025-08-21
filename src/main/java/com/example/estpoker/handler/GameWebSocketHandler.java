@@ -96,7 +96,6 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             }
 
         } else if (payload.startsWith("transferHost:")) {
-            // nur aktueller Host darf Host-Rechte übertragen
             String me = gameService.getParticipantName(session);
             String targetName = payload.substring("transferHost:".length());
             if (me != null) {
@@ -108,6 +107,18 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                         gameService.broadcastHostChange(room, oldHost, targetName);
                         gameService.broadcastRoomState(room);
                     }
+                }
+            }
+
+        } else if (payload.startsWith("kick:")) {
+            // nur Host darf kicken; Host selbst und aktueller Host als Ziel sind tabu
+            String me = gameService.getParticipantName(session);
+            String targetName = payload.substring("kick:".length());
+            if (me != null) {
+                Participant meP = room.getParticipant(me);
+                Participant target = room.getParticipant(targetName);
+                if (meP != null && meP.isHost() && target != null && !target.isHost() && !me.equals(targetName)) {
+                    gameService.kickParticipant(room, targetName);
                 }
             }
 
