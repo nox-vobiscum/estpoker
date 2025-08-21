@@ -32,7 +32,7 @@
   --gap: 12px;
   --gap-sm: 8px;
 
-  /* Cards sizing (desktop defaults) */
+  /* Card sizing (desktop defaults) */
   --card-min-desktop: 46px;
   --card-max-desktop: 84px;
   --card-min-mobile: 40px;
@@ -401,31 +401,26 @@ li { margin-bottom: 0.4rem; line-height: 1.5; font-size: 1rem; }
 
 .name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; color: var(--text); }
 
-/* --- Right block: status/Chip stays left, actions are always flush right (Safari-safe) --- */
+/* --- Right block: status/vote stays left, actions are always flush right --- */
 .row-right{
   display: flex;
   align-items: center;
   gap: 6px;
   width: 100%;
 }
-.row-right .status-icon,
-.row-right .vote-chip { order: 0; }
 
-/* Spacer pushes actions to the far right independent of DOM order */
-.row-right::before {
-  content: "";
-  flex: 1 1 auto;
-  order: 1;
-}
+/* Default: if the first child is an action pill, push it right */
+.row-right > .row-action:first-of-type { margin-left: auto; }
 
-/* Action pills are always on the far right */
-.row-right .row-action { order: 2; }
-
-/* Optional wrapper support (if present in markup) */
-.row-right .row-actions { margin-left: auto; display: inline-flex; gap: 6px; }
+/* Robust Safari/iOS path: if there is a status or vote chip, push the
+   first following action pill to the far right */
+.row-right :where(.status-icon, .vote-chip) ~ .row-action:first-of-type { margin-left: auto; }
 
 /* Neat spacing between multiple action pills */
 .row-right .row-action + .row-action { margin-left: 8px; }
+
+/* Optional wrapper support (if used by markup) */
+.row-right .row-actions { margin-left: auto; display: inline-flex; gap: 6px; }
 
 /* Disconnected style */
 #liveParticipantList li.disconnected { color: #888; font-style: italic; text-decoration: none; }
