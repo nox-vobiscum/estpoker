@@ -45,6 +45,12 @@
   /* Participant list columns */
   --icon-col-width: 1.5rem;
   --name-text-col: 0px;
+
+  /* Dark-mode tints for action pills (emoji remain readable) */
+  --host-pill-bg-dark:  rgba(37, 99, 235, .18);  /* blue-600 @ 18% */
+  --host-pill-bdr-dark: rgba(59, 130, 246, .55); /* blue-500 @ 55% */
+  --kick-pill-bg-dark:  rgba(239, 68, 68, .18);  /* red-500  @ 18% */
+  --kick-pill-bdr-dark: rgba(239, 68, 68, .55);  /* red-500  @ 55% */
 }
 
 /* ---------- Light mode overrides ---------- */
@@ -395,9 +401,10 @@ li { margin-bottom: 0.4rem; line-height: 1.5; font-size: 1rem; }
 
 .name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; color: var(--text); }
 
-/* Right column: status chip left, actions wrapper flush right */
+/* Right column: status chip left, actions pushed to the far right */
 .row-right { display: flex; align-items: center; gap: 6px; width: 100%; }
-.row-actions{ margin-left: auto; display: inline-flex; align-items: center; gap: 6px; }
+/* Push the first action pill to the far right – everything before stays left */
+.row-right > .row-action:first-of-type { margin-left: auto; }
 
 /* Disconnected style */
 #liveParticipantList li.disconnected { color: #888; font-style: italic; text-decoration: none; }
@@ -500,10 +507,11 @@ li { margin-bottom: 0.4rem; line-height: 1.5; font-size: 1rem; }
   ul li { font-size: 1.05rem; line-height: 1.45; }
   .container h1:first-child { margin-top: 1.2rem; }
 
-  /* Compact icon-only pills on mobile; chip a bit tighter */
-  .row-action { width: 32px; height: 32px; padding: 0; border-radius: 10px; }
+  /* Compact, circular icon-only pills; chip a bit tighter */
+  .row-action { width: 36px; height: 36px; padding: 0; border-radius: 50%; box-shadow: 0 2px 8px rgba(0,0,0,.20); }
   .row-action .ra-label { display: none; }
   .row-right { gap: 4px; }
+  .row-action .ra-icon { display:inline-block; font-size:18px; line-height:1; transform: translateY(1px); } /* Safari optical centering */
   .vote-chip { padding: 0.1rem 0.5rem; line-height: 1.1; }
 }
 
@@ -532,36 +540,43 @@ li { margin-bottom: 0.4rem; line-height: 1.5; font-size: 1rem; }
   transition: background 180ms ease, border-color 180ms ease, box-shadow 180ms ease, transform 120ms ease;
   -webkit-tap-highlight-color: transparent;
 }
+.row-action .ra-icon { font-size: 16px; line-height: 1; }
+
+/* Base hover/active */
 .row-action:hover { background: var(--panel-2-hover); border-color: var(--accent); box-shadow: 0 0 0 2px rgba(0,122,204,.12); }
 .row-action:active { transform: translateY(1px) scale(.98); }
 .row-action:disabled { opacity: .6; cursor: not-allowed; }
-.row-action .ra-icon { font-size: 16px; line-height: 1; }
 
-/* Variants */
-.row-action.host {
-  background: color-mix(in srgb, var(--panel-2) 85%, var(--accent) 15%);
-  border-color: color-mix(in srgb, var(--accent) 65%, transparent);
-  color: #fff;
+/* Variants — dark mode uses translucent tints so emoji stay readable */
+.row-action.host{
+  background: var(--host-pill-bg-dark);
+  border-color: var(--host-pill-bdr-dark);
+  color: #e8f0ff; /* label (desktop) */
 }
-.row-action.kick {
-  background: color-mix(in srgb, var(--panel-2) 85%, var(--danger) 15%);
-  border-color: color-mix(in srgb, var(--danger) 65%, transparent);
-  color: #fee2e2;
+.row-action.kick{
+  background: var(--kick-pill-bg-dark);
+  border-color: var(--kick-pill-bdr-dark);
+  color: #ffe7e7; /* label (desktop) */
 }
+.row-action.host:hover{ box-shadow:0 0 0 2px rgba(59,130,246,.20); }
+.row-action.kick:hover{ box-shadow:0 0 0 2px rgba(239, 68, 68,.18); }
 
-/* Stronger, accessible colors in light mode */
-:root[data-theme="light"] .row-action.kick {
-  background: var(--kick-pill-bg);
-  border-color: var(--kick-pill-border);
-  color: var(--kick-pill-text);
-}
-:root[data-theme="light"] .row-action.kick:hover { background: #FECACA; /* red-200 */ }
+/* High-visibility focus rings per variant */
+.row-action.host:focus-visible{ outline:none; box-shadow:0 0 0 3px rgba(59,130,246,.35); }
+.row-action.kick:focus-visible{ outline:none; box-shadow:0 0 0 3px rgba(239, 68, 68,.35); }
 
-:root[data-theme="light"] .row-action.host {
+/* Strong, accessible colors in light mode */
+:root[data-theme="light"] .row-action.host{
   background: var(--host-pill-bg);
   border-color: var(--host-pill-border);
   color: var(--host-pill-text);
 }
+:root[data-theme="light"] .row-action.kick{
+  background: var(--kick-pill-bg);
+  border-color: var(--kick-pill-border);
+  color: var(--kick-pill-text);
+}
+:root[data-theme="light"] .row-action.kick:hover{ background:#FECACA; }
 
 /* ---------- Brand mark ---------- */
 .brandmark { vertical-align: -3px; margin-right: 8px; width: 22px; height: 22px; }
