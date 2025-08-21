@@ -521,14 +521,28 @@ function updateParticipantList(participants, revealed) {
       }
     }
 
-    // Make host button (nur sichtbar für aktuellen Host, nicht bei sich selbst & nicht beim aktuellen Host)
-    if (isHost && !p.isHost && p.name !== participantName) {
-      const mk = document.createElement("button");
-      mk.type = "button";
-      mk.textContent = TXT_MAKE_HOST;     // schlicht; Styling kann später folgen
-      mk.addEventListener('click', () => transferHost(p.name));
-      rightWrap.appendChild(mk);
-    }
+    // Make host button – hübsch (Icon-Pill), nur sichtbar für aktuellen Host
+if (isHost && !p.isHost && p.name !== participantName) {
+  const mk = document.createElement("button");
+  mk.type = "button";
+  mk.className = "row-action host";
+  mk.setAttribute("aria-label", TXT_MAKE_HOST + ": " + p.name);
+  mk.title = TXT_MAKE_HOST + ": " + p.name;
+
+  const ic = document.createElement("span");
+  ic.className = "ra-icon";
+  ic.textContent = "👑";
+
+  const lab = document.createElement("span");
+  lab.className = "ra-label";
+  lab.textContent = TXT_MAKE_HOST;
+
+  mk.appendChild(ic);
+  mk.appendChild(lab);
+  mk.addEventListener("click", () => transferHost(p.name));
+  rightWrap.appendChild(mk);
+}
+
 
     li.appendChild(icon); li.appendChild(nameSpan); li.appendChild(rightWrap);
     list.appendChild(li);

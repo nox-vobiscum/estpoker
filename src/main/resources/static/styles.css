@@ -602,4 +602,46 @@ li { margin-bottom: 0.4rem; line-height: 1.5; font-size: 1rem; }
 }
 
 /* Checkmark-Badge komplett ausblenden */
-.card-grid .checkmark { display: none !important; }
+.card-grid .checkmark { display: none !important;
+}
+
+/* === Row action buttons (host actions like "Make host", "Kick") === */
+.row-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 0.85rem;
+  line-height: 1;
+  transition: background 180ms ease, border-color 180ms ease, box-shadow 180ms ease, transform 120ms ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.row-action:hover {
+  background: var(--panel-2-hover);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(0,122,204,0.12);
+}
+.row-action:active { transform: translateY(1px) scale(0.98); }
+.row-action:disabled { opacity: .6; cursor: not-allowed; }
+
+.row-action .ra-icon { font-size: 16px; line-height: 1; }
+.row-action .ra-label { display: none; }
+
+/* Auf breiteren Screens Label mit anzeigen */
+@media (min-width: 560px) {
+  .row-action .ra-label { display: inline; }
+}
+
+/* Varianten für unterschiedliche Aktionen */
+.row-action.host   { border-color: rgba(0,122,204,0.35); }
+.row-action.kick   { border-color: rgba(239, 68, 68, 0.40); }
+.row-action.kick:hover {
+  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.18);
+}
+
