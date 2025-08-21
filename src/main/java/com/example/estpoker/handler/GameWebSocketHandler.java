@@ -23,7 +23,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     public void afterConnectionEstablished(@NonNull WebSocketSession session) {
         String roomCode = getQueryParam(session, "roomCode");
         String participantName = getQueryParam(session, "participantName");
-        String cid = getQueryParam(session, "cid"); // stabile Client-ID
+        String cid = getQueryParam(session, "cid"); // stable Client-ID
 
         Room room = gameService.getOrCreateRoom(roomCode);
 
@@ -59,7 +59,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                 Participant participant = room.getParticipant(participantName);
                 if (participant != null) {
                     participant.setCard(card);
-                    gameService.maybeAutoReveal(room); // respektiert room.isAutoRevealEnabled()
+                    gameService.maybeAutoReveal(room); // respects room.isAutoRevealEnabled()
                     gameService.broadcastRoomState(room);
                 }
             }
@@ -78,7 +78,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             if (me != null) {
                 var meP = room.getParticipant(me);
                 if (meP != null && meP.isHost()) {
-                    room.setSequence(seqId); // setzt + reset intern
+                    room.setSequence(seqId); // sets + reset internally
                     gameService.broadcastRoomState(room);
                 }
             }
@@ -91,6 +91,19 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                 if (p != null && p.isHost()) {
                     room.setAutoRevealEnabled(wantOn);
                     if (wantOn) gameService.maybeAutoReveal(room);
+                    gameService.broadcastRoomState(room);
+                }
+            }
+
+        // NEW: participation toggle (anyone may set their own)
+        } else if (payload.startsWith("setParticipating:")) {
+            String me = gameService.getParticipantName(session);
+            if (me != null) {
+                Participant p = room.getParticipant(me);
+                if (p != null) {
+                    boolean on = Boolean.parseBoolean(payload.substring("setParticipating:".length()));
+                    p.setParticipating(on);
+                    gameService.maybeAutoReveal(room);
                     gameService.broadcastRoomState(room);
                 }
             }
@@ -111,7 +124,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             }
 
         } else if (payload.startsWith("kick:")) {
-            // nur Host darf kicken; Host selbst und aktueller Host als Ziel sind tabu
+            // only host may kick; cannot kick host or self
             String me = gameService.getParticipantName(session);
             String targetName = payload.substring("kick:".length());
             if (me != null) {

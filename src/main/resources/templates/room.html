@@ -98,6 +98,18 @@
         <p id="arHint" class="hint" th:text="#{autoreveal.onlyHost}">Only the host can change this setting</p>
       </div>
 
+      <!-- Participation -->
+      <div class="menu-group">
+        <div class="group-title" th:text="#{menu.participation}">Participation</div>
+        <button id="partRow" class="menu-item" type="button" aria-pressed="true">
+          <span class="mi-icon" aria-hidden="true">👥</span>
+          <span>
+            <span th:text="#{menu.participation}">Participation</span>:
+            <strong id="partStatus">I'm estimating</strong>
+          </span>
+        </button>
+      </div>
+
       <!-- Invite -->
       <div class="menu-group">
         <div class="group-title" th:text="#{menu.invite}">Invite</div>
@@ -269,6 +281,7 @@ let roomCode = /*[[${roomCode}]]*/ "demo";
 let selectedCard = null;
 let votesRevealed = false;
 let isHost = false;
+let iParticipating = true;   // ← NEW: my participation state
 let resizeTimer = null;
 let currentSequenceId = 'fib-scrum'; // server overwrites
 let currentDeckSig = "";             // track current deck
@@ -287,6 +300,8 @@ const TXT_AR_ONLY_HOST = /*[[#{autoreveal.onlyHost}]]*/ 'Only the host can chang
 const TXT_MAKE_HOST    = /*[[#{action.makeHost}]]*/ 'Make host';
 const TXT_KICK         = /*[[#{action.kick}]]*/ 'Kick';
 const TXT_KICKED       = /*[[#{toast.kicked}]]*/ 'The host has closed the room for you.';
+const TXT_PART_IMIN    = /*[[#{participation.imIn}]]*/ "I'm estimating";
+const TXT_PART_OBS     = /*[[#{participation.observer}]]*/ "Observer";
 
 /** Card helpers */
 function addCardButton(grid, val){
@@ -347,9 +362,18 @@ function syncAutoRevealUI(){
   if (hint) hint.style.display = isHost ? 'none' : 'block';
 }
 
+/* NEW: Participation row */
+function syncParticipationUI(){
+  const row = document.getElementById('partRow');
+  const st  = document.getElementById('partStatus');
+  if (st) st.textContent = iParticipating ? TXT_PART_IMIN : TXT_PART_OBS;
+  if (row) row.setAttribute('aria-pressed', iParticipating ? 'true' : 'false');
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   syncSequenceUI();
   syncAutoRevealUI();
+  syncParticipationUI();
 
   const seqChoice = document.getElementById('seqChoice');
   seqChoice?.addEventListener('change', (e)=>{
@@ -364,6 +388,14 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!isHost) { showToast(TXT_AR_ONLY_HOST); syncAutoRevealUI(); return; }
     const next = !autoRevealEnabled;
     socket.send('setAutoReveal:' + next);
+  });
+
+  const partRow = document.getElementById('partRow');
+  partRow?.addEventListener('click', ()=>{
+    const next = !iParticipating;
+    socket.send('setParticipating:' + next);
+    iParticipating = next;
+    syncParticipationUI();
   });
 });
 
@@ -420,11 +452,16 @@ socket.onmessage = (event) => {
     const participants = Array.isArray(data.participants) ? data.participants : [];
 
     votesRevealed = data.votesRevealed;
-    isHost = participants.find(p => p.name === participantName)?.isHost === true;
+
+    // derive my host & participation state from payload
+    const me = participants.find(p => p.name === participantName);
+    isHost = !!(me && me.isHost === true);
+    iParticipating = me ? (me.participating !== false) : true;
 
     if (typeof data.autoRevealEnabled === 'boolean') autoRevealEnabled = data.autoRevealEnabled;
     syncAutoRevealUI();
     syncSequenceUI();
+    syncParticipationUI();
 
     document.getElementById("revealButton").style.display = isHost && !votesRevealed ? "inline-block" : "none";
     document.getElementById("resetButton").style.display  = isHost && votesRevealed ? "inline-block" : "none";
@@ -465,6 +502,7 @@ socket.onmessage = (event) => {
 
       syncSequenceUI();
       syncAutoRevealUI();
+      syncParticipationUI();
     }
 
     showToast(newHost === participantName
@@ -515,7 +553,7 @@ function kick(name){
   socket.send("kick:" + name);
 }
 
-/** Participant list renderer */
+/** Participant list renderer (with right-aligned actions wrapper) */
 function updateParticipantList(participants, revealed) {
   const list = document.getElementById("liveParticipantList");
   if (!list) return;
@@ -539,6 +577,8 @@ function updateParticipantList(participants, revealed) {
     const rightWrap = document.createElement("div");
     rightWrap.className = "row-right";
 
+    const isObs = (p.participating === false);
+
     // Left part: chip or status
     if (revealed) {
       const voteChip = document.createElement("span");
@@ -550,12 +590,17 @@ function updateParticipantList(participants, revealed) {
       voteChip.textContent = v != null ? v : "—";
       voteChip.dataset.val = v != null ? v : "";
 
-      // Gray style for "no vote" *or* non-numeric specials (❓, 💬, ☕, etc.)
-      if (!isNumeric) voteChip.classList.add("special");
+      // Gray style for "no vote" *or* non-numeric specials (❓, 💬, ☕, etc.) or observers
+      if (!isNumeric || isObs) voteChip.classList.add("special");
 
       rightWrap.appendChild(voteChip);
     } else {
-      if (!p.disconnected && p.vote != null) {
+      if (!p.disconnected && isObs) {
+        const status = document.createElement("span");
+        status.className = "status-icon observer";
+        status.textContent = "👀";
+        rightWrap.appendChild(status);
+      } else if (!p.disconnected && p.vote != null) {
         const status = document.createElement("span");
         status.className = "status-icon done";
         status.textContent = "✅";
@@ -568,7 +613,7 @@ function updateParticipantList(participants, revealed) {
       }
     }
 
-    // Right part: actions wrapper at the far right
+    // Right part: actions wrapper that lives at the far right
     const actions = document.createElement("div");
     actions.className = "row-actions";
 
@@ -633,7 +678,7 @@ function setConsensusUI(on){
   row.classList.toggle('consensus', !!on);
 }
 
-/* Numeric parser (½/1/2/0,5 → 0.5; specials → null) */
+/* Numeric parser */
 function parseVoteNumeric(s){
   if (!s) return null;
   s = String(s).trim();
@@ -647,20 +692,17 @@ function parseVoteNumeric(s){
   return Number.isFinite(n) ? n : null;
 }
 
-/* === Consensus logic (nur numerische Wähler zählen) ===
-   - Ignoriert Nicht-Wähler und Sonderkarten (❓ 💬 ☕)
-   - Konsens, wenn >= 2 numerische Stimmen vorhanden und alle identisch
-*/
+/* NEW: consensus among *participating* voters who actually voted numeric.
+   If 3 of 5 voted and match -> consensus true. */
 function updateConsensus(participants){
-  const numericVotes = [];
-  for (const p of participants) {
-    if (p.disconnected) continue;
+  const estimators = participants.filter(p => !p.disconnected && (p.participating !== false));
+  const nums = [];
+  for (const p of estimators){
     const n = parseVoteNumeric(p.vote);
-    if (n != null) numericVotes.push(Math.round(n*1000)/1000);
+    if (n != null) nums.push(Math.round(n*1000)/1000);
   }
-  if (numericVotes.length < 2) { setConsensusUI(false); return; } // mind. zwei echte Schätzungen
-  const ref = numericVotes[0];
-  const allSame = numericVotes.every(v => v === ref);
+  if (nums.length === 0){ setConsensusUI(false); return; }
+  const allSame = nums.every(v => v === nums[0]);
   setConsensusUI(allSame);
 }
 

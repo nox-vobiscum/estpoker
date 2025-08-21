@@ -429,6 +429,8 @@ li { margin-bottom: 0.4rem; line-height: 1.5; font-size: 1rem; }
 .status-icon { font-size: 1rem; line-height: 1; display: inline-flex; align-items: center; }
 .status-icon.done { color: var(--ok); filter: drop-shadow(0 0 2px rgba(76,175,80,.6)); }
 .status-icon.pending { color: var(--warn); opacity: .95; }
+/* NEW: observer icon styling */
+.status-icon.observer { color: var(--text-dim); opacity: .95; }
 
 /* Vote chip */
 .vote-chip {
@@ -605,58 +607,42 @@ li { margin-bottom: 0.4rem; line-height: 1.5; font-size: 1rem; }
   background:#422b2b; border-color:#ef4444; box-shadow:0 0 0 2px rgba(239,68,68,.18);
 }
 
-/* --- iOS Safari fine-tuning for Host/Kick pills (alignment preserved) --- */
+/* --- iOS Safari fine-tuning for action pills (host/kick) --- */
 @supports (-webkit-touch-callout: none) {
-  /* Size & tap area (keeps the spacer/margin-left:auto logic untouched) */
+  /* Bigger tap target + remove iOS button quirks */
   #liveParticipantList .row-action {
-    width: 38px;                 /* comfortable hit area without crowding */
-    height: 38px;
+    width: 40px;                 /* was 36px in the generic mobile rule */
+    height: 40px;
     padding: 0;
     border-radius: 50%;
-    display: inline-flex;        /* ensure true centering on iOS */
-    align-items: center;
-    justify-content: center;
-    line-height: 1;
     -webkit-appearance: none;
     appearance: none;
     background-clip: padding-box;
-    border-width: 1.25px;        /* crisp on Retina */
-    box-shadow: 0 1px 6px rgba(0,0,0,.22);
+    line-height: 1;              /* keep vertical metrics tight */
   }
 
-  /* Emoji centering & sizing */
+  /* Emoji centering & sizing on iOS */
   #liveParticipantList .row-action .ra-icon {
-    font-size: 19px;             /* just right inside a 38px pill */
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1em; height: 1em;
+    font-size: 20px;             /* a touch larger for clarity */
     line-height: 1;
-    display: inline-block;
-    transform: translateY(1px);  /* optical baseline fix for iOS */
+    transform: translateY(0.5px);/* optical centering for iOS baseline */
     font-family: "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",system-ui,sans-serif;
   }
 
-  /* Variant colors – translucent fill so emojis remain readable */
-  #liveParticipantList .row-action.host {
-    background: rgba(59,130,246,.18);   /* blue-500 @ 18% */
-    border-color: rgba(59,130,246,.55);
-    color: #e9f1ff;
-  }
-  #liveParticipantList .row-action.kick {
-    background: rgba(239,68,68,.18);    /* red-500 @ 18% */
-    border-color: rgba(239,68,68,.55);
-    color: #ffe7e7;
-  }
+  /* Crisper borders & subtle depth on iOS */
+  #liveParticipantList .row-action.host  { border-color: rgba(59,130,246,.60); box-shadow: 0 1px 6px rgba(59,130,246,.25); }
+  #liveParticipantList .row-action.kick  { border-color: rgba(239,68,68,.60); box-shadow: 0 1px 6px rgba(239,68,68,.25); }
 
-  /* Touch feedback */
-  #liveParticipantList .row-action:active {
-    transform: scale(.98);
-    box-shadow: 0 0 0 2px rgba(255,255,255,.06), 0 1px 4px rgba(0,0,0,.28);
-  }
-
-  /* Keep the alignment rule exactly as before (first action flush right) */
+  /* Keep the same alignment logic (first action pill flush right) */
   #liveParticipantList .row-right > .row-action:first-of-type { margin-left: auto; }
   #liveParticipantList .row-right :where(.status-icon, .vote-chip) ~ .row-action:first-of-type { margin-left: auto; }
 }
 
-/* Optional: a tad more spacing on small iPhones */
+/* Optional: when the screen is small AND iOS, keep spacing tidy */
 @media (max-width: 600px) and (-webkit-touch-callout: none) {
   #liveParticipantList .row-right { gap: 6px; }
 }

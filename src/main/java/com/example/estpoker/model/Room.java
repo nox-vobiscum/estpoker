@@ -16,7 +16,7 @@ public class Room {
     private Participant host;
 
     // === Auto-Reveal per Room ===
-    private boolean autoRevealEnabled = false; // default: OFF (geändert)
+    private boolean autoRevealEnabled = false; // default: OFF
 
     // ===== Card sequence (server-managed) =====
     private String sequenceId = "fib-scrum";
@@ -141,7 +141,7 @@ public class Room {
         return null;
     }
 
-    /** Manuelle Host-Übergabe. true, wenn erfolgreich (Name existiert & nicht bereits Host). */
+    /** Manual host transfer. */
     public synchronized boolean transferHostTo(String newHostName) {
         Participant target = nameToParticipant.get(newHostName);
         if (target == null) return false;

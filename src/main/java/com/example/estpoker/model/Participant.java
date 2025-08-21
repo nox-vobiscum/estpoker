@@ -1,18 +1,21 @@
 package com.example.estpoker.model;
 
 public class Participant {
-    private String name;            // <- nicht mehr final, damit rename möglich ist
+    private String name;            // <- not final to allow rename
     private String vote;
     private boolean active = true;
     private boolean disconnected = false;
     private boolean isHost = false; // host flag
+
+    // NEW: participates in estimation (default true)
+    private boolean participating = true;
 
     public Participant(String name) {
         this.name = name;
     }
 
     public String getName() { return name; }
-    public void setName(String name) { this.name = name; } // <- neu
+    public void setName(String name) { this.name = name; }
 
     public String getVote() { return vote; }
     public void setVote(String vote) { this.vote = vote; }
@@ -28,6 +31,9 @@ public class Participant {
 
     public boolean isHost() { return isHost; }
     public void setHost(boolean host) { isHost = host; }
+
+    public boolean isParticipating() { return participating; }
+    public void setParticipating(boolean participating) { this.participating = participating; }
 
     // convenience helpers (optional)
     public void markConnected() {

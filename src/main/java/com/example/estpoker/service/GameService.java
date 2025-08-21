@@ -21,7 +21,7 @@ public class GameService {
     private final Map<WebSocketSession, Room> sessionToRoomMap = new ConcurrentHashMap<>();
     private final Map<WebSocketSession, String> sessionToParticipantMap = new ConcurrentHashMap<>();
 
-    // stabile Client-ID -> letzter bekannter Name (pro Room)
+    // stable Client-ID -> last known name (per room)
     private final Map<String, String> clientToName = new ConcurrentHashMap<>();
     private static String mapKey(String roomCode, String cid) { return roomCode + "|" + cid; }
     public String getClientName(String roomCode, String cid) {
@@ -76,31 +76,32 @@ public class GameService {
     }
 
     /**
-     * Durchschnitt aus allen gültigen Stimmen des Rooms.
-     * Nutzt CardSequences.averageOfStrings -> "½" wird als 0.5 gewertet,
-     * Sonderkarten (❓💬☕) werden ignoriert.
+     * Average over all valid votes of participating users.
+     * Uses CardSequences.averageOfStrings -> "½" treated as 0.5,
+     * specials (❓💬☕) ignored.
      */
     public OptionalDouble calculateAverageVote(Room room) {
         List<String> votes = room.getParticipants().stream()
+                .filter(Participant::isParticipating)   // NEW: only participating users
                 .map(Participant::getVote)
                 .filter(Objects::nonNull)
                 .collect(Collectors.toList());
         return CardSequences.averageOfStrings(votes);
     }
 
-    /** === Auto-Reveal Hilfen === */
+    /** === Auto-Reveal helpers === */
 
-    /** Gültig = gesetzt und keine Sonderkarte (❓💬☕). */
+    /** Valid = set and not a special (❓💬☕). */
     public boolean isValidVote(String v) {
         return v != null && !CardSequences.SPECIALS.contains(v);
     }
 
-    /** Alle AKTIVEN Teilnehmenden haben eine gültige Stimme abgegeben? */
+    /** Have all ACTIVE & PARTICIPATING users cast a valid vote? */
     public boolean allActiveParticipantsHaveValidVotes(Room room) {
         if (room == null) return false;
         synchronized (room) {
             for (Participant p : room.getParticipants()) {
-                if (p.isActive()) {
+                if (p.isActive() && p.isParticipating()) {   // NEW: only those who participate
                     String v = p.getVote();
                     if (v == null || !isValidVote(v)) {
                         return false;
@@ -112,8 +113,8 @@ public class GameService {
     }
 
     /**
-     * Setzt votesRevealed=true, wenn noch nicht aufgedeckt und alle aktiven gültig gevotet haben.
-     * Berücksichtigt die Raum-Einstellung `autoRevealEnabled`.
+     * Sets votesRevealed=true if not revealed and all participating actives have valid votes.
+     * Respects room.isAutoRevealEnabled().
      */
     public boolean maybeAutoReveal(Room room) {
         if (room == null) return false;
@@ -161,6 +162,7 @@ public class GameService {
                 pData.put("vote", p.getVote());
                 pData.put("disconnected", !p.isActive());
                 pData.put("isHost", p.isHost());
+                pData.put("participating", p.isParticipating()); // NEW
                 participants.add(pData);
             }
 
@@ -176,7 +178,7 @@ public class GameService {
             payload.put("sequenceId", room.getSequenceId());
             payload.put("cards", room.getCurrentCards());
 
-            // Auto-Reveal Flag mitsenden
+            // Auto-Reveal Flag
             payload.put("autoRevealEnabled", room.isAutoRevealEnabled());
 
             String json = objectMapper.writeValueAsString(payload);
@@ -200,6 +202,7 @@ public class GameService {
                 pData.put("vote", p.getVote());
                 pData.put("disconnected", !p.isActive());
                 pData.put("isHost", p.isHost());
+                pData.put("participating", p.isParticipating()); // NEW
                 participants.add(pData);
             }
 
@@ -287,16 +290,16 @@ public class GameService {
         pendingDisconnects.put(k, f);
     }
 
-    // ===== Teilnehmer kicken (nur Host ruft via Handler auf) =====
+    // ===== kick participant (host only triggers via handler) =====
     public void kickParticipant(Room room, String targetName) {
         if (room == null || targetName == null) return;
 
-        // 1) An gekickte Sessions "kicked" senden + schließen, und Mappings vorab entfernen
+        // 1) tell target sessions "kicked" + close, remove mappings first
         String json;
         try {
             Map<String, Object> payload = new HashMap<>();
             payload.put("type", "kicked");
-            payload.put("redirect", "/"); // index/startseite
+            payload.put("redirect", "/"); // index/start
             json = objectMapper.writeValueAsString(payload);
         } catch (IOException e) {
             json = "{\"type\":\"kicked\",\"redirect\":\"/\"}";
@@ -316,31 +319,30 @@ public class GameService {
             try {
                 if (s.isOpen()) s.sendMessage(new TextMessage(json));
             } catch (IOException ignored) {}
-            // Entferne Mappings, damit afterConnectionClosed nicht mehr greift
             sessionToRoomMap.remove(s);
             sessionToParticipantMap.remove(s);
             try { s.close(new CloseStatus(4001, "Kicked")); } catch (IOException ignored) {}
         }
 
-        // 2) Pending Disconnect-Jobs abbrechen und aus Room entfernen
+        // 2) cancel pending disconnects and remove from room
         cancelPendingDisconnect(room, targetName);
         room.removeParticipant(targetName);
 
-        // 3) Falls (unerwartet) Host war -> neuen Host bestimmen & melden
+        // 3) if (unexpectedly) host -> find new host & notify
         String newHost = room.assignNewHostIfNecessary(targetName);
         if (newHost != null) {
             broadcastHostChange(room, targetName, newHost);
         }
 
-        // 4) Room-State an verbleibende senden
+        // 4) broadcast updated room state
         broadcastRoomState(room);
     }
 
-    // ===== Room schließen (Host) =====
+    // ===== close room (host) =====
     public void closeRoom(Room room) {
         if (room == null) return;
 
-        // 1) Allen Clients sagen: Raum ist zu -> redirect "/"
+        // 1) notify all clients: room closed -> redirect "/"
         try {
             Map<String, Object> payload = new HashMap<>();
             payload.put("type", "roomClosed");
@@ -351,7 +353,7 @@ public class GameService {
             e.printStackTrace();
         }
 
-        // 2) Sessions dieses Rooms schließen und Mappings aufräumen
+        // 2) close sessions & clean mappings
         List<WebSocketSession> toClose = new ArrayList<>();
         for (Map.Entry<WebSocketSession, Room> e : sessionToRoomMap.entrySet()) {
             if (room.equals(e.getValue())) {
@@ -364,12 +366,12 @@ public class GameService {
             sessionToParticipantMap.remove(s);
         }
 
-        // 3) Pending Disconnect-Jobs dazu abbrechen
+        // 3) cancel pending disconnects
         for (Participant p : new ArrayList<>(room.getParticipants())) {
             cancelPendingDisconnect(room, p.getName());
         }
 
-        // 4) Room aus Registry entfernen
+        // 4) remove room from registry
         rooms.remove(room.getCode());
     }
 }
