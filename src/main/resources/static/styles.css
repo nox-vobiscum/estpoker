@@ -605,47 +605,6 @@ li { margin-bottom: 0.4rem; line-height: 1.5; font-size: 1rem; }
   background:#422b2b; border-color:#ef4444; box-shadow:0 0 0 2px rgba(239,68,68,.18);
 }
 
-/* --- iOS Safari fine-tuning for action pills (host/kick) --- */
-@supports (-webkit-touch-callout: none) {
-  /* Bigger tap target + remove iOS button quirks */
-  #liveParticipantList .row-action {
-    width: 40px;                 /* was 36px in the generic mobile rule */
-    height: 40px;
-    padding: 0;
-    border-radius: 50%;
-    -webkit-appearance: none;
-    appearance: none;
-    background-clip: padding-box;
-    line-height: 1;              /* keep vertical metrics tight */
-  }
-
-  /* Emoji centering & sizing on iOS */
-  #liveParticipantList .row-action .ra-icon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 1em; height: 1em;
-    font-size: 20px;             /* a touch larger for clarity */
-    line-height: 1;
-    transform: translateY(0.5px);/* optical centering for iOS baseline */
-    font-family: "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",system-ui,sans-serif;
-  }
-
-  /* Crisper borders & subtle depth on iOS */
-  #liveParticipantList .row-action.host  { border-color: rgba(59,130,246,.60); box-shadow: 0 1px 6px rgba(59,130,246,.25); }
-  #liveParticipantList .row-action.kick  { border-color: rgba(239,68,68,.60); box-shadow: 0 1px 6px rgba(239,68,68,.25); }
-
-  /* Keep the same alignment logic (first action pill flush right) */
-  #liveParticipantList .row-right > .row-action:first-of-type { margin-left: auto; }
-  #liveParticipantList .row-right :where(.status-icon, .vote-chip) ~ .row-action:first-of-type { margin-left: auto; }
-}
-
-/* Optional: when the screen is small AND iOS, keep spacing tidy */
-@media (max-width: 600px) and (-webkit-touch-callout: none) {
-  #liveParticipantList .row-right { gap: 6px; }
-}
-
-
 /* --- iOS Safari fine-tuning for Host/Kick pills (alignment preserved) --- */
 @supports (-webkit-touch-callout: none) {
   /* Size & tap area (keeps the spacer/margin-left:auto logic untouched) */
@@ -661,7 +620,7 @@ li { margin-bottom: 0.4rem; line-height: 1.5; font-size: 1rem; }
     -webkit-appearance: none;
     appearance: none;
     background-clip: padding-box;
-    border-width: 1.25px;        /* looks crisp on Retina */
+    border-width: 1.25px;        /* crisp on Retina */
     box-shadow: 0 1px 6px rgba(0,0,0,.22);
   }
 
@@ -678,7 +637,7 @@ li { margin-bottom: 0.4rem; line-height: 1.5; font-size: 1rem; }
   #liveParticipantList .row-action.host {
     background: rgba(59,130,246,.18);   /* blue-500 @ 18% */
     border-color: rgba(59,130,246,.55);
-    color: #e9f1ff;                     /* label (only visible on desktop) */
+    color: #e9f1ff;
   }
   #liveParticipantList .row-action.kick {
     background: rgba(239,68,68,.18);    /* red-500 @ 18% */
@@ -686,16 +645,15 @@ li { margin-bottom: 0.4rem; line-height: 1.5; font-size: 1rem; }
     color: #ffe7e7;
   }
 
-  /* Hover/active (touch) feedback */
+  /* Touch feedback */
   #liveParticipantList .row-action:active {
     transform: scale(.98);
     box-shadow: 0 0 0 2px rgba(255,255,255,.06), 0 1px 4px rgba(0,0,0,.28);
   }
-  #liveParticipantList .row-action.host:hover  { box-shadow: 0 0 0 2px rgba(59,130,246,.18); }
-  #liveParticipantList .row-action.kick:hover  { box-shadow: 0 0 0 2px rgba(239, 68, 68,.18); }
 
   /* Keep the alignment rule exactly as before (first action flush right) */
   #liveParticipantList .row-right > .row-action:first-of-type { margin-left: auto; }
+  #liveParticipantList .row-right :where(.status-icon, .vote-chip) ~ .row-action:first-of-type { margin-left: auto; }
 }
 
 /* Optional: a tad more spacing on small iPhones */

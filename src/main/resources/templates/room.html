@@ -515,7 +515,7 @@ function kick(name){
   socket.send("kick:" + name);
 }
 
-/** Participant list renderer (with right-aligned actions wrapper) */
+/** Participant list renderer */
 function updateParticipantList(participants, revealed) {
   const list = document.getElementById("liveParticipantList");
   if (!list) return;
@@ -541,20 +541,20 @@ function updateParticipantList(participants, revealed) {
 
     // Left part: chip or status
     if (revealed) {
-  const voteChip = document.createElement("span");
-  voteChip.className = "vote-chip";
+      const voteChip = document.createElement("span");
+      voteChip.className = "vote-chip";
 
-  const v = p.vote != null ? String(p.vote) : null;
-  const isNumeric = v != null ? (parseVoteNumeric(v) != null) : false;
+      const v = p.vote != null ? String(p.vote) : null;
+      const isNumeric = v != null ? (parseVoteNumeric(v) != null) : false;
 
-  voteChip.textContent = v != null ? v : "—";
-  voteChip.dataset.val = v != null ? v : "";
+      voteChip.textContent = v != null ? v : "—";
+      voteChip.dataset.val = v != null ? v : "";
 
-  // Gray style for "no vote" *or* non-numeric specials (❓, 💬, ☕, etc.)
-  if (!isNumeric) voteChip.classList.add("special");
+      // Gray style for "no vote" *or* non-numeric specials (❓, 💬, ☕, etc.)
+      if (!isNumeric) voteChip.classList.add("special");
 
-  rightWrap.appendChild(voteChip);
-} else {
+      rightWrap.appendChild(voteChip);
+    } else {
       if (!p.disconnected && p.vote != null) {
         const status = document.createElement("span");
         status.className = "status-icon done";
@@ -568,7 +568,7 @@ function updateParticipantList(participants, revealed) {
       }
     }
 
-    // Right part: actions wrapper that lives at the far right
+    // Right part: actions wrapper at the far right
     const actions = document.createElement("div");
     actions.className = "row-actions";
 
@@ -633,7 +633,7 @@ function setConsensusUI(on){
   row.classList.toggle('consensus', !!on);
 }
 
-/* Numeric parser */
+/* Numeric parser (½/1/2/0,5 → 0.5; specials → null) */
 function parseVoteNumeric(s){
   if (!s) return null;
   s = String(s).trim();
@@ -646,17 +646,21 @@ function parseVoteNumeric(s){
   const n = parseFloat(s.replace(',','.'));
   return Number.isFinite(n) ? n : null;
 }
+
+/* === Consensus logic (nur numerische Wähler zählen) ===
+   - Ignoriert Nicht-Wähler und Sonderkarten (❓ 💬 ☕)
+   - Konsens, wenn >= 2 numerische Stimmen vorhanden und alle identisch
+*/
 function updateConsensus(participants){
-  const active = participants.filter(p => !p.disconnected);
-  if (!active.length) { setConsensusUI(false); return; }
-  const nums = [];
-  for (const p of active) {
-    if (p.vote == null) { setConsensusUI(false); return; }
+  const numericVotes = [];
+  for (const p of participants) {
+    if (p.disconnected) continue;
     const n = parseVoteNumeric(p.vote);
-    if (n == null) { setConsensusUI(false); return; }
-    nums.push(Math.round(n*1000)/1000);
+    if (n != null) numericVotes.push(Math.round(n*1000)/1000);
   }
-  const allSame = nums.every(v => v === nums[0]);
+  if (numericVotes.length < 2) { setConsensusUI(false); return; } // mind. zwei echte Schätzungen
+  const ref = numericVotes[0];
+  const allSame = numericVotes.every(v => v === ref);
   setConsensusUI(allSame);
 }
 
