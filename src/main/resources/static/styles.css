@@ -644,3 +644,61 @@ li { margin-bottom: 0.4rem; line-height: 1.5; font-size: 1rem; }
 @media (max-width: 600px) and (-webkit-touch-callout: none) {
   #liveParticipantList .row-right { gap: 6px; }
 }
+
+
+/* --- iOS Safari fine-tuning for Host/Kick pills (alignment preserved) --- */
+@supports (-webkit-touch-callout: none) {
+  /* Size & tap area (keeps the spacer/margin-left:auto logic untouched) */
+  #liveParticipantList .row-action {
+    width: 38px;                 /* comfortable hit area without crowding */
+    height: 38px;
+    padding: 0;
+    border-radius: 50%;
+    display: inline-flex;        /* ensure true centering on iOS */
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    -webkit-appearance: none;
+    appearance: none;
+    background-clip: padding-box;
+    border-width: 1.25px;        /* looks crisp on Retina */
+    box-shadow: 0 1px 6px rgba(0,0,0,.22);
+  }
+
+  /* Emoji centering & sizing */
+  #liveParticipantList .row-action .ra-icon {
+    font-size: 19px;             /* just right inside a 38px pill */
+    line-height: 1;
+    display: inline-block;
+    transform: translateY(1px);  /* optical baseline fix for iOS */
+    font-family: "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",system-ui,sans-serif;
+  }
+
+  /* Variant colors – translucent fill so emojis remain readable */
+  #liveParticipantList .row-action.host {
+    background: rgba(59,130,246,.18);   /* blue-500 @ 18% */
+    border-color: rgba(59,130,246,.55);
+    color: #e9f1ff;                     /* label (only visible on desktop) */
+  }
+  #liveParticipantList .row-action.kick {
+    background: rgba(239,68,68,.18);    /* red-500 @ 18% */
+    border-color: rgba(239,68,68,.55);
+    color: #ffe7e7;
+  }
+
+  /* Hover/active (touch) feedback */
+  #liveParticipantList .row-action:active {
+    transform: scale(.98);
+    box-shadow: 0 0 0 2px rgba(255,255,255,.06), 0 1px 4px rgba(0,0,0,.28);
+  }
+  #liveParticipantList .row-action.host:hover  { box-shadow: 0 0 0 2px rgba(59,130,246,.18); }
+  #liveParticipantList .row-action.kick:hover  { box-shadow: 0 0 0 2px rgba(239, 68, 68,.18); }
+
+  /* Keep the alignment rule exactly as before (first action flush right) */
+  #liveParticipantList .row-right > .row-action:first-of-type { margin-left: auto; }
+}
+
+/* Optional: a tad more spacing on small iPhones */
+@media (max-width: 600px) and (-webkit-touch-callout: none) {
+  #liveParticipantList .row-right { gap: 6px; }
+}
