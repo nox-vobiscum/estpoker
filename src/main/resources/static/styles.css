@@ -46,7 +46,7 @@
   --icon-col-width: 1.5rem;
   --name-text-col: 0px;
 
-  /* Dark-mode tints for action pills (emoji remain readable) */
+  /* Dark-mode tints for action pills (emojis remain readable) */
   --host-pill-bg-dark:  rgba(37, 99, 235, .18);  /* blue-600 @ 18% */
   --host-pill-bdr-dark: rgba(59, 130, 246, .55); /* blue-500 @ 55% */
   --kick-pill-bg-dark:  rgba(239, 68, 68, .18);  /* red-500  @ 18% */
@@ -401,10 +401,31 @@ li { margin-bottom: 0.4rem; line-height: 1.5; font-size: 1rem; }
 
 .name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; color: var(--text); }
 
-/* Right column: status chip left, actions pushed to the far right */
-.row-right { display: flex; align-items: center; gap: 6px; width: 100%; }
-/* Push the first action pill to the far right – everything before stays left */
-.row-right > .row-action:first-of-type { margin-left: auto; }
+/* --- Right block: status/Chip stays left, actions are always flush right (Safari-safe) --- */
+.row-right{
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+}
+.row-right .status-icon,
+.row-right .vote-chip { order: 0; }
+
+/* Spacer pushes actions to the far right independent of DOM order */
+.row-right::before {
+  content: "";
+  flex: 1 1 auto;
+  order: 1;
+}
+
+/* Action pills are always on the far right */
+.row-right .row-action { order: 2; }
+
+/* Optional wrapper support (if present in markup) */
+.row-right .row-actions { margin-left: auto; display: inline-flex; gap: 6px; }
+
+/* Neat spacing between multiple action pills */
+.row-right .row-action + .row-action { margin-left: 8px; }
 
 /* Disconnected style */
 #liveParticipantList li.disconnected { color: #888; font-style: italic; text-decoration: none; }
@@ -547,7 +568,7 @@ li { margin-bottom: 0.4rem; line-height: 1.5; font-size: 1rem; }
 .row-action:active { transform: translateY(1px) scale(.98); }
 .row-action:disabled { opacity: .6; cursor: not-allowed; }
 
-/* Variants — dark mode uses translucent tints so emoji stay readable */
+/* Variants — dark mode uses translucent tints so emojis stay readable */
 .row-action.host{
   background: var(--host-pill-bg-dark);
   border-color: var(--host-pill-bdr-dark);
