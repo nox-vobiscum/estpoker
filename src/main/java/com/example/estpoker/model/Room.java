@@ -18,35 +18,29 @@ public class Room {
     // === Auto-Reveal per Room ===
     private boolean autoRevealEnabled = false; // default: OFF
 
-    // ===== Card sequence (server-managed) =====
-    private String sequenceId = "fib-scrum";
-    private List<String> currentCards = computeDeck(sequenceId);
-
-    private static final Map<String, List<String>> SEQ_BASE = Map.of(
-            "fib-math",  List.of("0","1","2","3","5","8","13","21","34","55"),
-            "fib-scrum", List.of("1","2","3","5","8","13","20","40"),
-            "fib-enh",   List.of("0","½","1","2","3","5","8","13","20","40","100"),
-            "pow2",      List.of("2","4","8","16","32","64","128"),
-            "tshirt",    List.of("XXS","XS","S","M","L","XL","XXL","XXXL")
-    );
+    // ===== Card sequence (delegated to CardSequences) =====
+    private String sequenceId = CardSequences.DEFAULT_SEQUENCE_ID;
+    private List<String> currentCards = safeDeck(sequenceId);
 
     public Room(String code) { this.code = code; }
 
-    /* ------------ Sequence helpers ------------ */
+    /* ------------ Sequence helpers (delegation) ------------ */
 
-    private static List<String> computeDeck(String seqId) {
-        List<String> base = new ArrayList<>(SEQ_BASE.getOrDefault(seqId, SEQ_BASE.get("fib-scrum")));
-        List<String> out = new ArrayList<>(base.size() + CardSequences.SPECIALS.size());
-        out.addAll(base);
-        out.addAll(CardSequences.SPECIALS);
-        return out;
+    private static List<String> safeDeck(String seqId) {
+        // Build deck via CardSequences; fall back to default if unknown/empty
+        String normalized = CardSequences.normalizeSequenceId(seqId);
+        List<String> deck = CardSequences.buildDeck(normalized);
+        if (deck == null || deck.isEmpty()) {
+            normalized = CardSequences.DEFAULT_SEQUENCE_ID;
+            deck = CardSequences.buildDeck(normalized);
+        }
+        return deck;
     }
 
-    /** Sets the active sequence (unknown id falls back to "fib-scrum") and resets votes. */
+    /** Sets the active sequence and resets votes. Unknown IDs fall back to default. */
     public synchronized void setSequence(String seqId) {
-        if (!SEQ_BASE.containsKey(seqId)) seqId = "fib-scrum";
-        this.sequenceId = seqId;
-        this.currentCards = computeDeck(seqId);
+        this.sequenceId = CardSequences.normalizeSequenceId(seqId);
+        this.currentCards = safeDeck(this.sequenceId);
         reset();
     }
 
@@ -141,7 +135,7 @@ public class Room {
         return null;
     }
 
-    /** Manual host transfer. */
+    /** Manual host transfer. true if successful. */
     public synchronized boolean transferHostTo(String newHostName) {
         Participant target = nameToParticipant.get(newHostName);
         if (target == null) return false;
