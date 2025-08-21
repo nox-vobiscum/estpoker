@@ -64,10 +64,8 @@
   --accent-strong: #1d4ed8;
 
   --shadow: 0 10px 24px rgba(0,0,0,0.08);
-}
 
-/* Better light-mode contrasts for special chips & action pills */
-:root[data-theme="light"] {
+  /* Accessible contrasts for special chips & action pills */
   --chip-special-bg: #eaf2ff;
   --chip-special-border: #cfe0ff;
   --chip-special-text: #0b1220;
@@ -370,8 +368,8 @@ button.selected {
 ul { list-style: none; padding: 0; margin: 0; }
 li { margin-bottom: 0.4rem; line-height: 1.5; font-size: 1rem; }
 
-/* Mobile-first grid: icon | name | flexible right block
-   Use 1fr for the right block so actions can be pushed to the far right. */
+/* Mobile-first grid:
+   icon | name | right block (fills remaining space for perfect right alignment) */
 #liveParticipantList .participant-row {
   display: grid;
   grid-template-columns: var(--icon-col-width) 1fr 1fr;
@@ -397,12 +395,9 @@ li { margin-bottom: 0.4rem; line-height: 1.5; font-size: 1rem; }
 
 .name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; color: var(--text); }
 
-/* Right column (status chip + actions) */
-.row-right {
-  display: flex; align-items: center; gap: 6px; width: 100%;
-}
-/* Push the first action pill to the far right – everything before stays left */
-.row-right > .row-action:first-of-type { margin-left: auto; }
+/* Right column: status chip left, actions wrapper flush right */
+.row-right { display: flex; align-items: center; gap: 6px; width: 100%; }
+.row-actions{ margin-left: auto; display: inline-flex; align-items: center; gap: 6px; }
 
 /* Disconnected style */
 #liveParticipantList li.disconnected { color: #888; font-style: italic; text-decoration: none; }
@@ -426,7 +421,6 @@ li { margin-bottom: 0.4rem; line-height: 1.5; font-size: 1rem; }
   border-color: var(--chip-special-border);
   color: var(--chip-special-text);
 }
-/* ☕ slightly larger via data attribute */
 .vote-chip[data-val="☕"] { font-size: 1.25rem; padding: 0.1rem 0.55rem; }
 @keyframes chipIn { to { opacity: 1; transform: translateY(0); } }
 
@@ -501,9 +495,7 @@ li { margin-bottom: 0.4rem; line-height: 1.5; font-size: 1rem; }
 
   /* Bring actions closer / optionally sticky */
   .pre-vote { margin-top: var(--pre-vote-margin-mobile); }
-  #revealButton, #resetButton {
-    position: sticky; bottom: 12px; box-shadow: 0 10px 24px rgba(0,0,0,.22); z-index: 5;
-  }
+  #revealButton, #resetButton { position: sticky; bottom: 12px; box-shadow: 0 10px 24px rgba(0,0,0,.22); z-index: 5; }
 
   ul li { font-size: 1.05rem; line-height: 1.45; }
   .container h1:first-child { margin-top: 1.2rem; }
@@ -563,9 +555,7 @@ li { margin-bottom: 0.4rem; line-height: 1.5; font-size: 1rem; }
   border-color: var(--kick-pill-border);
   color: var(--kick-pill-text);
 }
-:root[data-theme="light"] .row-action.kick:hover {
-  background: #FECACA; /* red-200 */
-}
+:root[data-theme="light"] .row-action.kick:hover { background: #FECACA; /* red-200 */ }
 
 :root[data-theme="light"] .row-action.host {
   background: var(--host-pill-bg);

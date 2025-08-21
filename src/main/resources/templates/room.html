@@ -5,11 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="dark light">
   <title th:text="#{app.title}">RBS' Estimation Poker</title>
+
+  <!-- Favicons -->
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
   <link rel="alternate icon" href="/favicon.ico" sizes="any">
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+
+  <!-- Early theme boot -->
   <script>
     (function(){try{
       var t=localStorage.getItem('estpoker-theme')||'dark';
@@ -17,6 +21,7 @@
       else document.documentElement.setAttribute('data-theme',t);
     }catch(e){}})();
   </script>
+
   <link rel="stylesheet" th:href="@{/styles.css}">
 </head>
 <body>
@@ -138,7 +143,7 @@
   <h2 id="selectCardHeader" th:text="#{label.selectCard}">Choose a card:</h2>
 
   <div class="pre-vote">
-    <!-- Karten werden clientseitig aus 'cards' gerendert -->
+    <!-- Cards are rendered client-side from 'cards' -->
     <div id="cardsArea"></div>
 
     <button type="button" id="revealButton" class="button" style="display:none;"
@@ -268,12 +273,12 @@ let resizeTimer = null;
 let currentSequenceId = 'fib-scrum'; // server overwrites
 let currentDeckSig = "";             // track current deck
 
-// Auto-Reveal default (Server überschreibt im ersten State)
+// Auto-Reveal default (server will overwrite on first state)
 let autoRevealEnabled = false;
 
 const SPECIALS = new Set(["❓","💬","☕"]);
 
-/** i18n Fallbacks */
+/** i18n fallbacks */
 const TXT_AVG  = /*[[#{label.average}]]*/ 'Avg:';
 const TXT_CONS = /*[[#{label.consensus}]]*/ 'Consensus:';
 const TXT_ON   = /*[[#{toggle.on}]]*/ 'On';
@@ -283,7 +288,7 @@ const TXT_MAKE_HOST    = /*[[#{action.makeHost}]]*/ 'Make host';
 const TXT_KICK         = /*[[#{action.kick}]]*/ 'Kick';
 const TXT_KICKED       = /*[[#{toast.kicked}]]*/ 'The host has closed the room for you.';
 
-/** Button Helper */
+/** Card helpers */
 function addCardButton(grid, val){
   const btn = document.createElement('button');
   btn.type = 'button';
@@ -362,7 +367,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 
-// stabile Client-ID
+// persistent client id
 const cid = (function(){
   try {
     let id = localStorage.getItem('ep-cid');
@@ -392,12 +397,11 @@ const MSG_HOST_OTHER = /*[[#{toast.hostOther}]]*/ 'Host changed. {new} is now ho
 socket.onmessage = (event) => {
   const data = JSON.parse(event.data);
 
-  // Karten/Deck (kommt auch in voteUpdate mit)
+  // Deck changes (also arrives in voteUpdate)
   if (data.sequenceId) {
     const newSig = deckSig(data.cards);
     const needRerender = (currentSequenceId !== data.sequenceId) || (newSig && newSig !== currentDeckSig);
     currentSequenceId = data.sequenceId;
-    // BONUS: kein syncSequenceUI() hier (isHost könnte noch veraltet sein)
     if (needRerender && Array.isArray(data.cards)) {
       clearCardSelection();
       renderCards(data.cards);
@@ -420,7 +424,7 @@ socket.onmessage = (event) => {
 
     if (typeof data.autoRevealEnabled === 'boolean') autoRevealEnabled = data.autoRevealEnabled;
     syncAutoRevealUI();
-    syncSequenceUI(); // jetzt, wo isHost stimmt
+    syncSequenceUI();
 
     document.getElementById("revealButton").style.display = isHost && !votesRevealed ? "inline-block" : "none";
     document.getElementById("resetButton").style.display  = isHost && votesRevealed ? "inline-block" : "none";
@@ -446,7 +450,7 @@ socket.onmessage = (event) => {
   } else if (data.type === "hostChanged") {
     const { oldHost, newHost } = data;
 
-    // Sofortige UI-Anpassung (ohne nächsten voteUpdate abzuwarten)
+    // Apply UI immediately (without waiting for next voteUpdate)
     const iBecomeHost = (newHost === participantName);
     const iLoseHost   = (oldHost === participantName);
     if (iBecomeHost || iLoseHost) {
@@ -477,9 +481,9 @@ socket.onmessage = (event) => {
     const target = data.redirect || "/";
     location.replace(target);
   }
-}; // <--- schließt socket.onmessage sauber
+}; // end socket.onmessage
 
-// host-only action: close room
+// Host-only: close room
 document.addEventListener('DOMContentLoaded', () => {
   const closeBtn = document.getElementById('closeRoomBtn');
   closeBtn?.addEventListener('click', () => {
@@ -501,7 +505,7 @@ function highlightSelectedCard() {
 function revealCards() { if (isHost) socket.send("revealCards"); }
 function resetRoom()   { if (isHost) socket.send("resetRoom"); clearCardSelection(); }
 
-/** Host übertragen & Kick */
+/** Host transfer & kick */
 function transferHost(name){
   if (!isHost || !name || name === participantName) return;
   socket.send("transferHost:" + name);
@@ -511,10 +515,12 @@ function kick(name){
   socket.send("kick:" + name);
 }
 
+/** Participant list renderer (with right-aligned actions wrapper) */
 function updateParticipantList(participants, revealed) {
   const list = document.getElementById("liveParticipantList");
   if (!list) return;
   list.innerHTML = "";
+
   participants.forEach(p => {
     const li = document.createElement("li");
     li.classList.add("participant-row");
@@ -526,9 +532,14 @@ function updateParticipantList(participants, revealed) {
     icon.className = p.isHost ? "participant-icon host" : (p.disconnected ? "participant-icon inactive" : "participant-icon");
     icon.textContent = p.isHost ? "👑" : (p.disconnected ? "💤" : "👤");
 
-    const nameSpan = document.createElement("span"); nameSpan.className = "name"; nameSpan.textContent = p.name;
-    const rightWrap = document.createElement("div"); rightWrap.className = "row-right";
+    const nameSpan = document.createElement("span");
+    nameSpan.className = "name";
+    nameSpan.textContent = p.name;
 
+    const rightWrap = document.createElement("div");
+    rightWrap.className = "row-right";
+
+    // Left part: chip or status
     if (revealed) {
       const voteChip = document.createElement("span");
       voteChip.className = "vote-chip";
@@ -539,61 +550,59 @@ function updateParticipantList(participants, revealed) {
       rightWrap.appendChild(voteChip);
     } else {
       if (!p.disconnected && p.vote != null) {
-        const status = document.createElement("span"); status.className = "status-icon done"; status.textContent = "✅";
+        const status = document.createElement("span");
+        status.className = "status-icon done";
+        status.textContent = "✅";
         rightWrap.appendChild(status);
       } else if (!p.disconnected) {
-        const status = document.createElement("span"); status.className = "status-icon pending"; status.textContent = "⏳";
+        const status = document.createElement("span");
+        status.className = "status-icon pending";
+        status.textContent = "⏳";
         rightWrap.appendChild(status);
       }
     }
 
-    // Make host
+    // Right part: actions wrapper that lives at the far right
+    const actions = document.createElement("div");
+    actions.className = "row-actions";
+
     if (isHost && !p.isHost && p.name !== participantName) {
+      // Make host
       const mk = document.createElement("button");
       mk.type = "button";
       mk.className = "row-action host";
       mk.setAttribute("aria-label", TXT_MAKE_HOST + ": " + p.name);
       mk.title = TXT_MAKE_HOST + ": " + p.name;
-
-      const ic = document.createElement("span");
-      ic.className = "ra-icon";
-      ic.textContent = "👑";
-
-      const lab = document.createElement("span");
-      lab.className = "ra-label";
-      lab.textContent = TXT_MAKE_HOST;
-
+      const ic = document.createElement("span"); ic.className = "ra-icon";  ic.textContent = "👑";
+      const lab = document.createElement("span"); lab.className = "ra-label"; lab.textContent = TXT_MAKE_HOST;
       mk.appendChild(ic); mk.appendChild(lab);
       mk.addEventListener("click", () => transferHost(p.name));
-      rightWrap.appendChild(mk);
-    }
+      actions.appendChild(mk);
 
-    // Kick
-    if (isHost && !p.isHost && p.name !== participantName) {
+      // Kick
       const kb = document.createElement("button");
       kb.type = "button";
       kb.className = "row-action kick";
       kb.setAttribute("aria-label", TXT_KICK + ": " + p.name);
       kb.title = TXT_KICK + ": " + p.name;
-
-      const ic2 = document.createElement("span");
-      ic2.className = "ra-icon";
-      ic2.textContent = "❌";
-
-      const lab2 = document.createElement("span");
-      lab2.className = "ra-label";
-      lab2.textContent = TXT_KICK;
-
+      const ic2 = document.createElement("span"); ic2.className = "ra-icon"; ic2.textContent = "❌";
+      const lab2 = document.createElement("span"); lab2.className = "ra-label"; lab2.textContent = TXT_KICK;
       kb.appendChild(ic2); kb.appendChild(lab2);
       kb.addEventListener("click", () => kick(p.name));
-      rightWrap.appendChild(kb);
+      actions.appendChild(kb);
     }
 
-    li.appendChild(icon); li.appendChild(nameSpan); li.appendChild(rightWrap);
+    if (actions.childElementCount) rightWrap.appendChild(actions);
+
+    li.appendChild(icon);
+    li.appendChild(nameSpan);
+    li.appendChild(rightWrap);
     list.appendChild(li);
   });
+
   measureAndSetNameColumn();
 }
+
 function measureAndSetNameColumn() {
   const list = document.getElementById("liveParticipantList");
   if (!list) return;
@@ -603,13 +612,13 @@ function measureAndSetNameColumn() {
 }
 window.addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(measureAndSetNameColumn, 150); });
 
-/* „-“ statt „N/A“ */
+/** Average helpers */
 function updateAverage(avg) {
   const avgSpan = document.getElementById("averageVote");
   if (avgSpan) avgSpan.textContent = avg != null ? avg : "-";
 }
 
-/* ===== Consensus-UI ===== */
+/* ===== Consensus UI ===== */
 function setConsensusUI(on){
   const row = document.getElementById('resultRow');
   const lbl = document.getElementById('resultLabel');
@@ -618,7 +627,7 @@ function setConsensusUI(on){
   row.classList.toggle('consensus', !!on);
 }
 
-/* Numerik-Parser */
+/* Numeric parser */
 function parseVoteNumeric(s){
   if (!s) return null;
   s = String(s).trim();
@@ -656,6 +665,7 @@ function showResults(participants, avg) {
   updateConsensus(participants);
 }
 
+/* Tiny toast */
 function showToast(message) {
   const toast = document.createElement("div");
   toast.className = "toast";
@@ -664,7 +674,7 @@ function showToast(message) {
   setTimeout(() => toast.remove(), 3000);
 }
 
-/* Invite: Deep-Link only */
+/* Invite: deep-link copy only */
 (function(){
   const copyBtn = document.getElementById('copyRoomLink');
   const TXT_LINK_COPIED = /*[[#{invite.linkCopied}]]*/ 'Link copied to clipboard';
@@ -679,7 +689,7 @@ function showToast(message) {
 })();
 </script>
 
-<!-- small toast css inlined -->
+<!-- Small toast CSS (kept inline) -->
 <style>
 .toast{position:fixed;top:20px;right:20px;background-color:rgba(51,51,51,.95);color:#fff;padding:12px 20px;border-radius:10px;z-index:9999;font-size:14px;box-shadow:0 6px 16px rgba(0,0,0,.25);transform:translateY(-10px);opacity:0;animation:fadein .22s ease forwards,fadeout .4s ease 2.4s forwards}
 @keyframes fadein{to{opacity:.95;transform:translateY(0)}}
