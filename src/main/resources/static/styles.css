@@ -237,6 +237,7 @@ strong { color: var(--text-strong); }
   border-color: var(--accent);
   box-shadow: 0 0 0 2px rgba(0,122,204,0.12);
 }
+.menu-item.disabled { opacity: .55; cursor: not-allowed; }
 .menu-item .mi-icon { font-size: 18px; line-height: 1; }
 
 /* Split-flag icon (precise diagonal) */
@@ -550,6 +551,37 @@ li { margin-bottom: 0.4rem; line-height: 1.5; font-size: 1rem; }
 @keyframes fadein { to { opacity: .95; transform: translateY(0);} }
 @keyframes fadeout { to { opacity: 0; } }
 
+/* ---------- Switch control ---------- */
+.menu-item.switch {
+  grid-template-columns: 28px 1fr max-content;
+  align-items: center;
+}
+.switch-text { display: inline-flex; gap: 6px; align-items: baseline; }
+.switch-control{
+  -webkit-appearance: none; appearance: none;
+  width: 42px; height: 24px;
+  border-radius: 999px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  position: relative;
+  cursor: pointer;
+  transition: background 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+.switch-control::after{
+  content:"";
+  position:absolute; top:2px; left:2px;
+  width: 18px; height: 18px; border-radius: 50%;
+  background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.35);
+  transition: transform 160ms ease;
+}
+.switch-control:checked{
+  background: var(--accent);
+  border-color: var(--accent-strong);
+  box-shadow: 0 0 0 2px rgba(0,122,204,.20);
+}
+.switch-control:checked::after{ transform: translateX(18px); }
+.switch-control:disabled{ opacity:.6; cursor:not-allowed; }
+
 /* ---------- QR Overlay ---------- */
 .qr-overlay { position: fixed; inset: 0; z-index: 1200; }
 .qr-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.55); backdrop-filter: blur(2px); }
@@ -605,10 +637,10 @@ li { margin-bottom: 0.4rem; line-height: 1.5; font-size: 1rem; }
   .container h1:first-child { margin-top: 1.2rem; }
 
   /* Compact, circular icon-only pills; chip a bit tighter */
-  .row-action { width: 36px; height: 36px; padding: 0; border-radius: 50%; box-shadow: 0 2px 8px rgba(0,0,0,.20); justify-content: center; }
+  .row-action { width: 36px; height: 36px; padding: 0; border-radius: 50%; box-shadow: 0 2px 8px rgba(0,0,0,.20); }
   .row-action .ra-label { display: none; }
   .row-right { gap: 4px; }
-  .row-action .ra-icon { display: inline-grid; place-items: center; width: 1em; height: 1em; font-size: 20px; line-height: 1; transform: translateY(0); }
+  .row-action .ra-icon { display:inline-block; font-size:18px; line-height:1; transform: translateY(1px); }
   .vote-chip { padding: 0.1rem 0.5rem; line-height: 1.1; }
 }
 
@@ -695,27 +727,19 @@ li { margin-bottom: 0.4rem; line-height: 1.5; font-size: 1rem; }
 
 /* --- iOS Safari fine-tuning for action pills (host/kick) --- */
 @supports (-webkit-touch-callout: none) {
-  /* Bigger tap target + circular */
   #liveParticipantList .row-action {
     width: 40px; height: 40px; padding: 0; border-radius: 50%;
     -webkit-appearance: none; appearance: none; background-clip: padding-box; line-height: 1;
-    justify-content: center; /* ensure icon is centered inside the circle */
+    justify-content: center;
   }
-
-  /* Center emoji precisely in iOS */
   #liveParticipantList .row-action .ra-icon {
     display: inline-grid; place-items: center;
-    width: 1em; height: 1em;
-    font-size: 20px; line-height: 1;
-    transform: translateY(0.5px); /* tiny optical baseline compensation */
+    width: 1em; height: 1em; font-size: 20px; line-height: 1;
+    transform: translateY(0.5px);
     font-family: "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",system-ui,sans-serif;
   }
-
-  /* Crisp borders & slight depth on iOS */
   #liveParticipantList .row-action.host  { border-color: rgba(59,130,246,.60); box-shadow: 0 1px 6px rgba(59,130,246,.25); }
   #liveParticipantList .row-action.kick  { border-color: rgba(239,68,68,.60); box-shadow: 0 1px 6px rgba(239,68,68,.25); }
-
-  /* Keep the same alignment logic (first action pill flush right) */
   #liveParticipantList .row-right > .row-action:first-of-type { margin-left: auto; }
   #liveParticipantList .row-right :where(.status-icon, .vote-chip) ~ .row-action:first-of-type { margin-left: auto; }
 }

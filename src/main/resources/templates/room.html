@@ -55,9 +55,9 @@
       <div class="menu-group">
         <div class="group-title" th:text="#{menu.theme}">Theme</div>
         <div class="menu-choice">
-          <button id="themeLight"  class="choice-btn" type="button"><span class="mi-icon" aria-hidden="true">🌞</span><span th:text="#{theme.light}">Light</span></button>
-          <button id="themeDark"   class="choice-btn" type="button"><span class="mi-icon" aria-hidden="true">🌙</span><span th:text="#{theme.dark}">Dark</span></button>
-          <button id="themeSystem" class="choice-btn" type="button"><span class="mi-icon" aria-hidden="true">🖥️</span><span th:text="#{theme.system}">System</span></button>
+          <button id="themeLight"  class="choice-btn" type="button" aria-pressed="false"><span class="mi-icon" aria-hidden="true">🌞</span><span th:text="#{theme.light}">Light</span></button>
+          <button id="themeDark"   class="choice-btn" type="button" aria-pressed="false"><span class="mi-icon" aria-hidden="true">🌙</span><span th:text="#{theme.dark}">Dark</span></button>
+          <button id="themeSystem" class="choice-btn" type="button" aria-pressed="false"><span class="mi-icon" aria-hidden="true">🖥️</span><span th:text="#{theme.system}">System</span></button>
         </div>
       </div>
 
@@ -89,16 +89,17 @@
         <p id="seqHint" class="hint" th:text="#{sequence.onlyHost}">Only the host can change the sequence</p>
       </div>
 
-      <!-- Auto-Reveal -->
+      <!-- Auto-Reveal (real switch) -->
       <div class="menu-group">
         <div class="group-title" th:text="#{menu.autoreveal}">Auto-reveal</div>
-        <button id="autoRevealRow" class="menu-item" type="button" aria-pressed="false">
+        <label id="autoRevealRow" class="menu-item switch" for="autoRevealToggle">
           <span class="mi-icon" aria-hidden="true">⚡</span>
-          <span>
+          <span class="switch-text">
             <span th:text="#{menu.autoreveal}">Auto-reveal</span>:
             <strong id="arStatus">Off</strong>
           </span>
-        </button>
+          <input id="autoRevealToggle" class="switch-control" type="checkbox" role="switch" aria-checked="false">
+        </label>
         <p id="arHint" class="hint" th:text="#{autoreveal.onlyHost}">Only the host can change this setting</p>
       </div>
 
@@ -231,18 +232,24 @@
     try { localStorage.setItem('estpoker-theme', t); } catch(e){}
     [bLight,bDark,bSystem].forEach(x=>x&&x.classList.remove('active'));
     ({light:bLight, dark:bDark, system:bSystem}[t||'dark'])?.classList.add('active');
+
+    // Clear ARIA on all, set on active
+    [bLight,bDark,bSystem].forEach(x=>x&&x.setAttribute('aria-pressed','false'));
+    ({light:bLight, dark:bDark, system:bSystem}[t||'dark'])?.setAttribute('aria-pressed','true');
   }
 
   document.addEventListener('DOMContentLoaded', function(){
     const saved = localStorage.getItem('estpoker-theme') || 'dark';
     ({light:bLight, dark:bDark, system:bSystem}[saved])?.classList.add('active');
+    ({light:bLight, dark:bDark, system:bSystem}[saved])?.setAttribute('aria-pressed','true');
+
     bLight?.addEventListener('click', ()=>applyTheme('light'));
     bDark?.addEventListener('click',  ()=>applyTheme('dark'));
     bSystem?.addEventListener('click',()=>applyTheme('system'));
   });
 })();
 
-/* ===== Language: POST /i18n ===== */
+/* ===== Language: POST /i18n + clear tooltip ===== */
 (function(){
   const row   = document.getElementById('langRow');
   const cur   = (document.documentElement.lang || 'en').toLowerCase();
@@ -250,6 +257,7 @@
   const b     = row?.querySelector('.flag-b');
   const label = document.getElementById('langCurrent');
 
+  function labelFor(lang){ return String(lang).startsWith('de') ? 'Deutsch' : 'English'; }
   function setSplit(lang){
     if (!a || !b) return;
     if (String(lang).startsWith('de')) { a.src='/flags/de.svg'; b.src='/flags/at.svg'; if (label) label.textContent='Deutsch'; }
@@ -263,8 +271,11 @@
 
   document.addEventListener('DOMContentLoaded', function(){
     setSplit(cur);
+    const to = nextLang();
+    const tip = (/*[[#{title.lang}]]*/'Switch language') + ' → ' + labelFor(to);
+    row?.setAttribute('data-tooltip', tip);
+    row?.setAttribute('title', tip);
     row?.addEventListener('click', function(){
-      const to = nextLang();
       switchLang(to);
     });
   });
@@ -344,12 +355,17 @@ function syncSequenceUI(){
 function syncAutoRevealUI(){
   const row = document.getElementById('autoRevealRow');
   const st  = document.getElementById('arStatus');
+  const cb  = document.getElementById('autoRevealToggle');
+
   if (st) st.textContent = autoRevealEnabled ? TXT_ON : TXT_OFF;
-  if (row) {
-    row.setAttribute('aria-pressed', autoRevealEnabled ? 'true' : 'false');
-    row.disabled = !isHost;
-    row.classList.toggle('disabled', !isHost);
+
+  if (cb) {
+    cb.checked = autoRevealEnabled;
+    cb.setAttribute('aria-checked', autoRevealEnabled ? 'true' : 'false');
+    cb.disabled = !isHost;
   }
+  if (row) row.classList.toggle('disabled', !isHost);
+
   const hint = document.getElementById('arHint');
   if (hint) hint.style.display = isHost ? 'none' : 'block';
 }
@@ -366,9 +382,16 @@ document.addEventListener('DOMContentLoaded', () => {
     socket.send('setSequence:' + val);
   });
 
+  // Switch: label catches taps for non-hosts (toast); input sends value for hosts
   const arRow = document.getElementById('autoRevealRow');
-  arRow?.addEventListener('click', ()=>{
-    if (!isHost) { showToast(TXT_AR_ONLY_HOST); syncAutoRevealUI(); return; }
+  const arToggle = document.getElementById('autoRevealToggle');
+
+  arRow?.addEventListener('click', (e)=>{
+    if (!isHost) { e.preventDefault(); e.stopPropagation(); showToast(TXT_AR_ONLY_HOST); }
+  });
+
+  arToggle?.addEventListener('click', (e)=>{
+    if (!isHost) return;
     const next = !autoRevealEnabled;
     socket.send('setAutoReveal:' + next);
   });
