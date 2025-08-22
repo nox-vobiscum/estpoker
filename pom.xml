@@ -111,13 +111,35 @@
     </dependencies>
 
     <build>
-        <plugins>
-            <!-- Spring Boot Plugin -->
-            <plugin>
-                <groupId>org.springframework.boot</groupId>
-                <artifactId>spring-boot-maven-plugin</artifactId>
-            </plugin>
-        </plugins>
-    </build>
+  <plugins>
+    <!-- Spring Boot Plugin -->
+    <plugin>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-maven-plugin</artifactId>
+    </plugin>
+
+    <!-- Node-basiertes Template-Linting -->
+    <plugin>
+      <groupId>org.codehaus.mojo</groupId>
+      <artifactId>exec-maven-plugin</artifactId>
+      <version>3.3.0</version>
+      <executions>
+        <execution>
+          <id>check-no-title-attrs</id>
+          <phase>validate</phase>
+          <goals><goal>exec</goal></goals>
+          <configuration>
+            <executable>node</executable>
+            <workingDirectory>${project.basedir}</workingDirectory>
+            <arguments>
+              <argument>scripts/check-no-title.js</argument>
+            </arguments>
+          </configuration>
+        </execution>
+      </executions>
+    </plugin>
+  </plugins>
+</build>
+
 
 </project>
