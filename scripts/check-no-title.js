@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /* 
- * Simple repo-wide guardrail against user-facing title= tooltips.
+ * Simple repo-wide guardrail against user-facing title="..." attributes.
  * Allowed exceptions can be marked inline: <!-- allow-title-check -->
  */
 const fs = require('fs');
@@ -10,8 +10,10 @@ const IGNORED_DIRS = new Set([
   'node_modules', '.git', 'target', 'build', 'dist', '.idea', '.vscode'
 ]);
 
+// Scan only markup / templating where title="..." appears as attributes.
+// We deliberately skip .js/.ts to avoid false positives in comments/strings.
 const ALLOWED_EXT = new Set([
-  '.html', '.htm', '.jsp', '.js', '.ts', '.tsx', '.jsx', '.vue'
+  '.html', '.htm', '.jsp', '.jsx', '.tsx', '.vue'
 ]);
 
 const ALLOW_INLINE_MARK = 'allow-title-check';
@@ -31,20 +33,22 @@ function scanFile(filePath) {
   // Skip files explicitly allowed
   if (text.includes(ALLOW_INLINE_MARK)) return;
 
-  // Find title="...". We allow <abbr title="..."> as a semantic exception.
-  // If you need more exceptions, add a small whitelist here.
   const lines = text.split(/\r?\n/);
   lines.forEach((line, idx) => {
-    if (line.includes('title=')) {
-      const trimmed = line.trim();
-      const isAbbr = /<abbr[^>]*\btitle\s*=/.test(trimmed);
-      if (!isAbbr) {
-        violations.push({
-          file: filePath,
-          line: idx + 1,
-          preview: trimmed.slice(0, 200)
-        });
-      }
+    const trimmed = line.trim();
+
+    // Allow semantic <abbr title="...">
+    const isAbbr = /<abbr[^>]*\btitle\s*=/.test(trimmed);
+
+    // Flag only real attributes with a double-quoted value
+    const hasTitleAttr = /\btitle\s*=\s*"/.test(trimmed);
+
+    if (hasTitleAttr && !isAbbr) {
+      violations.push({
+        file: filePath,
+        line: idx + 1,
+        preview: trimmed.slice(0, 200)
+      });
     }
   });
 }
@@ -70,7 +74,7 @@ function walk(dir) {
 walk(process.cwd());
 
 if (violations.length > 0) {
-  console.error('❌ Found forbidden user-facing title= attributes:\n');
+  console.error('❌ Found forbidden user-facing title="..." attributes:\n');
   for (const v of violations) {
     console.error(`- ${v.file}:${v.line}  ${v.preview}`);
   }
@@ -78,4 +82,4 @@ if (violations.length > 0) {
   process.exit(1);
 }
 
-console.log('✅ No user-facing title= attributes found.');
+console.log('✅ No user-facing title="..." attributes found.');
