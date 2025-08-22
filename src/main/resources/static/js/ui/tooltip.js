@@ -1,4 +1,5 @@
-/* Lightweight, accessible tooltips without using title=.
+/* Lightweight, accessible tooltips without using the title attribute. */
+
  * Usage:
  *   <span class="has-tooltip" data-tooltip="Full text">Short…</span>
  * The module attaches listeners to .has-tooltip (and [data-tooltip]).

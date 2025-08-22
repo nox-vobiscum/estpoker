@@ -11,7 +11,6 @@ const IGNORED_DIRS = new Set([
 ]);
 
 // Scan only markup / templating where title="..." appears as attributes.
-// We deliberately skip .js/.ts to avoid false positives in comments/strings.
 const ALLOWED_EXT = new Set([
   '.html', '.htm', '.jsp', '.jsx', '.tsx', '.vue'
 ]);
@@ -38,10 +37,10 @@ function scanFile(filePath) {
     const trimmed = line.trim();
 
     // Allow semantic <abbr title="...">
-    const isAbbr = /<abbr[^>]*\btitle\s*=/.test(trimmed);
+    const isAbbr = /<abbr[^>]*\btitle\s*=\s*"/i.test(trimmed);
 
     // Flag only real attributes with a double-quoted value
-    const hasTitleAttr = /\btitle\s*=\s*"/.test(trimmed);
+    const hasTitleAttr = /\btitle\s*=\s*"/i.test(trimmed);
 
     if (hasTitleAttr && !isAbbr) {
       violations.push({
