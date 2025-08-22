@@ -1,0 +1,107 @@
+<!-- templates/fragments/menu.html -->
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<div th:fragment="appMenu (showSeq=false, showAuto=false, showRoom=false)">
+  <!-- Hamburger -->
+  <button id="menuButton" class="menu-button"
+          aria-expanded="false" aria-controls="appMenuOverlay" aria-label="Open menu">☰</button>
+
+  <!-- Overlay -->
+  <div id="appMenuOverlay" class="menu-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="menuTitle"
+       th:attr="
+         data-tip-theme-light=${#messages.msg('title.theme.light')},
+         data-tip-theme-dark=${#messages.msg('title.theme.dark')},
+         data-tip-theme-system=${#messages.msg('title.theme.system')},
+         data-tip-lang-to=${#messages.msg('title.lang.to')}
+       ">
+    <div class="menu-backdrop" data-close></div>
+    <div class="menu-panel">
+      <div class="menu-header">
+        <h3 id="menuTitle" th:text="#{menu.title}">Settings</h3>
+      </div>
+
+      <div class="menu-section">
+        <!-- Language -->
+        <button id="langRow" class="menu-item" type="button" aria-label="Switch language">
+          <span class="mi-icon">
+            <span class="flag-split" aria-hidden="true">
+              <img class="flag flag-a" src="/flags/us.svg" alt="">
+              <img class="flag flag-b" src="/flags/gb.svg" alt="">
+            </span>
+          </span>
+          <span><span th:text="#{menu.language}">Language</span>: <strong id="langCurrent">English</strong></span>
+        </button>
+
+        <!-- Theme -->
+        <div class="menu-group">
+          <div class="group-title" th:text="#{menu.theme}">Theme</div>
+          <div class="menu-choice">
+            <button id="themeLight"  class="choice-btn" type="button" aria-pressed="false"><span class="mi-icon" aria-hidden="true">🌞</span><span th:text="#{theme.light}">Light</span></button>
+            <button id="themeDark"   class="choice-btn" type="button" aria-pressed="false"><span class="mi-icon" aria-hidden="true">🌙</span><span th:text="#{theme.dark}">Dark</span></button>
+            <button id="themeSystem" class="choice-btn" type="button" aria-pressed="false"><span class="mi-icon" aria-hidden="true">🖥️</span><span th:text="#{theme.system}">System</span></button>
+          </div>
+        </div>
+
+        <!-- Card sequence (nur im Room) -->
+        <div class="menu-group" th:if="${showSeq}">
+          <div class="group-title" th:text="#{menu.sequence}">Card sequence</div>
+          <div id="seqChoice" class="menu-choice vertical">
+            <label class="radio-row">
+              <input type="radio" name="seq" value="fib-scrum" checked>
+              <span th:text="#{sequence.fib.scrum}">Fibonacci (Scrum)</span>
+            </label>
+            <label class="radio-row">
+              <input type="radio" name="seq" value="fib-enh">
+              <span th:text="#{sequence.fib.enh}">Fibonacci (Scrum enhanced)</span>
+            </label>
+            <label class="radio-row">
+              <input type="radio" name="seq" value="fib-math">
+              <span th:text="#{sequence.fib.math}">Fibonacci (mathematical)</span>
+            </label>
+            <label class="radio-row">
+              <input type="radio" name="seq" value="pow2">
+              <span th:text="#{sequence.pow2}">Powers of 2</span>
+            </label>
+            <label class="radio-row">
+              <input type="radio" name="seq" value="tshirt">
+              <span th:text="#{sequence.tshirt}">T-Shirt sizes</span>
+            </label>
+          </div>
+          <p id="seqHint" class="hint" th:text="#{sequence.onlyHost}">Only the host can change the sequence</p>
+        </div>
+
+        <!-- Auto-Reveal (nur im Room) -->
+        <div class="menu-group" th:if="${showAuto}">
+          <div class="group-title" th:text="#{menu.autoreveal}">Auto-reveal</div>
+          <label id="autoRevealRow" class="menu-item switch" for="autoRevealToggle">
+            <span class="mi-icon" aria-hidden="true">⚡</span>
+            <span class="switch-text">
+              <span th:text="#{menu.autoreveal}">Auto-reveal</span>:
+              <strong id="arStatus">Off</strong>
+            </span>
+            <input id="autoRevealToggle" class="switch-control" type="checkbox" role="switch" aria-checked="false">
+          </label>
+          <p id="arHint" class="hint" th:text="#{autoreveal.onlyHost}">Only the host can change this setting</p>
+        </div>
+
+        <!-- Room actions (nur im Room) -->
+        <div class="menu-group" th:if="${showRoom}">
+          <div class="group-title" th:text="#{menu.room}">Room</div>
+          <button id="closeRoomBtn" class="menu-item danger" type="button" style="display:none;">
+            <span class="mi-icon" aria-hidden="true">🗙</span>
+            <span th:text="#{room.close}">Close room for everyone</span>
+          </button>
+          <p id="closeHint" class="hint" style="display:none;" th:text="#{room.close.hint}">
+            Closes this room for all participants and returns to the start page.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Gemeinsame Menü-Logik -->
+  <script defer src="/js/menu.js"></script>
+</div>
+</body>
+</html>
