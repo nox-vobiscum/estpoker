@@ -26,5 +26,8 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
+      - name: Make Maven Wrapper executable
+        run: chmod +x mvnw
+
       - name: Maven package (skip tests)
         run: ./mvnw -DskipTests package
