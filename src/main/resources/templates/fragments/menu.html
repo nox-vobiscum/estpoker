@@ -2,7 +2,11 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
 <body>
-<div th:fragment="appMenu (showSeq=false, showAuto=false, showRoom=false)">
+<div th:fragment="appMenu (showSeq, showAuto, showRoom)"
+     th:with="showSeq=${showSeq}?:false,
+              showAuto=${showAuto}?:false,
+              showRoom=${showRoom}?:false">
+
   <!-- Hamburger -->
   <button id="menuButton" class="menu-button"
           aria-expanded="false" aria-controls="appMenuOverlay" aria-label="Open menu">☰</button>
@@ -101,7 +105,7 @@
   </div>
 
   <!-- Gemeinsame Menü-Logik -->
-  <script defer src="/js/menu.js"></script>
+  <script defer th:src="@{/js/menu.js}"></script>
 </div>
 </body>
 </html>
