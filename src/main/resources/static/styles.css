@@ -47,10 +47,10 @@
   --name-text-col: 0px;
 
   /* Dark-mode tints for action pills (emojis remain readable) */
-  --host-pill-bg-dark:  rgba(37, 99, 235, .18);  /* blue-600 @ 18% */
-  --host-pill-bdr-dark: rgba(59, 130, 246, .55); /* blue-500 @ 55% */
-  --kick-pill-bg-dark:  rgba(239, 68, 68, .18);  /* red-500  @ 18% */
-  --kick-pill-bdr-dark: rgba(239, 68, 68, .55);  /* red-500  @ 55% */
+  --host-pill-bg-dark:  rgba(37, 99, 235, .18);
+  --host-pill-bdr-dark: rgba(59, 130, 246, .55);
+  --kick-pill-bg-dark:  rgba(239, 68, 68, .18);
+  --kick-pill-bdr-dark: rgba(239, 68, 68, .55);
 }
 
 /* ---------- Light mode overrides ---------- */
@@ -138,6 +138,13 @@ strong { color: var(--text-strong); }
 .main-info .mi-icon{ line-height: 1; }
 .main-info .mi-label{ opacity: .95; }
 
+/* Inline room actions (invite/copy) */
+.room-with-actions{
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
 /* ---------- App menu (hamburger) ---------- */
 .menu-button {
   position: fixed;
@@ -177,13 +184,14 @@ strong { color: var(--text-strong); }
   border-radius: 14px;
   box-shadow: var(--shadow);
   padding: 10px;
-  animation: slideIn 180ms ease both;
 
+  /* scrollable on small screens */
   max-height: calc(100vh - 24px);
   overflow: auto;
+  -webkit-overflow-scrolling: touch; /* iOS */
   overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch; /* smooth iOS scrolling */
   font-family: inherit;
+  animation: slideIn 180ms ease both;
 }
 @keyframes slideIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
 
@@ -195,15 +203,25 @@ strong { color: var(--text-strong); }
 }
 .menu-header h3 { margin: 0; font-size: 0.95rem; color: var(--text-strong); }
 
-.menu-section { display: grid; gap: 10px; padding: 10px 4px 12px 4px; font-family: inherit; }
+.menu-section { display: grid; gap: 8px; padding: 8px 4px 10px 4px; font-family: inherit; }
 
-/* Language row */
+/* Compact group blocks */
+.menu-group { display: grid; gap: 8px; }
+.group-title {
+  font-size: .86rem;
+  font-weight: 700;
+  color: var(--text-strong);
+  opacity: .95;
+  margin: 6px 2px 2px;
+}
+
+/* Language row / generic menu item */
 .menu-item {
   display: grid;
   grid-template-columns: 28px auto;
   align-items: center;
   gap: 10px;
-  padding: 10px;
+  padding: 8px; /* was 10px */
   border-radius: 10px;
   background: var(--panel-2);
   border: 1px solid var(--border);
@@ -232,9 +250,7 @@ strong { color: var(--text-strong); }
 }
 .flag-split .flag{
   position: absolute;
-  inset: -0.5px;                 /* small bleed to avoid 1px gaps */
-  width: calc(100% + 1px);
-  height: calc(100% + 1px);
+  inset: -0.5px; width: calc(100% + 1px); height: calc(100% + 1px);
   object-fit: cover;
 }
 .flag-split .flag-b{
@@ -246,7 +262,7 @@ strong { color: var(--text-strong); }
   .flag-split .flag-b{ clip-path: polygon(100% 0, 100% 100%, 0 100%); }
 }
 
-/* Theme buttons */
+/* Theme choices */
 .menu-choice {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -285,14 +301,79 @@ strong { color: var(--text-strong); }
 .radio-row:hover { background: var(--panel-2-hover); border-color: var(--accent); box-shadow: 0 0 0 2px rgba(0,122,204,0.12); }
 .radio-row input[type="radio"] { width: 16px; height: 16px; accent-color: var(--accent); margin: 0; flex: 0 0 auto; }
 .radio-row.disabled { opacity: .55; cursor: not-allowed; }
-.radio-row > span {
-  white-space: nowrap; text-overflow: ellipsis; overflow: hidden; min-width: 0; flex: 1 1 auto;
-}
+.radio-row > span { white-space: nowrap; text-overflow: ellipsis; overflow: hidden; min-width: 0; flex: 1 1 auto; }
 .radio-row:has(input[type="radio"]:checked) {
   border-color: var(--accent);
   box-shadow: 0 0 0 2px rgba(0,122,204,0.20);
   background: color-mix(in srgb, var(--panel-2) 84%, var(--accent) 16%);
 }
+
+/* Group hints (more compact) */
+.hint {
+  width: 100%; max-width: 400px;
+  color: var(--text-dim);
+  font-size: 0.85rem;
+  margin: -2px 2px 6px; /* tighter */
+}
+
+/* ---------- Icon button (inline next to room code) ---------- */
+.icon-button{
+  display:inline-flex; align-items:center; justify-content:center;
+  width: 28px; height: 28px;
+  border-radius: 8px;
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: background 180ms ease, border-color 180ms ease, transform 120ms ease, box-shadow 180ms ease;
+  -webkit-tap-highlight-color: transparent;
+  font-size: 16px; line-height: 1;
+}
+.icon-button:hover{ background: var(--panel-2-hover); border-color: var(--accent); box-shadow: 0 0 0 2px rgba(0,122,204,.12); }
+.icon-button:active{ transform: translateY(1px) scale(.98); }
+:root[data-theme="light"] .icon-button:hover{ box-shadow: 0 0 0 2px rgba(37,99,235,.12); }
+
+/* ---------- Tooltip system (attribute-based) ---------- */
+[data-tooltip] { position: relative; }
+[data-tooltip]::after{
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%) translateY(2px);
+  opacity: 0;
+  pointer-events: none;
+  background: var(--panel);
+  color: var(--text-strong);
+  border: 1px solid var(--border);
+  padding: 6px 8px;
+  border-radius: 6px;
+  box-shadow: var(--shadow);
+  font-size: .85rem;
+  white-space: nowrap;
+  z-index: 1001;
+  transition: opacity 120ms ease, transform 120ms ease;
+}
+[data-tooltip]::before{
+  content: "";
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: 8px; height: 8px;
+  background: var(--panel);
+  border-left: 1px solid var(--border);
+  border-top: 1px solid var(--border);
+  transform-origin: center;
+  rotate: 45deg;
+  opacity: 0;
+  transition: opacity 120ms ease;
+  z-index: 1001;
+}
+[data-tooltip]:hover::after,
+[data-tooltip]:focus-visible::after { opacity: 1; transform: translateX(-50%) translateY(0); }
+[data-tooltip]:hover::before,
+[data-tooltip]:focus-visible::before { opacity: 1; }
 
 /* ---------- Landing / form ---------- */
 .landing-container { display: flex; flex-direction: column; align-items: center; min-height: 90vh; padding: 2rem; text-align: center; margin-top: 6vh; }
@@ -310,7 +391,6 @@ strong { color: var(--text-strong); }
 .form-field input[type="text"]:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(0,122,204,0.25); background: #34373a; }
 
 .checkbox-row { display: flex; align-items: center; gap: 0.5rem; width: 100%; max-width: 400px; }
-.hint { width: 100%; max-width: 400px; color: var(--text-dim); font-size: 0.9rem; margin: -4px 0 8px; }
 .form-actions { width: 100%; max-width: 400px; }
 .form-actions .button { width: 100%; }
 
@@ -375,8 +455,7 @@ button.selected {
 ul { list-style: none; padding: 0; margin: 0; }
 li { margin-bottom: 0.4rem; line-height: 1.5; font-size: 1rem; }
 
-/* Mobile-first grid:
-   icon | name | right block (fills remaining space for perfect right alignment) */
+/* Mobile-first grid: icon | name | right block */
 #liveParticipantList .participant-row {
   display: grid;
   grid-template-columns: var(--icon-col-width) 1fr 1fr;
@@ -413,8 +492,7 @@ li { margin-bottom: 0.4rem; line-height: 1.5; font-size: 1rem; }
 /* Default: if the first child is an action pill, push it right */
 .row-right > .row-action:first-of-type { margin-left: auto; }
 
-/* Robust Safari/iOS path: if there is a status or vote chip, push the
-   first following action pill to the far right */
+/* Robust Safari/iOS path */
 .row-right :where(.status-icon, .vote-chip) ~ .row-action:first-of-type { margin-left: auto; }
 
 /* Neat spacing between multiple action pills */
@@ -430,7 +508,7 @@ li { margin-bottom: 0.4rem; line-height: 1.5; font-size: 1rem; }
 .status-icon { font-size: 1rem; line-height: 1; display: inline-flex; align-items: center; }
 .status-icon.done { color: var(--ok); filter: drop-shadow(0 0 2px rgba(76,175,80,.6)); }
 .status-icon.pending { color: var(--warn); opacity: .95; }
-/* NEW: observer icon styling */
+/* Observer/neutral (reserved) */
 .status-icon.observer { color: var(--text-dim); opacity: .95; }
 
 /* Vote chip */
@@ -450,7 +528,7 @@ li { margin-bottom: 0.4rem; line-height: 1.5; font-size: 1rem; }
 .vote-chip[data-val="☕"] { font-size: 1.25rem; padding: 0.1rem 0.55rem; }
 @keyframes chipIn { to { opacity: 1; transform: translateY(0); } }
 
-/* Pre/Post vote blocks + Average */
+/* Pre/Post vote + Average */
 .pre-vote { margin-top: var(--pre-vote-margin-desktop); }
 .average-label { font-size: 0.85rem; margin-top: 1rem; }
 .average-label #averageVote { font-size: 0.85rem; font-weight: 600; opacity: 0; animation: avgIn 240ms ease forwards; }
@@ -530,17 +608,16 @@ li { margin-bottom: 0.4rem; line-height: 1.5; font-size: 1rem; }
   .row-action { width: 36px; height: 36px; padding: 0; border-radius: 50%; box-shadow: 0 2px 8px rgba(0,0,0,.20); }
   .row-action .ra-label { display: none; }
   .row-right { gap: 4px; }
-  .row-action .ra-icon { display:inline-block; font-size:18px; line-height:1; transform: translateY(1px); } /* Safari optical centering */
+  .row-action .ra-icon { display:inline-block; font-size:18px; line-height:1; transform: translateY(1px); }
   .vote-chip { padding: 0.1rem 0.5rem; line-height: 1.1; }
 }
 
-/* Show labels next to icons on wider screens */
+/* Show labels on wider screens */
 @media (min-width: 560px) {
   .row-action .ra-label { display: inline; font-weight: 600; }
 }
 
-/* Desktop layout: measured name column, right block fills remainder.
-   Actions stay at the far right, chip/status stays left inside .row-right. */
+/* Desktop layout: measured name column */
 @media (min-width: 700px) {
   #liveParticipantList .participant-row {
     grid-template-columns: var(--icon-col-width) max(18ch, var(--name-text-col)) 1fr;
@@ -566,25 +643,25 @@ li { margin-bottom: 0.4rem; line-height: 1.5; font-size: 1rem; }
 .row-action:active { transform: translateY(1px) scale(.98); }
 .row-action:disabled { opacity: .6; cursor: not-allowed; }
 
-/* Variants — dark mode uses translucent tints so emojis stay readable */
+/* Variants — dark mode uses translucent tints */
 .row-action.host{
   background: var(--host-pill-bg-dark);
   border-color: var(--host-pill-bdr-dark);
-  color: #e8f0ff; /* label (desktop) */
+  color: #e8f0ff;
 }
 .row-action.kick{
   background: var(--kick-pill-bg-dark);
   border-color: var(--kick-pill-bdr-dark);
-  color: #ffe7e7; /* label (desktop) */
+  color: #ffe7e7;
 }
 .row-action.host:hover{ box-shadow:0 0 0 2px rgba(59,130,246,.20); }
 .row-action.kick:hover{ box-shadow:0 0 0 2px rgba(239, 68, 68,.18); }
 
-/* High-visibility focus rings per variant */
+/* Focus rings */
 .row-action.host:focus-visible{ outline:none; box-shadow:0 0 0 3px rgba(59,130,246,.35); }
 .row-action.kick:focus-visible{ outline:none; box-shadow:0 0 0 3px rgba(239, 68, 68,.35); }
 
-/* Strong, accessible colors in light mode */
+/* Light mode variants */
 :root[data-theme="light"] .row-action.host{
   background: var(--host-pill-bg);
   border-color: var(--host-pill-border);
@@ -610,83 +687,21 @@ li { margin-bottom: 0.4rem; line-height: 1.5; font-size: 1rem; }
 
 /* --- iOS Safari fine-tuning for action pills (host/kick) --- */
 @supports (-webkit-touch-callout: none) {
-  /* Bigger tap target + remove iOS button quirks */
   #liveParticipantList .row-action {
-    width: 40px;                 /* overrides 36px in generic mobile rule */
-    height: 40px;
-    padding: 0;
-    border-radius: 50%;
-    -webkit-appearance: none;
-    appearance: none;
-    background-clip: padding-box;
-    line-height: 1;              /* tight vertical metrics */
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
+    width: 40px; height: 40px; padding: 0; border-radius: 50%;
+    -webkit-appearance: none; appearance: none; background-clip: padding-box; line-height: 1;
   }
-
-  /* Emoji centering & sizing on iOS */
   #liveParticipantList .row-action .ra-icon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 1em; height: 1em;
-    font-size: 20px;             /* a touch larger for clarity */
-    line-height: 1;
-    transform: translateY(0.5px);/* optical centering for iOS baseline */
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 1em; height: 1em; font-size: 20px; line-height: 1;
+    transform: translateY(0.5px);
     font-family: "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",system-ui,sans-serif;
   }
-
-  /* Crisper borders & subtle depth on iOS */
   #liveParticipantList .row-action.host  { border-color: rgba(59,130,246,.60); box-shadow: 0 1px 6px rgba(59,130,246,.25); }
   #liveParticipantList .row-action.kick  { border-color: rgba(239,68,68,.60); box-shadow: 0 1px 6px rgba(239,68,68,.25); }
-
-  /* Keep the same alignment logic (first action pill flush right) */
   #liveParticipantList .row-right > .row-action:first-of-type { margin-left: auto; }
   #liveParticipantList .row-right :where(.status-icon, .vote-chip) ~ .row-action:first-of-type { margin-left: auto; }
 }
-
-/* Optional: when the screen is small AND iOS, keep spacing tidy */
 @media (max-width: 600px) and (-webkit-touch-callout: none) {
   #liveParticipantList .row-right { gap: 6px; }
-}
-
-/* --- Compact menu on very small screens (optional) --- */
-@media (max-width: 380px) {
-  .menu-panel { padding: 8px; }
-  .menu-section { gap: 8px; padding: 8px 2px 10px 2px; }
-  .menu-item, .radio-row, .choice-btn { padding: 8px; }
-}
-
-/* === Lightweight tooltips for menu controls (HTML comes later) === */
-.has-tip { position: relative; }
-.has-tip:hover::after,
-.has-tip:focus-visible::after {
-  content: attr(data-tip);
-  position: absolute;
-  left: 50%;
-  bottom: calc(100% + 8px);
-  transform: translateX(-50%);
-  max-width: 240px;
-  padding: 6px 8px;
-  border-radius: 8px;
-  font-size: 0.85rem;
-  line-height: 1.2;
-  color: var(--text-strong);
-  background: var(--panel-2);
-  border: 1px solid var(--border);
-  box-shadow: var(--shadow);
-  white-space: normal;
-  z-index: 1201;
-}
-.has-tip:hover::before,
-.has-tip:focus-visible::before {
-  content: "";
-  position: absolute;
-  left: 50%;
-  bottom: 100%;
-  transform: translateX(-50%);
-  border: 6px solid transparent;
-  border-top-color: var(--border);
-  margin-bottom: 2px;
 }
