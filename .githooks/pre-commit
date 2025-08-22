@@ -1,11 +1,23 @@
-#!/usr/bin/env sh
-set -e
+#!/usr/bin/env bash
+set -euo pipefail
 
-# Prüfen, ob Node verfügbar ist
-if ! command -v node >/dev/null 2>&1; then
-  echo "[pre-commit] Node nicht gefunden – bitte Node installieren/ins PATH legen." >&2
-  exit 1
+echo "[pre-commit] Checking for forbidden title tooltips …"
+
+# staged HTML/JS/TS files (Added/Modified/Renamed/Copied)
+mapfile -d '' FILES < <(
+  git diff --cached --name-only --diff-filter=ACMR -z \
+  | grep -zE '\.(html?|js|ts)$'
+)
+
+# nothing to check?
+((${#FILES[@]}==0)) && { echo "[pre-commit] OK (no relevant files staged)"; exit 0; }
+
+# if node exists -> use node checker on staged files
+if command -v node >/dev/null 2>&1; then
+  # pass file list to the script
+  node scripts/check-no-title.js "${FILES[@]}"
+else
+  echo "[pre-commit] Node not found – skipping check (CI/Maven will catch it)."
 fi
 
-echo "[pre-commit] Checking templates for native title=\"...\" attributes…"
-node scripts/check-no-title.js
+echo "[pre-commit] OK"
