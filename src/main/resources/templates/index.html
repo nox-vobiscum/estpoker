@@ -222,7 +222,7 @@
   });
 })();
 
-/* ===== Name availability (unchanged) ===== */
+/* ===== Name availability (persistent rooms) ===== */
 (function () {
   const persistent = document.getElementById('persistent'); // may be null
   const testWrap   = document.getElementById('testRoomWrap'); // may be null
@@ -304,14 +304,12 @@
 })();
 </script>
 
-
 <script>
   (function(){
     try{
       const msg = localStorage.getItem('ep-toast');
       if (msg) {
         localStorage.removeItem('ep-toast');
-        // einfacher Toast ohne CSS-Dependencies:
         const t=document.createElement('div');
         t.className='toast'; t.textContent=msg;
         document.body.appendChild(t);
@@ -320,9 +318,5 @@
     }catch(e){}
   })();
 </script>
-
-
-
-
 </body>
 </html>
