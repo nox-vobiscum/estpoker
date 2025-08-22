@@ -145,6 +145,8 @@ strong { color: var(--text-strong); }
   gap: 6px;
 }
 
+.room-with-actions .icon-button { margin-left: 10px; }
+
 /* ---------- App menu (hamburger) ---------- */
 .menu-button {
   position: fixed;

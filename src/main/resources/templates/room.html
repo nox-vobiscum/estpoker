@@ -89,7 +89,7 @@
         <p id="seqHint" class="hint" th:text="#{sequence.onlyHost}">Only the host can change the sequence</p>
       </div>
 
-      <!-- Auto-Reveal (real switch) -->
+      <!-- Auto-Reveal (switch) -->
       <div class="menu-group">
         <div class="group-title" th:text="#{menu.autoreveal}">Auto-reveal</div>
         <label id="autoRevealRow" class="menu-item switch" for="autoRevealToggle">
@@ -114,8 +114,6 @@
           Closes this room for all participants and returns to the start page.
         </p>
       </div>
-
-      <!-- NOTE: Invite button removed from menu (moved next to room code) -->
     </div>
   </div>
 </div>
@@ -135,7 +133,6 @@
     <dd>
       <div class="room-with-actions">
         <strong id="roomCodeVal" th:text="${roomCode}">demo</strong>
-        <!-- New: icon-only invite/copy button -->
         <button id="copyRoomLink"
                 class="icon-button"
                 type="button"
@@ -152,9 +149,7 @@
   <h2 id="selectCardHeader" th:text="#{label.selectCard}">Choose a card:</h2>
 
   <div class="pre-vote">
-    <!-- Cards are rendered client-side from 'cards' -->
     <div id="cardsArea"></div>
-
     <button type="button" id="revealButton" class="button" style="display:none;"
             th:text="#{button.reveal}" onclick="revealCards()">Reveal cards</button>
   </div>
@@ -226,6 +221,11 @@
   const bDark   = document.getElementById('themeDark');
   const bSystem = document.getElementById('themeSystem');
 
+  // i18n tooltips
+  const TIP_THEME_LIGHT  = /*[[#{title.theme.light}]]*/ 'Theme: Light';
+  const TIP_THEME_DARK   = /*[[#{title.theme.dark}]]*/ 'Theme: Dark';
+  const TIP_THEME_SYSTEM = /*[[#{title.theme.system}]]*/ 'Theme: System';
+
   function applyTheme(t){
     if (t === 'system') document.documentElement.removeAttribute('data-theme');
     else document.documentElement.setAttribute('data-theme', t);
@@ -233,7 +233,6 @@
     [bLight,bDark,bSystem].forEach(x=>x&&x.classList.remove('active'));
     ({light:bLight, dark:bDark, system:bSystem}[t||'dark'])?.classList.add('active');
 
-    // Clear ARIA on all, set on active
     [bLight,bDark,bSystem].forEach(x=>x&&x.setAttribute('aria-pressed','false'));
     ({light:bLight, dark:bDark, system:bSystem}[t||'dark'])?.setAttribute('aria-pressed','true');
   }
@@ -243,19 +242,27 @@
     ({light:bLight, dark:bDark, system:bSystem}[saved])?.classList.add('active');
     ({light:bLight, dark:bDark, system:bSystem}[saved])?.setAttribute('aria-pressed','true');
 
+    // attach tooltips/titles
+    if (bLight)  { bLight.setAttribute('title', TIP_THEME_LIGHT);  bLight.setAttribute('data-tooltip', TIP_THEME_LIGHT); }
+    if (bDark)   { bDark.setAttribute('title',  TIP_THEME_DARK);   bDark.setAttribute('data-tooltip', TIP_THEME_DARK); }
+    if (bSystem) { bSystem.setAttribute('title',TIP_THEME_SYSTEM); bSystem.setAttribute('data-tooltip', TIP_THEME_SYSTEM); }
+
     bLight?.addEventListener('click', ()=>applyTheme('light'));
     bDark?.addEventListener('click',  ()=>applyTheme('dark'));
     bSystem?.addEventListener('click',()=>applyTheme('system'));
   });
 })();
 
-/* ===== Language: POST /i18n + clear tooltip ===== */
+/* ===== Language: POST /i18n + dynamic tooltip ===== */
 (function(){
   const row   = document.getElementById('langRow');
   const cur   = (document.documentElement.lang || 'en').toLowerCase();
   const a     = row?.querySelector('.flag-a');
   const b     = row?.querySelector('.flag-b');
   const label = document.getElementById('langCurrent');
+
+  // template: "Switch language → {0}" / "Sprache wechseln → {0}"
+  const LANG_TIP_TPL = /*[[#{title.lang.to}]]*/ 'Switch language → {0}';
 
   function labelFor(lang){ return String(lang).startsWith('de') ? 'Deutsch' : 'English'; }
   function setSplit(lang){
@@ -271,13 +278,11 @@
 
   document.addEventListener('DOMContentLoaded', function(){
     setSplit(cur);
-    const to = nextLang();
-    const tip = (/*[[#{title.lang}]]*/'Switch language') + ' → ' + labelFor(to);
+    const to  = nextLang();
+    const tip = (LANG_TIP_TPL || 'Switch language → {0}').replace('{0}', labelFor(to));
     row?.setAttribute('data-tooltip', tip);
     row?.setAttribute('title', tip);
-    row?.addEventListener('click', function(){
-      switchLang(to);
-    });
+    row?.addEventListener('click', function(){ switchLang(to); });
   });
 })();
 
@@ -289,7 +294,7 @@ let votesRevealed = false;
 let isHost = false;
 let resizeTimer = null;
 let currentSequenceId = 'fib-scrum'; // server overwrites
-let currentDeckSig = "";             // track current deck
+let currentDeckSig = "";
 
 // Auto-Reveal default (server will overwrite on first state)
 let autoRevealEnabled = false;
@@ -305,6 +310,34 @@ const TXT_AR_ONLY_HOST = /*[[#{autoreveal.onlyHost}]]*/ 'Only the host can chang
 const TXT_MAKE_HOST    = /*[[#{action.makeHost}]]*/ 'Make host';
 const TXT_KICK         = /*[[#{action.kick}]]*/ 'Kick';
 const TXT_KICKED       = /*[[#{toast.kicked}]]*/ 'The host has closed the room for you.';
+
+/* ===== Sequence tooltips (fallbacks) ===== */
+const SEQ_TIPS = {
+  'fib-scrum': /*[[#{seq.tooltip.fib.scrum}]]*/ '0, 1, 2, 3, 5, 8, 13, 20, 40, 100, ☕, ❓',
+  'fib-enh':   /*[[#{seq.tooltip.fib.enh}]]*/   '0, ½, 1, 2, 3, 5, 8, 13, 20, 40, 100, ☕, ❓',
+  'fib-math':  /*[[#{seq.tooltip.fib.math}]]*/  '1, 2, 3, 5, 8, 13, 21, 34, 55, 89 …',
+  'pow2':      /*[[#{seq.tooltip.pow2}]]*/      '1, 2, 4, 8, 16, 32, 64 …',
+  'tshirt':    /*[[#{seq.tooltip.tshirt}]]*/    'XS, S, M, L, XL, XXL'
+};
+function applySeqTooltips(customForId, customCards){
+  const rows = document.querySelectorAll('#seqChoice .radio-row input[name="seq"]');
+  rows.forEach(inp => {
+    const row = inp.closest('.radio-row');
+    if (!row) return;
+    const id = inp.value;
+    let tip = SEQ_TIPS[id] || '';
+    if (customForId && customForId === id && Array.isArray(customCards) && customCards.length){
+      tip = customCards.join(', ');
+    }
+    if (tip){
+      row.setAttribute('title', tip);
+      row.setAttribute('data-tooltip', tip);
+    } else {
+      row.removeAttribute('title');
+      row.removeAttribute('data-tooltip');
+    }
+  });
+}
 
 /** Card helpers */
 function addCardButton(grid, val){
@@ -373,6 +406,7 @@ function syncAutoRevealUI(){
 document.addEventListener('DOMContentLoaded', () => {
   syncSequenceUI();
   syncAutoRevealUI();
+  applySeqTooltips(); // set fallback tooltips initially
 
   const seqChoice = document.getElementById('seqChoice');
   seqChoice?.addEventListener('change', (e)=>{
@@ -382,7 +416,7 @@ document.addEventListener('DOMContentLoaded', () => {
     socket.send('setSequence:' + val);
   });
 
-  // Switch: label catches taps for non-hosts (toast); input sends value for hosts
+  // Switch interactions
   const arRow = document.getElementById('autoRevealRow');
   const arToggle = document.getElementById('autoRevealToggle');
 
@@ -437,6 +471,8 @@ socket.onmessage = (event) => {
       renderCards(data.cards);
       currentDeckSig = newSig;
     }
+    // Update tooltips: show the *real* deck for the active sequence
+    if (Array.isArray(data.cards)) applySeqTooltips(data.sequenceId, data.cards);
   }
 
   if (data.yourName && data.yourName !== participantName) {
@@ -480,7 +516,6 @@ socket.onmessage = (event) => {
   } else if (data.type === "hostChanged") {
     const { oldHost, newHost } = data;
 
-    // Apply UI immediately (without waiting for next voteUpdate)
     const iBecomeHost = (newHost === participantName);
     const iLoseHost   = (oldHost === participantName);
     if (iBecomeHost || iLoseHost) {
@@ -545,7 +580,7 @@ function kick(name){
   socket.send("kick:" + name);
 }
 
-/** Participant list renderer (with right-aligned actions wrapper) */
+/** Participant list renderer */
 function updateParticipantList(participants, revealed) {
   const list = document.getElementById("liveParticipantList");
   if (!list) return;
@@ -569,7 +604,6 @@ function updateParticipantList(participants, revealed) {
     const rightWrap = document.createElement("div");
     rightWrap.className = "row-right";
 
-    // Left part: chip or status
     if (revealed) {
       const voteChip = document.createElement("span");
       voteChip.className = "vote-chip";
@@ -597,12 +631,10 @@ function updateParticipantList(participants, revealed) {
       }
     }
 
-    // Right part: actions wrapper that lives at the far right
     const actions = document.createElement("div");
     actions.className = "row-actions";
 
     if (isHost && !p.isHost && p.name !== participantName) {
-      // Make host
       const mk = document.createElement("button");
       mk.type = "button";
       mk.className = "row-action host";
@@ -615,7 +647,6 @@ function updateParticipantList(participants, revealed) {
       mk.addEventListener("click", () => transferHost(p.name));
       actions.appendChild(mk);
 
-      // Kick
       const kb = document.createElement("button");
       kb.type = "button";
       kb.className = "row-action kick";
