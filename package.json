@@ -1,0 +1,7 @@
+{
+  "name": "ep-noxvobiscum-guardrails",
+  "private": true,
+  "scripts": {
+    "check:no-title": "node scripts/check-no-title.js"
+  }
+}
