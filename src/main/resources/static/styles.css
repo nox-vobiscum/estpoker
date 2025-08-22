@@ -605,10 +605,10 @@ li { margin-bottom: 0.4rem; line-height: 1.5; font-size: 1rem; }
   .container h1:first-child { margin-top: 1.2rem; }
 
   /* Compact, circular icon-only pills; chip a bit tighter */
-  .row-action { width: 36px; height: 36px; padding: 0; border-radius: 50%; box-shadow: 0 2px 8px rgba(0,0,0,.20); }
+  .row-action { width: 36px; height: 36px; padding: 0; border-radius: 50%; box-shadow: 0 2px 8px rgba(0,0,0,.20); justify-content: center; }
   .row-action .ra-label { display: none; }
   .row-right { gap: 4px; }
-  .row-action .ra-icon { display:inline-block; font-size:18px; line-height:1; transform: translateY(1px); }
+  .row-action .ra-icon { display: inline-grid; place-items: center; width: 1em; height: 1em; font-size: 20px; line-height: 1; transform: translateY(0); }
   .vote-chip { padding: 0.1rem 0.5rem; line-height: 1.1; }
 }
 
@@ -636,7 +636,15 @@ li { margin-bottom: 0.4rem; line-height: 1.5; font-size: 1rem; }
   transition: background 180ms ease, border-color 180ms ease, box-shadow 180ms ease, transform 120ms ease;
   -webkit-tap-highlight-color: transparent;
 }
-.row-action .ra-icon { font-size: 16px; line-height: 1; }
+/* Center the icon box for reliable vertical alignment across fonts */
+.row-action .ra-icon {
+  font-size: 16px;
+  line-height: 1;
+  display: inline-grid;
+  place-items: center;
+  width: 1em;
+  height: 1em;
+}
 
 /* Base hover/active */
 .row-action:hover { background: var(--panel-2-hover); border-color: var(--accent); box-shadow: 0 0 0 2px rgba(0,122,204,.12); }
@@ -687,18 +695,27 @@ li { margin-bottom: 0.4rem; line-height: 1.5; font-size: 1rem; }
 
 /* --- iOS Safari fine-tuning for action pills (host/kick) --- */
 @supports (-webkit-touch-callout: none) {
+  /* Bigger tap target + circular */
   #liveParticipantList .row-action {
     width: 40px; height: 40px; padding: 0; border-radius: 50%;
     -webkit-appearance: none; appearance: none; background-clip: padding-box; line-height: 1;
+    justify-content: center; /* ensure icon is centered inside the circle */
   }
+
+  /* Center emoji precisely in iOS */
   #liveParticipantList .row-action .ra-icon {
-    display: inline-flex; align-items: center; justify-content: center;
-    width: 1em; height: 1em; font-size: 20px; line-height: 1;
-    transform: translateY(0.5px);
+    display: inline-grid; place-items: center;
+    width: 1em; height: 1em;
+    font-size: 20px; line-height: 1;
+    transform: translateY(0.5px); /* tiny optical baseline compensation */
     font-family: "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",system-ui,sans-serif;
   }
+
+  /* Crisp borders & slight depth on iOS */
   #liveParticipantList .row-action.host  { border-color: rgba(59,130,246,.60); box-shadow: 0 1px 6px rgba(59,130,246,.25); }
   #liveParticipantList .row-action.kick  { border-color: rgba(239,68,68,.60); box-shadow: 0 1px 6px rgba(239,68,68,.25); }
+
+  /* Keep the same alignment logic (first action pill flush right) */
   #liveParticipantList .row-right > .row-action:first-of-type { margin-left: auto; }
   #liveParticipantList .row-right :where(.status-icon, .vote-chip) ~ .row-action:first-of-type { margin-left: auto; }
 }
