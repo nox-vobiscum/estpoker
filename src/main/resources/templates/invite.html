@@ -1,24 +1,6 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org" th:lang="${#locale}" lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="color-scheme" content="dark light">
-  <title th:text="#{app.title}">RBS' Estimation Poker</title>
-  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-  <link rel="alternate icon" href="/favicon.ico" sizes="any">
-  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
-  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
-  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-  <script>
-    (function(){try{
-      var t=localStorage.getItem('estpoker-theme')||'dark';
-      if(t==='system')document.documentElement.removeAttribute('data-theme');
-      else document.documentElement.setAttribute('data-theme',t);
-    }catch(e){}})();
-  </script>
-  <link rel="stylesheet" th:href="@{/styles.css}">
-</head>
+<head th:replace="~{fragments/head :: head()}"></head>
 <body>
 
 <!-- ZENTRALES MENÜ (minimal auf Invite) -->
@@ -30,7 +12,9 @@
     <span th:text="#{ui.heading}">RBS' Estimation Poker</span>
   </h1>
 
-  <p class="hint" th:utext="${#messages.msg('invite.heading', roomCode)}">You’ve been invited to room <strong>demo</strong>.</p>
+  <p class="hint" th:utext="${#messages.msg('invite.heading', roomCode)}">
+    You’ve been invited to room <strong>demo</strong>.
+  </p>
 
   <form th:action="@{/join}" method="post" id="joinForm" class="join-form">
     <input type="hidden" name="roomCode" th:value="${roomCode}">
@@ -46,5 +30,8 @@
     </div>
   </form>
 </div>
+
+<!-- zentrale Scripts -->
+<th:block th:replace="~{fragments/scripts :: scripts}"></th:block>
 </body>
 </html>
