@@ -134,11 +134,12 @@
     <dd>
       <div class="room-with-actions">
         <strong id="roomCodeVal" th:text="${roomCode}">demo</strong>
-        <!-- New: icon-only invite/copy button with tooltip -->
+        <!-- New: icon-only invite/copy button -->
         <button id="copyRoomLink"
                 class="icon-button"
                 type="button"
-                th:attr="aria-label=#{invite.copyLink}; data-tooltip=#{invite.copyLink}"
+                th:aria-label="#{invite.copyLink}"
+                th:title="#{invite.copyLink}"
                 aria-live="polite">🔗</button>
       </div>
     </dd>
@@ -241,7 +242,7 @@
   });
 })();
 
-/* ===== Language: POST /i18n + tooltip text ===== */
+/* ===== Language: POST /i18n ===== */
 (function(){
   const row   = document.getElementById('langRow');
   const cur   = (document.documentElement.lang || 'en').toLowerCase();
@@ -249,7 +250,6 @@
   const b     = row?.querySelector('.flag-b');
   const label = document.getElementById('langCurrent');
 
-  function labelFor(lang){ return String(lang).startsWith('de') ? 'Deutsch' : 'English'; }
   function setSplit(lang){
     if (!a || !b) return;
     if (String(lang).startsWith('de')) { a.src='/flags/de.svg'; b.src='/flags/at.svg'; if (label) label.textContent='Deutsch'; }
@@ -263,11 +263,8 @@
 
   document.addEventListener('DOMContentLoaded', function(){
     setSplit(cur);
-    // set tooltip to explain action ("switch to …")
-    row?.setAttribute('data-tooltip', (/*[[#{menu.language}]]*/'Language') + ': ' + labelFor(cur) + ' — ' + (/*[[#{title.lang}]]*/'Switch language') + ' → ' + labelFor(nextLang()));
     row?.addEventListener('click', function(){
       const to = nextLang();
-      row.setAttribute('data-tooltip', (/*[[#{menu.language}]]*/'Language') + ': ' + labelFor(to)); // immediate feedback
       switchLang(to);
     });
   });
