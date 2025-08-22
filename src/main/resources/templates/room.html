@@ -1,29 +1,6 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org" th:lang="${#locale}" lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="color-scheme" content="dark light">
-  <title th:text="#{app.title}">RBS' Estimation Poker</title>
-
-  <!-- Favicons -->
-  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-  <link rel="alternate icon" href="/favicon.ico" sizes="any">
-  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
-  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
-  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-
-  <!-- Early theme boot -->
-  <script>
-    (function(){try{
-      var t=localStorage.getItem('estpoker-theme')||'dark';
-      if(t==='system')document.documentElement.removeAttribute('data-theme');
-      else document.documentElement.setAttribute('data-theme',t);
-    }catch(e){}})();
-  </script>
-
-  <link rel="stylesheet" th:href="@{/styles.css}">
-</head>
+<head th:replace="~{fragments/head :: head()}"></head>
 <body>
 
 <!-- ZENTRALES MENÜ (volles Menü im Room) -->
@@ -80,8 +57,11 @@
   </div>
 </div>
 
+<!-- zentrale Scripts: muss VOR dem Inline-JS kommen, damit defer-Reihenfolge stimmt -->
+<th:block th:replace="~{fragments/scripts :: scripts}"></th:block>
+
 <script th:inline="javascript">
-/* ===== Game logic (Menü/Theme/Language kommt zentral aus menu.js) ===== */
+/* ===== Game logic (Menü/Theme/Language comes from menu.js) ===== */
 let participantName = /*[[${participantName}]]*/ "Guest";
 let roomCode = /*[[${roomCode}]]*/ "demo";
 let selectedCard = null;
@@ -132,7 +112,7 @@ function updateSequenceTooltips(){
     if (deck && deck.length){
       const tip = formatDeckForTooltip(deck);
       row.setAttribute('data-tooltip', tip);
-      row.removeAttribute('title'); // kein Browser-Tooltip
+      row.removeAttribute('title'); // no native browser tooltip
     } else {
       row.removeAttribute('data-tooltip');
       row.removeAttribute('title');

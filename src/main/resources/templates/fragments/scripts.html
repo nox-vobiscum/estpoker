@@ -1,0 +1,11 @@
+<!-- Central script includes -->
+<!-- Usage: place right before </body>
+     <th:block th:replace="~{fragments/scripts :: scripts}"></th:block>
+-->
+<th:block th:fragment="scripts">
+  <!-- Global menu etc. -->
+  <script th:src="@{/js/menu.js}" defer></script>
+
+  <!-- Tooltip logic (no native title="..." tooltips) -->
+  <script th:src="@{/js/ui/tooltip.js}" defer></script>
+</th:block>

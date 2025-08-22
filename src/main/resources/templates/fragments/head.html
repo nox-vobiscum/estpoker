@@ -1,0 +1,35 @@
+<!-- Central <head> fragment for all pages -->
+<!-- Usage:
+     <head th:replace="~{fragments/head :: head()}"></head>
+     Optional custom title:
+     <head th:replace="~{fragments/head :: head('Meine Seite')}"></head>
+-->
+<th:block th:fragment="head(title=null)">
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="color-scheme" content="dark light"/>
+
+  <!-- Title: prefer param, else i18n key app.title -->
+  <title th:text="${title != null ? title : #{app.title}}">RBS' Estimation Poker</title>
+
+  <!-- Favicons (kept as in your pages) -->
+  <link rel="icon" type="image/svg+xml" th:href="@{/favicon.svg}"/>
+  <link rel="alternate icon" th:href="@{/favicon.ico}" sizes="any"/>
+  <link rel="icon" type="image/png" sizes="32x32" th:href="@{/favicon-32x32.png}"/>
+  <link rel="icon" type="image/png" sizes="16x16" th:href="@{/favicon-16x16.png}"/>
+  <link rel="apple-touch-icon" th:href="@{/apple-touch-icon.png}"/>
+
+  <!-- Early theme apply (prevents flash) -->
+  <script>
+    (function(){try{
+      var t=localStorage.getItem('estpoker-theme')||'dark';
+      if(t==='system')document.documentElement.removeAttribute('data-theme');
+      else document.documentElement.setAttribute('data-theme',t);
+    }catch(e){}})();
+  </script>
+
+  <!-- Base styles -->
+  <link rel="stylesheet" th:href="@{/styles.css}"/>
+  <!-- Tooltip styles (safe to include globally) -->
+  <link rel="stylesheet" th:href="@{/css/tooltip.css}"/>
+</th:block>
