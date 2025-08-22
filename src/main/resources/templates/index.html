@@ -5,11 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="dark light">
   <title th:text="#{app.title}">RBS' Estimation Poker</title>
+
+  <!-- Favicons -->
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
   <link rel="alternate icon" href="/favicon.ico" sizes="any">
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+
   <!-- Early theme apply (prevents flash) -->
   <script>
     (function(){try{
@@ -18,6 +21,7 @@
       else document.documentElement.setAttribute('data-theme',t);
     }catch(e){}})();
   </script>
+
   <link rel="stylesheet" th:href="@{/styles.css}">
 </head>
 <body>
@@ -67,6 +71,7 @@
   <div th:if="${error != null or param.error != null}" class="error"
        th:text="${error != null ? error : param.error}">Error</div>
 
+  <!-- Join form (ohne Persist-Option) -->
   <form th:action="@{/join}" method="post" id="joinForm" class="join-form">
     <div class="form-row">
       <div class="form-field">
@@ -77,40 +82,10 @@
 
       <div class="form-field">
         <label for="roomCode" th:text="#{label.roomCode}">Room code / name</label>
-        <div style="display:grid; gap:6px;">
-          <input type="text" id="roomCode" name="roomCode"
-                 th:value="${param.roomCode != null ? param.roomCode : roomCode}">
-          <div id="nameCheck" class="hint" aria-live="polite"></div>
-        </div>
+        <input type="text" id="roomCode" name="roomCode"
+               th:value="${param.roomCode != null ? param.roomCode : roomCode}">
       </div>
     </div>
-
-    <!-- Persist UI only when feature is enabled -->
-    <div th:if="${@environment.getProperty('features.persistentRooms.enabled','false') == 'true'}">
-      <div class="checkbox-row">
-        <input type="checkbox" id="persistent" name="persistent"
-               th:checked="${(param.persistent != null) or (persistent == true)}">
-        <label for="persistent" th:text="#{label.persistRoom}">Persist this room</label>
-      </div>
-      <p class="hint" th:utext="#{hint.persistExpl}">
-        Creates a deep link (<code>/room/{ID}</code>). The room persists until auto-cleanup.
-      </p>
-
-      <div id="testRoomWrap" class="checkbox-row hidden">
-        <input type="checkbox" id="testRoom" name="testRoom"
-               th:checked="${(param.testRoom != null) or (testRoom == true)}">
-        <label for="testRoom" th:text="#{label.testRoom}">Test room only</label>
-      </div>
-      <p id="testRoomHint" class="hint hidden" th:text="#{hint.testRoom}">
-        Marks as test – will be cleaned up sooner.
-      </p>
-    </div>
-
-    <!-- Hint when feature is off -->
-    <p class="hint"
-       th:if="${@environment.getProperty('features.persistentRooms.enabled','false') != 'true'}">
-      <em>(Persistent rooms not available at the moment.)</em>
-    </p>
 
     <div class="form-actions">
       <button type="submit" class="button" th:text="#{button.join}">Join</button>
@@ -189,7 +164,7 @@
   });
 })();
 
-/* ===== Language: POST /i18n, then reload (URL unchanged) ===== */
+/* ===== Language: POST /i18n, dann reload ===== */
 (function(){
   const row   = document.getElementById('langRow');
   const cur   = (document.documentElement.lang || 'en').toLowerCase();
@@ -221,89 +196,9 @@
     });
   });
 })();
-
-/* ===== Name availability (persistent rooms) ===== */
-(function () {
-  const persistent = document.getElementById('persistent'); // may be null
-  const testWrap   = document.getElementById('testRoomWrap'); // may be null
-  const testHint   = document.getElementById('testRoomHint'); // may be null
-  const testRoom   = document.getElementById('testRoom');     // may be null
-  const roomCodeEl = document.getElementById('roomCode');
-  const participantEl = document.getElementById('participantName');
-  const nameCheck  = document.getElementById('nameCheck');
-  const joinButton = document.querySelector('#joinForm button[type="submit"]');
-  const joinForm   = document.getElementById('joinForm');
-
-  let nameTaken = false;
-
-  const MSG_CHECKING = /*[[#{status.checking}]]*/ 'Checking availability…';
-  const MSG_FREE     = /*[[#{status.free}]]*/ '✅ Name is available';
-  const MSG_TAKEN    = /*[[#{status.taken}]]*/ '❌ Name is taken';
-
-  function isEmpty(s){ return !s || s.trim().length===0; }
-  function persistEnabled(){ return !!persistent; }
-  function isPersistChecked(){ return persistent && persistent.checked; }
-
-  function isSubmittable(){
-    if (isEmpty(participantEl.value) || isEmpty(roomCodeEl.value)) return false;
-    if (isPersistChecked() && nameTaken) return false;
-    return true;
-  }
-  function updateSubmitEnabled(){ joinButton.disabled=!isSubmittable(); }
-
-  function setStatusLoading(){ nameCheck.textContent=MSG_CHECKING; nameCheck.className="hint loading"; nameTaken=false; updateSubmitEnabled(); }
-  function setStatusOK(){ nameCheck.textContent=MSG_FREE; nameCheck.className="hint ok"; nameTaken=false; updateSubmitEnabled(); }
-  function setStatusBad(){ nameCheck.textContent=MSG_TAKEN; nameCheck.className="hint bad"; nameTaken=true; updateSubmitEnabled(); }
-  function setStatusEmpty(){ nameCheck.textContent=""; nameCheck.className="hint"; nameTaken=false; updateSubmitEnabled(); }
-
-  function syncTestVisibility(){
-    if (!persistEnabled()) return;
-    const show = isPersistChecked();
-    if (testWrap) testWrap.classList.toggle('hidden', !show);
-    if (testHint) testHint.classList.toggle('hidden', !show);
-    if (!show && testRoom) testRoom.checked = false;
-    if (!show) setStatusEmpty();
-    updateSubmitEnabled();
-  }
-
-  let debounceTimer=null, currentAbort=null;
-
-  async function checkNameAvailability(name){
-    if (!isPersistChecked()) { setStatusEmpty(); return; }
-    const trimmed=(name||"").trim(); if (trimmed.length===0){ setStatusEmpty(); return; }
-
-    if (currentAbort) currentAbort.abort();
-    currentAbort=new AbortController(); const {signal}=currentAbort;
-
-    setStatusLoading();
-    try{
-      const resp=await fetch(`/api/rooms/check?name=`+encodeURIComponent(trimmed),{signal});
-      if(!resp.ok) throw new Error("Bad response: "+resp.status);
-      const taken=await resp.json(); if(signal.aborted) return;
-      if(taken===true) setStatusBad(); else setStatusOK();
-    }catch(e){
-      if (signal.aborted) return;
-      setStatusEmpty();
-      console.warn("Name check failed:", e);
-    }
-  }
-  function scheduleCheck(){ clearTimeout(debounceTimer); debounceTimer=setTimeout(()=>checkNameAvailability(roomCodeEl.value),250); }
-
-  joinForm.addEventListener('submit', function (event) {
-    if (!isSubmittable()) { event.preventDefault(); joinButton.classList.add('shake'); setTimeout(()=>joinButton.classList.remove('shake'),400); }
-  });
-
-  if (persistEnabled()) {
-    syncTestVisibility();
-    if (isPersistChecked()) scheduleCheck();
-    persistent.addEventListener('change', ()=>{ syncTestVisibility(); if (isPersistChecked()) scheduleCheck(); else setStatusEmpty(); });
-  }
-  roomCodeEl.addEventListener('input', ()=>{ if (isPersistChecked()) scheduleCheck(); updateSubmitEnabled(); });
-  participantEl.addEventListener('input', updateSubmitEnabled);
-  updateSubmitEnabled();
-})();
 </script>
 
+<!-- Kick/redirect toast relay (optional, harmless) -->
 <script>
   (function(){
     try{
