@@ -27,7 +27,7 @@
 <body>
 
 <!-- ZENTRALES MENÜ (volles Menü im Room) -->
-<div th:replace="fragments/menu :: appMenu(${true}, ${true}, ${true})"></div>
+<div th:replace="~{fragments/menu :: appMenu(showSeq=${true}, showAuto=${true}, showRoom=${true})}"></div>
 
 <div class="container">
   <h1 class="app-title">

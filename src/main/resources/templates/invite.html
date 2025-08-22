@@ -22,7 +22,7 @@
 <body>
 
 <!-- ZENTRALES MENÜ (minimal auf Invite) -->
-<div th:replace="fragments/menu :: appMenu(${false}, ${false}, ${false})"></div>
+<div th:replace="~{fragments/menu :: appMenu(showSeq=${false}, showAuto=${false}, showRoom=${false})}"></div>
 
 <div class="container landing-container">
   <h1 class="app-title">
