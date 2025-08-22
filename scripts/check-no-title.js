@@ -1,59 +1,31 @@
 #!/usr/bin/env node
-/* 
- * Simple repo-wide guardrail against user-facing title="..." attributes.
- * Allowed exceptions can be marked inline: <!-- allow-title-check -->
+/*
+ * Guardrail: block user-facing title="..." attributes in markup files.
+ * Allowed exceptions: put <!-- allow-title-check --> somewhere in the file.
+ * We also allow semantic <abbr title="..."> as a whitelist.
  */
+
 const fs = require('fs');
 const path = require('path');
 
+// directories we never scan
 const IGNORED_DIRS = new Set([
   'node_modules', '.git', 'target', 'build', 'dist', '.idea', '.vscode'
 ]);
 
-// Scan only markup / templating where title="..." appears as attributes.
-const ALLOWED_EXT = new Set([
-  '.html', '.htm', '.jsp', '.jsx', '.tsx', '.vue'
-]);
+// only scan markup-like files where title="..." appears as an attribute
+const SCANNED_EXTS = new Set(['.html', '.htm', '.jsp', '.jsx', '.tsx', '.vue']);
 
+// marker to skip a file entirely (use rarely)
 const ALLOW_INLINE_MARK = 'allow-title-check';
 
-let violations = [];
+const violations = [];
 
-function shouldSkipDir(dir) {
-  return IGNORED_DIRS.has(path.basename(dir));
-}
-
-function scanFile(filePath) {
-  const ext = path.extname(filePath).toLowerCase();
-  if (!ALLOWED_EXT.has(ext)) return;
-
-  const text = fs.readFileSync(filePath, 'utf8');
-
-  // Skip files explicitly allowed
-  if (text.includes(ALLOW_INLINE_MARK)) return;
-
-  const lines = text.split(/\r?\n/);
-  lines.forEach((line, idx) => {
-    const trimmed = line.trim();
-
-    // Allow semantic <abbr title="...">
-    const isAbbr = /<abbr[^>]*\btitle\s*=\s*"/i.test(trimmed);
-
-    // Flag only real attributes with a double-quoted value
-    const hasTitleAttr = /\btitle\s*=\s*"/i.test(trimmed);
-
-    if (hasTitleAttr && !isAbbr) {
-      violations.push({
-        file: filePath,
-        line: idx + 1,
-        preview: trimmed.slice(0, 200)
-      });
-    }
-  });
+function shouldSkipDir(p) {
+  return IGNORED_DIRS.has(path.basename(p));
 }
 
 function walk(dir) {
-  if (shouldSkipDir(dir)) return;
   let entries;
   try {
     entries = fs.readdirSync(dir, { withFileTypes: true });
@@ -70,15 +42,50 @@ function walk(dir) {
   }
 }
 
+function scanFile(filePath) {
+  const ext = path.extname(filePath).toLowerCase();
+  if (!SCANNED_EXTS.has(ext)) return;
+
+  let text;
+  try {
+    text = fs.readFileSync(filePath, 'utf8');
+  } catch {
+    return;
+  }
+
+  // allow marker disables the whole file
+  if (text.includes(ALLOW_INLINE_MARK)) return;
+
+  const lines = text.split(/\r?\n/);
+  for (let i = 0; i < lines.length; i++) {
+    const trimmed = lines[i].trim();
+
+    // allow semantic <abbr title="...">
+    const isAbbr = /<abbr[^>]*\btitle\s*=\s*"/i.test(trimmed);
+
+    // only flag real attributes with a quoted value
+    const hasTitleAttr = /\btitle\s*=\s*"/i.test(trimmed);
+
+    if (hasTitleAttr && !isAbbr) {
+      violations.push({
+        file: filePath,
+        line: i + 1,
+        preview: trimmed.slice(0, 200)
+      });
+    }
+  }
+}
+
+// run
 walk(process.cwd());
 
-if (violations.length > 0) {
+if (violations.length) {
   console.error('❌ Found forbidden user-facing title="..." attributes:\n');
   for (const v of violations) {
     console.error(`- ${v.file}:${v.line}  ${v.preview}`);
   }
-  console.error('\nHint: Use ui/tooltip.js instead, or add <!-- allow-title-check --> if truly needed.');
+  console.error('\nHint: Use /js/ui/tooltip.js instead, or add <!-- allow-title-check --> if truly needed.');
   process.exit(1);
+} else {
+  console.log('✅ No user-facing title="..." attributes found.');
 }
-
-console.log('✅ No user-facing title="..." attributes found.');
