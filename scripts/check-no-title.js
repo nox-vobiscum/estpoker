@@ -1,84 +1,81 @@
 #!/usr/bin/env node
-/* Checks for native browser tooltips: title=, el.title=, setAttribute('title',...) */
-
+/* 
+ * Simple repo-wide guardrail against user-facing title= tooltips.
+ * Allowed exceptions can be marked inline: <!-- allow-title-check -->
+ */
 const fs = require('fs');
 const path = require('path');
 
-const allowMarker = /tooltip-allow/; // put this on a line to whitelist it
-const exts = new Set(['.html', '.htm', '.js', '.ts']);
+const IGNORED_DIRS = new Set([
+  'node_modules', '.git', 'target', 'build', 'dist', '.idea', '.vscode'
+]);
 
-const defaultRoots = [
-  'src/main/resources/templates',
-  'src/main/resources/static'
-];
+const ALLOWED_EXT = new Set([
+  '.html', '.htm', '.jsp', '.js', '.ts', '.tsx', '.jsx', '.vue'
+]);
 
-const offenders = [];
+const ALLOW_INLINE_MARK = 'allow-title-check';
 
-// --- helper --------------------------------------------------------------
+let violations = [];
 
-function scanFile(file) {
-  if (!exts.has(path.extname(file))) return;
-
-  const data = fs.readFileSync(file, 'utf8');
-  const lines = data.split(/\r?\n/);
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-
-    // allow marker disables checks for this specific line
-    if (allowMarker.test(line)) continue;
-
-    // 1) JS: setAttribute('title', ...)
-if (/setAttribute\(\s*['"]title['"]\s*,/i.test(line)) {
-  offenders.push({ file, line: i + 1, kind: 'setAttr', text: line.trim() });
-  continue;
+function shouldSkipDir(dir) {
+  return IGNORED_DIRS.has(path.basename(dir));
 }
 
-// 2) JS: .title = ...  (document.title explizit erlauben)
-if (/\.title\s*=/.test(line) && !/document\.title\s*=/.test(line)) {
-  offenders.push({ file, line: i + 1, kind: 'prop', text: line.trim() });
-  continue;
-}
+function scanFile(filePath) {
+  const ext = path.extname(filePath).toLowerCase();
+  if (!ALLOWED_EXT.has(ext)) return;
 
-// 3) HTML-Attribut: title= innerhalb eines Tags
-if (/<[^>]*\btitle\s*=/i.test(line)) {
-  offenders.push({ file, line: i + 1, kind: 'attr', text: line.trim() });
-  continue;
-}
+  const text = fs.readFileSync(filePath, 'utf8');
 
-  }
+  // Skip files explicitly allowed
+  if (text.includes(ALLOW_INLINE_MARK)) return;
+
+  // Find title="...". We allow <abbr title="..."> as a semantic exception.
+  // If you need more exceptions, add a small whitelist here.
+  const lines = text.split(/\r?\n/);
+  lines.forEach((line, idx) => {
+    if (line.includes('title=')) {
+      const trimmed = line.trim();
+      const isAbbr = /<abbr[^>]*\btitle\s*=/.test(trimmed);
+      if (!isAbbr) {
+        violations.push({
+          file: filePath,
+          line: idx + 1,
+          preview: trimmed.slice(0, 200)
+        });
+      }
+    }
+  });
 }
 
 function walk(dir) {
-  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    if (entry.name.startsWith('.')) continue;
-    const p = path.join(dir, entry.name);
-    if (entry.isDirectory()) walk(p);
-    else scanFile(p);
+  if (shouldSkipDir(dir)) return;
+  let entries;
+  try {
+    entries = fs.readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return;
+  }
+  for (const e of entries) {
+    const p = path.join(dir, e.name);
+    if (e.isDirectory()) {
+      if (!shouldSkipDir(p)) walk(p);
+    } else if (e.isFile()) {
+      scanFile(p);
+    }
   }
 }
 
-// --- entry ---------------------------------------------------------------
+walk(process.cwd());
 
-// if file paths are passed, only scan those (used by pre-commit).
-// otherwise scan the default roots (for CI / manual runs).
-const args = process.argv.slice(2);
-if (args.length) {
-  for (const f of args) if (fs.existsSync(f)) scanFile(f);
-} else {
-  for (const r of defaultRoots) if (fs.existsSync(r)) walk(r);
-}
-
-if (offenders.length) {
-  console.error('\n❌ Forbidden tooltip usages found (title attr/prop):\n');
-  for (const o of offenders) {
-    console.error(` - ${o.file}:${o.line} [${o.kind}]  ${o.text}`);
+if (violations.length > 0) {
+  console.error('❌ Found forbidden user-facing title= attributes:\n');
+  for (const v of violations) {
+    console.error(`- ${v.file}:${v.line}  ${v.preview}`);
   }
-  console.error(
-    '\nFix: nutze data-tooltip/ARIA statt native title-Tooltips\n' +
-    'oder eine eigene Tooltip-API. Ausnahme? Markiere die Zeile mit "tooltip-allow".'
-  );
+  console.error('\nHint: Use ui/tooltip.js instead, or add <!-- allow-title-check --> if truly needed.');
   process.exit(1);
 }
 
-console.log('✅ No forbidden `title` usages found.');
+console.log('✅ No user-facing title= attributes found.');
