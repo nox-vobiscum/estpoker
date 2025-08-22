@@ -212,7 +212,6 @@
   btn?.addEventListener('click', toggleMenu);
   backdrop?.addEventListener('click', closeMenu);
   window.addEventListener('keydown', (e)=>{ if(e.key==='Escape') closeMenu(); });
-  window.__closeMenuIfOpen = () => { if (!overlay.classList.contains('hidden')) closeMenu(); };
 })();
 
 /* ===== Theme ===== */
@@ -220,11 +219,6 @@
   const bLight  = document.getElementById('themeLight');
   const bDark   = document.getElementById('themeDark');
   const bSystem = document.getElementById('themeSystem');
-
-  // i18n tooltips
-  const TIP_THEME_LIGHT  = /*[[#{title.theme.light}]]*/ 'Theme: Light';
-  const TIP_THEME_DARK   = /*[[#{title.theme.dark}]]*/ 'Theme: Dark';
-  const TIP_THEME_SYSTEM = /*[[#{title.theme.system}]]*/ 'Theme: System';
 
   function applyTheme(t){
     if (t === 'system') document.documentElement.removeAttribute('data-theme');
@@ -237,19 +231,30 @@
     ({light:bLight, dark:bDark, system:bSystem}[t||'dark'])?.setAttribute('aria-pressed','true');
   }
 
+  // Tooltips ohne zusätzliche Keys (aus sichtbarem Label + Sprach-Prefix)
+  function setThemeTooltips(){
+    const lang = (document.documentElement.lang || 'en').toLowerCase();
+    const prefix = lang.startsWith('de') ? 'Design: ' : 'Theme: ';
+    [bLight,bDark,bSystem].forEach(btn=>{
+      if(!btn) return;
+      const txt = btn.querySelector('span:nth-child(2)')?.textContent?.trim();
+      if(!txt) return;
+      const tip = prefix + txt;
+      btn.setAttribute('data-tooltip', tip);
+      btn.title = tip;
+    });
+  }
+
   document.addEventListener('DOMContentLoaded', function(){
     const saved = localStorage.getItem('estpoker-theme') || 'dark';
     ({light:bLight, dark:bDark, system:bSystem}[saved])?.classList.add('active');
     ({light:bLight, dark:bDark, system:bSystem}[saved])?.setAttribute('aria-pressed','true');
 
-    // attach tooltips/titles
-    if (bLight)  { bLight.setAttribute('title', TIP_THEME_LIGHT);  bLight.setAttribute('data-tooltip', TIP_THEME_LIGHT); }
-    if (bDark)   { bDark.setAttribute('title',  TIP_THEME_DARK);   bDark.setAttribute('data-tooltip', TIP_THEME_DARK); }
-    if (bSystem) { bSystem.setAttribute('title',TIP_THEME_SYSTEM); bSystem.setAttribute('data-tooltip', TIP_THEME_SYSTEM); }
-
     bLight?.addEventListener('click', ()=>applyTheme('light'));
     bDark?.addEventListener('click',  ()=>applyTheme('dark'));
     bSystem?.addEventListener('click',()=>applyTheme('system'));
+
+    setThemeTooltips();
   });
 })();
 
@@ -311,30 +316,36 @@ const TXT_MAKE_HOST    = /*[[#{action.makeHost}]]*/ 'Make host';
 const TXT_KICK         = /*[[#{action.kick}]]*/ 'Kick';
 const TXT_KICKED       = /*[[#{toast.kicked}]]*/ 'The host has closed the room for you.';
 
-/* ===== Sequence tooltips (fallbacks) ===== */
-const SEQ_TIPS = {
-  'fib-scrum': /*[[#{seq.tooltip.fib.scrum}]]*/ '0, 1, 2, 3, 5, 8, 13, 20, 40, 100, ☕, ❓',
-  'fib-enh':   /*[[#{seq.tooltip.fib.enh}]]*/   '0, ½, 1, 2, 3, 5, 8, 13, 20, 40, 100, ☕, ❓',
-  'fib-math':  /*[[#{seq.tooltip.fib.math}]]*/  '1, 2, 3, 5, 8, 13, 21, 34, 55, 89 …',
-  'pow2':      /*[[#{seq.tooltip.pow2}]]*/      '1, 2, 4, 8, 16, 32, 64 …',
-  'tshirt':    /*[[#{seq.tooltip.tshirt}]]*/    'XS, S, M, L, XL, XXL'
-};
-function applySeqTooltips(customForId, customCards){
-  const rows = document.querySelectorAll('#seqChoice .radio-row input[name="seq"]');
-  rows.forEach(inp => {
+/* ===== Dynamic sequence tooltips (catalog from live data) ===== */
+const SEQ_CATALOG = Object.create(null);
+
+function formatDeckForTooltip(cards){
+  if (!Array.isArray(cards)) return '';
+  const specials = cards.filter(c => SPECIALS.has(String(c)));
+  const core = cards.filter(c => !SPECIALS.has(String(c)));
+
+  const max = 12;
+  const shown = core.slice(0, max);
+  const more = core.length > max ? '…' : '';
+  const coreTxt = shown.join(', ') + (more ? ' ' + more : '');
+  const specTxt = specials.length ? '  (' + specials.join(' ') + ')' : '';
+
+  return coreTxt + specTxt;
+}
+function updateSequenceTooltips(){
+  const inputs = document.querySelectorAll('#seqChoice .radio-row input[name="seq"]');
+  inputs.forEach(inp=>{
     const row = inp.closest('.radio-row');
-    if (!row) return;
+    if(!row) return;
     const id = inp.value;
-    let tip = SEQ_TIPS[id] || '';
-    if (customForId && customForId === id && Array.isArray(customCards) && customCards.length){
-      tip = customCards.join(', ');
-    }
-    if (tip){
-      row.setAttribute('title', tip);
+    const deck = SEQ_CATALOG[id];
+    if (deck && deck.length){
+      const tip = formatDeckForTooltip(deck);
       row.setAttribute('data-tooltip', tip);
+      row.title = tip;
     } else {
-      row.removeAttribute('title');
       row.removeAttribute('data-tooltip');
+      row.removeAttribute('title');
     }
   });
 }
@@ -406,7 +417,6 @@ function syncAutoRevealUI(){
 document.addEventListener('DOMContentLoaded', () => {
   syncSequenceUI();
   syncAutoRevealUI();
-  applySeqTooltips(); // set fallback tooltips initially
 
   const seqChoice = document.getElementById('seqChoice');
   seqChoice?.addEventListener('change', (e)=>{
@@ -429,6 +439,21 @@ document.addEventListener('DOMContentLoaded', () => {
     const next = !autoRevealEnabled;
     socket.send('setAutoReveal:' + next);
   });
+
+  // Optional: initial fetch of all sequences to prefill tooltips
+  try {
+    fetch('/sequences')
+      .then(r => r.ok ? r.json() : null)
+      .then(json => {
+        if (!json) return;
+        const obj = json.sequences || json;
+        if (obj && typeof obj === 'object') {
+          Object.assign(SEQ_CATALOG, obj);
+          updateSequenceTooltips();
+        }
+      })
+      .catch(()=>{});
+  } catch(e){}
 });
 
 // persistent client id
@@ -466,13 +491,24 @@ socket.onmessage = (event) => {
     const newSig = deckSig(data.cards);
     const needRerender = (currentSequenceId !== data.sequenceId) || (newSig && newSig !== currentDeckSig);
     currentSequenceId = data.sequenceId;
+
+    // keep an up-to-date catalog for tooltips
+    if (Array.isArray(data.cards)) {
+      SEQ_CATALOG[data.sequenceId] = data.cards.slice();
+      updateSequenceTooltips();
+    }
+
     if (needRerender && Array.isArray(data.cards)) {
       clearCardSelection();
       renderCards(data.cards);
       currentDeckSig = newSig;
     }
-    // Update tooltips: show the *real* deck for the active sequence
-    if (Array.isArray(data.cards)) applySeqTooltips(data.sequenceId, data.cards);
+  }
+
+  // Optional: server can push all decks at once
+  if (data.sequences && typeof data.sequences === 'object') {
+    Object.assign(SEQ_CATALOG, data.sequences);
+    updateSequenceTooltips();
   }
 
   if (data.yourName && data.yourName !== participantName) {
