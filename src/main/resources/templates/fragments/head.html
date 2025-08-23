@@ -1,8 +1,8 @@
 <!-- Central <head> fragment for all pages -->
-<!-- Usage:
+<!-- Usage in a page:
      <head th:replace="~{fragments/head :: head()}"></head>
-     Optional custom title:
-     <head th:replace="~{fragments/head :: head('Meine Seite')}"></head>
+     Or without params:
+     <head th:replace="fragments/head :: head"></head>
 -->
 <th:block th:fragment="head(title=null)">
   <meta charset="UTF-8"/>
@@ -12,7 +12,7 @@
   <!-- Title: prefer param, else i18n key app.title -->
   <title th:text="${title != null ? title : #{app.title}}">RBS' Estimation Poker</title>
 
-  <!-- Favicons (kept as in your pages) -->
+  <!-- Favicons -->
   <link rel="icon" type="image/svg+xml" th:href="@{/favicon.svg}"/>
   <link rel="alternate icon" th:href="@{/favicon.ico}" sizes="any"/>
   <link rel="icon" type="image/png" sizes="32x32" th:href="@{/favicon-32x32.png}"/>
@@ -30,6 +30,6 @@
 
   <!-- Base styles -->
   <link rel="stylesheet" th:href="@{/styles.css}"/>
-  <!-- Tooltip styles (safe to include globally) -->
+  <!-- Tooltip styles -->
   <link rel="stylesheet" th:href="@{/css/tooltip.css}"/>
 </th:block>
