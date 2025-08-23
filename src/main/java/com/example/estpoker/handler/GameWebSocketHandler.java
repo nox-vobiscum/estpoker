@@ -5,10 +5,14 @@ import com.example.estpoker.model.Room;
 import com.example.estpoker.service.GameService;
 import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Component;
-import org.springframework.web.socket.*;
+import org.springframework.web.socket.CloseStatus;
+import org.springframework.web.socket.TextMessage;
+import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
 import java.net.URI;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 
 @Component
 public class GameWebSocketHandler extends TextWebSocketHandler {
@@ -21,25 +25,44 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
 
     @Override
     public void afterConnectionEstablished(@NonNull WebSocketSession session) {
-        String roomCode = getQueryParam(session, "roomCode");
+        // Read and URL-decode query params (robust to spaces/umlauts)
+        String roomCode        = getQueryParam(session, "roomCode");
         String participantName = getQueryParam(session, "participantName");
-        String cid = getQueryParam(session, "cid"); // stable Client-ID
+        String cid             = getQueryParam(session, "cid"); // stable per TAB
+
+        // Defensive: refuse sessions with missing essentials
+        if (roomCode == null || roomCode.isBlank()
+                || participantName == null || participantName.isBlank()) {
+            try { session.close(new CloseStatus(4002, "Missing params")); } catch (Exception ignored) {}
+            return;
+        }
 
         Room room = gameService.getOrCreateRoom(roomCode);
 
-        String existingName = gameService.getClientName(roomCode, cid);
-        if (cid != null && existingName != null && !existingName.equals(participantName)) {
-            String finalName = room.renameParticipant(existingName, participantName);
-            if (finalName != null) participantName = finalName;
+        // If we already know this cid in this room, reactivate/rename instead of creating a duplicate
+        String known = gameService.getClientName(roomCode, cid);
+        if (cid != null && known != null) {
+            if (!known.equals(participantName)) {
+                String finalName = room.renameParticipant(known, participantName);
+                participantName = (finalName != null ? finalName : known);
+            } else {
+                participantName = known;
+            }
+            room.markActive(participantName); // reactivate, not a duplicate
+        } else {
+            // First connection with this cid in this room
+            // (Method may return the final name if your Room impl does that)
+            room.addOrReactivateParticipant(participantName);
         }
 
         gameService.rememberClientName(roomCode, cid, participantName);
-
-        room.addOrReactivateParticipant(participantName);
         gameService.cancelPendingDisconnect(room, participantName);
 
         gameService.addSession(session, room);
         gameService.trackParticipant(session, participantName);
+
+        // Tell only THIS session its authoritative name (prevents cross-tab rename)
+        gameService.sendIdentity(session, participantName, cid);
 
         gameService.broadcastRoomState(room);
         gameService.sendRoomStateToSingleSession(room, session);
@@ -52,14 +75,15 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         if (room == null) return;
 
         if (payload.startsWith("vote:")) {
-            String[] parts = payload.split(":");
+            // Split into exactly 3 parts: "vote:<name>:<value>"
+            String[] parts = payload.split(":", 3);
             if (parts.length == 3) {
                 String participantName = parts[1];
                 String card = parts[2];
                 Participant participant = room.getParticipant(participantName);
                 if (participant != null) {
                     participant.setCard(card);
-                    gameService.maybeAutoReveal(room); // respects room.isAutoRevealEnabled()
+                    gameService.maybeAutoReveal(room); // respects auto-reveal
                     gameService.broadcastRoomState(room);
                 }
             }
@@ -78,7 +102,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             if (me != null) {
                 var meP = room.getParticipant(me);
                 if (meP != null && meP.isHost()) {
-                    room.setSequence(seqId); // sets + reset internally
+                    room.setSequence(seqId); // also resets
                     gameService.broadcastRoomState(room);
                 }
             }
@@ -95,7 +119,6 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                 }
             }
 
-        // NEW: participation toggle (anyone may set their own)
         } else if (payload.startsWith("setParticipating:")) {
             String me = gameService.getParticipantName(session);
             if (me != null) {
@@ -124,7 +147,6 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             }
 
         } else if (payload.startsWith("kick:")) {
-            // only host may kick; cannot kick host or self
             String me = gameService.getParticipantName(session);
             String targetName = payload.substring("kick:".length());
             if (me != null) {
@@ -156,13 +178,20 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         }
     }
 
+    /** Read a single query parameter from the WS URL and URL-decode it (UTF-8). */
     private String getQueryParam(@NonNull WebSocketSession session, String key) {
         URI uri = session.getUri();
         if (uri == null || uri.getQuery() == null) return null;
         for (String param : uri.getQuery().split("&")) {
             String[] kv = param.split("=", 2);
-            if (kv.length == 2 && kv[0].equals(key)) return kv[1];
+            if (kv.length == 2 && kv[0].equals(key)) {
+                try {
+                    return URLDecoder.decode(kv[1], StandardCharsets.UTF_8);
+                } catch (Exception ignored) {
+                    return kv[1]; // fall back to raw if decoding fails
+                }
+            }
         }
         return null;
-    }
+        }
 }

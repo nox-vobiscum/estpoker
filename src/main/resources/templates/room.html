@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org" th:lang="${#locale}" lang="en">
-<head th:replace="fragments/head :: head"></head>
+<head th:replace="~{fragments/head :: head}"></head>
 <body>
 
 <!-- ZENTRALES MENÜ (volles Menü im Room) -->
@@ -61,7 +61,7 @@
 <th:block th:replace="~{fragments/scripts :: scripts}"></th:block>
 
 <script th:inline="javascript">
-/* ===== Game logic (Menü/Theme/Language comes from menu.js) ===== */
+/* ===== Game logic (menu/theme/language comes from menu.js) ===== */
 let participantName = /*[[${participantName}]]*/ "Guest";
 let roomCode = /*[[${roomCode}]]*/ "demo";
 let selectedCard = null;
@@ -71,12 +71,12 @@ let resizeTimer = null;
 let currentSequenceId = 'fib-scrum'; // server overwrites
 let currentDeckSig = "";
 
-// Auto-Reveal default (server will overwrite on first state)
+// Auto-Reveal default (server overwrites on first state)
 let autoRevealEnabled = false;
 
 const SPECIALS = new Set(["❓","💬","☕"]);
 
-/** i18n fallbacks */
+/** i18n fallbacks used in JS */
 const TXT_AVG  = /*[[#{label.average}]]*/ 'Avg:';
 const TXT_CONS = /*[[#{label.consensus}]]*/ 'Consensus:';
 const TXT_ON   = /*[[#{toggle.on}]]*/ 'On';
@@ -85,21 +85,20 @@ const TXT_AR_ONLY_HOST = /*[[#{autoreveal.onlyHost}]]*/ 'Only the host can chang
 const TXT_MAKE_HOST    = /*[[#{action.makeHost}]]*/ 'Make host';
 const TXT_KICK         = /*[[#{action.kick}]]*/ 'Kick';
 const TXT_KICKED       = /*[[#{toast.kicked}]]*/ 'The host has closed the room for you.';
+const TXT_IM_IN        = /*[[#{participation.imIn}]]*/ "I'm estimating";
+const TXT_OBSERVER     = /*[[#{participation.observer}]]*/ "Observer";
 
 /* ===== Dynamic sequence tooltips (catalog from live data) ===== */
 const SEQ_CATALOG = Object.create(null);
-
 function formatDeckForTooltip(cards){
   if (!Array.isArray(cards)) return '';
   const specials = cards.filter(c => SPECIALS.has(String(c)));
   const core = cards.filter(c => !SPECIALS.has(String(c)));
-
   const max = 12;
   const shown = core.slice(0, max);
   const more = core.length > max ? '…' : '';
   const coreTxt = shown.join(', ') + (more ? ' ' + more : '');
   const specTxt = specials.length ? '  (' + specials.join(' ') + ')' : '';
-
   return coreTxt + specTxt;
 }
 function updateSequenceTooltips(){
@@ -184,6 +183,17 @@ function syncAutoRevealUI(){
   if (hint) hint.style.display = isHost ? 'none' : 'block';
 }
 
+/** Participation UI sync */
+function syncParticipationUI(on){
+  const st  = document.getElementById('partStatus');
+  const cb  = document.getElementById('participationToggle');
+  if (st) st.textContent = on ? TXT_IM_IN : TXT_OBSERVER;
+  if (cb) {
+    cb.checked = !!on;
+    cb.setAttribute('aria-checked', on ? 'true' : 'false');
+  }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   syncSequenceUI();
   syncAutoRevealUI();
@@ -196,21 +206,26 @@ document.addEventListener('DOMContentLoaded', () => {
     socket.send('setSequence:' + val);
   });
 
-  // Switch interactions
+  // Auto-Reveal switch
   const arRow = document.getElementById('autoRevealRow');
   const arToggle = document.getElementById('autoRevealToggle');
-
   arRow?.addEventListener('click', (e)=>{
     if (!isHost) { e.preventDefault(); e.stopPropagation(); showToast(TXT_AR_ONLY_HOST); }
   });
-
-  arToggle?.addEventListener('click', (e)=>{
+  arToggle?.addEventListener('click', ()=>{
     if (!isHost) return;
     const next = !autoRevealEnabled;
     socket.send('setAutoReveal:' + next);
   });
 
-  // Optional: initial fetch of all sequences to prefill tooltips
+  // Participation switch (anyone can toggle themselves)
+  const partToggle = document.getElementById('participationToggle');
+  partToggle?.addEventListener('click', ()=>{
+    const next = !(partToggle.checked); // click fires before checked flips in some browsers
+    socket.send('setParticipating:' + next);
+  });
+
+  // Prefill sequence tooltips
   try {
     fetch('/sequences')
       .then(r => r.ok ? r.json() : null)
@@ -226,18 +241,19 @@ document.addEventListener('DOMContentLoaded', () => {
   } catch(e){}
 });
 
-// persistent client id
+// session-scoped client id (unique per tab, survives reloads in same tab)
 const cid = (function(){
   try {
-    let id = localStorage.getItem('ep-cid');
+    const KEY = 'ep-cid';
+    let id = sessionStorage.getItem(KEY);
     if (!id) {
       id = (crypto.randomUUID ? crypto.randomUUID()
-           : (Math.random().toString(36).slice(2) + Date.now()));
-      localStorage.setItem('ep-cid', id);
+           : (Math.random().toString(36).slice(2) + "-" + Date.now()));
+      sessionStorage.setItem(KEY, id);
     }
     return id;
   } catch(e){
-    return Math.random().toString(36).slice(2) + Date.now();
+    return Math.random().toString(36).slice(2) + "-" + Date.now();
   }
 })();
 
@@ -248,26 +264,40 @@ const socketUrl = wsProtocol + location.host
   + "&cid=" + encodeURIComponent(cid);
 const socket = new WebSocket(socketUrl);
 
-socket.onopen = () => console.log("✅ Connected");
-
 const MSG_HOST_YOU   = /*[[#{toast.youAreHost}]]*/ 'Host changed. You are now host!';
 const MSG_HOST_OTHER = /*[[#{toast.hostOther}]]*/ 'Host changed. {new} is now host.';
 
 socket.onmessage = (event) => {
   const data = JSON.parse(event.data);
 
-  // Deck changes (also arrives in voteUpdate)
+  // Identity message: only for this tab (prevents cross-tab rename)
+  if (data.type === 'you' && typeof data.yourName === 'string') {
+    if (!data.cid || data.cid === cid) {
+      if (data.yourName !== participantName) {
+        participantName = data.yourName;
+        const youEl = document.getElementById("youName");
+        if (youEl) youEl.textContent = participantName;
+      }
+    }
+    return;
+  }
+
+  // If server sends participants but not "voteUpdate", still update the list.
+  if (Array.isArray(data.participants) && data.type !== "voteUpdate") {
+    const revealed = !!data.votesRevealed;
+    updateParticipantList(data.participants, revealed);
+  }
+
+  // Deck changes
   if (data.sequenceId) {
     const newSig = deckSig(data.cards);
     const needRerender = (currentSequenceId !== data.sequenceId) || (newSig && newSig !== currentDeckSig);
     currentSequenceId = data.sequenceId;
 
-    // keep an up-to-date catalog for tooltips
     if (Array.isArray(data.cards)) {
       SEQ_CATALOG[data.sequenceId] = data.cards.slice();
       updateSequenceTooltips();
     }
-
     if (needRerender && Array.isArray(data.cards)) {
       clearCardSelection();
       renderCards(data.cards);
@@ -281,10 +311,13 @@ socket.onmessage = (event) => {
     updateSequenceTooltips();
   }
 
-  if (data.yourName && data.yourName !== participantName) {
-    participantName = data.yourName;
-    const youEl = document.getElementById("youName");
-    if (youEl) youEl.textContent = participantName;
+  // Legacy name correction form (addressed to this tab)
+  if (typeof data.yourName === 'string' && data.cid && data.cid === cid) {
+    if (data.yourName !== participantName) {
+      participantName = data.yourName;
+      const youEl = document.getElementById("youName");
+      if (youEl) youEl.textContent = participantName;
+    }
   }
 
   if (data.type === "voteUpdate") {
@@ -298,12 +331,16 @@ socket.onmessage = (event) => {
     syncAutoRevealUI();
     syncSequenceUI();
 
+    // Update participation switch from server truth (my row)
+    const me = participants.find(p => p.name === participantName);
+    syncParticipationUI(me ? (me.participating !== false) : true);
+
     document.getElementById("revealButton").style.display = isHost && !votesRevealed ? "inline-block" : "none";
     document.getElementById("resetButton").style.display  = isHost && votesRevealed ? "inline-block" : "none";
 
-    const closeBtn = document.getElementById('closeRoomBtn');
+    const closeBtn  = document.getElementById('closeRoomBtn');
     const closeHint = document.getElementById('closeHint');
-    if (closeBtn) closeBtn.style.display = isHost ? 'grid' : 'none';
+    if (closeBtn)  closeBtn.style.display  = isHost ? 'grid'  : 'none';
     if (closeHint) closeHint.style.display = isHost ? 'block' : 'none';
 
     updateParticipantList(participants, votesRevealed);
@@ -339,8 +376,8 @@ socket.onmessage = (event) => {
     }
 
     showToast(newHost === participantName
-      ? MSG_HOST_YOU
-      : MSG_HOST_OTHER.replace('{new}', newHost)
+      ? 'Host changed. You are now host!'
+      : 'Host changed. ' + newHost + ' is now host.'
     );
 
   } else if (data.type === "kicked") {
@@ -411,6 +448,7 @@ function updateParticipantList(participants, revealed) {
     rightWrap.className = "row-right";
 
     if (revealed) {
+      // After reveal: show chip with value; observers will have "—"
       const voteChip = document.createElement("span");
       voteChip.className = "vote-chip";
 
@@ -423,17 +461,26 @@ function updateParticipantList(participants, revealed) {
       if (!isNumeric) voteChip.classList.add("special");
 
       rightWrap.appendChild(voteChip);
+
     } else {
-      if (!p.disconnected && p.vote != null) {
-        const status = document.createElement("span");
-        status.className = "status-icon done";
-        status.textContent = "✅";
-        rightWrap.appendChild(status);
-      } else if (!p.disconnected) {
-        const status = document.createElement("span");
-        status.className = "status-icon pending";
-        status.textContent = "⏳";
-        rightWrap.appendChild(status);
+      // Before reveal: done / pending / observer
+      if (!p.disconnected) {
+        if (p.participating === false) {
+          const status = document.createElement("span");
+          status.className = "status-icon observer";
+          status.textContent = "👀";
+          rightWrap.appendChild(status);
+        } else if (p.vote != null) {
+          const status = document.createElement("span");
+          status.className = "status-icon done";
+          status.textContent = "✅";
+          rightWrap.appendChild(status);
+        } else {
+          const status = document.createElement("span");
+          status.className = "status-icon pending";
+          status.textContent = "⏳";
+          rightWrap.appendChild(status);
+        }
       }
     }
 
@@ -513,7 +560,7 @@ function parseVoteNumeric(s){
   return Number.isFinite(n) ? n : null;
 }
 function updateConsensus(participants){
-  const active = participants.filter(p => !p.disconnected);
+  const active = participants.filter(p => !p.disconnected && p.participating !== false);
   if (!active.length) { setConsensusUI(false); return; }
   const nums = [];
   for (const p of active) {
@@ -555,7 +602,7 @@ function showToast(message) {
   function deepLink(){ return location.origin + "/room?roomCode=" + encodeURIComponent(roomCode); }
   async function copyText(text){
     try{ await navigator.clipboard.writeText(text); showToast(TXT_LINK_COPIED); }
-    catch(e){ console.warn(e); showToast(TXT_COPY_FAILED); }
+    catch(e){ showToast(TXT_COPY_FAILED); }
   }
   copyBtn?.addEventListener('click', ()=>copyText(deepLink()));
 })();

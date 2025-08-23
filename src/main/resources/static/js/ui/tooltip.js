@@ -1,107 +1,83 @@
-/* Lightweight, accessible tooltips without using the title attribute. */
-
- * Usage:
- *   <span class="has-tooltip" data-tooltip="Full text">Short…</span>
- * The module attaches listeners to .has-tooltip (and [data-tooltip]).
+/* Accessible tooltips for elements with [data-tooltip].
+ * No native title= usage. Single bubble reused across the page.
  */
 (function () {
-  const SELECTOR = '.has-tooltip,[data-tooltip]';
-  let tipEl = null;
-  let currentAnchor = null;
+  // run once
+  if (window.__epTooltipInit) return;
+  window.__epTooltipInit = true;
 
-  // Create a single tooltip element for the whole app
+  let tipEl;
+
   function ensureTip() {
-    if (tipEl) return tipEl;
-    tipEl = document.createElement('div');
-    tipEl.className = 'app-tooltip'; // styled via tooltip.css
-    tipEl.setAttribute('role', 'tooltip');
-    tipEl.setAttribute('aria-hidden', 'true');
-    document.body.appendChild(tipEl);
+    if (!tipEl) {
+      tipEl = document.createElement('div');
+      tipEl.className = 'tooltip';
+      tipEl.setAttribute('role', 'tooltip');
+      tipEl.style.position = 'absolute';
+      tipEl.style.display = 'none';
+      document.body.appendChild(tipEl);
+    }
     return tipEl;
   }
 
-  function getTooltipText(el) {
-    // Prefer data-tooltip; fallback to aria-label if present
-    return el.getAttribute('data-tooltip') || el.getAttribute('aria-label') || '';
-  }
-
-  function positionTip(anchor) {
-    const rect = anchor.getBoundingClientRect();
-    const tip = ensureTip();
-    const padding = 8; // spacing from anchor
-
-    // Default above, fallback below if not enough space
-    tip.style.visibility = 'hidden';
-    tip.style.left = '0px';
-    tip.style.top = '0px';
-    tip.style.maxWidth = Math.min(window.innerWidth - 24, 360) + 'px';
-
-    // Force reflow to measure size
-    const { offsetWidth: w, offsetHeight: h } = tip;
-
-    // Prefer above
-    let top = rect.top - h - padding;
-    let left = rect.left + (rect.width - w) / 2;
-
-    // Clamp horizontally
-    left = Math.max(12, Math.min(left, window.innerWidth - w - 12));
-
-    // If above overflows, place below
-    if (top < 8) {
-      top = rect.bottom + padding;
-    }
-
-    tip.style.left = `${Math.round(left)}px`;
-    tip.style.top = `${Math.round(top)}px`;
-    tip.style.visibility = 'visible';
-  }
-
-  function showTip(e) {
-    const el = e.currentTarget;
-    const text = getTooltipText(el);
+  function showTip(target) {
+    const text = target.getAttribute('data-tooltip');
     if (!text) return;
-    const tip = ensureTip();
-    tip.textContent = text;
-    tip.setAttribute('aria-hidden', 'false');
-    currentAnchor = el;
-    positionTip(el);
+
+    const el = ensureTip();
+    el.textContent = text;
+    el.style.visibility = 'hidden';
+    el.style.display = 'block';
+
+    const r = target.getBoundingClientRect();
+    const tr = el.getBoundingClientRect();
+
+    let top = window.scrollY + r.top - tr.height - 8;
+    let left = window.scrollX + r.left + (r.width - tr.width) / 2;
+
+    // keep in viewport horizontally
+    const minL = window.scrollX + 4;
+    const maxL = window.scrollX + window.innerWidth - tr.width - 4;
+    left = Math.max(minL, Math.min(left, maxL));
+
+    // if not enough space above, place below
+    if (top < window.scrollY + 4) top = window.scrollY + r.bottom + 8;
+
+    el.style.top = top + 'px';
+    el.style.left = left + 'px';
+    el.style.visibility = 'visible';
   }
 
   function hideTip() {
-    if (!tipEl) return;
-    tipEl.setAttribute('aria-hidden', 'true');
-    tipEl.style.visibility = 'hidden';
-    currentAnchor = null;
+    if (tipEl) {
+      tipEl.style.display = 'none';
+      tipEl.style.visibility = 'hidden';
+    }
   }
 
-  function bind(el) {
-    el.addEventListener('mouseenter', showTip);
-    el.addEventListener('mouseleave', hideTip);
-    el.addEventListener('focus', showTip, true);
-    el.addEventListener('blur', hideTip, true);
-  }
+  function findTarget(node) {
+    let n = node;
+    while (n && n !== document) {
+      if (n.nodeType === 1 && n.hasAttribute('data-tooltip')) return n;
+      n = n.parentNode;
+    }
+    return null;
+    }
 
-  function init() {
-    // Bind existing
-    document.querySelectorAll(SELECTOR).forEach(bind);
-    // Observe future elements
-    const mo = new MutationObserver((muts) => {
-      muts.forEach((m) => {
-        m.addedNodes.forEach((n) => {
-          if (!(n instanceof Element)) return;
-          if (n.matches && n.matches(SELECTOR)) bind(n);
-          n.querySelectorAll && n.querySelectorAll(SELECTOR).forEach(bind);
-        });
-      });
-    });
-    mo.observe(document.documentElement, { childList: true, subtree: true });
-    window.addEventListener('scroll', () => currentAnchor && positionTip(currentAnchor), true);
-    window.addEventListener('resize', () => currentAnchor && positionTip(currentAnchor));
-  }
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
-  } else {
-    init();
-  }
+  document.addEventListener('pointerover', (e) => {
+    const t = findTarget(e.target);
+    if (t) showTip(t);
+  });
+  document.addEventListener('pointerout', (e) => {
+    const t = findTarget(e.target);
+    if (t) hideTip();
+  });
+  document.addEventListener('focusin', (e) => {
+    const t = findTarget(e.target);
+    if (t) showTip(t);
+  });
+  document.addEventListener('focusout', (e) => {
+    const t = findTarget(e.target);
+    if (t) hideTip();
+  });
 })();

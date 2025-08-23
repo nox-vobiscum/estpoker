@@ -89,6 +89,20 @@
           <p id="arHint" class="hint" th:text="#{autoreveal.onlyHost}">Only the host can change this setting</p>
         </div>
 
+        <!-- Teilnahme (nur im Room; jeder darf sich selbst umschalten) -->
+        <div class="menu-group" th:if="${showRoom}">
+          <div class="group-title" th:text="#{menu.participation}">Participation</div>
+          <label id="participationRow" class="menu-item switch" for="participationToggle">
+            <span class="mi-icon" aria-hidden="true">🧑‍🤝‍🧑</span>
+            <span class="switch-text">
+              <span th:text="#{menu.participation}">Participation</span>:
+              <strong id="partStatus">I'm estimating</strong>
+            </span>
+            <input id="participationToggle" class="switch-control" type="checkbox" role="switch" aria-checked="true">
+          </label>
+          <!-- keine Hint-Zeile nötig: darf immer umgestellt werden -->
+        </div>
+
         <!-- Room actions (nur im Room) -->
         <div class="menu-group" th:if="${showRoom}">
           <div class="group-title" th:text="#{menu.room}">Room</div>

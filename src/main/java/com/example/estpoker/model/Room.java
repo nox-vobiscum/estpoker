@@ -27,7 +27,6 @@ public class Room {
     /* ------------ Sequence helpers (delegation) ------------ */
 
     private static List<String> safeDeck(String seqId) {
-        // Build deck via CardSequences; fall back to default if unknown/empty
         String normalized = CardSequences.normalizeSequenceId(seqId);
         List<String> deck = CardSequences.buildDeck(normalized);
         if (deck == null || deck.isEmpty()) {
@@ -104,21 +103,43 @@ public class Room {
         return voted;
     }
 
-    public synchronized void addOrReactivateParticipant(String name) {
-        Participant p = nameToParticipant.get(name);
-        if (p == null) {
-            p = new Participant(name);
+    /**
+     * Add or reactivate a participant; if the name collides with an active participant,
+     * create a new participant with a unique suffix (e.g., "Max (2)").
+     * @return the final name used for this join
+     */
+    public synchronized String addOrReactivateParticipant(String desiredName) {
+        String name = (desiredName == null || desiredName.isBlank()) ? "Guest" : desiredName;
+        Participant existing = nameToParticipant.get(name);
+
+        if (existing == null) {
+            // fresh new participant
+            Participant p = new Participant(name);
+            p.setActive(true);
+            p.setDisconnected(false);
             participants.add(p);
             nameToParticipant.put(name, p);
+            if (host == null) { host = p; p.setHost(true); }
+            return p.getName();
         }
+
+        if (!existing.isActive()) {
+            // re-activate the inactive one (same person likely)
+            existing.setActive(true);
+            existing.setDisconnected(false);
+            if (host == null) { host = existing; existing.setHost(true); }
+            return existing.getName();
+        }
+
+        // collision with an ACTIVE participant -> create a new unique participant
+        String unique = uniqueName(name);
+        Participant p = new Participant(unique);
         p.setActive(true);
         p.setDisconnected(false);
-
-        if (host == null) {
-            host = p;
-            p.setHost(true);
-            System.out.println("👑 Neuer Host: " + p.getName());
-        }
+        participants.add(p);
+        nameToParticipant.put(unique, p);
+        if (host == null) { host = p; p.setHost(true); }
+        return p.getName();
     }
 
     public synchronized String assignNewHostIfNecessary(String oldHostName) {

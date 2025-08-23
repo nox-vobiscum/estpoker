@@ -1,4 +1,4 @@
-// menu.js — zentrales Menü + Tooltips + Theme + Language (nur data-tooltip, nie title)
+// menu.js — central menu + tooltips + theme + language (use only data-tooltip, never title)
 (function(){
   const doc = document;
   const btn = doc.getElementById('menuButton');
@@ -15,7 +15,7 @@
     if (!el) return;
     if (text) el.setAttribute('data-tooltip', text);
     else el.removeAttribute('data-tooltip');
-    el.removeAttribute('title'); // no browser tooltip
+    el.removeAttribute('title'); // no native browser tooltip
   }
 
   // ---- Menu open/close + focus trap ----
@@ -63,9 +63,14 @@
   const bSystem = doc.getElementById('themeSystem');
 
   function applyTheme(t){
+    // Apply theme to <html data-theme="...">, or remove for system
     if (t === 'system') document.documentElement.removeAttribute('data-theme');
     else document.documentElement.setAttribute('data-theme', t);
+
+    // Persist user choice
     try { localStorage.setItem('estpoker-theme', t); } catch(e){}
+
+    // Visual state for buttons
     [bLight,bDark,bSystem].forEach(x=>x&&x.classList.remove('active'));
     ({light:bLight, dark:bDark, system:bSystem}[t||'dark'])?.classList.add('active');
 
@@ -78,11 +83,12 @@
     ({light:bLight, dark:bDark, system:bSystem}[saved])?.classList.add('active');
     ({light:bLight, dark:bDark, system:bSystem}[saved])?.setAttribute('aria-pressed','true');
 
-    // pretty tooltips
+    // Pretty tooltips
     setNiceTooltip(bLight,  TIP_THEME_LIGHT);
     setNiceTooltip(bDark,   TIP_THEME_DARK);
     setNiceTooltip(bSystem, TIP_THEME_SYSTEM);
 
+    // Theme buttons
     bLight?.addEventListener('click', ()=>applyTheme('light'));
     bDark?.addEventListener('click',  ()=>applyTheme('dark'));
     bSystem?.addEventListener('click',()=>applyTheme('system'));
@@ -92,32 +98,37 @@
   (function(){
     const row   = doc.getElementById('langRow');
     if (!row) return;
-    const cur   = (document.documentElement.lang || 'en').toLowerCase();
+
     const a     = row.querySelector('.flag-a');
     const b     = row.querySelector('.flag-b');
     const label = doc.getElementById('langCurrent');
 
-    function labelFor(lang){ return String(lang).startsWith('de') ? 'Deutsch' : 'English'; }
+    function isDe(lang){ return String(lang||'').toLowerCase().startsWith('de'); }
+    function labelFor(lang){ return isDe(lang) ? 'Deutsch' : 'English'; }
     function setSplit(lang){
+      // Update split flag visual + current label
       if (!a || !b) return;
-      if (String(lang).startsWith('de')) { a.src='/flags/de.svg'; b.src='/flags/at.svg'; if (label) label.textContent='Deutsch'; }
+      if (isDe(lang)) { a.src='/flags/de.svg'; b.src='/flags/at.svg'; if (label) label.textContent='Deutsch'; }
       else { a.src='/flags/us.svg'; b.src='/flags/gb.svg'; if (label) label.textContent='English'; }
     }
-    function nextLang(){ return cur.startsWith('de') ? 'en' : 'de'; }
+    function nextLang(cur){ return isDe(cur) ? 'en' : 'de'; }
+
+    // IMPORTANT: use GET -> /i18n?lang=... (avoids CSRF and lets server 303 back)
     function switchLang(to){
-      fetch('/i18n', { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:'lang='+encodeURIComponent(to) })
-        .finally(()=>location.reload());
+      // The LocaleController will set the session locale and 303 back to the referrer.
+      location.href = '/i18n?lang=' + encodeURIComponent(to);
     }
 
     document.addEventListener('DOMContentLoaded', function(){
+      const cur = (document.documentElement.lang || 'en');
       setSplit(cur);
-      const to  = nextLang();
+      const to  = nextLang(cur);
       const tip = (TPL_LANG_TO || 'Switch language → {0}').replace('{0}', labelFor(to));
       setNiceTooltip(row, tip);
       row.addEventListener('click', function(){ switchLang(to); });
     });
   })();
 
-  // Expose util (falls jemand auf der Seite es nutzen will)
+  // Expose util (in case other scripts want to reuse it)
   window.__setNiceTooltip = setNiceTooltip;
 })();

@@ -1,16 +1,14 @@
 <!-- Central <head> fragment for all pages -->
 <!-- Usage in a page:
-     <head th:replace="~{fragments/head :: head()}"></head>
-     Or without params:
-     <head th:replace="fragments/head :: head"></head>
+     <head th:replace="~{fragments/head :: head}"></head>
 -->
-<th:block th:fragment="head(title=null)">
+<th:block th:fragment="head">
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="color-scheme" content="dark light"/>
 
-  <!-- Title: prefer param, else i18n key app.title -->
-  <title th:text="${title != null ? title : #{app.title}}">RBS' Estimation Poker</title>
+  <!-- Title from i18n -->
+  <title th:text="#{app.title}">RBS' Estimation Poker</title>
 
   <!-- Favicons -->
   <link rel="icon" type="image/svg+xml" th:href="@{/favicon.svg}"/>

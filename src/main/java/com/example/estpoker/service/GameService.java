@@ -374,4 +374,21 @@ public class GameService {
         // 4) remove room from registry
         rooms.remove(room.getCode());
     }
+
+    /* ===== NEW: identity message only to the connecting session ===== */
+    public void sendIdentity(WebSocketSession session, String yourName, String cid) {
+        try {
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("type", "you");
+            payload.put("yourName", yourName);
+            if (cid != null) payload.put("cid", cid);
+            String json = objectMapper.writeValueAsString(payload);
+            if (session.isOpen()) {
+                session.sendMessage(new TextMessage(json));
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
 }
