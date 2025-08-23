@@ -74,6 +74,9 @@ let currentDeckSig = "";
 /* Auto-Reveal default (server overwrites on first state) */
 let autoRevealEnabled = false;
 
+/* Client-side participation state (server remains source of truth) */
+let iParticipate = true;
+
 /* Global specials set (kept in sync with backend) */
 const SPECIALS = new Set(["❓","💬","☕"]);
 
@@ -219,10 +222,17 @@ document.addEventListener('DOMContentLoaded', () => {
     socket.send('setAutoReveal:' + next);
   });
 
-  // Participation switch (everyone can toggle themselves)
+  // Participation switch (anyone can toggle themselves)
   const partToggle = document.getElementById('participationToggle');
-  partToggle?.addEventListener('click', ()=>{
-    const next = !(partToggle.checked); // click may fire before the checkbox toggles
+  partToggle?.addEventListener('change', ()=>{
+    // Use our local state as the source of truth during the event
+    const next = !iParticipate;
+
+    // Optimistic UI so it feels instant
+    iParticipate = next;
+    syncParticipationUI(next);
+
+    // Inform server; it will confirm via the next voteUpdate
     socket.send('setParticipating:' + next);
   });
 
@@ -334,7 +344,8 @@ socket.onmessage = (event) => {
 
     // Update my participation switch according to server truth
     const me = participants.find(p => p.name === participantName);
-    syncParticipationUI(me ? (me.participating !== false) : true);
+    iParticipate = me ? (me.participating !== false) : true; // default = participates
+    syncParticipationUI(iParticipate);
 
     document.getElementById("revealButton").style.display = isHost && !votesRevealed ? "inline-block" : "none";
     document.getElementById("resetButton").style.display  = isHost && votesRevealed ? "inline-block" : "none";
