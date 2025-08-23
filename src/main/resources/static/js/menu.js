@@ -39,6 +39,7 @@
   }
   function openMenu(){
     document.body.classList.add('menu-open');
+    window.__epTooltipHide && window.__epTooltipHide();
     overlay.classList.remove('hidden');
     btn.classList.add('open');
     btn.setAttribute('aria-expanded','true');
@@ -50,6 +51,7 @@
   }
   function closeMenu(){
     document.body.classList.remove('menu-open');
+    window.__epTooltipHide && window.__epTooltipHide();
     overlay.classList.add('hidden');
     btn.classList.remove('open');
     btn.setAttribute('aria-expanded','false');
