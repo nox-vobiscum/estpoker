@@ -3,628 +3,694 @@
 <head th:replace="~{fragments/head :: head}"></head>
 <body>
 
-<!-- Global app menu (full menu in the room) -->
-<div th:replace="~{fragments/menu :: appMenu(showSeq=${true}, showAuto=${true}, showRoom=${true})}"></div>
+  <!-- Global app menu (full menu in the room) -->
+  <div th:replace="~{fragments/menu :: appMenu(showSeq=${true}, showAuto=${true}, showRoom=${true})}"></div>
 
-<div class="container">
-  <h1 class="app-title">
-    <img src="/favicon.svg" alt="" width="24" height="24" class="logo">
-    <span th:text="#{ui.heading}">RBS' Estimation Poker</span>
-  </h1>
+  <div class="container">
+    <h1 class="app-title">
+      <img src="/favicon.svg" alt="" width="24" height="24" class="logo">
+      <span th:text="#{ui.heading}">RBS' Estimation Poker</span>
+    </h1>
 
-  <!-- You + room info -->
-  <dl class="main-info">
-    <dt><span class="mi-icon" aria-hidden="true">👤</span><span class="mi-label" th:text="#{label.you}">You are:</span></dt>
-    <dd><strong id="youName" th:text="${participantName}">Guest</strong></dd>
+    <!-- You + room info -->
+    <dl class="main-info">
+      <dt><span class="mi-icon" aria-hidden="true">👤</span><span class="mi-label" th:text="#{label.you}">You are:</span></dt>
+      <dd><strong id="youName" th:text="${participantName}">Guest</strong></dd>
 
-    <dt><span class="mi-icon" aria-hidden="true">🆔</span><span class="mi-label" th:text="#{label.room}">Room:</span></dt>
-    <dd>
-      <div class="room-with-actions">
-        <strong id="roomCodeVal" th:text="${roomCode}">demo</strong>
-        <button id="copyRoomLink"
-          class="icon-button"
-          type="button"
-          th:attr="aria-label=#{invite.copyLink},data-tooltip=#{invite.copyLink}"
-          aria-live="polite">🔗
-        </button>
-      </div>
-    </dd>
-  </dl>
+      <dt><span class="mi-icon" aria-hidden="true">🆔</span><span class="mi-label" th:text="#{label.room}">Room:</span></dt>
+      <dd>
+        <div class="room-with-actions">
+          <strong id="roomCodeVal" th:text="${roomCode}">demo</strong>
+          <button id="copyRoomLink"
+                  class="icon-button"
+                  type="button"
+                  th:attr="aria-label=#{invite.copyLink},data-tooltip=#{invite.copyLink}"
+                  aria-live="polite">🔗
+          </button>
+        </div>
+      </dd>
+    </dl>
 
-  <h2 th:text="#{label.participants}">Participants</h2>
-  <ul id="liveParticipantList"></ul>
+    <h2 th:text="#{label.participants}">Participants</h2>
+    <ul id="liveParticipantList"></ul>
 
-  <h2 id="selectCardHeader" th:text="#{label.selectCard}">Choose a card:</h2>
+    <h2 id="selectCardHeader" th:text="#{label.selectCard}">Choose a card:</h2>
 
-  <div class="pre-vote">
-    <div id="cardsArea"></div>
-    <button type="button" id="revealButton" class="button" style="display:none;"
-            th:text="#{button.reveal}" onclick="revealCards()">Reveal cards</button>
+    <div class="pre-vote">
+      <div id="cardsArea"></div>
+      <button type="button" id="revealButton" class="button" style="display:none;"
+              th:text="#{button.reveal}" onclick="revealCards()">Reveal cards</button>
+    </div>
+
+    <div class="post-vote" style="display:none;">
+      <p id="resultRow"
+         class="average-label consensus-row"
+         role="status"
+         aria-live="polite"
+         aria-atomic="true">
+        <span id="resultLabel" class="label" th:text="#{label.average}">Avg:</span>
+        <span id="averageVote" class="value">–</span>
+      </p>
+
+      <button type="button" id="resetButton" class="button" style="display:none;"
+              th:text="#{button.reset}" onclick="resetRoom()">Start new round</button>
+    </div>
   </div>
 
-  <div class="post-vote" style="display:none;">
-    <p id="resultRow"
-       class="average-label consensus-row"
-       role="status"
-       aria-live="polite"
-       aria-atomic="true">
-      <span id="resultLabel" class="label" th:text="#{label.average}">Avg:</span>
-      <span id="averageVote" class="value">–</span>
-    </p>
+  <!-- Central scripts (must be before inline JS so defer-order is correct) -->
+  <th:block th:replace="~{fragments/scripts :: scripts}"></th:block>
 
-    <button type="button" id="resetButton" class="button" style="display:none;"
-            th:text="#{button.reset}" onclick="resetRoom()">Start new round</button>
-  </div>
-</div>
+  <script th:inline="javascript">
+  /* ======================= Game logic ============================
+     - Menu / theme / language lives in menu.js
+     - This file handles room UI, websocket flow, and voting UX.
+     ============================================================= */
 
-<!-- Central scripts (must be before inline JS so defer-order is correct) -->
-<th:block th:replace="~{fragments/scripts :: scripts}"></th:block>
+  // --- Basic room state (server can overwrite via WS) -----------
+  let participantName   = /*[[${participantName}]]*/ "Guest";
+  let roomCode          = /*[[${roomCode}]]*/ "demo";
+  let selectedCard      = null;
+  let votesRevealed     = false;
+  let isHost            = false;
+  let resizeTimer       = null;
+  let currentSequenceId = 'fib-scrum';
+  let currentDeckSig    = "";
 
-<script th:inline="javascript">
-/* ===== Game logic (menu/theme/language lives in menu.js) ===== */
-let participantName = /*[[${participantName}]]*/ "Guest";
-let roomCode = /*[[${roomCode}]]*/ "demo";
-let selectedCard = null;
-let votesRevealed = false;
-let isHost = false;
-let resizeTimer = null;
-let currentSequenceId = 'fib-scrum'; // server overwrites
-let currentDeckSig = "";
+  // Client-side participation: server remains source of truth, but we keep
+  // a local copy for instant UI updates (optimistic) between WS ticks.
+  let myParticipating   = true;
 
-/* Auto-Reveal default (server overwrites on first state) */
-let autoRevealEnabled = false;
+  // i18n strings used inside JS
+  const TXT_AVG          = /*[[#{label.average}]]*/ 'Avg:';
+  const TXT_CONS         = /*[[#{label.consensus}]]*/ 'Consensus:';
+  const TXT_ON           = /*[[#{toggle.on}]]*/ 'On';
+  const TXT_OFF          = /*[[#{toggle.off}]]*/ 'Off';
+  const TXT_AR_ONLY_HOST = /*[[#{autoreveal.onlyHost}]]*/ 'Only the host can change this setting.';
+  const TXT_MAKE_HOST    = /*[[#{action.makeHost}]]*/ 'Make host';
+  const TXT_KICK         = /*[[#{action.kick}]]*/ 'Kick';
+  const TXT_KICKED       = /*[[#{toast.kicked}]]*/ 'The host has closed the room for you.';
+  const TXT_IM_IN        = /*[[#{participation.imIn}]]*/ "I'm estimating";
+  const TXT_OBSERVER     = /*[[#{participation.observer}]]*/ "Observer";
+  const TXT_OBS_NO_PICK  = /*[[#{observer.noPick}]]*/ 'Als Beobachter:in kannst du keine Karte wählen.';
 
-/* Client-side participation state (server remains source of truth) */
-let iParticipate = true;
+  // Host-controlled option (server overwrites on first state)
+  let autoRevealEnabled = false;
 
-/* Global specials set (kept in sync with backend) */
-const SPECIALS = new Set(["❓","💬","☕"]);
+  // Specials set (kept in sync with backend)
+  const SPECIALS = new Set(["❓","💬","☕"]);
 
-/** i18n fallbacks used in JS */
-const TXT_AVG  = /*[[#{label.average}]]*/ 'Avg:';
-const TXT_CONS = /*[[#{label.consensus}]]*/ 'Consensus:';
-const TXT_ON   = /*[[#{toggle.on}]]*/ 'On';
-const TXT_OFF  = /*[[#{toggle.off}]]*/ 'Off';
-const TXT_AR_ONLY_HOST = /*[[#{autoreveal.onlyHost}]]*/ 'Only the host can change this setting.';
-const TXT_MAKE_HOST    = /*[[#{action.makeHost}]]*/ 'Make host';
-const TXT_KICK         = /*[[#{action.kick}]]*/ 'Kick';
-const TXT_KICKED       = /*[[#{toast.kicked}]]*/ 'The host has closed the room for you.';
-const TXT_IM_IN        = /*[[#{participation.imIn}]]*/ "I'm estimating";
-const TXT_OBSERVER     = /*[[#{participation.observer}]]*/ "Observer";
+  // Deck catalog for tooltips in the menu (filled either by WS or /sequences)
+  const SEQ_CATALOG = Object.create(null);
 
-/* ===== Dynamic sequence tooltips (catalog from live data) ===== */
-const SEQ_CATALOG = Object.create(null);
-function formatDeckForTooltip(cards){
-  if (!Array.isArray(cards)) return '';
-  const specials = cards.filter(c => SPECIALS.has(String(c)));
-  const core = cards.filter(c => !SPECIALS.has(String(c)));
-  const max = 12;
-  const shown = core.slice(0, max);
-  const more = core.length > max ? '…' : '';
-  const coreTxt = shown.join(', ') + (more ? ' ' + more : '');
-  const specTxt = specials.length ? '  (' + specials.join(' ') + ')' : '';
-  return coreTxt + specTxt;
-}
-function updateSequenceTooltips(){
-  const inputs = document.querySelectorAll('#seqChoice .radio-row input[name="seq"]');
-  inputs.forEach(inp=>{
-    const row = inp.closest('.radio-row');
-    if(!row) return;
-    const id = inp.value;
-    const deck = SEQ_CATALOG[id];
-    if (deck && deck.length){
-      const tip = formatDeckForTooltip(deck);
-      row.setAttribute('data-tooltip', tip);
-      row.removeAttribute('title'); // no native tooltip
-    } else {
-      row.removeAttribute('data-tooltip');
-      row.removeAttribute('title');
+  // --- Sequence deck tooltip helpers ---------------------------------------
+  function formatDeckForTooltip(cards){
+    if (!Array.isArray(cards)) return '';
+    const specials = cards.filter(c => SPECIALS.has(String(c)));
+    const core     = cards.filter(c => !SPECIALS.has(String(c)));
+    const max      = 12;
+    const shown    = core.slice(0, max);
+    const more     = core.length > max ? '…' : '';
+    const coreTxt  = shown.join(', ') + (more ? ' ' + more : '');
+    const specTxt  = specials.length ? '  (' + specials.join(' ') + ')' : '';
+    return coreTxt + specTxt;
+  }
+  function updateSequenceTooltips(){
+    const inputs = document.querySelectorAll('#seqChoice .radio-row input[name="seq"]');
+    inputs.forEach(inp=>{
+      const row = inp.closest('.radio-row');
+      if(!row) return;
+      const id   = inp.value;
+      const deck = SEQ_CATALOG[id];
+      if (deck && deck.length){
+        const tip = formatDeckForTooltip(deck);
+        row.setAttribute('data-tooltip', tip);
+        row.removeAttribute('title'); // prevent native tooltip
+      } else {
+        row.removeAttribute('data-tooltip');
+        row.removeAttribute('title');
+      }
+    });
+  }
+
+  // --- Card rendering + interaction ----------------------------------------
+  function addCardButton(grid, val){
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.setAttribute('data-card', val);
+    btn.textContent = val;
+
+    // Guard in handler as a second line of defense (in addition to disabled)
+    btn.addEventListener('click', () => {
+      if (!myParticipating) { showToast(TXT_OBS_NO_PICK); return; }
+      if (votesRevealed)    { return; } // ignore during results
+      sendVote(val);
+    });
+
+    grid.appendChild(btn);
+  }
+  function deckSig(arr){ return Array.isArray(arr) ? arr.join("|") : ""; }
+
+  function renderCards(deck){
+    const area = document.getElementById('cardsArea');
+    if (!area || !Array.isArray(deck)) return;
+
+    const regular  = deck.filter(v => !SPECIALS.has(v));
+    const specials = deck.filter(v =>  SPECIALS.has(v));
+
+    area.innerHTML = '';
+
+    const grid = document.createElement('div');
+    grid.className = 'card-grid';
+    regular.forEach(val => addCardButton(grid, val));
+    area.appendChild(grid);
+
+    if (specials.length){
+      const sgrid = document.createElement('div');
+      sgrid.className = 'card-grid';
+      specials.forEach(val => addCardButton(sgrid, val));
+      area.appendChild(sgrid);
     }
-  });
-}
 
-/** Card helpers */
-function addCardButton(grid, val){
-  const btn = document.createElement('button');
-  btn.type = 'button';
-  btn.setAttribute('data-card', val);
-  btn.onclick = () => sendVote(val);
-  btn.textContent = val;
-  grid.appendChild(btn);
-}
-function deckSig(arr){ return Array.isArray(arr) ? arr.join("|") : ""; }
-
-/** Render cards grid(s) */
-function renderCards(deck){
-  const area = document.getElementById('cardsArea');
-  if (!area || !Array.isArray(deck)) return;
-
-  const regular  = deck.filter(v => !SPECIALS.has(v));
-  const specials = deck.filter(v =>  SPECIALS.has(v));
-
-  area.innerHTML = '';
-
-  const grid = document.createElement('div');
-  grid.className = 'card-grid';
-  regular.forEach(val => addCardButton(grid, val));
-  area.appendChild(grid);
-
-  if (specials.length){
-    const sgrid = document.createElement('div');
-    sgrid.className = 'card-grid';
-    specials.forEach(val => addCardButton(sgrid, val));
-    area.appendChild(sgrid);
+    // Apply interactivity state (observer cannot pick; no picks after reveal)
+    updateCardInteractivity(myParticipating);
+    highlightSelectedCard();
   }
-  highlightSelectedCard();
-}
 
-/** Host-sensitive controls (enable/disable + hints) */
-function syncSequenceUI(){
-  const radios = document.querySelectorAll('#seqChoice input[name="seq"]');
-  radios.forEach(r => {
-    r.checked = (r.value === currentSequenceId);
-    r.disabled = !isHost;
-    r.closest('.radio-row')?.classList.toggle('disabled', !isHost);
-  });
-  const hint = document.getElementById('seqHint');
-  if (hint) hint.style.display = isHost ? 'none' : 'block';
-}
-function syncAutoRevealUI(){
-  const row = document.getElementById('autoRevealRow');
-  const st  = document.getElementById('arStatus');
-  const cb  = document.getElementById('autoRevealToggle');
-
-  if (st) st.textContent = autoRevealEnabled ? TXT_ON : TXT_OFF;
-
-  if (cb) {
-    cb.checked = autoRevealEnabled;
-    cb.setAttribute('aria-checked', autoRevealEnabled ? 'true' : 'false');
-    cb.disabled = !isHost;
+  // Enable/disable all card buttons based on participation & reveal state
+  function updateCardInteractivity(canPick){
+    const buttons = document.querySelectorAll('.card-grid button');
+    const disableAll = !canPick || !!votesRevealed;
+    buttons.forEach(btn => {
+      btn.disabled = disableAll;
+      if (disableAll) {
+        // Tooltip explains why picking is blocked (mouse/keyboard)
+        btn.setAttribute('data-tooltip', !canPick ? TXT_OBS_NO_PICK : '');
+        btn.setAttribute('tabindex', '-1'); // don't focus disabled cards
+      } else {
+        btn.removeAttribute('data-tooltip');
+        btn.removeAttribute('tabindex');
+      }
+    });
   }
-  if (row) row.classList.toggle('disabled', !isHost);
 
-  const hint = document.getElementById('arHint');
-  if (hint) hint.style.display = isHost ? 'none' : 'block';
-}
-
-/** Participation UI sync (my own toggle) */
-function syncParticipationUI(on){
-  const st  = document.getElementById('partStatus');
-  const cb  = document.getElementById('participationToggle');
-  if (st) st.textContent = on ? TXT_IM_IN : TXT_OBSERVER;
-  if (cb) {
-    cb.checked = !!on;
-    cb.setAttribute('aria-checked', on ? 'true' : 'false');
+  // --- Host-sensitive controls (enable/disable + hints) --------------------
+  function syncSequenceUI(){
+    const radios = document.querySelectorAll('#seqChoice input[name="seq"]');
+    radios.forEach(r => {
+      r.checked = (r.value === currentSequenceId);
+      r.disabled = !isHost;
+      r.closest('.radio-row')?.classList.toggle('disabled', !isHost);
+    });
+    const hint = document.getElementById('seqHint');
+    if (hint) hint.style.display = isHost ? 'none' : 'block';
   }
-}
+  function syncAutoRevealUI(){
+    const row = document.getElementById('autoRevealRow');
+    const st  = document.getElementById('arStatus');
+    const cb  = document.getElementById('autoRevealToggle');
 
-document.addEventListener('DOMContentLoaded', () => {
-  syncSequenceUI();
-  syncAutoRevealUI();
+    if (st) st.textContent = autoRevealEnabled ? TXT_ON : TXT_OFF;
 
-  const seqChoice = document.getElementById('seqChoice');
-  seqChoice?.addEventListener('change', (e)=>{
-    const val = e.target?.value;
-    if (!val) return;
-    if (!isHost) { showToast(/*[[#{sequence.onlyHost}]]*/ 'Only the host can change the sequence'); syncSequenceUI(); return; }
-    socket.send('setSequence:' + val);
+    if (cb) {
+      cb.checked = autoRevealEnabled;
+      cb.setAttribute('aria-checked', autoRevealEnabled ? 'true' : 'false');
+      cb.disabled = !isHost;
+    }
+    if (row) row.classList.toggle('disabled', !isHost);
+
+    const hint = document.getElementById('arHint');
+    if (hint) hint.style.display = isHost ? 'none' : 'block';
+  }
+
+  // Update my participation UI (label + switch state)
+  function syncParticipationUI(on){
+    const st  = document.getElementById('partStatus');
+    const cb  = document.getElementById('participationToggle');
+    myParticipating = !!on;
+    if (st) st.textContent = on ? TXT_IM_IN : TXT_OBSERVER;
+    if (cb) {
+      cb.checked = !!on;
+      cb.setAttribute('aria-checked', on ? 'true' : 'false');
+    }
+    // When becoming observer, drop selection; when joining, just re-enable
+    if (!myParticipating) clearCardSelection();
+    updateCardInteractivity(myParticipating);
+    highlightSelectedCard();
+  }
+
+  // --- DOM ready: wire UI handlers ----------------------------------------
+  document.addEventListener('DOMContentLoaded', () => {
+    syncSequenceUI();
+    syncAutoRevealUI();
+
+    // Sequence change (host only)
+    const seqChoice = document.getElementById('seqChoice');
+    seqChoice?.addEventListener('change', (e)=>{
+      const val = e.target?.value;
+      if (!val) return;
+      if (!isHost) {
+        showToast(/*[[#{sequence.onlyHost}]]*/ 'Only the host can change the sequence');
+        syncSequenceUI();
+        return;
+      }
+      socket.send('setSequence:' + val);
+    });
+
+    // Auto-Reveal switch (host only)
+    const arRow = document.getElementById('autoRevealRow');
+    const arToggle = document.getElementById('autoRevealToggle');
+    arRow?.addEventListener('click', (e)=>{
+      if (!isHost) { e.preventDefault(); e.stopPropagation(); showToast(TXT_AR_ONLY_HOST); }
+    });
+    arToggle?.addEventListener('click', ()=>{
+      if (!isHost) return;
+      const next = !autoRevealEnabled;
+      socket.send('setAutoReveal:' + next);
+    });
+
+    // Participation switch (everyone can toggle themselves)
+    const partToggle = document.getElementById('participationToggle');
+    partToggle?.addEventListener('click', ()=>{
+      const next = !myParticipating;
+      // Optimistic UX
+      syncParticipationUI(next);
+      socket.send('setParticipating:' + next);
+    });
+
+    // Prefill sequence tooltips (nice UX before first WS state lands)
+    try {
+      fetch('/sequences')
+        .then(r => r.ok ? r.json() : null)
+        .then(json => {
+          if (!json) return;
+          const obj = json.sequences || json;
+          if (obj && typeof obj === 'object') {
+            Object.assign(SEQ_CATALOG, obj);
+            updateSequenceTooltips();
+          }
+        })
+        .catch(()=>{});
+    } catch(e){}
   });
 
-  // Auto-Reveal switch
-  const arRow = document.getElementById('autoRevealRow');
-  const arToggle = document.getElementById('autoRevealToggle');
-  arRow?.addEventListener('click', (e)=>{
-    if (!isHost) { e.preventDefault(); e.stopPropagation(); showToast(TXT_AR_ONLY_HOST); }
-  });
-  arToggle?.addEventListener('click', ()=>{
-    if (!isHost) return;
-    const next = !autoRevealEnabled;
-    socket.send('setAutoReveal:' + next);
-  });
+  // --- WebSocket wiring ----------------------------------------------------
+  // Session-scoped client id (unique per TAB; survives reloads in the same tab)
+  const cid = (function(){
+    try {
+      const KEY = 'ep-cid';
+      let id = sessionStorage.getItem(KEY);
+      if (!id) {
+        id = (crypto.randomUUID ? crypto.randomUUID()
+             : (Math.random().toString(36).slice(2) + "-" + Date.now()));
+        sessionStorage.setItem(KEY, id);
+      }
+      return id;
+    } catch(e){
+      return Math.random().toString(36).slice(2) + "-" + Date.now();
+    }
+  })();
 
-  // Participation switch (anyone can toggle themselves)
-  const partToggle = document.getElementById('participationToggle');
-  partToggle?.addEventListener('change', ()=>{
-    // Use our local state as the source of truth during the event
-    const next = !iParticipate;
+  const wsProtocol = location.protocol === "https:" ? "wss://" : "ws://";
+  const socketUrl = wsProtocol + location.host
+    + "/gameSocket?roomCode=" + encodeURIComponent(roomCode)
+    + "&participantName=" + encodeURIComponent(participantName)
+    + "&cid=" + encodeURIComponent(cid);
+  const socket = new WebSocket(socketUrl);
 
-    // Optimistic UI so it feels instant
-    iParticipate = next;
-    syncParticipationUI(next);
+  const MSG_HOST_YOU   = /*[[#{toast.youAreHost}]]*/ 'Host changed. You are now host!';
+  const MSG_HOST_OTHER = /*[[#{toast.hostOther}]]*/ 'Host changed. {new} is now host.';
 
-    // Inform server; it will confirm via the next voteUpdate
-    socket.send('setParticipating:' + next);
-  });
+  socket.onmessage = (event) => {
+    const data = JSON.parse(event.data);
 
-  // Prefill sequence tooltips (nice UX before first WS state lands)
-  try {
-    fetch('/sequences')
-      .then(r => r.ok ? r.json() : null)
-      .then(json => {
-        if (!json) return;
-        const obj = json.sequences || json;
-        if (obj && typeof obj === 'object') {
-          Object.assign(SEQ_CATALOG, obj);
-          updateSequenceTooltips();
+    // Identity ping: addressed to THIS tab only
+    if (data.type === 'you' && typeof data.yourName === 'string') {
+      if (!data.cid || data.cid === cid) {
+        if (data.yourName !== participantName) {
+          participantName = data.yourName;
+          const youEl = document.getElementById("youName");
+          if (youEl) youEl.textContent = participantName;
         }
-      })
-      .catch(()=>{});
-  } catch(e){}
-});
-
-// Session-scoped client id (unique per TAB; survives reloads in the same tab)
-const cid = (function(){
-  try {
-    const KEY = 'ep-cid';
-    let id = sessionStorage.getItem(KEY);
-    if (!id) {
-      id = (crypto.randomUUID ? crypto.randomUUID()
-           : (Math.random().toString(36).slice(2) + "-" + Date.now()));
-      sessionStorage.setItem(KEY, id);
+      }
+      return; // identity only
     }
-    return id;
-  } catch(e){
-    return Math.random().toString(36).slice(2) + "-" + Date.now();
-  }
-})();
 
-const wsProtocol = location.protocol === "https:" ? "wss://" : "ws://";
-const socketUrl = wsProtocol + location.host
-  + "/gameSocket?roomCode=" + encodeURIComponent(roomCode)
-  + "&participantName=" + encodeURIComponent(participantName)
-  + "&cid=" + encodeURIComponent(cid);
-const socket = new WebSocket(socketUrl);
+    // Participant snapshot outside of voteUpdate
+    if (Array.isArray(data.participants) && data.type !== "voteUpdate") {
+      const revealed = !!data.votesRevealed;
+      updateParticipantList(data.participants, revealed);
+    }
 
-const MSG_HOST_YOU   = /*[[#{toast.youAreHost}]]*/ 'Host changed. You are now host!';
-const MSG_HOST_OTHER = /*[[#{toast.hostOther}]]*/ 'Host changed. {new} is now host.';
+    // Deck changes
+    if (data.sequenceId) {
+      const newSig = deckSig(data.cards);
+      const needRerender = (currentSequenceId !== data.sequenceId) || (newSig && newSig !== currentDeckSig);
+      currentSequenceId = data.sequenceId;
 
-socket.onmessage = (event) => {
-  const data = JSON.parse(event.data);
+      if (Array.isArray(data.cards)) {
+        SEQ_CATALOG[data.sequenceId] = data.cards.slice();
+        updateSequenceTooltips();
+      }
+      if (needRerender && Array.isArray(data.cards)) {
+        clearCardSelection();
+        renderCards(data.cards);
+        currentDeckSig = newSig;
+      }
+    }
 
-  // Identity: message addressed to THIS tab only (prevents cross-tab rename)
-  if (data.type === 'you' && typeof data.yourName === 'string') {
-    if (!data.cid || data.cid === cid) {
+    // Optional: server can push all decks at once
+    if (data.sequences && typeof data.sequences === 'object') {
+      Object.assign(SEQ_CATALOG, data.sequences);
+      updateSequenceTooltips();
+    }
+
+    // Legacy identity form (still gated by cid)
+    if (typeof data.yourName === 'string' && data.cid && data.cid === cid) {
       if (data.yourName !== participantName) {
         participantName = data.yourName;
         const youEl = document.getElementById("youName");
         if (youEl) youEl.textContent = participantName;
       }
     }
-    return; // nothing else to do for an identity ping
-  }
 
-  // If server sends participants without voteUpdate, still reflect the list
-  if (Array.isArray(data.participants) && data.type !== "voteUpdate") {
-    const revealed = !!data.votesRevealed;
-    updateParticipantList(data.participants, revealed);
-  }
+    // Main room state diff
+    if (data.type === "voteUpdate") {
+      const prevVotesRevealed = votesRevealed;
+      const participants = Array.isArray(data.participants) ? data.participants : [];
 
-  // Deck changes (arrives also in voteUpdate)
-  if (data.sequenceId) {
-    const newSig = deckSig(data.cards);
-    const needRerender = (currentSequenceId !== data.sequenceId) || (newSig && newSig !== currentDeckSig);
-    currentSequenceId = data.sequenceId;
+      votesRevealed = data.votesRevealed;
+      isHost = participants.find(p => p.name === participantName)?.isHost === true;
 
-    if (Array.isArray(data.cards)) {
-      SEQ_CATALOG[data.sequenceId] = data.cards.slice();
-      updateSequenceTooltips();
-    }
-    if (needRerender && Array.isArray(data.cards)) {
-      clearCardSelection();
-      renderCards(data.cards);
-      currentDeckSig = newSig;
-    }
-  }
+      if (typeof data.autoRevealEnabled === 'boolean') autoRevealEnabled = data.autoRevealEnabled;
+      syncAutoRevealUI();
+      syncSequenceUI();
 
-  // Optional: server can push all decks at once
-  if (data.sequences && typeof data.sequences === 'object') {
-    Object.assign(SEQ_CATALOG, data.sequences);
-    updateSequenceTooltips();
-  }
+      // Update my participation from server (source of truth)
+      const me = participants.find(p => p.name === participantName);
+      const serverParticipating = me ? (me.participating !== false) : true;
+      syncParticipationUI(serverParticipating); // also updates card interactivity
 
-  // Legacy identity form (still gated by cid)
-  if (typeof data.yourName === 'string' && data.cid && data.cid === cid) {
-    if (data.yourName !== participantName) {
-      participantName = data.yourName;
-      const youEl = document.getElementById("youName");
-      if (youEl) youEl.textContent = participantName;
-    }
-  }
-
-  if (data.type === "voteUpdate") {
-    const prevVotesRevealed = votesRevealed;
-    const participants = Array.isArray(data.participants) ? data.participants : [];
-
-    votesRevealed = data.votesRevealed;
-    isHost = participants.find(p => p.name === participantName)?.isHost === true;
-
-    if (typeof data.autoRevealEnabled === 'boolean') autoRevealEnabled = data.autoRevealEnabled;
-    syncAutoRevealUI();
-    syncSequenceUI();
-
-    // Update my participation switch according to server truth
-    const me = participants.find(p => p.name === participantName);
-    iParticipate = me ? (me.participating !== false) : true; // default = participates
-    syncParticipationUI(iParticipate);
-
-    document.getElementById("revealButton").style.display = isHost && !votesRevealed ? "inline-block" : "none";
-    document.getElementById("resetButton").style.display  = isHost && votesRevealed ? "inline-block" : "none";
-
-    const closeBtn  = document.getElementById('closeRoomBtn');
-    const closeHint = document.getElementById('closeHint');
-    if (closeBtn)  closeBtn.style.display  = isHost ? 'grid'  : 'none';
-    if (closeHint) closeHint.style.display = isHost ? 'block' : 'none';
-
-    updateParticipantList(participants, votesRevealed);
-
-    if (votesRevealed) {
-      showResults(participants, data.averageVote);
-    } else {
-      toggleView(false);
-      updateAverage(null);
-      setConsensusUI(false);
-    }
-
-    if (prevVotesRevealed && !votesRevealed) clearCardSelection();
-    highlightSelectedCard();
-
-  } else if (data.type === "hostChanged") {
-    const { oldHost, newHost } = data;
-
-    const iBecomeHost = (newHost === participantName);
-    const iLoseHost   = (oldHost === participantName);
-    if (iBecomeHost || iLoseHost) {
-      isHost = iBecomeHost;
-
+      // Host-only buttons
       document.getElementById("revealButton").style.display = isHost && !votesRevealed ? "inline-block" : "none";
-      document.getElementById("resetButton").style.display  = isHost && votesRevealed ? "inline-block" : "none";
+      document.getElementById("resetButton").style.display  = isHost && votesRevealed ? "inline-block"  : "none";
+
       const closeBtn  = document.getElementById('closeRoomBtn');
       const closeHint = document.getElementById('closeHint');
       if (closeBtn)  closeBtn.style.display  = isHost ? 'grid'  : 'none';
       if (closeHint) closeHint.style.display = isHost ? 'block' : 'none';
 
-      syncSequenceUI();
-      syncAutoRevealUI();
+      updateParticipantList(participants, votesRevealed);
+
+      if (votesRevealed) {
+        // During results, block card picks and show average/consensus
+        updateCardInteractivity(myParticipating);
+        showResults(participants, data.averageVote);
+      } else {
+        toggleView(false);
+        updateAverage(null);
+        setConsensusUI(false);
+        updateCardInteractivity(myParticipating);
+      }
+
+      if (prevVotesRevealed && !votesRevealed) clearCardSelection();
+      highlightSelectedCard();
+
+    } else if (data.type === "hostChanged") {
+      const { oldHost, newHost } = data;
+
+      const iBecomeHost = (newHost === participantName);
+      const iLoseHost   = (oldHost === participantName);
+      if (iBecomeHost || iLoseHost) {
+        isHost = iBecomeHost;
+
+        document.getElementById("revealButton").style.display = isHost && !votesRevealed ? "inline-block" : "none";
+        document.getElementById("resetButton").style.display  = isHost && votesRevealed ? "inline-block"  : "none";
+        const closeBtn  = document.getElementById('closeRoomBtn');
+        const closeHint = document.getElementById('closeHint');
+        if (closeBtn)  closeBtn.style.display  = isHost ? 'grid'  : 'none';
+        if (closeHint) closeHint.style.display = isHost ? 'block' : 'none';
+
+        syncSequenceUI();
+        syncAutoRevealUI();
+      }
+
+      showToast(newHost === participantName
+        ? MSG_HOST_YOU
+        : MSG_HOST_OTHER.replace('{new}', newHost)
+      );
+
+    } else if (data.type === "kicked") {
+      try { localStorage.setItem('ep-toast', TXT_KICKED); } catch(e) {}
+      const target = data.redirect || "/";
+      location.replace(target);
+
+    } else if (data.type === "roomClosed") {
+      const target = data.redirect || "/";
+      location.replace(target);
     }
+  }; // end socket.onmessage
 
-    showToast(newHost === participantName
-      ? MSG_HOST_YOU
-      : MSG_HOST_OTHER.replace('{new}', newHost)
-    );
+  // --- Host-only: close room -----------------------------------------------
+  document.addEventListener('DOMContentLoaded', () => {
+    const closeBtn = document.getElementById('closeRoomBtn');
+    closeBtn?.addEventListener('click', () => {
+      if (!isHost) return;
+      const ok = confirm(/*[[#{room.close.confirm}]]*/ "Close this room for everyone now?");
+      if (ok) socket.send("closeRoom");
+    });
+  });
 
-  } else if (data.type === "kicked") {
-    try { localStorage.setItem('ep-toast', TXT_KICKED); } catch(e) {}
-    const target = data.redirect || "/";
-    location.replace(target);
-
-  } else if (data.type === "roomClosed") {
-    const target = data.redirect || "/";
-    location.replace(target);
+  // --- Vote helpers ---------------------------------------------------------
+  function sendVote(cardValue) {
+    // Secondary guard (in case a disabled button gets triggered somehow)
+    if (!myParticipating) { showToast(TXT_OBS_NO_PICK); return; }
+    if (votesRevealed) return;
+    socket.send("vote:" + participantName + ":" + cardValue);
+    selectedCard = cardValue;
+    highlightSelectedCard();
   }
-}; // end socket.onmessage
+  function clearCardSelection(){
+    selectedCard = null;
+    try { localStorage.removeItem('selectedCard'); } catch(e){}
+    highlightSelectedCard();
+  }
+  function highlightSelectedCard() {
+    document.querySelectorAll(".card-grid button").forEach(btn => {
+      const card = btn.getAttribute("data-card");
+      const isSelected = myParticipating && !votesRevealed && (card === selectedCard);
+      btn.classList.toggle("selected", isSelected);
+    });
+  }
+  function revealCards() { if (isHost) socket.send("revealCards"); }
+  function resetRoom()   { if (isHost) socket.send("resetRoom"); clearCardSelection(); }
 
-// Host-only: close room
-document.addEventListener('DOMContentLoaded', () => {
-  const closeBtn = document.getElementById('closeRoomBtn');
-  closeBtn?.addEventListener('click', () => {
-    if (!isHost) return;
-    const ok = confirm(/*[[#{room.close.confirm}]]*/ "Close this room for everyone now?");
-    if (ok) socket.send("closeRoom");
-  });
-});
+  // --- Host transfer & kick -------------------------------------------------
+  function transferHost(name){
+    if (!isHost || !name || name === participantName) return;
+    socket.send("transferHost:" + name);
+  }
+  function kick(name){
+    if (!isHost || !name || name === participantName) return;
+    socket.send("kick:" + name);
+  }
 
-function sendVote(cardValue) { socket.send("vote:" + participantName + ":" + cardValue); selectedCard = cardValue; highlightSelectedCard(); }
-function clearCardSelection(){ selectedCard = null; try { localStorage.removeItem('selectedCard'); } catch(e){} highlightSelectedCard(); }
-function highlightSelectedCard() {
-  document.querySelectorAll(".card-grid button").forEach(btn => {
-    const card = btn.getAttribute("data-card");
-    const isSelected = !votesRevealed && card === selectedCard;
-    btn.classList.toggle("selected", isSelected);
-  });
-}
-function revealCards() { if (isHost) socket.send("revealCards"); }
-function resetRoom()   { if (isHost) socket.send("resetRoom"); clearCardSelection(); }
+  // --- Participant list renderer -------------------------------------------
+  function updateParticipantList(participants, revealed) {
+    const list = document.getElementById("liveParticipantList");
+    if (!list) return;
+    list.innerHTML = "";
 
-/** Host transfer & kick */
-function transferHost(name){
-  if (!isHost || !name || name === participantName) return;
-  socket.send("transferHost:" + name);
-}
-function kick(name){
-  if (!isHost || !name || name === participantName) return;
-  socket.send("kick:" + name);
-}
+    participants.forEach(p => {
+      const li = document.createElement("li");
+      li.classList.add("participant-row");
+      li.dataset.hasvote = p.vote !== null;
+      if (p.disconnected) li.classList.add("disconnected");
+      if (p.isHost) li.classList.add("is-host");
 
-/** Participant list renderer */
-function updateParticipantList(participants, revealed) {
-  const list = document.getElementById("liveParticipantList");
-  if (!list) return;
-  list.innerHTML = "";
+      const icon = document.createElement("span");
+      icon.className = p.isHost ? "participant-icon host" : (p.disconnected ? "participant-icon inactive" : "participant-icon");
+      icon.textContent = p.isHost ? "👑" : (p.disconnected ? "💤" : "👤");
 
-  participants.forEach(p => {
-    const li = document.createElement("li");
-    li.classList.add("participant-row");
-    li.dataset.hasvote = p.vote !== null;
-    if (p.disconnected) li.classList.add("disconnected");
-    if (p.isHost) li.classList.add("is-host");
+      const nameSpan = document.createElement("span");
+      nameSpan.className = "name";
+      nameSpan.textContent = p.name;
 
-    const icon = document.createElement("span");
-    icon.className = p.isHost ? "participant-icon host" : (p.disconnected ? "participant-icon inactive" : "participant-icon");
-    icon.textContent = p.isHost ? "👑" : (p.disconnected ? "💤" : "👤");
+      const rightWrap = document.createElement("div");
+      rightWrap.className = "row-right";
 
-    const nameSpan = document.createElement("span");
-    nameSpan.className = "name";
-    nameSpan.textContent = p.name;
+      if (revealed) {
+        // After reveal: show chip with value; observers will have "—"
+        const voteChip = document.createElement("span");
+        voteChip.className = "vote-chip";
 
-    const rightWrap = document.createElement("div");
-    rightWrap.className = "row-right";
+        const v = p.vote != null ? String(p.vote) : null;
+        const isNumeric = v != null ? (parseVoteNumeric(v) != null) : false;
 
-    if (revealed) {
-      // After reveal: show chip with value; observers will have "—"
-      const voteChip = document.createElement("span");
-      voteChip.className = "vote-chip";
+        voteChip.textContent = v != null ? v : "—";
+        voteChip.dataset.val = v != null ? v : "";
 
-      const v = p.vote != null ? String(p.vote) : null;
-      const isNumeric = v != null ? (parseVoteNumeric(v) != null) : false;
+        if (!isNumeric) voteChip.classList.add("special");
 
-      voteChip.textContent = v != null ? v : "—";
-      voteChip.dataset.val = v != null ? v : "";
+        rightWrap.appendChild(voteChip);
 
-      if (!isNumeric) voteChip.classList.add("special");
-
-      rightWrap.appendChild(voteChip);
-
-    } else {
-      // Before reveal: done / pending / observer
-      if (!p.disconnected) {
-        if (p.participating === false) {
-          const status = document.createElement("span");
-          status.className = "status-icon observer";
-          status.textContent = "👀";
-          rightWrap.appendChild(status);
-        } else if (p.vote != null) {
-          const status = document.createElement("span");
-          status.className = "status-icon done";
-          status.textContent = "✅";
-          rightWrap.appendChild(status);
-        } else {
-          const status = document.createElement("span");
-          status.className = "status-icon pending";
-          status.textContent = "⏳";
-          rightWrap.appendChild(status);
+      } else {
+        // Before reveal: done / pending / observer
+        if (!p.disconnected) {
+          if (p.participating === false) {
+            const status = document.createElement("span");
+            status.className = "status-icon observer";
+            status.textContent = "👀";
+            rightWrap.appendChild(status);
+          } else if (p.vote != null) {
+            const status = document.createElement("span");
+            status.className = "status-icon done";
+            status.textContent = "✅";
+            rightWrap.appendChild(status);
+          } else {
+            const status = document.createElement("span");
+            status.className = "status-icon pending";
+            status.textContent = "⏳";
+            rightWrap.appendChild(status);
+          }
         }
       }
-    }
 
-    const actions = document.createElement("div");
-    actions.className = "row-actions";
+      const actions = document.createElement("div");
+      actions.className = "row-actions";
 
-    if (isHost && !p.isHost && p.name !== participantName) {
-      const mk = document.createElement("button");
-      mk.type = "button";
-      mk.className = "row-action host";
-      mk.setAttribute("aria-label", TXT_MAKE_HOST + ": " + p.name);
-      mk.setAttribute("data-tooltip", TXT_MAKE_HOST);
-      const ic = document.createElement("span"); ic.className = "ra-icon";  ic.textContent = "👑";
-      const lab = document.createElement("span"); lab.className = "ra-label"; lab.textContent = TXT_MAKE_HOST;
-      mk.appendChild(ic); mk.appendChild(lab);
-      mk.addEventListener("click", () => transferHost(p.name));
-      actions.appendChild(mk);
+      if (isHost && !p.isHost && p.name !== participantName) {
+        const mk = document.createElement("button");
+        mk.type = "button";
+        mk.className = "row-action host";
+        mk.setAttribute("aria-label", TXT_MAKE_HOST + ": " + p.name);
+        mk.setAttribute("data-tooltip", TXT_MAKE_HOST);
+        const ic = document.createElement("span"); ic.className = "ra-icon";  ic.textContent = "👑";
+        const lab = document.createElement("span"); lab.className = "ra-label"; lab.textContent = TXT_MAKE_HOST;
+        mk.appendChild(ic); mk.appendChild(lab);
+        mk.addEventListener("click", () => transferHost(p.name));
+        actions.appendChild(mk);
 
-      const kb = document.createElement("button");
-      kb.type = "button";
-      kb.className = "row-action kick";
-      kb.setAttribute("aria-label", TXT_KICK + ": " + p.name);
-      kb.setAttribute("data-tooltip", TXT_KICK);
-      const ic2 = document.createElement("span"); ic2.className = "ra-icon"; ic2.textContent = "❌";
-      const lab2 = document.createElement("span"); lab2.className = "ra-label"; lab2.textContent = TXT_KICK;
-      kb.appendChild(ic2); kb.appendChild(lab2);
-      kb.addEventListener("click", () => kick(p.name));
-      actions.appendChild(kb);
-    }
+        const kb = document.createElement("button");
+        kb.type = "button";
+        kb.className = "row-action kick";
+        kb.setAttribute("aria-label", TXT_KICK + ": " + p.name);
+        kb.setAttribute("data-tooltip", TXT_KICK);
+        const ic2 = document.createElement("span"); ic2.className = "ra-icon"; ic2.textContent = "❌";
+        const lab2 = document.createElement("span"); lab2.className = "ra-label"; lab2.textContent = TXT_KICK;
+        kb.appendChild(ic2); kb.appendChild(lab2);
+        kb.addEventListener("click", () => kick(p.name));
+        actions.appendChild(kb);
+      }
 
-    if (actions.childElementCount) rightWrap.appendChild(actions);
+      if (actions.childElementCount) rightWrap.appendChild(actions);
 
-    li.appendChild(icon);
-    li.appendChild(nameSpan);
-    li.appendChild(rightWrap);
-    list.appendChild(li);
+      li.appendChild(icon);
+      li.appendChild(nameSpan);
+      li.appendChild(rightWrap);
+      list.appendChild(li);
+    });
+
+    measureAndSetNameColumn();
+  }
+
+  // Measure the longest visible name to create a stable grid column
+  function measureAndSetNameColumn() {
+    const list = document.getElementById("liveParticipantList");
+    if (!list) return;
+    const names = Array.from(list.querySelectorAll(".name"));
+    const maxTextWidth = names.reduce((m, el) => Math.max(m, el.offsetWidth || 0), 0);
+    list.style.setProperty("--name-text-col", Math.ceil(maxTextWidth) + "px");
+  }
+  window.addEventListener("resize", () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(measureAndSetNameColumn, 150);
   });
 
-  measureAndSetNameColumn();
-}
-
-function measureAndSetNameColumn() {
-  const list = document.getElementById("liveParticipantList");
-  if (!list) return;
-  const names = Array.from(list.querySelectorAll(".name"));
-  const maxTextWidth = names.reduce((m, el) => Math.max(m, el.offsetWidth || 0), 0);
-  list.style.setProperty("--name-text-col", Math.ceil(maxTextWidth) + "px");
-}
-window.addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(measureAndSetNameColumn, 150); });
-
-/** Average helpers */
-function updateAverage(avg) {
-  const avgSpan = document.getElementById("averageVote");
-  if (avgSpan) avgSpan.textContent = avg != null ? avg : "-";
-}
-
-/* ===== Consensus UI (only for participating, active users) ===== */
-function setConsensusUI(on){
-  const row = document.getElementById('resultRow');
-  const lbl = document.getElementById('resultLabel');
-  if (!row || !lbl) return;
-  lbl.textContent = on ? TXT_CONS : TXT_AVG;
-  row.classList.toggle('consensus', !!on);
-}
-
-/* Numeric parser aligned with backend parsing */
-function parseVoteNumeric(s){
-  if (!s) return null;
-  s = String(s).trim();
-  if (SPECIALS.has(s)) return null;
-  if (s === "½" || s === "1/2" || s === "0,5") return 0.5;
-  if (/^\d+\s*\/\s*\d+$/.test(s)) {
-    const [a,b] = s.split("/").map(x=>parseFloat(x.replace(',','.')));
-    return b ? (a/b) : null;
+  // --- Average / consensus helpers -----------------------------------------
+  function updateAverage(avg) {
+    const avgSpan = document.getElementById("averageVote");
+    if (avgSpan) avgSpan.textContent = avg != null ? avg : "-";
   }
-  const n = parseFloat(s.replace(',','.'));
-  return Number.isFinite(n) ? n : null;
-}
-function updateConsensus(participants){
-  const active = participants.filter(p => !p.disconnected && p.participating !== false);
-  if (!active.length) { setConsensusUI(false); return; }
-  const nums = [];
-  for (const p of active) {
-    if (p.vote == null) { setConsensusUI(false); return; }
-    const n = parseVoteNumeric(p.vote);
-    if (n == null) { setConsensusUI(false); return; }
-    nums.push(Math.round(n*1000)/1000);
+
+  function setConsensusUI(on){
+    const row = document.getElementById('resultRow');
+    const lbl = document.getElementById('resultLabel');
+    if (!row || !lbl) return;
+    lbl.textContent = on ? TXT_CONS : TXT_AVG;
+    row.classList.toggle('consensus', !!on);
   }
-  const allSame = nums.every(v => v === nums[0]);
-  setConsensusUI(allSame);
-}
 
-function toggleView(revealed) {
-  document.querySelectorAll(".pre-vote").forEach(e => e.style.display = revealed ? "none" : "block");
-  document.querySelectorAll(".post-vote").forEach(e => e.style.display = revealed ? "block" : "none");
-  const h = document.getElementById("selectCardHeader"); if (h) h.style.display = revealed ? "none" : "block";
-}
-function showResults(participants, avg) {
-  toggleView(true);
-  updateAverage(avg);
-  updateConsensus(participants);
-}
-
-/* Tiny toast */
-function showToast(message) {
-  const toast = document.createElement("div");
-  toast.className = "toast";
-  document.body.appendChild(toast);
-  toast.textContent = message;
-  setTimeout(() => toast.remove(), 3000);
-}
-
-/* Invite/copy: deep-link next to room code */
-(function(){
-  const copyBtn = document.getElementById('copyRoomLink');
-  const TXT_LINK_COPIED = /*[[#{invite.linkCopied}]]*/ 'Link copied to clipboard';
-  const TXT_COPY_FAILED = /*[[#{notify.copyFailed}]]*/ 'Copy failed';
-
-  function deepLink(){ return location.origin + "/room?roomCode=" + encodeURIComponent(roomCode); }
-  async function copyText(text){
-    try{ await navigator.clipboard.writeText(text); showToast(TXT_LINK_COPIED); }
-    catch(e){ showToast(TXT_COPY_FAILED); }
+  // Parse numbers as backend does (½, 1/2, comma decimals, etc.)
+  function parseVoteNumeric(s){
+    if (!s) return null;
+    s = String(s).trim();
+    if (SPECIALS.has(s)) return null;
+    if (s === "½" || s === "1/2" || s === "0,5") return 0.5;
+    if (/^\d+\s*\/\s*\d+$/.test(s)) {
+      const [a,b] = s.split("/").map(x=>parseFloat(x.replace(',','.')));
+      return b ? (a/b) : null;
+    }
+    const n = parseFloat(s.replace(',','.'));
+    return Number.isFinite(n) ? n : null;
   }
-  copyBtn?.addEventListener('click', ()=>copyText(deepLink()));
-})();
-</script>
+  function updateConsensus(participants){
+    const active = participants.filter(p => !p.disconnected && p.participating !== false);
+    if (!active.length) { setConsensusUI(false); return; }
+    const nums = [];
+    for (const p of active) {
+      if (p.vote == null) { setConsensusUI(false); return; }
+      const n = parseVoteNumeric(p.vote);
+      if (n == null) { setConsensusUI(false); return; }
+      nums.push(Math.round(n*1000)/1000);
+    }
+    const allSame = nums.every(v => v === nums[0]);
+    setConsensusUI(allSame);
+  }
 
-<!-- Inline toast CSS -->
-<style>
-.toast{position:fixed;top:20px;right:20px;background-color:rgba(51,51,51,.95);color:#fff;padding:12px 20px;border-radius:10px;z-index:9999;font-size:14px;box-shadow:0 6px 16px rgba(0,0,0,.25);transform:translateY(-10px);opacity:0;animation:fadein .22s ease forwards,fadeout .4s ease 2.4s forwards}
-@keyframes fadein{to{opacity:.95;transform:translateY(0)}}
-@keyframes fadeout{to{opacity:0}}
-</style>
+  function toggleView(revealed) {
+    document.querySelectorAll(".pre-vote").forEach(e => e.style.display = revealed ? "none" : "block");
+    document.querySelectorAll(".post-vote").forEach(e => e.style.display = revealed ? "block" : "none");
+    const h = document.getElementById("selectCardHeader"); if (h) h.style.display = revealed ? "none" : "block";
+  }
+  function showResults(participants, avg) {
+    toggleView(true);
+    updateAverage(avg);
+    updateConsensus(participants);
+  }
+
+  // --- Tiny toast -----------------------------------------------------------
+  function showToast(message) {
+    const toast = document.createElement("div");
+    toast.className = "toast";
+    document.body.appendChild(toast);
+    toast.textContent = message;
+    setTimeout(() => toast.remove(), 3000);
+  }
+
+  // --- Invite/copy: deep-link next to room code ----------------------------
+  (function(){
+    const copyBtn = document.getElementById('copyRoomLink');
+    const TXT_LINK_COPIED = /*[[#{invite.linkCopied}]]*/ 'Link copied to clipboard';
+    const TXT_COPY_FAILED = /*[[#{notify.copyFailed}]]*/ 'Copy failed';
+
+    function deepLink(){ return location.origin + "/room?roomCode=" + encodeURIComponent(roomCode); }
+    async function copyText(text){
+      try{ await navigator.clipboard.writeText(text); showToast(TXT_LINK_COPIED); }
+      catch(e){ showToast(TXT_COPY_FAILED); }
+    }
+    copyBtn?.addEventListener('click', ()=>copyText(deepLink()));
+  })();
+  </script>
+
+  <!-- Inline toast CSS (kept local for the small component) -->
+  <style>
+    .toast{
+      position:fixed;top:20px;right:20px;background-color:rgba(51,51,51,.95);color:#fff;
+      padding:12px 20px;border-radius:10px;z-index:9999;font-size:14px;box-shadow:0 6px 16px rgba(0,0,0,.25);
+      transform:translateY(-10px);opacity:0;animation:fadein .22s ease forwards,fadeout .4s ease 2.4s forwards
+    }
+    @keyframes fadein{to{opacity:.95;transform:translateY(0)}}
+    @keyframes fadeout{to{opacity:0}}
+  </style>
 </body>
 </html>
