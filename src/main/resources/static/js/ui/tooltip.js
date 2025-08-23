@@ -1,4 +1,9 @@
-/* Accessible tooltip (single bubble) — mouse-only hover, keyboard focus ok */
+/* Accessible tooltip (single bubble) — mouse hover only; keyboard focus OK
+   Extras:
+   - Hides on scroll/touch/wheel/pointerdown and Esc
+   - Hides when app menu opens (observes body.menu-open or overlay visibility)
+   - Hides while scrolling inside the menu panel without touching menu.js
+*/
 (function () {
   if (window.__epTooltipInit) return;
   window.__epTooltipInit = true;
@@ -23,7 +28,8 @@
     tipEl.style.display = 'none';
     tipEl.style.visibility = 'hidden';
   }
-  window.__epTooltipHide = hideTip; // allow other scripts (e.g., menu) to hide
+  // allow other scripts (e.g., menu.js) to hide explicitly
+  window.__epTooltipHide = hideTip;
 
   function placeTip(target) {
     const text = target.getAttribute('data-tooltip');
@@ -59,7 +65,7 @@
     return null;
   }
 
-  // --- Show/hide logic ----------------------------------------------------
+  // --- Show/hide core logic ------------------------------------------------
   document.addEventListener('pointerover', (e) => {
     if (isScrolling) return;                // ignore during/just-after scroll
     if (e.pointerType && e.pointerType !== 'mouse') return; // hover only on mouse
@@ -89,8 +95,60 @@
     hideTimer = setTimeout(() => { isScrolling = false; }, 150);
     hideTip();
   }
-  window.addEventListener('scroll', startScrollMask, true);
+  // Page-level interactions
+  window.addEventListener('scroll', startScrollMask, true); // capture helps with document scrolling
   window.addEventListener('wheel', startScrollMask, { passive: true, capture: true });
   window.addEventListener('touchstart', startScrollMask, { passive: true, capture: true });
+  window.addEventListener('touchmove', startScrollMask, { passive: true, capture: true });
   window.addEventListener('pointerdown', startScrollMask, true);
+  window.addEventListener('resize', startScrollMask);
+
+  // Esc closes any tooltip
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') hideTip();
+  });
+
+  // --- Menu integration without touching menu.js ---------------------------
+  // If the app adds body.menu-open or toggles #appMenuOverlay.hidden, hide tooltips
+  function observeMenuState() {
+    try {
+      const bodyObs = new MutationObserver(() => {
+        if (document.body.classList.contains('menu-open')) hideTip();
+      });
+      bodyObs.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+
+      const overlay = document.getElementById('appMenuOverlay');
+      if (overlay) {
+        const ovObs = new MutationObserver(() => hideTip());
+        ovObs.observe(overlay, { attributes: true, attributeFilter: ['class', 'style', 'hidden'] });
+      }
+    } catch (_) { /* no-op */ }
+  }
+
+  // Also hook scroll on the menu containers directly (scroll doesn't bubble)
+  function hookMenuScroll() {
+    const overlay = document.getElementById('appMenuOverlay');
+    const panel = overlay ? overlay.querySelector('.menu-panel') : null;
+
+    // capture = false here; we listen directly on the elements that actually scroll
+    overlay && overlay.addEventListener('scroll', startScrollMask, { passive: true });
+    panel   && panel.addEventListener('scroll', startScrollMask, { passive: true });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+      observeMenuState();
+      hookMenuScroll();
+    });
+  } else {
+    observeMenuState();
+    hookMenuScroll();
+  }
+
+    // Zusätzliche, harmlose Hides für Edge Cases:
+  window.addEventListener('resize', hideTip, { passive: true, capture: true });
+  window.addEventListener('orientationchange', hideTip, { passive: true, capture: true });
+  document.addEventListener('visibilitychange', () => { if (document.hidden) hideTip(); }, true);
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') hideTip(); }, true);
+
 })();
