@@ -1,60 +1,200 @@
+<!-- templates/index.html -->
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org" th:lang="${#locale}" lang="en">
 <head th:replace="~{fragments/head :: head}"></head>
 <body>
 
-<!-- ZENTRALES MENÜ (minimal auf Index) -->
-<div th:replace="~{fragments/menu :: appMenu(showSeq=${false}, showAuto=${false}, showRoom=${false})}"></div>
+  <!-- Global menu (on the landing page we hide room-specific groups) -->
+  <div th:replace="~{fragments/menu :: appMenu(showSeq=${false}, showAuto=${false}, showRoom=${false})}"></div>
 
-<div class="container landing-container">
-  <h1 class="app-title">
-    <img src="/favicon.svg" alt="" width="24" height="24" class="logo">
-    <span th:text="#{ui.heading}">RBS' Estimation Poker</span>
-  </h1>
+  <div class="container">
+    <h1 class="app-title">
+      <img src="/favicon.svg" alt="" width="24" height="24" class="logo">
+      <span th:text="#{ui.heading}">RBS' Estimation Poker</span>
+    </h1>
 
-  <!-- Error message -->
-  <div th:if="${error != null or param.error != null}" class="error"
-       th:text="${error != null ? error : param.error}">Error</div>
+    <!-- Join / Create Room -->
+    <section class="join-card">
+      <!-- Use GET so the room controller can read query params (name + room) -->
+      <form id="joinForm" th:action="@{/room}" method="get" novalidate>
+        <div class="form-row">
+          <label class="form-label" for="nameInput" th:text="#{label.yourName}">Your name</label>
+          <input id="nameInput"
+                 name="participantName"
+                 class="input"
+                 type="text"
+                 inputmode="text"
+                 autocomplete="name"
+                 placeholder="Alice"
+                 required
+                 th:value="${participantName}">
+        </div>
 
-  <!-- Join form (ohne Persist-Option) -->
-  <form th:action="@{/join}" method="post" id="joinForm" class="join-form">
-    <div class="form-row">
-      <div class="form-field">
-        <label for="participantName" th:text="#{label.yourName}">Your name</label>
-        <input type="text" id="participantName" name="participantName"
-               th:value="${param.participantName != null ? param.participantName : participantName}">
+        <div class="form-row">
+          <label class="form-label" for="roomInput" th:text="#{label.roomCode}">Room code / name</label>
+          <input id="roomInput"
+                 name="roomCode"
+                 class="input"
+                 type="text"
+                 inputmode="verbatim"
+                 placeholder="demo"
+                 required
+                 th:value="${roomCode}">
+        </div>
+
+        <!-- Optional flags (harmless if the backend ignores them) -->
+        <div class="form-row flags">
+          <label class="checkbox">
+            <input type="checkbox" id="persistRoom" name="persist" value="true">
+            <span th:text="#{label.persistRoom}">Persist this room</span>
+          </label>
+          <small class="hint" th:text="#{hint.persistExpl}">
+            Creates a deep link (<code>/room/{ID}</code>). The room persists until auto-cleanup.
+          </small>
+
+          <label class="checkbox">
+            <input type="checkbox" id="testRoom" name="test" value="true">
+            <span th:text="#{label.testRoom}">Test room only</span>
+          </label>
+          <small class="hint" th:text="#{hint.testRoom}">
+            Marks as test – will be cleaned up sooner.
+          </small>
+
+          <!-- If your deployment does not support persistent rooms, this hint is a soft nudge. -->
+          <small class="hint weak" th:text="#{hint.persistOff}">
+            Persistent rooms are not available on this deployment.
+          </small>
+        </div>
+
+        <div class="form-actions">
+          <button class="button primary" type="submit" th:text="#{button.join}">Join</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- (Optional) Invitation deep-link helper (only appears if roomCode is prefilled) -->
+    <section id="deepLinkWrap" class="invite" hidden>
+      <p class="invite-line" th:utext="#{invite.heading}">
+        You’ve been invited to room <strong>{0}</strong>.
+      </p>
+      <div class="invite-actions">
+        <button id="copyStartLink"
+                class="icon-button"
+                type="button"
+                th:attr="aria-label=#{invite.copyLink},data-tooltip=#{invite.copyLink}">🔗</button>
       </div>
+    </section>
+  </div>
 
-      <div class="form-field">
-        <label for="roomCode" th:text="#{label.roomCode}">Room code / name</label>
-        <input type="text" id="roomCode" name="roomCode"
-               th:value="${param.roomCode != null ? param.roomCode : roomCode}">
-      </div>
-    </div>
+  <!-- Shared scripts (menu.js + tooltip.js). Must be before our inline script to keep defer order. -->
+  <th:block th:replace="~{fragments/scripts :: scripts}"></th:block>
 
-    <div class="form-actions">
-      <button type="submit" class="button" th:text="#{button.join}">Join</button>
-    </div>
-  </form>
-</div>
+  <script>
+  // ===== Landing page helpers (client-side only) =====
 
-<!-- zentrale Scripts -->
-<th:block th:replace="~{fragments/scripts :: scripts}"></th:block>
+  // Persist name locally so users don't have to retype it every time.
+  const NAME_KEY = 'estpoker-name';
 
-<!-- Kick/redirect toast relay (page-local; harmless) -->
-<script>
-  (function(){
-    try{
-      const msg = localStorage.getItem('ep-toast');
-      if (msg) {
-        localStorage.removeItem('ep-toast');
-        const t=document.createElement('div');
-        t.className='toast'; t.textContent=msg;
-        document.body.appendChild(t);
-        setTimeout(()=>t.remove(), 3000);
+  // Read a URL search param safely
+  function qs(name){
+    try { return new URL(location.href).searchParams.get(name); } catch(e){ return null; }
+  }
+
+  // Build the /room URL for convenience / copying
+  function buildRoomUrl(roomCode, name){
+    const u = new URL(location.origin + '/room');
+    if (roomCode) u.searchParams.set('roomCode', roomCode);
+    if (name)     u.searchParams.set('participantName', name);
+    // keep optional flags consistent with the form
+    const persist = document.getElementById('persistRoom')?.checked;
+    const test    = document.getElementById('testRoom')?.checked;
+    if (persist) u.searchParams.set('persist', 'true');
+    if (test)    u.searchParams.set('test', 'true');
+    return u.toString();
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const nameInput = document.getElementById('nameInput');
+    const roomInput = document.getElementById('roomInput');
+    const form      = document.getElementById('joinForm');
+
+    // Prefill name from localStorage if server didn't provide one
+    try {
+      if (nameInput && !nameInput.value) {
+        const saved = localStorage.getItem(NAME_KEY);
+        if (saved) nameInput.value = saved;
       }
-    }catch(e){}
-  })();
-</script>
+    } catch(e){/* ignore */}
+
+    // If the landing page was reached via invite (/room?roomCode=...), reflect it
+    const rcFromQs = qs('roomCode');
+    if (roomInput && rcFromQs && !roomInput.value) {
+      roomInput.value = rcFromQs;
+    }
+
+    // Show invite block when we already have a room code
+    const deepWrap = document.getElementById('deepLinkWrap');
+    const copyBtn  = document.getElementById('copyStartLink');
+    function updateInviteBlock(){
+      const rc = roomInput?.value?.trim();
+      if (deepWrap) deepWrap.hidden = !rc;
+    }
+    updateInviteBlock();
+    roomInput?.addEventListener('input', updateInviteBlock);
+
+    // Copy helper next to invite text
+    copyBtn?.addEventListener('click', async () => {
+      const url = buildRoomUrl(roomInput.value.trim(), nameInput.value.trim());
+      const ok  = /*[[#{invite.linkCopied}]]*/ 'Link copied to clipboard';
+      const err = /*[[#{notify.copyFailed}]]*/ 'Copy failed';
+      try{ await navigator.clipboard.writeText(url); showToast(ok); }
+      catch(e){ showToast(err); }
+    });
+
+    // On submit: trim + store name; keep GET (no CSRF issues)
+    form?.addEventListener('submit', (e) => {
+      const name = nameInput?.value?.trim();
+      const room = roomInput?.value?.trim();
+      if (!name || !room) {
+        e.preventDefault();
+        // Simple UX nudge — highlight the empty fields
+        if (!name) nameInput?.focus();
+        if (!room && name) roomInput?.focus();
+        return;
+      }
+      try { localStorage.setItem(NAME_KEY, name); } catch(e){/* ignore */}
+      // No preventDefault: we want a classic GET navigation to /room
+    });
+  });
+
+  // Small toast reused across the app (duplicated intentionally to keep index.html self-contained)
+  function showToast(message) {
+    const el = document.createElement('div');
+    el.className = 'toast';
+    el.textContent = message;
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 3000);
+  }
+  </script>
+
+  <!-- Minimal local styles for the landing form -->
+  <style>
+    .join-card{max-width:640px;margin:24px auto 0; padding:20px; border-radius:16px; background:var(--panel-bg,rgba(255,255,255,.04)); box-shadow:0 8px 24px rgba(0,0,0,.15)}
+    .form-row{display:flex; flex-direction:column; gap:6px; margin:12px 0}
+    .form-label{font-weight:600}
+    .input{border:1px solid var(--border,rgba(255,255,255,.2)); background:transparent; border-radius:10px; padding:12px 14px; font-size:16px; color:inherit}
+    .flags{margin-top:4px}
+    .checkbox{display:flex; align-items:center; gap:8px; margin:6px 0}
+    .hint{display:block; opacity:.85; font-size:.9rem; margin-left:28px}
+    .hint.weak{opacity:.6}
+    .form-actions{margin-top:18px}
+    .button.primary{padding:10px 16px; border-radius:10px; border:none; font-weight:600; cursor:pointer}
+    .invite{max-width:640px; margin:18px auto 0; display:flex; align-items:center; justify-content:space-between; gap:12px}
+    .invite-actions{display:flex; gap:8px}
+    .icon-button{border:1px solid var(--border,rgba(255,255,255,.2)); border-radius:10px; padding:8px 10px; background:transparent; cursor:pointer}
+    .toast{position:fixed;top:20px;right:20px;background-color:rgba(51,51,51,.95);color:#fff;padding:12px 20px;border-radius:10px;z-index:9999;font-size:14px;box-shadow:0 6px 16px rgba(0,0,0,.25);transform:translateY(-10px);opacity:0;animation:fadein .22s ease forwards,fadeout .4s ease 2.4s forwards}
+    @keyframes fadein{to{opacity:.95;transform:translateY(0)}}
+    @keyframes fadeout{to{opacity:0}}
+  </style>
 </body>
 </html>

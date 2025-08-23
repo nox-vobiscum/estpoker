@@ -11,7 +11,7 @@
   <button id="menuButton" class="menu-button"
           aria-expanded="false" aria-controls="appMenuOverlay" aria-label="Open menu">☰</button>
 
-  <!-- Overlay -->
+  <!-- Overlay/root for the menu (kept hidden via CSS class until opened) -->
   <div id="appMenuOverlay" class="menu-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="menuTitle"
        th:attr="
          data-tip-theme-light=${#messages.msg('title.theme.light')},
@@ -41,13 +41,19 @@
         <div class="menu-group">
           <div class="group-title" th:text="#{menu.theme}">Theme</div>
           <div class="menu-choice">
-            <button id="themeLight"  class="choice-btn" type="button" aria-pressed="false"><span class="mi-icon" aria-hidden="true">🌞</span><span th:text="#{theme.light}">Light</span></button>
-            <button id="themeDark"   class="choice-btn" type="button" aria-pressed="false"><span class="mi-icon" aria-hidden="true">🌙</span><span th:text="#{theme.dark}">Dark</span></button>
-            <button id="themeSystem" class="choice-btn" type="button" aria-pressed="false"><span class="mi-icon" aria-hidden="true">🖥️</span><span th:text="#{theme.system}">System</span></button>
+            <button id="themeLight"  class="choice-btn" type="button" aria-pressed="false">
+              <span class="mi-icon" aria-hidden="true">🌞</span><span th:text="#{theme.light}">Light</span>
+            </button>
+            <button id="themeDark"   class="choice-btn" type="button" aria-pressed="false">
+              <span class="mi-icon" aria-hidden="true">🌙</span><span th:text="#{theme.dark}">Dark</span>
+            </button>
+            <button id="themeSystem" class="choice-btn" type="button" aria-pressed="false">
+              <span class="mi-icon" aria-hidden="true">🖥️</span><span th:text="#{theme.system}">System</span>
+            </button>
           </div>
         </div>
 
-        <!-- Card sequence (nur im Room) -->
+        <!-- Card sequence (room only; host-restricted) -->
         <div class="menu-group" th:if="${showSeq}">
           <div class="group-title" th:text="#{menu.sequence}">Card sequence</div>
           <div id="seqChoice" class="menu-choice vertical">
@@ -72,10 +78,12 @@
               <span th:text="#{sequence.tshirt}">T-Shirt sizes</span>
             </label>
           </div>
-          <p id="seqHint" class="hint" th:text="#{sequence.onlyHost}">Only the host can change the sequence</p>
+          <p id="seqHint" class="hint" th:text="#{sequence.onlyHost}">
+            Only the host can change the sequence
+          </p>
         </div>
 
-        <!-- Auto-Reveal (nur im Room) -->
+        <!-- Auto-Reveal (room only; host-restricted) -->
         <div class="menu-group" th:if="${showAuto}">
           <div class="group-title" th:text="#{menu.autoreveal}">Auto-reveal</div>
           <label id="autoRevealRow" class="menu-item switch" for="autoRevealToggle">
@@ -86,10 +94,12 @@
             </span>
             <input id="autoRevealToggle" class="switch-control" type="checkbox" role="switch" aria-checked="false">
           </label>
-          <p id="arHint" class="hint" th:text="#{autoreveal.onlyHost}">Only the host can change this setting</p>
+          <p id="arHint" class="hint" th:text="#{autoreveal.onlyHost}">
+            Only the host can change this setting
+          </p>
         </div>
 
-        <!-- Teilnahme (nur im Room; jeder darf sich selbst umschalten) -->
+        <!-- Participation (room only; everyone can toggle themselves) -->
         <div class="menu-group" th:if="${showRoom}">
           <div class="group-title" th:text="#{menu.participation}">Participation</div>
           <label id="participationRow" class="menu-item switch" for="participationToggle">
@@ -100,10 +110,9 @@
             </span>
             <input id="participationToggle" class="switch-control" type="checkbox" role="switch" aria-checked="true">
           </label>
-          <!-- keine Hint-Zeile nötig: darf immer umgestellt werden -->
         </div>
 
-        <!-- Room actions (nur im Room) -->
+        <!-- Room actions (room only) -->
         <div class="menu-group" th:if="${showRoom}">
           <div class="group-title" th:text="#{menu.room}">Room</div>
           <button id="closeRoomBtn" class="menu-item danger" type="button" style="display:none;">
@@ -118,7 +127,7 @@
     </div>
   </div>
 
-  <!-- Gemeinsame Menü-Logik -->
+  <!-- IMPORTANT: include menu.js here (only once on pages that use the menu) -->
   <script defer th:src="@{/js/menu.js}"></script>
 </div>
 </body>

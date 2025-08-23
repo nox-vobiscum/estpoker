@@ -3,7 +3,7 @@
 <head th:replace="~{fragments/head :: head}"></head>
 <body>
 
-<!-- ZENTRALES MENÜ (volles Menü im Room) -->
+<!-- Global app menu (full menu in the room) -->
 <div th:replace="~{fragments/menu :: appMenu(showSeq=${true}, showAuto=${true}, showRoom=${true})}"></div>
 
 <div class="container">
@@ -12,7 +12,7 @@
     <span th:text="#{ui.heading}">RBS' Estimation Poker</span>
   </h1>
 
-  <!-- Info -->
+  <!-- You + room info -->
   <dl class="main-info">
     <dt><span class="mi-icon" aria-hidden="true">👤</span><span class="mi-label" th:text="#{label.you}">You are:</span></dt>
     <dd><strong id="youName" th:text="${participantName}">Guest</strong></dd>
@@ -57,11 +57,11 @@
   </div>
 </div>
 
-<!-- zentrale Scripts: muss VOR dem Inline-JS kommen, damit defer-Reihenfolge stimmt -->
+<!-- Central scripts (must be before inline JS so defer-order is correct) -->
 <th:block th:replace="~{fragments/scripts :: scripts}"></th:block>
 
 <script th:inline="javascript">
-/* ===== Game logic (menu/theme/language comes from menu.js) ===== */
+/* ===== Game logic (menu/theme/language lives in menu.js) ===== */
 let participantName = /*[[${participantName}]]*/ "Guest";
 let roomCode = /*[[${roomCode}]]*/ "demo";
 let selectedCard = null;
@@ -71,9 +71,10 @@ let resizeTimer = null;
 let currentSequenceId = 'fib-scrum'; // server overwrites
 let currentDeckSig = "";
 
-// Auto-Reveal default (server overwrites on first state)
+/* Auto-Reveal default (server overwrites on first state) */
 let autoRevealEnabled = false;
 
+/* Global specials set (kept in sync with backend) */
 const SPECIALS = new Set(["❓","💬","☕"]);
 
 /** i18n fallbacks used in JS */
@@ -111,7 +112,7 @@ function updateSequenceTooltips(){
     if (deck && deck.length){
       const tip = formatDeckForTooltip(deck);
       row.setAttribute('data-tooltip', tip);
-      row.removeAttribute('title'); // no native browser tooltip
+      row.removeAttribute('title'); // no native tooltip
     } else {
       row.removeAttribute('data-tooltip');
       row.removeAttribute('title');
@@ -130,7 +131,7 @@ function addCardButton(grid, val){
 }
 function deckSig(arr){ return Array.isArray(arr) ? arr.join("|") : ""; }
 
-/** Render cards */
+/** Render cards grid(s) */
 function renderCards(deck){
   const area = document.getElementById('cardsArea');
   if (!area || !Array.isArray(deck)) return;
@@ -154,7 +155,7 @@ function renderCards(deck){
   highlightSelectedCard();
 }
 
-/** Host-sensitive controls */
+/** Host-sensitive controls (enable/disable + hints) */
 function syncSequenceUI(){
   const radios = document.querySelectorAll('#seqChoice input[name="seq"]');
   radios.forEach(r => {
@@ -183,7 +184,7 @@ function syncAutoRevealUI(){
   if (hint) hint.style.display = isHost ? 'none' : 'block';
 }
 
-/** Participation UI sync */
+/** Participation UI sync (my own toggle) */
 function syncParticipationUI(on){
   const st  = document.getElementById('partStatus');
   const cb  = document.getElementById('participationToggle');
@@ -218,14 +219,14 @@ document.addEventListener('DOMContentLoaded', () => {
     socket.send('setAutoReveal:' + next);
   });
 
-  // Participation switch (anyone can toggle themselves)
+  // Participation switch (everyone can toggle themselves)
   const partToggle = document.getElementById('participationToggle');
   partToggle?.addEventListener('click', ()=>{
-    const next = !(partToggle.checked); // click fires before checked flips in some browsers
+    const next = !(partToggle.checked); // click may fire before the checkbox toggles
     socket.send('setParticipating:' + next);
   });
 
-  // Prefill sequence tooltips
+  // Prefill sequence tooltips (nice UX before first WS state lands)
   try {
     fetch('/sequences')
       .then(r => r.ok ? r.json() : null)
@@ -241,7 +242,7 @@ document.addEventListener('DOMContentLoaded', () => {
   } catch(e){}
 });
 
-// session-scoped client id (unique per tab, survives reloads in same tab)
+// Session-scoped client id (unique per TAB; survives reloads in the same tab)
 const cid = (function(){
   try {
     const KEY = 'ep-cid';
@@ -270,7 +271,7 @@ const MSG_HOST_OTHER = /*[[#{toast.hostOther}]]*/ 'Host changed. {new} is now ho
 socket.onmessage = (event) => {
   const data = JSON.parse(event.data);
 
-  // Identity message: only for this tab (prevents cross-tab rename)
+  // Identity: message addressed to THIS tab only (prevents cross-tab rename)
   if (data.type === 'you' && typeof data.yourName === 'string') {
     if (!data.cid || data.cid === cid) {
       if (data.yourName !== participantName) {
@@ -279,16 +280,16 @@ socket.onmessage = (event) => {
         if (youEl) youEl.textContent = participantName;
       }
     }
-    return;
+    return; // nothing else to do for an identity ping
   }
 
-  // If server sends participants but not "voteUpdate", still update the list.
+  // If server sends participants without voteUpdate, still reflect the list
   if (Array.isArray(data.participants) && data.type !== "voteUpdate") {
     const revealed = !!data.votesRevealed;
     updateParticipantList(data.participants, revealed);
   }
 
-  // Deck changes
+  // Deck changes (arrives also in voteUpdate)
   if (data.sequenceId) {
     const newSig = deckSig(data.cards);
     const needRerender = (currentSequenceId !== data.sequenceId) || (newSig && newSig !== currentDeckSig);
@@ -311,7 +312,7 @@ socket.onmessage = (event) => {
     updateSequenceTooltips();
   }
 
-  // Legacy name correction form (addressed to this tab)
+  // Legacy identity form (still gated by cid)
   if (typeof data.yourName === 'string' && data.cid && data.cid === cid) {
     if (data.yourName !== participantName) {
       participantName = data.yourName;
@@ -331,7 +332,7 @@ socket.onmessage = (event) => {
     syncAutoRevealUI();
     syncSequenceUI();
 
-    // Update participation switch from server truth (my row)
+    // Update my participation switch according to server truth
     const me = participants.find(p => p.name === participantName);
     syncParticipationUI(me ? (me.participating !== false) : true);
 
@@ -376,8 +377,8 @@ socket.onmessage = (event) => {
     }
 
     showToast(newHost === participantName
-      ? 'Host changed. You are now host!'
-      : 'Host changed. ' + newHost + ' is now host.'
+      ? MSG_HOST_YOU
+      : MSG_HOST_OTHER.replace('{new}', newHost)
     );
 
   } else if (data.type === "kicked") {
@@ -537,7 +538,7 @@ function updateAverage(avg) {
   if (avgSpan) avgSpan.textContent = avg != null ? avg : "-";
 }
 
-/* ===== Consensus UI ===== */
+/* ===== Consensus UI (only for participating, active users) ===== */
 function setConsensusUI(on){
   const row = document.getElementById('resultRow');
   const lbl = document.getElementById('resultLabel');
@@ -546,7 +547,7 @@ function setConsensusUI(on){
   row.classList.toggle('consensus', !!on);
 }
 
-/* Numeric parser */
+/* Numeric parser aligned with backend parsing */
 function parseVoteNumeric(s){
   if (!s) return null;
   s = String(s).trim();
@@ -608,7 +609,7 @@ function showToast(message) {
 })();
 </script>
 
-<!-- Small toast CSS (kept inline) -->
+<!-- Inline toast CSS -->
 <style>
 .toast{position:fixed;top:20px;right:20px;background-color:rgba(51,51,51,.95);color:#fff;padding:12px 20px;border-radius:10px;z-index:9999;font-size:14px;box-shadow:0 6px 16px rgba(0,0,0,.25);transform:translateY(-10px);opacity:0;animation:fadein .22s ease forwards,fadeout .4s ease 2.4s forwards}
 @keyframes fadein{to{opacity:.95;transform:translateY(0)}}

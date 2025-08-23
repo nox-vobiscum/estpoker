@@ -2,7 +2,7 @@
  * No native title= usage. Single bubble reused across the page.
  */
 (function () {
-  // run once
+  // Run once per page
   if (window.__epTooltipInit) return;
   window.__epTooltipInit = true;
 
@@ -35,12 +35,12 @@
     let top = window.scrollY + r.top - tr.height - 8;
     let left = window.scrollX + r.left + (r.width - tr.width) / 2;
 
-    // keep in viewport horizontally
+    // Keep inside viewport horizontally
     const minL = window.scrollX + 4;
     const maxL = window.scrollX + window.innerWidth - tr.width - 4;
     left = Math.max(minL, Math.min(left, maxL));
 
-    // if not enough space above, place below
+    // If not enough space above, place below
     if (top < window.scrollY + 4) top = window.scrollY + r.bottom + 8;
 
     el.style.top = top + 'px';
@@ -62,7 +62,7 @@
       n = n.parentNode;
     }
     return null;
-    }
+  }
 
   document.addEventListener('pointerover', (e) => {
     const t = findTarget(e.target);

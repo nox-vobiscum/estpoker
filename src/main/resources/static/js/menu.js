@@ -1,10 +1,16 @@
 // menu.js — central menu + tooltips + theme + language (use only data-tooltip, never title)
 (function(){
+  // Prevent double-binding if the script is accidentally loaded twice.
+  if (window.__epMenuInit) return; window.__epMenuInit = true;
+
   const doc = document;
   const btn = doc.getElementById('menuButton');
-  const overlay = doc.getElementById('appMenuOverlay');
+  const overlay = doc.getElementById('appMenuOverlay'); // root for the dialog
   const panel = overlay?.querySelector('.menu-panel');
   const backdrop = overlay?.querySelector('[data-close]');
+
+  // If the menu fragment is not present on the page, bail out gracefully.
+  if (!btn || !overlay) return;
 
   const TIP_THEME_LIGHT  = overlay?.dataset.tipThemeLight  || 'Theme: Light';
   const TIP_THEME_DARK   = overlay?.dataset.tipThemeDark   || 'Theme: Dark';
@@ -18,9 +24,10 @@
     el.removeAttribute('title'); // no native browser tooltip
   }
 
-  // ---- Menu open/close + focus trap ----
+  /* ---- Menu open/close + focus trap ---- */
   let lastFocus = null;
   function focusables(){
+    // Focus trap: collect interactive elements within the panel
     return panel?.querySelectorAll('button,[href],input,select,textarea,[tabindex]:not([tabindex="-1"])') || [];
   }
   function trapTab(e){
@@ -53,11 +60,11 @@
   }
   function toggleMenu(){ overlay.classList.contains('hidden') ? openMenu() : closeMenu(); }
 
-  btn?.addEventListener('click', toggleMenu);
+  btn.addEventListener('click', toggleMenu);
   backdrop?.addEventListener('click', closeMenu);
   window.addEventListener('keydown', (e)=>{ if(e.key==='Escape') closeMenu(); });
 
-  // ---- Theme ----
+  /* ---- Theme ---- */
   const bLight  = doc.getElementById('themeLight');
   const bDark   = doc.getElementById('themeDark');
   const bSystem = doc.getElementById('themeSystem');
@@ -94,7 +101,7 @@
     bSystem?.addEventListener('click',()=>applyTheme('system'));
   });
 
-  // ---- Language ----
+  /* ---- Language ---- */
   (function(){
     const row   = doc.getElementById('langRow');
     if (!row) return;
@@ -115,7 +122,7 @@
 
     // IMPORTANT: use GET -> /i18n?lang=... (avoids CSRF and lets server 303 back)
     function switchLang(to){
-      // The LocaleController will set the session locale and 303 back to the referrer.
+      // The LocaleController sets the session locale and 303 redirects back.
       location.href = '/i18n?lang=' + encodeURIComponent(to);
     }
 
