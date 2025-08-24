@@ -3,7 +3,8 @@ package com.example.estpoker.model;
 import java.util.*;
 
 /**
- * Room state incl. participants, host handling, card sequence and topic (ticket/story).
+ * Room state incl. participants, host handling, card sequence,
+ * topic (ticket/story), auto-reveal and visibility toggles.
  */
 public class Room {
 
@@ -15,7 +16,7 @@ public class Room {
     private boolean votesRevealed = false;
     private Participant host;
 
-    // === Auto-Reveal per room ===
+    // === Auto-Reveal per Room ===
     private boolean autoRevealEnabled = false; // default: OFF
 
     // ===== Card sequence (delegated to CardSequences) =====
@@ -23,9 +24,11 @@ public class Room {
     private List<String> currentCards = safeDeck(sequenceId);
 
     // ===== Topic / Story (Ticket) =====
-    private String topicLabel;   // e.g., "RBSEP-123" or free text
-    private String topicUrl;     // optional JIRA (or any) URL
-    private boolean topicVisible = true; // NEW: host can toggle visibility at runtime
+    private String topicLabel; // e.g. "RBSEP-123" or free text
+    private String topicUrl;   // optional JIRA (or other) URL
+
+    // NEW: host-controlled visibility of the topic area
+    private boolean topicVisible = true; // default visible until host hides it
 
     public Room(String code) { this.code = code; }
 
@@ -56,13 +59,13 @@ public class Room {
     public synchronized String getTopicLabel() { return topicLabel; }
     public synchronized String getTopicUrl()   { return topicUrl; }
 
-    /** Set or clear the topic (label and optional URL). Pass null/blank to clear fields. */
+    /** Set or clear the topic. Pass null/blank to clear fields. */
     public synchronized void setTopic(String label, String url) {
         this.topicLabel = (label == null || label.isBlank()) ? null : label.trim();
-        this.topicUrl   = (url == null   || url.isBlank())   ? null : url.trim();
+        this.topicUrl   = (url == null || url.isBlank())     ? null : url.trim();
     }
 
-    /** NEW: runtime visibility toggle controlled by host. */
+    /** NEW: toggle visibility of the topic area (host-controlled). */
     public synchronized boolean isTopicVisible() { return topicVisible; }
     public synchronized void setTopicVisible(boolean visible) { this.topicVisible = visible; }
 
@@ -88,12 +91,10 @@ public class Room {
     public synchronized Participant getHost() { return host; }
 
     public synchronized void reset() {
-        // Start a new round: hide results and clear all votes
         votesRevealed = false;
+        // Clear votes for a fresh round
         for (Participant p : participants) p.setVote(null);
-
-        // As discussed: clear the current topic when starting a fresh round
-        // (visibility flag remains unchanged so the host preference persists)
+        // Keep visibility state; clear the *content* per your current requirement.
         setTopic(null, null);
     }
 
@@ -138,7 +139,6 @@ public class Room {
         Participant existing = nameToParticipant.get(name);
 
         if (existing == null) {
-            // fresh new participant
             Participant p = new Participant(name);
             p.setActive(true);
             p.setDisconnected(false);
@@ -149,14 +149,12 @@ public class Room {
         }
 
         if (!existing.isActive()) {
-            // re-activate the inactive one (same person likely)
             existing.setActive(true);
             existing.setDisconnected(false);
             if (host == null) { host = existing; existing.setHost(true); }
             return existing.getName();
         }
 
-        // collision with an ACTIVE participant -> create a new unique participant
         String unique = uniqueName(name);
         Participant p = new Participant(unique);
         p.setActive(true);
