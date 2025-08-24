@@ -3,7 +3,7 @@ package com.example.estpoker.model;
 import java.util.*;
 
 /**
- * Room state incl. participants, host handling and card sequence.
+ * Room state incl. participants, host handling, card sequence and topic (ticket/story).
  */
 public class Room {
 
@@ -15,16 +15,17 @@ public class Room {
     private boolean votesRevealed = false;
     private Participant host;
 
-    // === Auto-Reveal per Room ===
+    // === Auto-Reveal per room ===
     private boolean autoRevealEnabled = false; // default: OFF
 
     // ===== Card sequence (delegated to CardSequences) =====
     private String sequenceId = CardSequences.DEFAULT_SEQUENCE_ID;
     private List<String> currentCards = safeDeck(sequenceId);
 
-    // ===== Ticket / Story (Topic) =====
-    private String topicLabel; // e.g. "RBSEP-123" or free text
-    private String topicUrl;   // optional JIRA URL
+    // ===== Topic / Story (Ticket) =====
+    private String topicLabel;   // e.g., "RBSEP-123" or free text
+    private String topicUrl;     // optional JIRA (or any) URL
+    private boolean topicVisible = true; // NEW: host can toggle visibility at runtime
 
     public Room(String code) { this.code = code; }
 
@@ -51,14 +52,19 @@ public class Room {
     public synchronized List<String> getCurrentCards() { return new ArrayList<>(currentCards); }
 
     /* ------------ Topic helpers ------------ */
+
     public synchronized String getTopicLabel() { return topicLabel; }
     public synchronized String getTopicUrl()   { return topicUrl; }
 
-    /** Set or clear the topic. Pass null/blank to clear fields. */
+    /** Set or clear the topic (label and optional URL). Pass null/blank to clear fields. */
     public synchronized void setTopic(String label, String url) {
         this.topicLabel = (label == null || label.isBlank()) ? null : label.trim();
-        this.topicUrl   = (url == null || url.isBlank())       ? null : url.trim();
+        this.topicUrl   = (url == null   || url.isBlank())   ? null : url.trim();
     }
+
+    /** NEW: runtime visibility toggle controlled by host. */
+    public synchronized boolean isTopicVisible() { return topicVisible; }
+    public synchronized void setTopicVisible(boolean visible) { this.topicVisible = visible; }
 
     /* ------------ Basic room info ------------ */
 
@@ -82,10 +88,12 @@ public class Room {
     public synchronized Participant getHost() { return host; }
 
     public synchronized void reset() {
+        // Start a new round: hide results and clear all votes
         votesRevealed = false;
-        // Clear votes
         for (Participant p : participants) p.setVote(null);
-        // Clear topic per new round requirement
+
+        // As discussed: clear the current topic when starting a fresh round
+        // (visibility flag remains unchanged so the host preference persists)
         setTopic(null, null);
     }
 

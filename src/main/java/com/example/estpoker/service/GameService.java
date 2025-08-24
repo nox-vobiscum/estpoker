@@ -21,7 +21,7 @@ public class GameService {
     private final Map<WebSocketSession, Room> sessionToRoomMap = new ConcurrentHashMap<>();
     private final Map<WebSocketSession, String> sessionToParticipantMap = new ConcurrentHashMap<>();
 
-    // stable Client-ID -> last known name (per room)
+    // Stable Client-ID -> last known name (per room)
     private final Map<String, String> clientToName = new ConcurrentHashMap<>();
     private static String mapKey(String roomCode, String cid) { return roomCode + "|" + cid; }
     public String getClientName(String roomCode, String cid) {
@@ -148,6 +148,7 @@ public class GameService {
         });
     }
 
+    /** Broadcast the full current room state to all sessions in the room. */
     public void broadcastRoomState(Room room) {
         try {
             Map<String, Object> payload = new HashMap<>();
@@ -178,12 +179,13 @@ public class GameService {
             payload.put("sequenceId", room.getSequenceId());
             payload.put("cards", room.getCurrentCards());
 
-            // Auto-Reveal Flag
+            // Auto-Reveal flag
             payload.put("autoRevealEnabled", room.isAutoRevealEnabled());
 
-            // Topic (Ticket/Story)
+            // Topic (Ticket/Story) + visibility (NEW)
             payload.put("topicLabel", room.getTopicLabel());
             payload.put("topicUrl", room.getTopicUrl());
+            payload.put("topicVisible", room.isTopicVisible()); // <— NEW
 
             String json = objectMapper.writeValueAsString(payload);
             broadcastToRoom(room, json);
@@ -192,6 +194,7 @@ public class GameService {
         }
     }
 
+    /** Send the current room state only to the given session (e.g., just connected). */
     public void sendRoomStateToSingleSession(Room room, WebSocketSession targetSession) {
         try {
             Map<String, Object> payload = new HashMap<>();
@@ -224,9 +227,10 @@ public class GameService {
 
             payload.put("autoRevealEnabled", room.isAutoRevealEnabled());
 
-            // Topic (Ticket/Story)
+            // Topic (Ticket/Story) + visibility (NEW)
             payload.put("topicLabel", room.getTopicLabel());
             payload.put("topicUrl", room.getTopicUrl());
+            payload.put("topicVisible", room.isTopicVisible()); // <— NEW
 
             String json = objectMapper.writeValueAsString(payload);
 

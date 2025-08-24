@@ -85,7 +85,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         if (room == null) return;
 
         if (payload.startsWith("vote:")) {
-            // FORMAT was "vote:<name>:<value>", but we IGNORE the name to prevent spoofing.
+            // FORMAT used to be "vote:<name>:<value>", but we IGNORE <name> to prevent spoofing.
             // We always use the session's participant name.
             String[] parts = payload.split(":", 3);
             String card = (parts.length >= 3) ? parts[2] : null;
@@ -234,6 +234,18 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                 if (p != null && p.isHost()) {
                     room.setTopic(null, null);
                     gameService.broadcastRoomState(room);
+                }
+            }
+
+        } else if (payload.startsWith("setTopicVisible:")) {
+            // NEW: Host can show/hide the topic area live
+            String me = gameService.getParticipantName(session);
+            if (me != null) {
+                Participant p = room.getParticipant(me);
+                if (p != null && p.isHost()) {
+                    boolean visible = Boolean.parseBoolean(payload.substring("setTopicVisible:".length()));
+                    room.setTopicVisible(visible);          // requires new field + setter in Room
+                    gameService.broadcastRoomState(room);   // GameService will include topicVisible in payload
                 }
             }
         }
