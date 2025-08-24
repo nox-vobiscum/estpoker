@@ -157,7 +157,8 @@ strong { color: var(--text-strong); }
   background: var(--panel-2);
   border: 1px solid var(--border);
   border-radius: 10px;
-  margin: .6rem 0 1rem;
+  /* More breathing room below participant list; override inline fallback */
+  margin: 1rem 0 1rem !important; /* inline style in HTML gets overridden */
 }
 .topic-label{
   white-space: nowrap;
@@ -178,7 +179,8 @@ strong { color: var(--text-strong); }
   grid-template-columns: 1fr max-content;
   gap: 8px;
   align-items: center;
-  margin: .4rem 0 1rem;
+  /* Match spacing with read-only row; override inline fallback */
+  margin: 1rem 0 1rem !important;
 }
 .topic-input{
   height: 36px;
