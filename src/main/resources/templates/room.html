@@ -1,3 +1,4 @@
+<!-- templates/room.html -->
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org" th:lang="${#locale}" lang="en">
 <head th:replace="~{fragments/head :: head}"></head>
@@ -34,24 +35,28 @@
     <h2 th:text="#{label.participants}">Participants</h2>
     <ul id="liveParticipantList"></ul>
 
-    <!-- Topic chip row (below participants, above cards) -->
+    <!-- === Topic / Story (Variant 3) =======================================
+         - Compact chip row shown between participants and card grid
+         - Host-only actions on the right (Edit / Clear)
+         - Compact editor shown only when host + in edit mode
+         - Visibility controlled via menu toggle (topicVisible)
+         =================================================================== -->
     <div id="topicChipRow" class="topic-chip-row" style="display:none;">
-      <div id="topicDisplay" class="topic-chip">—</div>
-      <div class="topic-actions">
-        <button id="topicEditBtn"  class="button tiny" type="button" th:text="#{button.editTopic}">Edit</button>
-        <button id="topicClearBtn" class="button ghost tiny" type="button" th:text="#{button.clearTopic}">Clear</button>
+      <div id="topicChip" class="topic-chip" data-tooltip="—">—</div>
+      <div id="topicActions" class="topic-actions" hidden>
+        <button id="topicEditBtn"  class="button tiny" type="button" th:text="#{button.saveTopic}">Edit</button>
+        <button id="topicClearBtn" class="button tiny ghost" type="button" th:text="#{button.clearTopic}">Clear</button>
       </div>
     </div>
 
-    <!-- Host-only compact editor; toggled by “Edit” -->
-    <div id="topicForm" class="topic-form compact" hidden>
+    <div id="topicFormCompact" class="topic-form compact" hidden>
       <input id="topicInput"
              class="input"
              type="text"
              th:attr="placeholder=#{topic.placeholder}"
              placeholder="Paste JIRA link or type key (e.g., RBSEP-123)…">
-      <button id="topicSaveBtn" class="button tiny" type="button" th:text="#{button.saveTopic}">Save</button>
-      <button id="topicClearBtn_inline" class="button ghost tiny" type="button" th:text="#{button.clearTopic}">Clear</button>
+      <button id="topicSaveBtn"   class="button"       type="button" th:text="#{button.saveTopic}">Save</button>
+      <button id="topicCancelBtn" class="button ghost" type="button">Cancel</button>
     </div>
 
     <h2 id="selectCardHeader" th:text="#{label.selectCard}">Choose a card:</h2>
@@ -63,15 +68,24 @@
     </div>
 
     <div class="post-vote" style="display:none;">
-      <p id="resultRow" class="average-label consensus-row" role="status" aria-live="polite" aria-atomic="true">
+      <!-- Results line: Avg + optional Median + Range; hide stats + outliers on consensus -->
+      <p id="resultRow"
+         class="average-label consensus-row"
+         role="status"
+         aria-live="polite"
+         aria-atomic="true">
         <span id="resultLabel" class="label" th:text="#{label.average}">Avg:</span>
         <span id="averageVote" class="value">–</span>
+
         <span class="sep" aria-hidden="true"> • </span>
+
         <span id="medianWrap" class="stat" hidden>
           <span id="medianLabel" class="label" th:text="#{label.median}">Median:</span>
           <span id="medianVote" class="value">–</span>
         </span>
+
         <span class="sep" aria-hidden="true" id="rangeSep" hidden> • </span>
+
         <span id="rangeWrap" class="stat" hidden>
           <span id="rangeLabel" class="label" th:text="#{label.range}">Range:</span>
           <span id="rangeVote" class="value">–</span>
@@ -88,12 +102,13 @@
 
   <script th:inline="javascript">
   /* ======================= Game logic ============================
+     - Menu / theme / language lives in menu.js
      - This file handles room UI, websocket flow, and voting UX.
      - Consensus rule: if consensus -> hide median/range and do NOT mark outliers.
-     - Topic chip below participants with compact editor (host-only).
+     - Topic chip (variant 3) + compact editor below participants.
      ============================================================= */
 
-  // --- Basic room state (server can overwrite via WS) -----------
+  // --- Basic room state (server can overwrite via WS) ------------
   let participantName   = /*[[${participantName}]]*/ "Guest";
   let roomCode          = /*[[${roomCode}]]*/ "demo";
   let selectedCard      = null;
@@ -125,31 +140,15 @@
   const TXT_TOPIC_CLEARED  = /*[[#{topic.cleared}]]*/ 'Topic cleared';
 
   // Host-controlled flags (server overwrites on first state)
-  let autoRevealEnabled   = false;
-  let topicVisible        = true; // visibility toggle from host (menu)
-  let topicEditOpen       = false; // local UI state (only for host)
-
-  // Current topic content (server is source of truth)
-  let currentTopicLabel   = null;
-  let currentTopicUrl     = null;
+  let autoRevealEnabled = false;
+  let topicVisible      = true;  // page section visibility
+  let editingTopic      = false; // local UI state
 
   // Specials set (kept in sync with backend)
   const SPECIALS = new Set(["❓","💬","☕"]);
 
-  // Deck catalog (tooltips)
+  // Deck catalog for tooltips in the menu (filled either by WS or /sequences)
   const SEQ_CATALOG = Object.create(null);
-
-  // Utility: robust show/hide (attribute + inline style)
-  function showElem(el, show){
-    if (!el) return;
-    if (show) {
-      el.style.display = '';
-      el.removeAttribute('hidden');
-    } else {
-      el.style.display = 'none';
-      el.setAttribute('hidden','');
-    }
-  }
 
   // --- Sequence deck tooltip helpers ---------------------------------------
   function formatDeckForTooltip(cards){
@@ -238,7 +237,7 @@
     });
   }
 
-  // --- Host-sensitive controls ---------------------------------------------
+  // --- Host-sensitive controls (enable/disable + hints) --------------------
   function syncSequenceUI(){
     const radios = document.querySelectorAll('#seqChoice input[name="seq"]');
     radios.forEach(r => {
@@ -249,7 +248,6 @@
     const hint = document.getElementById('seqHint');
     if (hint) hint.style.display = isHost ? 'none' : 'block';
   }
-
   function syncAutoRevealUI(){
     const row = document.getElementById('autoRevealRow');
     const st  = document.getElementById('arStatus');
@@ -268,45 +266,72 @@
     if (hint) hint.style.display = isHost ? 'none' : 'block';
   }
 
-  // --- Topic helpers --------------------------------------------------------
-  function topicHasContent(){ return !!(currentTopicLabel || currentTopicUrl); }
-
-  function updateTopicDisplay(label, url){
-    currentTopicLabel = label || null;
-    currentTopicUrl   = url   || null;
-
-    const disp = document.getElementById('topicDisplay');
-    if (!disp) return;
-
-    disp.innerHTML = '';
-    if (!topicHasContent()){
-      disp.textContent = '—';
-      return;
-    }
-    if (currentTopicUrl) {
-      const a = document.createElement('a');
-      a.href = currentTopicUrl; a.target = '_blank'; a.rel = 'noopener';
-      a.textContent = currentTopicLabel || currentTopicUrl;
-      disp.appendChild(a);
-    } else {
-      disp.textContent = currentTopicLabel;
-    }
-  }
-
+  // --- Topic UI: visibility + host-only actions + edit mode ----------------
   function syncTopicToggleUI(){
-    const chip = document.getElementById('topicChipRow');
-    const form = document.getElementById('topicForm');
+    const row = document.getElementById('topicToggleRow');
+    const cb  = document.getElementById('topicToggle');
+    const st  = document.getElementById('topicStatus');
+    const hi  = document.getElementById('topicToggleHint');
 
-    // Chip: host sees ihn auch leer; non-host nur wenn Inhalt vorhanden
-    const showChip = !!(topicVisible && (isHost || topicHasContent()));
-    showElem(chip, showChip);
+    if (st) st.textContent = topicVisible ? TXT_ON : TXT_OFF;
 
-    // Editor: nur Host + sichtbar + wenn Edit-Mode offen
-    const showForm = !!(isHost && topicVisible && topicEditOpen);
-    showElem(form, showForm);
+    if (cb) {
+      cb.checked = topicVisible;
+      cb.setAttribute('aria-checked', topicVisible ? 'true' : 'false');
+      cb.disabled = !isHost;
+    }
+    if (row) row.classList.toggle('disabled', !isHost);
+    if (hi)  hi.style.display = isHost ? 'none' : 'block';
+
+    // Reflect visibility in the page
+    const chipRow = document.getElementById('topicChipRow');
+    if (chipRow) chipRow.style.display = topicVisible ? 'flex' : 'none';
+
+    // Actions are host-only; editor shown only while editing
+    const actions = document.getElementById('topicActions');
+    const form    = document.getElementById('topicFormCompact');
+    if (actions) actions.hidden = !isHost;
+    if (form)    form.hidden    = !isHost || !editingTopic;
   }
 
-  // --- Participation --------------------------------------------------------
+  // Update the chip text/link and set a full-text tooltip
+  function updateTopicDisplay(label, url){
+    const chip = document.getElementById('topicChip');
+    if (!chip) return;
+
+    // Build text/link for the chip
+    chip.innerHTML = '';
+    if (!label && !url) {
+      chip.textContent = '—';
+      chip.setAttribute('data-tooltip', '—');
+    } else if (url) {
+      const a = document.createElement('a');
+      a.href = url; a.target = '_blank'; a.rel = 'noopener';
+      a.textContent = label || url;
+      chip.appendChild(a);
+      chip.setAttribute('data-tooltip', (label ? label + "\n" : "") + url);
+    } else {
+      chip.textContent = label;
+      chip.setAttribute('data-tooltip', label);
+    }
+  }
+
+  // Parse a single input (URL or key/text) into {label, url}
+  function parseTopicInput(raw){
+    if (!raw) return { label:null, url:null };
+    const s = String(raw).trim();
+
+    // URL?
+    if (/^https?:\/\//i.test(s)) {
+      // Try to extract a ticket key like ABC-123 from URL as label
+      const m = s.match(/[A-Z][A-Z0-9]+-\d+/);
+      return { label: (m ? m[0] : s), url: s };
+    }
+    // Plain key/text -> label only
+    return { label: s, url: null };
+  }
+
+  // Participation toggle (client-side UX + server call)
   function syncParticipationUI(on){
     const st  = document.getElementById('partStatus');
     const cb  = document.getElementById('participationToggle');
@@ -321,26 +346,11 @@
     highlightSelectedCard();
   }
 
-  // Close-room button governance
-  function applyHostPermissionsToCloseButton(isHostFlag) {
-    const btn = document.getElementById('closeRoomBtn');
-    if (!btn) return;
-    btn.style.display = 'grid';
-    if (isHostFlag) {
-      btn.removeAttribute('disabled'); btn.removeAttribute('aria-disabled');
-      btn.removeAttribute('title'); btn.classList.remove('disabled');
-    } else {
-      btn.setAttribute('disabled','disabled'); btn.setAttribute('aria-disabled','true');
-      btn.classList.add('disabled'); btn.setAttribute('title', TXT_AR_ONLY_HOST);
-    }
-  }
-
   // --- DOM ready: wire UI handlers -----------------------------------------
   document.addEventListener('DOMContentLoaded', () => {
     syncSequenceUI();
     syncAutoRevealUI();
     syncTopicToggleUI();
-    applyHostPermissionsToCloseButton(isHost);
 
     // Sequence change (host only)
     const seqChoice = document.getElementById('seqChoice');
@@ -361,82 +371,92 @@
     arRow?.addEventListener('click', (e)=>{
       if (!isHost) { e.preventDefault(); e.stopPropagation(); showToast(TXT_AR_ONLY_HOST); }
     });
-    arToggle?.addEventListener('change', ()=>{
+    arToggle?.addEventListener('click', ()=>{
       if (!isHost) return;
-      const next = !!arToggle.checked;
+      const next = !autoRevealEnabled;
       socket.send('setAutoReveal:' + next);
-      autoRevealEnabled = next; // optimistic UI
-      syncAutoRevealUI();
     });
 
-    // Topic visibility switch (host only)
+    // Topic visibility switch (host only, in menu)
     const tvRow = document.getElementById('topicToggleRow');
     const tvCb  = document.getElementById('topicToggle');
     tvRow?.addEventListener('click', (e)=>{
       if (!isHost) { e.preventDefault(); e.stopPropagation(); showToast(TXT_AR_ONLY_HOST); }
     });
-    tvCb?.addEventListener('change', ()=>{
+    tvCb?.addEventListener('click', ()=>{
       if (!isHost) return;
-      const next = !!tvCb.checked;              // real control state
-      socket.send('setTopicVisible:' + next);   // WS command
-      topicVisible = next;                      // optimistic UI
-      syncTopicToggleUI();
+      const next = !topicVisible;
+      socket.send('setTopicVisible:' + next);
     });
 
-    // Topic: Edit toggles compact editor (host only)
+    // --- Topic editor wiring (host only) -----------------------------------
+    const actions = document.getElementById('topicActions');
     const editBtn = document.getElementById('topicEditBtn');
-    editBtn?.addEventListener('click', ()=>{
-      if (!isHost) { showToast(TXT_AR_ONLY_HOST); return; }
-      topicEditOpen = !topicEditOpen;
-      syncTopicToggleUI();
-      if (topicEditOpen) {
-        const inp = document.getElementById('topicInput');
-        if (inp) { inp.value = currentTopicLabel || currentTopicUrl || ''; inp.focus(); }
-      }
-    });
+    const clrBtn  = document.getElementById('topicClearBtn');
+    const form    = document.getElementById('topicFormCompact');
+    const inEl    = document.getElementById('topicInput');
+    const saveBtn = document.getElementById('topicSaveBtn');
+    const cancel  = document.getElementById('topicCancelBtn');
 
-    // Topic: Clear (chip button) – host only
-    const clrChip = document.getElementById('topicClearBtn');
-    clrChip?.addEventListener('click', ()=>{
-      if (!isHost) { showToast(TXT_AR_ONLY_HOST); return; }
-      socket.send('clearTopic');
-      showToast(TXT_TOPIC_CLEARED);
-    });
-
-    // Topic editor (host only)
-    const inEl = document.getElementById('topicInput');
-    const save = document.getElementById('topicSaveBtn');
-    const clr2 = document.getElementById('topicClearBtn_inline');
-
-    save?.addEventListener('click', ()=>{
+    function openEditor(prefillText){
       if (!isHost) return;
-      const raw = inEl?.value || '';
-      const { label, url } = parseTopicInput(raw);
+      editingTopic = true;
+      form.hidden = false;
+      if (inEl) {
+        inEl.value = prefillText || '';
+        inEl.focus();
+        inEl.select();
+      }
+      syncTopicToggleUI();
+    }
+    function closeEditor(){
+      editingTopic = false;
+      form.hidden = true;
+      if (inEl) inEl.value = '';
+      syncTopicToggleUI();
+    }
+
+    editBtn?.addEventListener('click', ()=>{
+      const raw = document.getElementById('topicChip')?.textContent || '';
+      openEditor(raw === '—' ? '' : raw);
+    });
+    cancel?.addEventListener('click', closeEditor);
+
+    // Save via button
+    saveBtn?.addEventListener('click', ()=>{
+      if (!isHost) return;
+      const { label, url } = parseTopicInput(inEl?.value || '');
       const enc = encodeURIComponent(label || '') + '|' + encodeURIComponent(url || '');
       socket.send('setTopic:' + enc);
-      if (inEl) inEl.value = '';
-      topicEditOpen = false; // collapse after save
-      syncTopicToggleUI();
+      closeEditor();
       showToast(TXT_TOPIC_SAVED);
     });
 
-    clr2?.addEventListener('click', ()=>{
+    // Enter-to-save on the input (no Shift/Meta)
+    inEl?.addEventListener('keydown', (e)=>{
+      if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        saveBtn?.click();
+      }
+    });
+
+    // Clear topic (host only)
+    clrBtn?.addEventListener('click', ()=>{
       if (!isHost) return;
       socket.send('clearTopic');
-      topicEditOpen = false;
-      syncTopicToggleUI();
+      closeEditor();
       showToast(TXT_TOPIC_CLEARED);
     });
 
-    // Participation switch (everyone)
+    // Participation switch (everyone can toggle themselves)
     const partToggle = document.getElementById('participationToggle');
     partToggle?.addEventListener('click', ()=>{
       const next = !myParticipating;
-      syncParticipationUI(next);
+      syncParticipationUI(next);           // optimistic UX
       socket.send('setParticipating:' + next);
     });
 
-    // Prefill sequence tooltips
+    // Prefill sequence tooltips (nice UX before first WS state lands)
     try {
       fetch('/sequences')
         .then(r => r.ok ? r.json() : null)
@@ -451,17 +471,6 @@
         .catch(()=>{});
     } catch(e){}
   });
-
-  // Parse topic input
-  function parseTopicInput(raw){
-    if (!raw) return { label:null, url:null };
-    const s = String(raw).trim();
-    if (/^https?:\/\//i.test(s)) {
-      const m = s.match(/[A-Z][A-Z0-9]+-\d+/);
-      return { label: (m ? m[0] : s), url: s };
-    }
-    return { label: s, url: null };
-  }
 
   // --- WebSocket wiring ----------------------------------------------------
   const cid = (function(){
@@ -492,7 +501,7 @@
   socket.onmessage = (event) => {
     const data = JSON.parse(event.data);
 
-    // Identity ping
+    // Identity ping: addressed to THIS tab only
     if (data.type === 'you' && typeof data.yourName === 'string') {
       if (!data.cid || data.cid === cid) {
         if (data.yourName !== participantName) {
@@ -527,11 +536,13 @@
       }
     }
 
-    if (data.sequences && typeof data.sequences === 'object') {
+    // Optional: server can push all decks at once
+    if (data.sequences && typeof data === 'object') {
       Object.assign(SEQ_CATALOG, data.sequences);
       updateSequenceTooltips();
     }
 
+    // Legacy identity form (still gated by cid)
     if (typeof data.yourName === 'string' && data.cid && data.cid === cid) {
       if (data.yourName !== participantName) {
         participantName = data.yourName;
@@ -540,7 +551,7 @@
       }
     }
 
-    // Main room state
+    // Main room state diff
     if (data.type === "voteUpdate") {
       const prevVotesRevealed = votesRevealed;
       const participants = Array.isArray(data.participants) ? data.participants : [];
@@ -550,16 +561,11 @@
 
       if (typeof data.autoRevealEnabled === 'boolean') autoRevealEnabled = data.autoRevealEnabled;
       if (typeof data.topicVisible      === 'boolean') topicVisible      = data.topicVisible;
-
-      // Topic content from server
-      updateTopicDisplay(data.topicLabel || null, data.topicUrl || null);
-
-      // Sync all host-sensitive UIs
       syncAutoRevealUI();
       syncSequenceUI();
       syncTopicToggleUI();
 
-      // Participation
+      // Update my participation from server (source of truth)
       const me = participants.find(p => p.name === participantName);
       const serverParticipating = me ? (me.participating !== false) : true;
       syncParticipationUI(serverParticipating);
@@ -568,10 +574,13 @@
       document.getElementById("revealButton").style.display = isHost && !votesRevealed ? "inline-block" : "none";
       document.getElementById("resetButton").style.display  = isHost && votesRevealed ? "inline-block"  : "none";
 
-      // Close room gating
-      applyHostPermissionsToCloseButton(isHost);
+      const closeBtn  = document.getElementById('closeRoomBtn');
       const closeHint = document.getElementById('closeHint');
+      if (closeBtn)  closeBtn.style.display  = isHost ? 'grid'  : 'none';
       if (closeHint) closeHint.style.display = isHost ? 'block' : 'none';
+
+      // Topic display from server state
+      updateTopicDisplay(data.topicLabel || null, data.topicUrl || null);
 
       updateParticipantList(participants, votesRevealed);
 
@@ -599,14 +608,20 @@
 
         document.getElementById("revealButton").style.display = isHost && !votesRevealed ? "inline-block" : "none";
         document.getElementById("resetButton").style.display  = isHost && votesRevealed ? "inline-block"  : "none";
+        const closeBtn  = document.getElementById('closeRoomBtn');
+        const closeHint = document.getElementById('closeHint');
+        if (closeBtn)  closeBtn.style.display  = isHost ? 'grid'  : 'none';
+        if (closeHint) closeHint.style.display = isHost ? 'block' : 'none';
 
-        applyHostPermissionsToCloseButton(isHost);
         syncSequenceUI();
         syncAutoRevealUI();
         syncTopicToggleUI();
       }
 
-      showToast(newHost === participantName ? MSG_HOST_YOU : MSG_HOST_OTHER.replace('{new}', newHost));
+      showToast(newHost === participantName
+        ? MSG_HOST_YOU
+        : MSG_HOST_OTHER.replace('{new}', newHost)
+      );
 
     } else if (data.type === "kicked") {
       try { localStorage.setItem('ep-toast', TXT_KICKED); } catch(e) {}
@@ -618,6 +633,16 @@
       location.replace(target);
     }
   }; // end socket.onmessage
+
+  // --- Host-only: close room -----------------------------------------------
+  document.addEventListener('DOMContentLoaded', () => {
+    const closeBtn = document.getElementById('closeRoomBtn');
+    closeBtn?.addEventListener('click', () => {
+      if (!isHost) return;
+      const ok = confirm(/*[[#{room.close.confirm}]]*/ "Close this room for everyone now?");
+      if (ok) socket.send("closeRoom");
+    });
+  });
 
   // --- Vote helpers ---------------------------------------------------------
   function sendVote(cardValue) {
@@ -642,7 +667,7 @@
   function revealCards() { if (isHost) socket.send("revealCards"); }
   function resetRoom()   { if (isHost) socket.send("resetRoom"); clearCardSelection(); }
 
-  // Host transfer & kick
+  // --- Host transfer & kick -------------------------------------------------
   function transferHost(name){
     if (!isHost || !name || name === participantName) return;
     socket.send("transferHost:" + name);
@@ -652,7 +677,7 @@
     socket.send("kick:" + name);
   }
 
-  // --- Participant list -----------------------------------------------------
+  // --- Participant list renderer -------------------------------------------
   function updateParticipantList(participants, revealed) {
     const list = document.getElementById("liveParticipantList");
     if (!list) return;
@@ -677,6 +702,7 @@
       rightWrap.className = "row-right";
 
       if (revealed) {
+        // Keep observer icon after reveal (no dash chip)
         if (p.participating === false) {
           const status = document.createElement("span");
           status.className = "status-icon observer";
@@ -770,7 +796,7 @@
     resizeTimer = setTimeout(measureAndSetNameColumn, 150);
   });
 
-  // --- Average / consensus + stats -----------------------------------------
+  // --- Average / consensus + stats (median/range/outliers) ------------------
   function updateAverage(avg) {
     const avgSpan = document.getElementById("averageVote");
     if (avgSpan) avgSpan.textContent = avg != null ? avg : "-";
@@ -814,8 +840,8 @@
   function applyConsensusUI(isOn){
     setConsensusUI(isOn);
     if (isOn) {
-      updateStatsUI(null);
-      markOutliers(null);
+      updateStatsUI(null);   // hide median + range
+      markOutliers(null);    // remove any outlier highlighting
     }
   }
 
@@ -865,7 +891,7 @@
     const mVal  = document.getElementById('medianVote');
     const rVal  = document.getElementById('rangeVote');
 
-    if (!mWrap || !rWrap || !mVal || !rVal || !mLbl || !rLbl) return;
+    if (!mWrap || !rWrap || !rVal || !mLbl || !rLbl) return;
 
     if (!stats) {
       mWrap.hidden = true;
@@ -930,7 +956,7 @@
     setTimeout(() => toast.remove(), 3000);
   }
 
-  // --- Invite/copy ----------------------------------------------------------
+  // --- Invite/copy: deep-link next to room code -----------------------------
   (function(){
     const copyBtn = document.getElementById('copyRoomLink');
     const TXT_LINK_COPIED = /*[[#{invite.linkCopied}]]*/ 'Link copied to clipboard';
@@ -944,16 +970,5 @@
     copyBtn?.addEventListener('click', ()=>copyText(deepLink()));
   })();
   </script>
-
-  <!-- Small inline styles (toast only). Topic chip styles are in styles.css -->
-  <style>
-    .toast{
-      position:fixed;top:20px;right:20px;background-color:rgba(51,51,51,.95);color:#fff;
-      padding:12px 20px;border-radius:10px;z-index:9999;font-size:14px;box-shadow:0 6px 16px rgba(0,0,0,.25);
-      transform:translateY(-10px);opacity:0;animation:fadein .22s ease forwards,fadeout .4s ease 2.4s forwards
-    }
-    @keyframes fadein{to{opacity:.95;transform:translateY(0)}}
-    @keyframes fadeout{to{opacity:0}}
-  </style>
 </body>
 </html>
