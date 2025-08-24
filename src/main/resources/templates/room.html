@@ -34,7 +34,7 @@
     <h2 th:text="#{label.participants}">Participants</h2>
     <ul id="liveParticipantList"></ul>
 
-    <!-- Compact Topic chip row (below participants, above cards) -->
+    <!-- Topic chip row (below participants, above cards) -->
     <div id="topicChipRow" class="topic-chip-row" style="display:none;">
       <div id="topicDisplay" class="topic-chip">—</div>
       <div class="topic-actions">
@@ -63,24 +63,15 @@
     </div>
 
     <div class="post-vote" style="display:none;">
-      <!-- Results line: Avg + optional Median + Range; hide stats + outliers on consensus -->
-      <p id="resultRow"
-         class="average-label consensus-row"
-         role="status"
-         aria-live="polite"
-         aria-atomic="true">
+      <p id="resultRow" class="average-label consensus-row" role="status" aria-live="polite" aria-atomic="true">
         <span id="resultLabel" class="label" th:text="#{label.average}">Avg:</span>
         <span id="averageVote" class="value">–</span>
-
         <span class="sep" aria-hidden="true"> • </span>
-
         <span id="medianWrap" class="stat" hidden>
           <span id="medianLabel" class="label" th:text="#{label.median}">Median:</span>
           <span id="medianVote" class="value">–</span>
         </span>
-
         <span class="sep" aria-hidden="true" id="rangeSep" hidden> • </span>
-
         <span id="rangeWrap" class="stat" hidden>
           <span id="rangeLabel" class="label" th:text="#{label.range}">Range:</span>
           <span id="rangeVote" class="value">–</span>
@@ -97,10 +88,9 @@
 
   <script th:inline="javascript">
   /* ======================= Game logic ============================
-     - Menu / theme / language lives in menu.js
      - This file handles room UI, websocket flow, and voting UX.
      - Consensus rule: if consensus -> hide median/range and do NOT mark outliers.
-     - Topic-chip below participants (Variant 3) with compact editor.
+     - Topic chip below participants with compact editor (host-only).
      ============================================================= */
 
   // --- Basic room state (server can overwrite via WS) -----------
@@ -146,8 +136,20 @@
   // Specials set (kept in sync with backend)
   const SPECIALS = new Set(["❓","💬","☕"]);
 
-  // Deck catalog for tooltips in the menu (filled either by WS or /sequences)
+  // Deck catalog (tooltips)
   const SEQ_CATALOG = Object.create(null);
+
+  // Utility: robust show/hide (attribute + inline style)
+  function showElem(el, show){
+    if (!el) return;
+    if (show) {
+      el.style.display = '';
+      el.removeAttribute('hidden');
+    } else {
+      el.style.display = 'none';
+      el.setAttribute('hidden','');
+    }
+  }
 
   // --- Sequence deck tooltip helpers ---------------------------------------
   function formatDeckForTooltip(cards){
@@ -171,7 +173,7 @@
       if (deck && deck.length){
         const tip = formatDeckForTooltip(deck);
         row.setAttribute('data-tooltip', tip);
-        row.removeAttribute('title'); // prevent native tooltip
+        row.removeAttribute('title');
       } else {
         row.removeAttribute('data-tooltip');
         row.removeAttribute('title');
@@ -188,7 +190,7 @@
 
     btn.addEventListener('click', () => {
       if (!myParticipating) { showToast(TXT_OBS_NO_PICK); return; }
-      if (votesRevealed)    { return; } // ignore during results
+      if (votesRevealed)    { return; }
       sendVote(val);
     });
 
@@ -221,7 +223,6 @@
     highlightSelectedCard();
   }
 
-  // Enable/disable all card buttons based on participation & reveal state
   function updateCardInteractivity(canPick){
     const buttons = document.querySelectorAll('.card-grid button');
     const disableAll = !canPick || !!votesRevealed;
@@ -237,7 +238,7 @@
     });
   }
 
-  // --- Host-sensitive controls (enable/disable + hints) --------------------
+  // --- Host-sensitive controls ---------------------------------------------
   function syncSequenceUI(){
     const radios = document.querySelectorAll('#seqChoice input[name="seq"]');
     radios.forEach(r => {
@@ -293,18 +294,16 @@
   }
 
   function syncTopicToggleUI(){
-    // Chip row visibility:
-    // - Non-host: only show if visible AND content exists.
-    // - Host: show whenever visible (so host can edit even if empty).
     const chip = document.getElementById('topicChipRow');
-    if (chip) {
-      const showChip = !!(topicVisible && (isHost || topicHasContent()));
-      chip.style.display = showChip ? 'flex' : 'none';
-    }
-
-    // Editor (host-only) is a compact row toggled by "Edit"
     const form = document.getElementById('topicForm');
-    if (form) form.hidden = !(isHost && topicVisible && topicEditOpen);
+
+    // Chip: host sees ihn auch leer; non-host nur wenn Inhalt vorhanden
+    const showChip = !!(topicVisible && (isHost || topicHasContent()));
+    showElem(chip, showChip);
+
+    // Editor: nur Host + sichtbar + wenn Edit-Mode offen
+    const showForm = !!(isHost && topicVisible && topicEditOpen);
+    showElem(form, showForm);
   }
 
   // --- Participation --------------------------------------------------------
@@ -322,21 +321,17 @@
     highlightSelectedCard();
   }
 
-  // -- Close-Room-Button Host-Governance: always visible; disabled for non-host
+  // Close-room button governance
   function applyHostPermissionsToCloseButton(isHostFlag) {
     const btn = document.getElementById('closeRoomBtn');
     if (!btn) return;
     btn.style.display = 'grid';
     if (isHostFlag) {
-      btn.removeAttribute('disabled');
-      btn.removeAttribute('aria-disabled');
-      btn.removeAttribute('title');
-      btn.classList.remove('disabled');
+      btn.removeAttribute('disabled'); btn.removeAttribute('aria-disabled');
+      btn.removeAttribute('title'); btn.classList.remove('disabled');
     } else {
-      btn.setAttribute('disabled', 'disabled');
-      btn.setAttribute('aria-disabled', 'true');
-      btn.classList.add('disabled');
-      btn.setAttribute('title', TXT_AR_ONLY_HOST);
+      btn.setAttribute('disabled','disabled'); btn.setAttribute('aria-disabled','true');
+      btn.classList.add('disabled'); btn.setAttribute('title', TXT_AR_ONLY_HOST);
     }
   }
 
@@ -370,12 +365,11 @@
       if (!isHost) return;
       const next = !!arToggle.checked;
       socket.send('setAutoReveal:' + next);
-      // optimistic label update
-      autoRevealEnabled = next;
+      autoRevealEnabled = next; // optimistic UI
       syncAutoRevealUI();
     });
 
-    // Topic visibility switch (host only, in menu)
+    // Topic visibility switch (host only)
     const tvRow = document.getElementById('topicToggleRow');
     const tvCb  = document.getElementById('topicToggle');
     tvRow?.addEventListener('click', (e)=>{
@@ -383,9 +377,9 @@
     });
     tvCb?.addEventListener('change', ()=>{
       if (!isHost) return;
-      const next = !!tvCb.checked;              // read actual control state
-      socket.send('setTopicVisible:' + next);   // send WS command
-      topicVisible = next;                      // optimistic immediate UI
+      const next = !!tvCb.checked;              // real control state
+      socket.send('setTopicVisible:' + next);   // WS command
+      topicVisible = next;                      // optimistic UI
       syncTopicToggleUI();
     });
 
@@ -421,7 +415,7 @@
       const enc = encodeURIComponent(label || '') + '|' + encodeURIComponent(url || '');
       socket.send('setTopic:' + enc);
       if (inEl) inEl.value = '';
-      topicEditOpen = false;       // collapse after save
+      topicEditOpen = false; // collapse after save
       syncTopicToggleUI();
       showToast(TXT_TOPIC_SAVED);
     });
@@ -434,15 +428,15 @@
       showToast(TXT_TOPIC_CLEARED);
     });
 
-    // Participation switch (everyone can toggle themselves)
+    // Participation switch (everyone)
     const partToggle = document.getElementById('participationToggle');
     partToggle?.addEventListener('click', ()=>{
       const next = !myParticipating;
-      syncParticipationUI(next);           // optimistic UX
+      syncParticipationUI(next);
       socket.send('setParticipating:' + next);
     });
 
-    // Prefill sequence tooltips (nice UX before first WS state lands)
+    // Prefill sequence tooltips
     try {
       fetch('/sequences')
         .then(r => r.ok ? r.json() : null)
@@ -458,7 +452,7 @@
     } catch(e){}
   });
 
-  // --- Parse topic input (URL or key) --------------------------------------
+  // Parse topic input
   function parseTopicInput(raw){
     if (!raw) return { label:null, url:null };
     const s = String(raw).trim();
@@ -498,7 +492,7 @@
   socket.onmessage = (event) => {
     const data = JSON.parse(event.data);
 
-    // Identity ping: addressed to THIS tab only
+    // Identity ping
     if (data.type === 'you' && typeof data.yourName === 'string') {
       if (!data.cid || data.cid === cid) {
         if (data.yourName !== participantName) {
@@ -507,7 +501,7 @@
           if (youEl) youEl.textContent = participantName;
         }
       }
-      return; // identity only
+      return;
     }
 
     // Participant snapshot outside of voteUpdate
@@ -533,13 +527,11 @@
       }
     }
 
-    // Optional: server can push all decks at once
     if (data.sequences && typeof data.sequences === 'object') {
       Object.assign(SEQ_CATALOG, data.sequences);
       updateSequenceTooltips();
     }
 
-    // Legacy identity form (still gated by cid)
     if (typeof data.yourName === 'string' && data.cid && data.cid === cid) {
       if (data.yourName !== participantName) {
         participantName = data.yourName;
@@ -548,7 +540,7 @@
       }
     }
 
-    // Main room state diff
+    // Main room state
     if (data.type === "voteUpdate") {
       const prevVotesRevealed = votesRevealed;
       const participants = Array.isArray(data.participants) ? data.participants : [];
@@ -559,13 +551,15 @@
       if (typeof data.autoRevealEnabled === 'boolean') autoRevealEnabled = data.autoRevealEnabled;
       if (typeof data.topicVisible      === 'boolean') topicVisible      = data.topicVisible;
 
-      // Topic from server, then sync UI
+      // Topic content from server
       updateTopicDisplay(data.topicLabel || null, data.topicUrl || null);
+
+      // Sync all host-sensitive UIs
       syncAutoRevealUI();
       syncSequenceUI();
       syncTopicToggleUI();
 
-      // Update my participation from server (source of truth)
+      // Participation
       const me = participants.find(p => p.name === participantName);
       const serverParticipating = me ? (me.participating !== false) : true;
       syncParticipationUI(serverParticipating);
@@ -574,7 +568,7 @@
       document.getElementById("revealButton").style.display = isHost && !votesRevealed ? "inline-block" : "none";
       document.getElementById("resetButton").style.display  = isHost && votesRevealed ? "inline-block"  : "none";
 
-      // Close Room button: always visible, disabled for non-host
+      // Close room gating
       applyHostPermissionsToCloseButton(isHost);
       const closeHint = document.getElementById('closeHint');
       if (closeHint) closeHint.style.display = isHost ? 'block' : 'none';
@@ -606,17 +600,13 @@
         document.getElementById("revealButton").style.display = isHost && !votesRevealed ? "inline-block" : "none";
         document.getElementById("resetButton").style.display  = isHost && votesRevealed ? "inline-block"  : "none";
 
-        // Close Room button gating + topic chip/editor gating
         applyHostPermissionsToCloseButton(isHost);
         syncSequenceUI();
         syncAutoRevealUI();
         syncTopicToggleUI();
       }
 
-      showToast(newHost === participantName
-        ? MSG_HOST_YOU
-        : MSG_HOST_OTHER.replace('{new}', newHost)
-      );
+      showToast(newHost === participantName ? MSG_HOST_YOU : MSG_HOST_OTHER.replace('{new}', newHost));
 
     } else if (data.type === "kicked") {
       try { localStorage.setItem('ep-toast', TXT_KICKED); } catch(e) {}
@@ -652,7 +642,7 @@
   function revealCards() { if (isHost) socket.send("revealCards"); }
   function resetRoom()   { if (isHost) socket.send("resetRoom"); clearCardSelection(); }
 
-  // --- Host transfer & kick -------------------------------------------------
+  // Host transfer & kick
   function transferHost(name){
     if (!isHost || !name || name === participantName) return;
     socket.send("transferHost:" + name);
@@ -662,7 +652,7 @@
     socket.send("kick:" + name);
   }
 
-  // --- Participant list renderer -------------------------------------------
+  // --- Participant list -----------------------------------------------------
   function updateParticipantList(participants, revealed) {
     const list = document.getElementById("liveParticipantList");
     if (!list) return;
@@ -687,7 +677,6 @@
       rightWrap.className = "row-right";
 
       if (revealed) {
-        // Keep observer icon after reveal (no dash chip)
         if (p.participating === false) {
           const status = document.createElement("span");
           status.className = "status-icon observer";
@@ -781,7 +770,7 @@
     resizeTimer = setTimeout(measureAndSetNameColumn, 150);
   });
 
-  // --- Average / consensus + stats (median/range/outliers) ------------------
+  // --- Average / consensus + stats -----------------------------------------
   function updateAverage(avg) {
     const avgSpan = document.getElementById("averageVote");
     if (avgSpan) avgSpan.textContent = avg != null ? avg : "-";
@@ -825,8 +814,8 @@
   function applyConsensusUI(isOn){
     setConsensusUI(isOn);
     if (isOn) {
-      updateStatsUI(null);   // hide median + range
-      markOutliers(null);    // remove any outlier highlighting
+      updateStatsUI(null);
+      markOutliers(null);
     }
   }
 
@@ -941,7 +930,7 @@
     setTimeout(() => toast.remove(), 3000);
   }
 
-  // --- Invite/copy: deep-link next to room code ----------------------------
+  // --- Invite/copy ----------------------------------------------------------
   (function(){
     const copyBtn = document.getElementById('copyRoomLink');
     const TXT_LINK_COPIED = /*[[#{invite.linkCopied}]]*/ 'Link copied to clipboard';
@@ -956,7 +945,7 @@
   })();
   </script>
 
-  <!-- Inline toast-only styles (topic chip styles live in styles.css) -->
+  <!-- Small inline styles (toast only). Topic chip styles are in styles.css -->
   <style>
     .toast{
       position:fixed;top:20px;right:20px;background-color:rgba(51,51,51,.95);color:#fff;
