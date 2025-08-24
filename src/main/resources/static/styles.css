@@ -530,6 +530,19 @@ li{ margin-bottom:.4rem; line-height:1.5; font-size:1rem; }
 .vote-chip[data-val="☕"]{ font-size:1.25rem; padding:.1rem .55rem; }
 @keyframes chipIn { to{ opacity:1; transform: translateY(0); } }
 
+/* Subtle outlier ring (kept calm, not alarming) */
+.vote-chip.outlier{
+  position: relative;
+  box-shadow:
+    0 0 0 3px rgba(255, 213, 79, .22),   /* warm outer ring */
+    inset 0 0 0 1px rgba(255, 213, 79, .55); /* crisp inner line */
+}
+:root[data-theme="light"] .vote-chip.outlier{
+  box-shadow:
+    0 0 0 3px rgba(255, 213, 79, .28),
+    inset 0 0 0 1px rgba(234, 179, 8, .55);
+}
+
 /* Pre/Post vote + Average */
 .pre-vote{ margin-top: var(--pre-vote-margin-desktop); }
 .average-label{ font-size:.85rem; margin-top:1rem; }
@@ -541,6 +554,10 @@ li{ margin-bottom:.4rem; line-height:1.5; font-size:1rem; }
 .consensus-row{ white-space:nowrap; }
 .consensus-row.is-consensus .value{ animation: pulseOnce .5s ease; }
 @keyframes pulseOnce{ 0%{transform:scale(.96);filter:brightness(1.05)} 60%{transform:scale(1.03)} 100%{transform:scale(1)} }
+
+/* Inline stats badges in the result row */
+.average-label .stat { margin-left: .25rem; }
+.average-label .sep  { opacity: .6; margin: 0 .35rem; }
 
 /* ---------- Toasts ---------- */
 .toast{

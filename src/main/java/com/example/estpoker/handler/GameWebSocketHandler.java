@@ -1,5 +1,6 @@
 package com.example.estpoker.handler;
 
+import com.example.estpoker.model.CardSequences;
 import com.example.estpoker.model.Participant;
 import com.example.estpoker.model.Room;
 import com.example.estpoker.service.GameService;
@@ -56,7 +57,6 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             room.markActive(participantName); // reactivate, not a duplicate
         } else {
             // First connection with this cid in this room
-            // (Method may return the final name if your Room impl does that)
             participantName = room.addOrReactivateParticipant(participantName);
         }
 
@@ -85,26 +85,50 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         if (room == null) return;
 
         if (payload.startsWith("vote:")) {
-            // Format: "vote:<name>:<value>" – split into at most 3 parts to keep card intact
+            // FORMAT was "vote:<name>:<value>", but we IGNORE the name to prevent spoofing.
+            // We always use the session's participant name.
             String[] parts = payload.split(":", 3);
-            if (parts.length == 3) {
-                String participantName = parts[1];
-                String card = parts[2];
-                Participant participant = room.getParticipant(participantName);
-                if (participant != null) {
-                    participant.setCard(card);
-                    gameService.maybeAutoReveal(room); // respects auto-reveal
+            String card = (parts.length >= 3) ? parts[2] : null;
+
+            String me = gameService.getParticipantName(session);
+            if (me != null && card != null) {
+                Participant p = room.getParticipant(me);
+                if (p != null) {
+                    boolean allowedCard =
+                        room.getCurrentCards().contains(card) ||
+                        CardSequences.SPECIALS.contains(card);
+
+                    // Hard guards: only participating users, only allowed cards, and not after reveal
+                    if (p.isParticipating() && allowedCard && !room.areVotesRevealed()) {
+                        p.setCard(card);
+                        // Might flip to revealed if auto-reveal is ON and everyone voted
+                        gameService.maybeAutoReveal(room);
+                    }
+                }
+            }
+            gameService.broadcastRoomState(room);
+
+        } else if ("revealCards".equals(payload)) {
+            // Only the host may reveal
+            String me = gameService.getParticipantName(session);
+            if (me != null) {
+                Participant p = room.getParticipant(me);
+                if (p != null && p.isHost()) {
+                    room.setCardsRevealed(true);
                     gameService.broadcastRoomState(room);
                 }
             }
 
-        } else if ("revealCards".equals(payload)) {
-            room.setCardsRevealed(true);
-            gameService.broadcastRoomState(room);
-
         } else if ("resetRoom".equals(payload)) {
-            room.reset();
-            gameService.broadcastRoomState(room);
+            // Only the host may reset
+            String me = gameService.getParticipantName(session);
+            if (me != null) {
+                Participant p = room.getParticipant(me);
+                if (p != null && p.isHost()) {
+                    room.reset();
+                    gameService.broadcastRoomState(room);
+                }
+            }
 
         } else if (payload.startsWith("setSequence:")) {
             String seqId = payload.substring("setSequence:".length());
@@ -130,12 +154,17 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             }
 
         } else if (payload.startsWith("setParticipating:")) {
+            // Anyone can toggle their own participation flag
             String me = gameService.getParticipantName(session);
             if (me != null) {
                 Participant p = room.getParticipant(me);
                 if (p != null) {
                     boolean on = Boolean.parseBoolean(payload.substring("setParticipating:".length()));
                     p.setParticipating(on);
+                    if (!on) {
+                        // Observer should not carry an old vote – clean up for a clear state
+                        p.setVote(null);
+                    }
                     gameService.maybeAutoReveal(room); // may flip to revealed if now complete
                     gameService.broadcastRoomState(room);
                 }
