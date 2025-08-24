@@ -100,7 +100,7 @@
      - Menu / theme / language lives in menu.js
      - This file handles room UI, websocket flow, and voting UX.
      - Consensus rule: if consensus -> hide median/range and do NOT mark outliers.
-     - NEW (Variant 3): compact Topic chip below participants, with Edit/Clear.
+     - Topic-chip below participants (Variant 3) with compact editor.
      ============================================================= */
 
   // --- Basic room state (server can overwrite via WS) -----------
@@ -271,14 +271,12 @@
   function topicHasContent(){ return !!(currentTopicLabel || currentTopicUrl); }
 
   function updateTopicDisplay(label, url){
-    // Persist current content for UI logic
     currentTopicLabel = label || null;
     currentTopicUrl   = url   || null;
 
     const disp = document.getElementById('topicDisplay');
     if (!disp) return;
 
-    // Render chip text (link if URL present)
     disp.innerHTML = '';
     if (!topicHasContent()){
       disp.textContent = '—';
@@ -325,11 +323,11 @@
   }
 
   // -- Close-Room-Button Host-Governance: always visible; disabled for non-host
-  function applyHostPermissionsToCloseButton(isHost) {
+  function applyHostPermissionsToCloseButton(isHostFlag) {
     const btn = document.getElementById('closeRoomBtn');
     if (!btn) return;
     btn.style.display = 'grid';
-    if (isHost) {
+    if (isHostFlag) {
       btn.removeAttribute('disabled');
       btn.removeAttribute('aria-disabled');
       btn.removeAttribute('title');
@@ -348,6 +346,48 @@
     syncAutoRevealUI();
     syncTopicToggleUI();
     applyHostPermissionsToCloseButton(isHost);
+
+    // Sequence change (host only)
+    const seqChoice = document.getElementById('seqChoice');
+    seqChoice?.addEventListener('change', (e)=>{
+      const val = e.target?.value;
+      if (!val) return;
+      if (!isHost) {
+        showToast(/*[[#{sequence.onlyHost}]]*/ 'Only the host can change the sequence');
+        syncSequenceUI();
+        return;
+      }
+      socket.send('setSequence:' + val);
+    });
+
+    // Auto-Reveal switch (host only)
+    const arRow = document.getElementById('autoRevealRow');
+    const arToggle = document.getElementById('autoRevealToggle');
+    arRow?.addEventListener('click', (e)=>{
+      if (!isHost) { e.preventDefault(); e.stopPropagation(); showToast(TXT_AR_ONLY_HOST); }
+    });
+    arToggle?.addEventListener('change', ()=>{
+      if (!isHost) return;
+      const next = !!arToggle.checked;
+      socket.send('setAutoReveal:' + next);
+      // optimistic label update
+      autoRevealEnabled = next;
+      syncAutoRevealUI();
+    });
+
+    // Topic visibility switch (host only, in menu)
+    const tvRow = document.getElementById('topicToggleRow');
+    const tvCb  = document.getElementById('topicToggle');
+    tvRow?.addEventListener('click', (e)=>{
+      if (!isHost) { e.preventDefault(); e.stopPropagation(); showToast(TXT_AR_ONLY_HOST); }
+    });
+    tvCb?.addEventListener('change', ()=>{
+      if (!isHost) return;
+      const next = !!tvCb.checked;              // read actual control state
+      socket.send('setTopicVisible:' + next);   // send WS command
+      topicVisible = next;                      // optimistic immediate UI
+      syncTopicToggleUI();
+    });
 
     // Topic: Edit toggles compact editor (host only)
     const editBtn = document.getElementById('topicEditBtn');
@@ -519,7 +559,7 @@
       if (typeof data.autoRevealEnabled === 'boolean') autoRevealEnabled = data.autoRevealEnabled;
       if (typeof data.topicVisible      === 'boolean') topicVisible      = data.topicVisible;
 
-      // Topic content from server, then sync UI
+      // Topic from server, then sync UI
       updateTopicDisplay(data.topicLabel || null, data.topicUrl || null);
       syncAutoRevealUI();
       syncSequenceUI();
