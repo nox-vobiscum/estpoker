@@ -516,31 +516,38 @@
   }
 
   // --- Participant list renderer -------------------------------------------
-  function updateParticipantList(participants, revealed) {
-    const list = document.getElementById("liveParticipantList");
-    if (!list) return;
-    list.innerHTML = "";
+function updateParticipantList(participants, revealed) {
+  const list = document.getElementById("liveParticipantList");
+  if (!list) return;
+  list.innerHTML = "";
 
-    participants.forEach(p => {
-      const li = document.createElement("li");
-      li.classList.add("participant-row");
-      li.dataset.hasvote = p.vote !== null;
-      if (p.disconnected) li.classList.add("disconnected");
-      if (p.isHost) li.classList.add("is-host");
+  participants.forEach(p => {
+    const li = document.createElement("li");
+    li.classList.add("participant-row");
+    li.dataset.hasvote = p.vote !== null;
+    if (p.disconnected) li.classList.add("disconnected");
+    if (p.isHost) li.classList.add("is-host");
 
-      const icon = document.createElement("span");
-      icon.className = p.isHost ? "participant-icon host" : (p.disconnected ? "participant-icon inactive" : "participant-icon");
-      icon.textContent = p.isHost ? "👑" : (p.disconnected ? "💤" : "👤");
+    const icon = document.createElement("span");
+    icon.className = p.isHost ? "participant-icon host" : (p.disconnected ? "participant-icon inactive" : "participant-icon");
+    icon.textContent = p.isHost ? "👑" : (p.disconnected ? "💤" : "👤");
 
-      const nameSpan = document.createElement("span");
-      nameSpan.className = "name";
-      nameSpan.textContent = p.name;
+    const nameSpan = document.createElement("span");
+    nameSpan.className = "name";
+    nameSpan.textContent = p.name;
 
-      const rightWrap = document.createElement("div");
-      rightWrap.className = "row-right";
+    const rightWrap = document.createElement("div");
+    rightWrap.className = "row-right";
 
-      if (revealed) {
-        // After reveal: show chip with value; observers will have "—"
+    if (revealed) {
+      // === NEW: keep observer icon when revealed (no dash chip) ===
+      if (p.participating === false) {
+        const status = document.createElement("span");
+        status.className = "status-icon observer";
+        status.textContent = "👀";
+        rightWrap.appendChild(status);
+      } else {
+        // After reveal for participating users: show chip with value (or "—")
         const voteChip = document.createElement("span");
         voteChip.className = "vote-chip";
 
@@ -557,68 +564,69 @@
         } else {
           voteChip.classList.add("special");
         }
-
         rightWrap.appendChild(voteChip);
+      }
 
-      } else {
-        // Before reveal: done / pending / observer
-        if (!p.disconnected) {
-          if (p.participating === false) {
-            const status = document.createElement("span");
-            status.className = "status-icon observer";
-            status.textContent = "👀";
-            rightWrap.appendChild(status);
-          } else if (p.vote != null) {
-            const status = document.createElement("span");
-            status.className = "status-icon done";
-            status.textContent = "✅";
-            rightWrap.appendChild(status);
-          } else {
-            const status = document.createElement("span");
-            status.className = "status-icon pending";
-            status.textContent = "⏳";
-            rightWrap.appendChild(status);
-          }
+    } else {
+      // Before reveal: done / pending / observer (unchanged)
+      if (!p.disconnected) {
+        if (p.participating === false) {
+          const status = document.createElement("span");
+          status.className = "status-icon observer";
+          status.textContent = "👀";
+          rightWrap.appendChild(status);
+        } else if (p.vote != null) {
+          const status = document.createElement("span");
+          status.className = "status-icon done";
+          status.textContent = "✅";
+          rightWrap.appendChild(status);
+        } else {
+          const status = document.createElement("span");
+          status.className = "status-icon pending";
+          status.textContent = "⏳";
+          rightWrap.appendChild(status);
         }
       }
+    }
 
-      const actions = document.createElement("div");
-      actions.className = "row-actions";
+    const actions = document.createElement("div");
+    actions.className = "row-actions";
 
-      if (isHost && !p.isHost && p.name !== participantName) {
-        const mk = document.createElement("button");
-        mk.type = "button";
-        mk.className = "row-action host";
-        mk.setAttribute("aria-label", TXT_MAKE_HOST + ": " + p.name);
-        mk.setAttribute("data-tooltip", TXT_MAKE_HOST);
-        const ic = document.createElement("span"); ic.className = "ra-icon";  ic.textContent = "👑";
-        const lab = document.createElement("span"); lab.className = "ra-label"; lab.textContent = TXT_MAKE_HOST;
-        mk.appendChild(ic); mk.appendChild(lab);
-        mk.addEventListener("click", () => transferHost(p.name));
-        actions.appendChild(mk);
+    if (isHost && !p.isHost && p.name !== participantName) {
+      const mk = document.createElement("button");
+      mk.type = "button";
+      mk.className = "row-action host";
+      mk.setAttribute("aria-label", TXT_MAKE_HOST + ": " + p.name);
+      mk.setAttribute("data-tooltip", TXT_MAKE_HOST);
+      const ic = document.createElement("span"); ic.className = "ra-icon";  ic.textContent = "👑";
+      const lab = document.createElement("span"); lab.className = "ra-label"; lab.textContent = TXT_MAKE_HOST;
+      mk.appendChild(ic); mk.appendChild(lab);
+      mk.addEventListener("click", () => transferHost(p.name));
+      actions.appendChild(mk);
 
-        const kb = document.createElement("button");
-        kb.type = "button";
-        kb.className = "row-action kick";
-        kb.setAttribute("aria-label", TXT_KICK + ": " + p.name);
-        kb.setAttribute("data-tooltip", TXT_KICK);
-        const ic2 = document.createElement("span"); ic2.className = "ra-icon"; ic2.textContent = "❌";
-        const lab2 = document.createElement("span"); lab2.className = "ra-label"; lab2.textContent = TXT_KICK;
-        kb.appendChild(ic2); kb.appendChild(lab2);
-        kb.addEventListener("click", () => kick(p.name));
-        actions.appendChild(kb);
-      }
+      const kb = document.createElement("button");
+      kb.type = "button";
+      kb.className = "row-action kick";
+      kb.setAttribute("aria-label", TXT_KICK + ": " + p.name);
+      kb.setAttribute("data-tooltip", TXT_KICK);
+      const ic2 = document.createElement("span"); ic2.className = "ra-icon"; ic2.textContent = "❌";
+      const lab2 = document.createElement("span"); lab2.className = "ra-label"; lab2.textContent = TXT_KICK;
+      kb.appendChild(ic2); kb.appendChild(lab2);
+      kb.addEventListener("click", () => kick(p.name));
+      actions.appendChild(kb);
+    }
 
-      if (actions.childElementCount) rightWrap.appendChild(actions);
+    if (actions.childElementCount) rightWrap.appendChild(actions);
 
-      li.appendChild(icon);
-      li.appendChild(nameSpan);
-      li.appendChild(rightWrap);
-      list.appendChild(li);
-    });
+    li.appendChild(icon);
+    li.appendChild(nameSpan);
+    li.appendChild(rightWrap);
+    list.appendChild(li);
+  });
 
-    measureAndSetNameColumn();
-  }
+  measureAndSetNameColumn();
+}
+
 
   // Measure the longest visible name to create a stable grid column
   function measureAndSetNameColumn() {
