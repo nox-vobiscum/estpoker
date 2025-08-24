@@ -1,4 +1,3 @@
-<!-- templates/room.html -->
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org" th:lang="${#locale}" lang="en">
 <head th:replace="~{fragments/head :: head}"></head>
@@ -35,52 +34,27 @@
     <h2 th:text="#{label.participants}">Participants</h2>
     <ul id="liveParticipantList"></ul>
 
-    <!-- === Topic / Story (Variant 3) =======================================
-         - Compact chip row shown between participants and card grid
-         - Host-only actions on the right (icon buttons)
-         - Compact editor shown only when host + in edit mode
-         - Visibility controlled via menu toggle (topicVisible)
-         =================================================================== -->
+    <!-- Topic chip row (Variant 3) -->
     <div id="topicChipRow" class="topic-chip-row" style="display:none;">
       <div id="topicChip" class="topic-chip" data-tooltip="—">—</div>
       <div id="topicActions" class="topic-actions" hidden>
-        <!-- edit -->
-        <button id="topicEditBtn"
-                class="icon-button"
-                type="button"
-                aria-label="Edit topic"
-                data-tooltip="Edit">✏️</button>
-        <!-- clear -->
-        <button id="topicClearBtn"
-                class="icon-button"
-                type="button"
+        <button id="topicEditBtn"  class="icon-button" type="button" aria-label="Edit topic"  data-tooltip="Edit">✏️</button>
+        <button id="topicClearBtn" class="icon-button" type="button"
                 th:attr="aria-label=#{button.clearTopic}"
                 th:attrappend="data-tooltip=${#messages.msg('button.clearTopic')}"
-                aria-label="Clear topic"
-                data-tooltip="Clear topic">🧽</button>
+                aria-label="Clear topic" data-tooltip="Clear topic">🧽</button>
       </div>
     </div>
 
     <div id="topicFormCompact" class="topic-form compact" hidden>
-      <input id="topicInput"
-             class="input"
-             type="text"
+      <input id="topicInput" class="input" type="text"
              th:attr="placeholder=#{topic.placeholder}"
              placeholder="Paste JIRA link or type key (e.g., RBSEP-123)…">
-      <!-- save -->
-      <button id="topicSaveBtn"
-              class="icon-button"
-              type="button"
+      <button id="topicSaveBtn"   class="icon-button" type="button"
               th:attr="aria-label=#{button.saveTopic}"
               th:attrappend="data-tooltip=${#messages.msg('button.saveTopic')}"
-              aria-label="Save topic"
-              data-tooltip="Save">✅</button>
-      <!-- cancel -->
-      <button id="topicCancelBtn"
-              class="icon-button"
-              type="button"
-              aria-label="Cancel"
-              data-tooltip="Cancel">✖️</button>
+              aria-label="Save topic" data-tooltip="Save">✅</button>
+      <button id="topicCancelBtn" class="icon-button" type="button" aria-label="Cancel" data-tooltip="Cancel">✖️</button>
     </div>
 
     <h2 id="selectCardHeader" th:text="#{label.selectCard}">Choose a card:</h2>
@@ -92,24 +66,15 @@
     </div>
 
     <div class="post-vote" style="display:none;">
-      <!-- Results line: Avg + optional Median + Range; hide stats + outliers on consensus -->
-      <p id="resultRow"
-         class="average-label consensus-row"
-         role="status"
-         aria-live="polite"
-         aria-atomic="true">
+      <p id="resultRow" class="average-label consensus-row" role="status" aria-live="polite" aria-atomic="true">
         <span id="resultLabel" class="label" th:text="#{label.average}">Avg:</span>
         <span id="averageVote" class="value">–</span>
-
         <span class="sep" aria-hidden="true"> • </span>
-
         <span id="medianWrap" class="stat" hidden>
           <span id="medianLabel" class="label" th:text="#{label.median}">Median:</span>
           <span id="medianVote" class="value">–</span>
         </span>
-
         <span class="sep" aria-hidden="true" id="rangeSep" hidden> • </span>
-
         <span id="rangeWrap" class="stat" hidden>
           <span id="rangeLabel" class="label" th:text="#{label.range}">Range:</span>
           <span id="rangeVote" class="value">–</span>
@@ -121,18 +86,10 @@
     </div>
   </div>
 
-  <!-- Central scripts (must be before inline JS so defer-order is correct) -->
   <th:block th:replace="~{fragments/scripts :: scripts}"></th:block>
 
   <script th:inline="javascript">
-  /* ======================= Game logic ============================
-     - Menu / theme / language lives in menu.js
-     - This file handles room UI, websocket flow, and voting UX.
-     - Consensus rule: if consensus -> hide median/range and do NOT mark outliers.
-     - Topic chip (variant 3) + compact editor below participants.
-     ============================================================= */
-
-  // --- Basic room state (server can overwrite via WS) ------------
+  // ======================= Game logic ============================
   let participantName   = /*[[${participantName}]]*/ "Guest";
   let roomCode          = /*[[${roomCode}]]*/ "demo";
   let selectedCard      = null;
@@ -142,10 +99,8 @@
   let currentSequenceId = 'fib-scrum';
   let currentDeckSig    = "";
 
-  // Client-side participation (optimistic UI)
   let myParticipating   = true;
 
-  // i18n strings used inside JS
   const TXT_AVG            = /*[[#{label.average}]]*/ 'Avg:';
   const TXT_CONS           = /*[[#{label.consensus}]]*/ 'Consensus:';
   const TXT_MEDIAN         = /*[[#{label.median}]]*/ 'Median:';
@@ -163,18 +118,13 @@
   const TXT_TOPIC_SAVED    = /*[[#{topic.saved}]]*/ 'Topic saved';
   const TXT_TOPIC_CLEARED  = /*[[#{topic.cleared}]]*/ 'Topic cleared';
 
-  // Host-controlled flags (server overwrites on first state)
   let autoRevealEnabled = false;
-  let topicVisible      = true;  // page section visibility
-  let editingTopic      = false; // local UI state
+  let topicVisible      = true;
+  let editingTopic      = false;
 
-  // Specials set (kept in sync with backend)
   const SPECIALS = new Set(["❓","💬","☕"]);
-
-  // Deck catalog for tooltips in the menu (filled either by WS or /sequences)
   const SEQ_CATALOG = Object.create(null);
 
-  // --- Sequence deck tooltip helpers ---------------------------------------
   function formatDeckForTooltip(cards){
     if (!Array.isArray(cards)) return '';
     const specials = cards.filter(c => SPECIALS.has(String(c)));
@@ -204,19 +154,16 @@
     });
   }
 
-  // --- Card rendering + interaction ----------------------------------------
   function addCardButton(grid, val){
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.setAttribute('data-card', val);
     btn.textContent = val;
-
     btn.addEventListener('click', () => {
       if (!myParticipating) { showToast(TXT_OBS_NO_PICK); return; }
       if (votesRevealed)    { return; }
       sendVote(val);
     });
-
     grid.appendChild(btn);
   }
   function deckSig(arr){ return Array.isArray(arr) ? arr.join("|") : ""; }
@@ -230,14 +177,12 @@
 
     area.innerHTML = '';
 
-    const grid = document.createElement('div');
-    grid.className = 'card-grid';
+    const grid = document.createElement('div'); grid.className = 'card-grid';
     regular.forEach(val => addCardButton(grid, val));
     area.appendChild(grid);
 
     if (specials.length){
-      const sgrid = document.createElement('div');
-      sgrid.className = 'card-grid';
+      const sgrid = document.createElement('div'); sgrid.className = 'card-grid';
       specials.forEach(val => addCardButton(sgrid, val));
       area.appendChild(sgrid);
     }
@@ -261,7 +206,6 @@
     });
   }
 
-  // --- Host-sensitive controls (enable/disable + hints) --------------------
   function syncSequenceUI(){
     const radios = document.querySelectorAll('#seqChoice input[name="seq"]');
     radios.forEach(r => {
@@ -276,21 +220,17 @@
     const row = document.getElementById('autoRevealRow');
     const st  = document.getElementById('arStatus');
     const cb  = document.getElementById('autoRevealToggle');
-
     if (st) st.textContent = autoRevealEnabled ? TXT_ON : TXT_OFF;
-
     if (cb) {
       cb.checked = autoRevealEnabled;
       cb.setAttribute('aria-checked', autoRevealEnabled ? 'true' : 'false');
       cb.disabled = !isHost;
     }
     if (row) row.classList.toggle('disabled', !isHost);
-
     const hint = document.getElementById('arHint');
     if (hint) hint.style.display = isHost ? 'none' : 'block';
   }
 
-  // --- Topic UI: visibility + host-only actions + edit mode ----------------
   function syncTopicToggleUI(){
     const row = document.getElementById('topicToggleRow');
     const cb  = document.getElementById('topicToggle');
@@ -307,22 +247,18 @@
     if (row) row.classList.toggle('disabled', !isHost);
     if (hi)  hi.style.display = isHost ? 'none' : 'block';
 
-    // Reflect visibility in the page
     const chipRow = document.getElementById('topicChipRow');
     if (chipRow) chipRow.style.display = topicVisible ? 'flex' : 'none';
 
-    // Actions are host-only; editor shown only while editing
     const actions = document.getElementById('topicActions');
     const form    = document.getElementById('topicFormCompact');
     if (actions) actions.hidden = !isHost;
     if (form)    form.hidden    = !isHost || !editingTopic;
   }
 
-  // Update the chip text/link and set a full-text tooltip
   function updateTopicDisplay(label, url){
     const chip = document.getElementById('topicChip');
     if (!chip) return;
-
     chip.innerHTML = '';
     if (!label && !url) {
       chip.textContent = '—';
@@ -339,22 +275,16 @@
     }
   }
 
-  // Parse a single input (URL or key/text) into {label, url}
   function parseTopicInput(raw){
     if (!raw) return { label:null, url:null };
     const s = String(raw).trim();
-
-    // URL?
     if (/^https?:\/\//i.test(s)) {
-      // Try to extract a ticket key like ABC-123 from URL as label
       const m = s.match(/[A-Z][A-Z0-9]+-\d+/);
       return { label: (m ? m[0] : s), url: s };
     }
-    // Plain key/text -> label only
     return { label: s, url: null };
   }
 
-  // Participation toggle (client-side UX + server call)
   function syncParticipationUI(on){
     const st  = document.getElementById('partStatus');
     const cb  = document.getElementById('participationToggle');
@@ -369,26 +299,19 @@
     highlightSelectedCard();
   }
 
-  // --- DOM ready: wire UI handlers -----------------------------------------
   document.addEventListener('DOMContentLoaded', () => {
     syncSequenceUI();
     syncAutoRevealUI();
     syncTopicToggleUI();
 
-    // Sequence change (host only)
     const seqChoice = document.getElementById('seqChoice');
     seqChoice?.addEventListener('change', (e)=>{
       const val = e.target?.value;
       if (!val) return;
-      if (!isHost) {
-        showToast(/*[[#{sequence.onlyHost}]]*/ 'Only the host can change the sequence');
-        syncSequenceUI();
-        return;
-      }
+      if (!isHost) { showToast(/*[[#{sequence.onlyHost}]]*/ 'Only the host can change the sequence'); syncSequenceUI(); return; }
       socket.send('setSequence:' + val);
     });
 
-    // Auto-Reveal switch (host only)
     const arRow = document.getElementById('autoRevealRow');
     const arToggle = document.getElementById('autoRevealToggle');
     arRow?.addEventListener('click', (e)=>{
@@ -397,12 +320,11 @@
     arToggle?.addEventListener('click', ()=>{
       if (!isHost) return;
       const next = !autoRevealEnabled;
-      autoRevealEnabled = next;           // optimistic UI
+      autoRevealEnabled = next;
       syncAutoRevealUI();
       socket.send('setAutoReveal:' + next);
     });
 
-    // Topic visibility switch (host only, in menu)
     const tvRow = document.getElementById('topicToggleRow');
     const tvCb  = document.getElementById('topicToggle');
     tvRow?.addEventListener('click', (e)=>{
@@ -411,12 +333,11 @@
     tvCb?.addEventListener('click', ()=>{
       if (!isHost) return;
       const next = !topicVisible;
-      topicVisible = next;                 // <<< optimistic: update local flag
-      syncTopicToggleUI();                 // <<< refresh label + checkbox immediately
+      topicVisible = next;                 // optimistic
+      syncTopicToggleUI();
       socket.send('setTopicVisible:' + next);
     });
 
-    // --- Topic editor wiring (host only) -----------------------------------
     const actions = document.getElementById('topicActions');
     const editBtn = document.getElementById('topicEditBtn');
     const clrBtn  = document.getElementById('topicClearBtn');
@@ -429,11 +350,7 @@
       if (!isHost) return;
       editingTopic = true;
       form.hidden = false;
-      if (inEl) {
-        inEl.value = prefillText || '';
-        inEl.focus();
-        inEl.select();
-      }
+      if (inEl) { inEl.value = prefillText || ''; inEl.focus(); inEl.select(); }
       syncTopicToggleUI();
     }
     function closeEditor(){
@@ -449,7 +366,6 @@
     });
     cancel?.addEventListener('click', closeEditor);
 
-    // Save via button
     saveBtn?.addEventListener('click', ()=>{
       if (!isHost) return;
       const { label, url } = parseTopicInput(inEl?.value || '');
@@ -459,7 +375,6 @@
       showToast(TXT_TOPIC_SAVED);
     });
 
-    // Enter-to-save on the input (no Shift/Meta)
     inEl?.addEventListener('keydown', (e)=>{
       if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
         e.preventDefault();
@@ -467,7 +382,6 @@
       }
     });
 
-    // Clear topic (host only)
     clrBtn?.addEventListener('click', ()=>{
       if (!isHost) return;
       socket.send('clearTopic');
@@ -475,15 +389,13 @@
       showToast(TXT_TOPIC_CLEARED);
     });
 
-    // Participation switch (everyone can toggle themselves)
     const partToggle = document.getElementById('participationToggle');
     partToggle?.addEventListener('click', ()=>{
       const next = !myParticipating;
-      syncParticipationUI(next);           // optimistic UX
+      syncParticipationUI(next);
       socket.send('setParticipating:' + next);
     });
 
-    // Prefill sequence tooltips (nice UX before first WS state lands)
     try {
       fetch('/sequences')
         .then(r => r.ok ? r.json() : null)
@@ -499,7 +411,6 @@
     } catch(e){}
   });
 
-  // --- WebSocket wiring ----------------------------------------------------
   const cid = (function(){
     try {
       const KEY = 'ep-cid';
@@ -522,7 +433,6 @@
     + "&cid=" + encodeURIComponent(cid);
   const socket = new WebSocket(socketUrl);
 
-  // Client-side keep-alive pings (helps against proxy/idle timeouts)
   const PING_INTERVAL_MS = 25000;
   let pingTimer = null;
   function startPing(){
@@ -543,14 +453,13 @@
   const MSG_HOST_YOU   = /*[[#{toast.youAreHost}]]*/ 'Host changed. You are now host!';
   const MSG_HOST_OTHER = /*[[#{toast.hostOther}]]*/ 'Host changed. {new} is now host.';
 
-  socket.onopen = () => { startPing(); };
+  socket.onopen  = () => { startPing(); };
   socket.onclose = () => { stopPing(); };
-  socket.onerror = () => {}; // no-op; optional toast could be added
+  socket.onerror = () => {};
 
   socket.onmessage = (event) => {
     const data = JSON.parse(event.data);
 
-    // Identity ping: addressed to THIS tab only
     if (data.type === 'you' && typeof data.yourName === 'string') {
       if (!data.cid || data.cid === cid) {
         if (data.yourName !== participantName) {
@@ -562,13 +471,11 @@
       return;
     }
 
-    // Participant snapshot outside of voteUpdate
     if (Array.isArray(data.participants) && data.type !== "voteUpdate") {
       const revealed = !!data.votesRevealed;
       updateParticipantList(data.participants, revealed);
     }
 
-    // Deck changes
     if (data.sequenceId) {
       const newSig = deckSig(data.cards);
       const needRerender = (currentSequenceId !== data.sequenceId) || (newSig && newSig !== currentDeckSig);
@@ -585,13 +492,11 @@
       }
     }
 
-    // Optional: server can push all decks at once
     if (data.sequences && typeof data === 'object') {
       Object.assign(SEQ_CATALOG, data.sequences);
       updateSequenceTooltips();
     }
 
-    // Legacy identity form (still gated by cid)
     if (typeof data.yourName === 'string' && data.cid && data.cid === cid) {
       if (data.yourName !== participantName) {
         participantName = data.yourName;
@@ -600,7 +505,6 @@
       }
     }
 
-    // Main room state diff
     if (data.type === "voteUpdate") {
       const prevVotesRevealed = votesRevealed;
       const participants = Array.isArray(data.participants) ? data.participants : [];
@@ -614,12 +518,10 @@
       syncSequenceUI();
       syncTopicToggleUI();
 
-      // Update my participation from server (source of truth)
       const me = participants.find(p => p.name === participantName);
       const serverParticipating = me ? (me.participating !== false) : true;
       syncParticipationUI(serverParticipating);
 
-      // Host-only buttons
       document.getElementById("revealButton").style.display = isHost && !votesRevealed ? "inline-block" : "none";
       document.getElementById("resetButton").style.display  = isHost && votesRevealed ? "inline-block"  : "none";
 
@@ -628,9 +530,7 @@
       if (closeBtn)  closeBtn.style.display  = isHost ? 'grid'  : 'none';
       if (closeHint) closeHint.style.display = isHost ? 'block' : 'none';
 
-      // Topic display from server state
       updateTopicDisplay(data.topicLabel || null, data.topicUrl || null);
-
       updateParticipantList(participants, votesRevealed);
 
       if (votesRevealed) {
@@ -667,10 +567,7 @@
         syncTopicToggleUI();
       }
 
-      showToast(newHost === participantName
-        ? MSG_HOST_YOU
-        : MSG_HOST_OTHER.replace('{new}', newHost)
-      );
+      showToast(newHost === participantName ? MSG_HOST_YOU : MSG_HOST_OTHER.replace('{new}', newHost));
 
     } else if (data.type === "kicked") {
       try { localStorage.setItem('ep-toast', TXT_KICKED); } catch(e) {}
@@ -681,9 +578,8 @@
       const target = data.redirect || "/";
       location.replace(target);
     }
-  }; // end socket.onmessage
+  };
 
-  // --- Host-only: close room -----------------------------------------------
   document.addEventListener('DOMContentLoaded', () => {
     const closeBtn = document.getElementById('closeRoomBtn');
     closeBtn?.addEventListener('click', () => {
@@ -693,7 +589,6 @@
     });
   });
 
-  // --- Vote helpers ---------------------------------------------------------
   function sendVote(cardValue) {
     if (!myParticipating) { showToast(TXT_OBS_NO_PICK); return; }
     if (votesRevealed) return;
@@ -701,32 +596,14 @@
     selectedCard = cardValue;
     highlightSelectedCard();
   }
-  function clearCardSelection(){
-    selectedCard = null;
-    try { localStorage.removeItem('selectedCard'); } catch(e){}
-    highlightSelectedCard();
-  }
-  function highlightSelectedCard() {
-    document.querySelectorAll(".card-grid button").forEach(btn => {
-      const card = btn.getAttribute("data-card");
-      const isSelected = myParticipating && !votesRevealed && (card === selectedCard);
-      btn.classList.toggle("selected", isSelected);
-    });
-  }
+  function clearCardSelection(){ selectedCard = null; try { localStorage.removeItem('selectedCard'); } catch(e){} highlightSelectedCard(); }
+  function highlightSelectedCard() { document.querySelectorAll(".card-grid button").forEach(btn => { const card = btn.getAttribute("data-card"); const isSelected = myParticipating && !votesRevealed && (card === selectedCard); btn.classList.toggle("selected", isSelected); }); }
   function revealCards() { if (isHost) socket.send("revealCards"); }
   function resetRoom()   { if (isHost) socket.send("resetRoom"); clearCardSelection(); }
 
-  // --- Host transfer & kick -------------------------------------------------
-  function transferHost(name){
-    if (!isHost || !name || name === participantName) return;
-    socket.send("transferHost:" + name);
-  }
-  function kick(name){
-    if (!isHost || !name || name === participantName) return;
-    socket.send("kick:" + name);
-  }
+  function transferHost(name){ if (!isHost || !name || name === participantName) return; socket.send("transferHost:" + name); }
+  function kick(name){ if (!isHost || !name || name === participantName) return; socket.send("kick:" + name); }
 
-  // --- Participant list renderer -------------------------------------------
   function updateParticipantList(participants, revealed) {
     const list = document.getElementById("liveParticipantList");
     if (!list) return;
@@ -751,7 +628,6 @@
       rightWrap.className = "row-right";
 
       if (revealed) {
-        // Keep observer icon after reveal (no dash chip)
         if (p.participating === false) {
           const status = document.createElement("span");
           status.className = "status-icon observer";
@@ -763,10 +639,8 @@
           const v = p.vote != null ? String(p.vote) : null;
           const n = v != null ? parseVoteNumeric(v) : null;
           const isNumeric = n != null;
-
           voteChip.textContent = v != null ? v : "—";
           voteChip.dataset.val = v != null ? v : "";
-
           if (isNumeric) {
             voteChip.dataset.num = String((Math.round(n * 1000) / 1000).toFixed(3));
           } else {
@@ -800,8 +674,7 @@
 
       if (isHost && !p.isHost && p.name !== participantName) {
         const mk = document.createElement("button");
-        mk.type = "button";
-        mk.className = "row-action host";
+        mk.type = "button"; mk.className = "row-action host";
         mk.setAttribute("aria-label", TXT_MAKE_HOST + ": " + p.name);
         mk.setAttribute("data-tooltip", TXT_MAKE_HOST);
         const ic = document.createElement("span"); ic.className = "ra-icon";  ic.textContent = "👑";
@@ -811,8 +684,7 @@
         actions.appendChild(mk);
 
         const kb = document.createElement("button");
-        kb.type = "button";
-        kb.className = "row-action kick";
+        kb.type = "button"; kb.className = "row-action kick";
         kb.setAttribute("aria-label", TXT_KICK + ": " + p.name);
         kb.setAttribute("data-tooltip", TXT_KICK);
         const ic2 = document.createElement("span"); ic2.className = "ra-icon"; ic2.textContent = "❌";
@@ -840,34 +712,17 @@
     const maxTextWidth = names.reduce((m, el) => Math.max(m, el.offsetWidth || 0), 0);
     list.style.setProperty("--name-text-col", Math.ceil(maxTextWidth) + "px");
   }
-  window.addEventListener("resize", () => {
-    clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(measureAndSetNameColumn, 150);
-  });
+  window.addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(measureAndSetNameColumn, 150); });
 
-  // --- Average / consensus + stats (median/range/outliers) ------------------
-  function updateAverage(avg) {
-    const avgSpan = document.getElementById("averageVote");
-    if (avgSpan) avgSpan.textContent = avg != null ? avg : "-";
-  }
-
-  function setConsensusUI(on){
-    const row = document.getElementById('resultRow');
-    const lbl = document.getElementById('resultLabel');
-    if (!row || !lbl) return;
-    lbl.textContent = on ? TXT_CONS : TXT_AVG;
-    row.classList.toggle('consensus', !!on);
-  }
+  function updateAverage(avg) { const avgSpan = document.getElementById("averageVote"); if (avgSpan) avgSpan.textContent = avg != null ? avg : "-"; }
+  function setConsensusUI(on){ const row = document.getElementById('resultRow'); const lbl = document.getElementById('resultLabel'); if (!row || !lbl) return; lbl.textContent = on ? TXT_CONS : TXT_AVG; row.classList.toggle('consensus', !!on); }
 
   function parseVoteNumeric(s){
     if (!s) return null;
     s = String(s).trim();
     if (SPECIALS.has(s)) return null;
     if (s === "½" || s === "1/2" || s === "0,5") return 0.5;
-    if (/^\d+\s*\/\s*\d+$/.test(s)) {
-      const [a,b] = s.split("/").map(x=>parseFloat(x.replace(',','.')));
-      return b ? (a/b) : null;
-    }
+    if (/^\d+\s*\/\s*\d+$/.test(s)) { const [a,b] = s.split("/").map(x=>parseFloat(x.replace(',','.'))); return b ? (a/b) : null; }
     const n = parseFloat(s.replace(',','.'));
     return Number.isFinite(n) ? n : null;
   }
@@ -875,7 +730,6 @@
   function hasConsensus(participants){
     const active = participants.filter(p => !p.disconnected && p.participating !== false);
     if (!active.length) return false;
-
     const nums = [];
     for (const p of active) {
       if (p.vote == null) return false;
@@ -886,19 +740,9 @@
     return nums.every(v => v === nums[0]);
   }
 
-  function applyConsensusUI(isOn){
-    setConsensusUI(isOn);
-    if (isOn) {
-      updateStatsUI(null);   // hide median + range
-      markOutliers(null);    // remove any outlier highlighting
-    }
-  }
+  function applyConsensusUI(isOn){ setConsensusUI(isOn); if (isOn) { updateStatsUI(null); markOutliers(null); } }
 
-  function fmt(n){
-    if (n == null || !Number.isFinite(n)) return "-";
-    const r = Math.round(n * 100) / 100;
-    return Number.isInteger(r) ? String(r) : String(r);
-  }
+  function fmt(n){ if (n == null || !Number.isFinite(n)) return "-"; const r = Math.round(n * 100) / 100; return Number.isInteger(r) ? String(r) : String(r); }
 
   function computeStats(participants){
     const nums = [];
@@ -909,25 +753,15 @@
       }
     }
     if (nums.length < 1) return null;
-
     const a = nums.slice().sort((x,y)=>x-y);
     const min = a[0], max = a[a.length-1];
-
     let median;
-    if (a.length % 2 === 1) {
-      median = a[(a.length-1)/2];
-    } else {
-      median = (a[a.length/2 - 1] + a[a.length/2]) / 2;
-    }
-
+    if (a.length % 2 === 1) { median = a[(a.length-1)/2]; }
+    else { median = (a[a.length/2 - 1] + a[a.length/2]) / 2; }
     const mean = a.reduce((s,v)=>s+v,0)/a.length;
     const deltas = a.map(v => Math.abs(v - mean));
     const maxDelta = Math.max(...deltas);
-    const outlierNums = new Set(
-      a.filter((v)=>Math.abs(v-mean) === maxDelta)
-       .map(v => String((Math.round(v*1000)/1000).toFixed(3)))
-    );
-
+    const outlierNums = new Set(a.filter((v)=>Math.abs(v-mean) === maxDelta).map(v => String((Math.round(v*1000)/1000).toFixed(3))));
     return { median, rangeMin: min, rangeMax: max, outlierNums };
   }
 
@@ -939,40 +773,20 @@
     const rLbl  = document.getElementById('rangeLabel');
     const mVal  = document.getElementById('medianVote');
     const rVal  = document.getElementById('rangeVote');
-
     if (!mWrap || !rWrap || !rVal || !mLbl || !rLbl) return;
-
-    if (!stats) {
-      mWrap.hidden = true;
-      rWrap.hidden = true;
-      rSep.hidden  = true;
-      return;
-    }
-
-    mLbl.textContent = TXT_MEDIAN;
-    rLbl.textContent = TXT_RANGE;
-
+    if (!stats) { mWrap.hidden = true; rWrap.hidden = true; rSep.hidden  = true; return; }
+    mLbl.textContent = TXT_MEDIAN; rLbl.textContent = TXT_RANGE;
     mVal.textContent = fmt(stats.median);
     rVal.textContent = fmt(stats.rangeMin) + "–" + fmt(stats.rangeMax);
-
-    mWrap.hidden = false;
-    rWrap.hidden = false;
-    rSep.hidden  = false;
+    mWrap.hidden = false; rWrap.hidden = false; rSep.hidden  = false;
   }
 
   function markOutliers(outlierNums){
-    document.querySelectorAll('.vote-chip.outlier').forEach(el => {
-      el.classList.remove('outlier');
-      el.removeAttribute('data-tooltip');
-    });
+    document.querySelectorAll('.vote-chip.outlier').forEach(el => { el.classList.remove('outlier'); el.removeAttribute('data-tooltip'); });
     if (!outlierNums || !outlierNums.size) return;
-
     document.querySelectorAll('#liveParticipantList .vote-chip[data-num]').forEach(chip=>{
       const norm = chip.getAttribute('data-num');
-      if (outlierNums.has(norm)) {
-        chip.classList.add('outlier');
-        chip.setAttribute('data-tooltip', TXT_OUTLIER_HINT);
-      }
+      if (outlierNums.has(norm)) { chip.classList.add('outlier'); chip.setAttribute('data-tooltip', TXT_OUTLIER_HINT); }
     });
   }
 
@@ -985,10 +799,8 @@
   function showResults(participants, avg) {
     toggleView(true);
     updateAverage(avg);
-
     const consensus = hasConsensus(participants);
     applyConsensusUI(consensus);
-
     if (!consensus) {
       const stats = computeStats(participants);
       updateStatsUI(stats);
@@ -996,7 +808,6 @@
     }
   }
 
-  // --- Tiny toast -----------------------------------------------------------
   function showToast(message) {
     const toast = document.createElement("div");
     toast.className = "toast";
@@ -1005,19 +816,32 @@
     setTimeout(() => toast.remove(), 3000);
   }
 
-  // --- Invite/copy: deep-link next to room code -----------------------------
   (function(){
     const copyBtn = document.getElementById('copyRoomLink');
     const TXT_LINK_COPIED = /*[[#{invite.linkCopied}]]*/ 'Link copied to clipboard';
     const TXT_COPY_FAILED = /*[[#{notify.copyFailed}]]*/ 'Copy failed';
-
     function deepLink(){ return location.origin + "/room?roomCode=" + encodeURIComponent(roomCode); }
-    async function copyText(text){
-      try{ await navigator.clipboard.writeText(text); showToast(TXT_LINK_COPIED); }
-      catch(e){ showToast(TXT_COPY_FAILED); }
-    }
+    async function copyText(text){ try{ await navigator.clipboard.writeText(text); showToast(TXT_LINK_COPIED); } catch(e){ showToast(TXT_COPY_FAILED); } }
     copyBtn?.addEventListener('click', ()=>copyText(deepLink()));
   })();
+
+  // --- Deliberate leave handling (close tab or navigate away) ---------------
+  // On pagehide/beforeunload, send a final 'bye' and close with code 4100 so the server
+  // can transfer host after the short (2s) disconnect grace instead of waiting 90s.
+  let leavingPage = false;
+  function handlePageLeaving(){
+    if (leavingPage) return;
+    leavingPage = true;
+    try {
+      if (socket && socket.readyState === WebSocket.OPEN) {
+        try { socket.send("bye:navigate"); } catch(e){}
+        socket.close(4100, "navigate"); // custom code recognized server-side
+      }
+    } catch(e){}
+  }
+  window.addEventListener('pagehide', handlePageLeaving);
+  window.addEventListener('beforeunload', handlePageLeaving);
+
   </script>
 </body>
 </html>
