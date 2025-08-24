@@ -39,7 +39,7 @@ public final class CardSequences {
         // Fibonacci (Scrum – without 100)
         "fib-scrum", List.of("1","2","3","5","8","13","20","40"),
         // Fibonacci (Scrum enhanced – includes 0, ½ and 100)
-        "fib-enh",   List.of("0","½","1","2","3","5","8","13","20","40","100"),
+        "fib-enh",   List.of("0","½","1","2","3","5","8","13","20","40","100","\u221E"),
         // Powers of two – up to 128 (consistent with previous Room.java)
         "pow2",      List.of("2","4","8","16","32","64","128"),
         // T-Shirt sizes
