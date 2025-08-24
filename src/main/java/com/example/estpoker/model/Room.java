@@ -212,4 +212,5 @@ public class Room {
     // === Auto-Reveal getter/setter ===
     public synchronized boolean isAutoRevealEnabled() { return autoRevealEnabled; }
     public synchronized void setAutoRevealEnabled(boolean on) { this.autoRevealEnabled = on; }
+
 }

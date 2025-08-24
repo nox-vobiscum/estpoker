@@ -341,11 +341,35 @@
     highlightSelectedCard();
   }
 
+  // -- Close-Room-Button Host-Governance: always visible; disabled for non-host
+  function applyHostPermissionsToCloseButton(isHost) {
+    const btn = document.getElementById('closeRoomBtn');
+    if (!btn) return;
+
+    // Make it visible regardless of role
+    btn.style.display = 'grid';
+
+    if (isHost) {
+      btn.removeAttribute('disabled');
+      btn.removeAttribute('aria-disabled');
+      btn.removeAttribute('title');
+      btn.classList.remove('disabled');
+    } else {
+      btn.setAttribute('disabled', 'disabled');
+      btn.setAttribute('aria-disabled', 'true');
+      btn.classList.add('disabled');
+      // Reuse existing i18n string (no new keys)
+      btn.setAttribute('title', TXT_AR_ONLY_HOST);
+    }
+  }
+
   // --- DOM ready: wire UI handlers -----------------------------------------
   document.addEventListener('DOMContentLoaded', () => {
     syncSequenceUI();
     syncAutoRevealUI();
     syncTopicToggleUI();
+    // Ensure "Close room" is visible immediately and correctly gated by role
+    applyHostPermissionsToCloseButton(isHost);
 
     // Sequence change (host only)
     const seqChoice = document.getElementById('seqChoice');
@@ -529,9 +553,9 @@
       document.getElementById("revealButton").style.display = isHost && !votesRevealed ? "inline-block" : "none";
       document.getElementById("resetButton").style.display  = isHost && votesRevealed ? "inline-block"  : "none";
 
-      const closeBtn  = document.getElementById('closeRoomBtn');
+      // NEW: always show Close Room button, disable for non-host
+      applyHostPermissionsToCloseButton(isHost);
       const closeHint = document.getElementById('closeHint');
-      if (closeBtn)  closeBtn.style.display  = isHost ? 'grid'  : 'none';
       if (closeHint) closeHint.style.display = isHost ? 'block' : 'none';
 
       // Topic display from server state
@@ -563,9 +587,10 @@
 
         document.getElementById("revealButton").style.display = isHost && !votesRevealed ? "inline-block" : "none";
         document.getElementById("resetButton").style.display  = isHost && votesRevealed ? "inline-block"  : "none";
-        const closeBtn  = document.getElementById('closeRoomBtn');
+
+        // NEW: always show Close Room button, disable for non-host
+        applyHostPermissionsToCloseButton(isHost);
         const closeHint = document.getElementById('closeHint');
-        if (closeBtn)  closeBtn.style.display  = isHost ? 'grid'  : 'none';
         if (closeHint) closeHint.style.display = isHost ? 'block' : 'none';
 
         syncSequenceUI();
@@ -593,7 +618,7 @@
   document.addEventListener('DOMContentLoaded', () => {
     const closeBtn = document.getElementById('closeRoomBtn');
     closeBtn?.addEventListener('click', () => {
-      if (!isHost) return;
+      if (!isHost) return; // optional: showToast(TXT_AR_ONLY_HOST);
       const ok = confirm(/*[[#{room.close.confirm}]]*/ "Close this room for everyone now?");
       if (ok) socket.send("closeRoom");
     });

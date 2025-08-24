@@ -181,8 +181,9 @@
         <div class="menu-group" th:if="${showRoom}">
           <div class="group-title" th:text="#{menu.room}">Room</div>
 
-          <!-- Use ❌ explicitly (works reliably on iOS too) -->
-          <button id="closeRoomBtn" class="menu-item danger" type="button" style="display:none;">
+          <!-- Use ❌ explicitly (works reliably on iOS too).
+               Now visible by default; JS in room.html will disable for non-host. -->
+          <button id="closeRoomBtn" class="menu-item danger" type="button">
             <span class="mi-icon" aria-hidden="true">❌</span>
             <span th:text="#{room.close}">Close room for everyone</span>
           </button>
