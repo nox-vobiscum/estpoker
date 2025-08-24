@@ -67,6 +67,7 @@
       </div>
     </div>
 
+    <!-- You suggested removing the "Choose a card" label; keeping the element but you can delete it if desired -->
     <h2 id="selectCardHeader" th:text="#{label.selectCard}">Choose a card:</h2>
 
     <div class="pre-vote">
@@ -104,6 +105,9 @@
               th:text="#{button.reset}" onclick="resetRoom()">Start new round</button>
     </div>
   </div>
+
+  <!-- Footer (fixed bottom) -->
+  <div th:replace="~{fragments/footer :: footer}"></div>
 
   <!-- Central scripts (must be before inline JS so defer-order is correct) -->
   <th:block th:replace="~{fragments/scripts :: scripts}"></th:block>
@@ -284,23 +288,17 @@
   }
 
   function applyTopicUI(){
-    // menu status label
     const st = document.getElementById('topicStatus');
     if (st) st.textContent = topicVisible ? TXT_ON : TXT_OFF;
 
-    const row  = document.getElementById('topicRow');   // compact line
-    const edit = document.getElementById('topicEdit');  // editor
+    const row  = document.getElementById('topicRow');
+    const edit = document.getElementById('topicEdit');
     const editBtn  = document.getElementById('topicEditBtn');
     const clrBtn   = document.getElementById('topicClearBtn');
 
-    // Row is only visible for everyone if topicVisible = true
     if (row)  row.style.display  = topicVisible ? 'grid' : 'none';
-
-    // Host-only controls
     if (editBtn) editBtn.style.display = isHost ? 'inline-flex' : 'none';
     if (clrBtn)  clrBtn.style.display  = isHost ? 'inline-flex' : 'none';
-
-    // Editor shown only to host when editing
     if (edit) edit.style.display = (isHost && isEditingTopic) ? 'grid' : 'none';
   }
 
@@ -349,7 +347,7 @@
     arRow?.addEventListener('click', (e)=>{ if (!isHost) { e.preventDefault(); e.stopPropagation(); showToast(TXT_AR_ONLY_HOST); }});
     arToggle?.addEventListener('click', ()=>{ if (isHost) socket.send('setAutoReveal:' + !autoRevealEnabled); });
 
-    // Topic visibility toggle (host only) – controlled in menu
+    // Topic visibility toggle (host only)
     const tvRow = document.getElementById('topicToggleRow');
     const tvCb  = document.getElementById('topicToggle');
     tvRow?.addEventListener('click', (e)=>{ if (!isHost) { e.preventDefault(); e.stopPropagation(); showToast(TXT_AR_ONLY_HOST); }});
@@ -365,17 +363,12 @@
     editBtn?.addEventListener('click', ()=>{ if (!isHost) return; isEditingTopic = true; applyTopicUI(); inEl?.focus(); });
     cancel?.addEventListener('click', ()=>{ isEditingTopic = false; applyTopicUI(); });
 
-    // Save: send to server AND update UI optimistically (bugfix)
     saveBtn?.addEventListener('click', ()=>{
       if (!isHost) return;
       const { label, url } = parseTopicInput(inEl?.value || '');
       const enc = encodeURIComponent(label || '') + '|' + encodeURIComponent(url || '');
       socket.send('setTopic:' + enc);
-      // Optimistic UI so the field updates immediately
-      updateTopicDisplay(label || null, url || null);
-      topicVisible = true;          // keep row visible after saving
       isEditingTopic = false;
-      applyTopicUI();
       if (inEl) inEl.value = '';
       showToast(TXT_TOPIC_SAVED);
     });
@@ -385,8 +378,6 @@
     clearBtn?.addEventListener('click', ()=>{
       if (!isHost) return;
       socket.send('clearTopic');
-      // Optimistic clear to avoid perceived lag
-      updateTopicDisplay(null, null);
       showToast(TXT_TOPIC_CLEARED);
     });
 
@@ -394,7 +385,7 @@
     const partToggle = document.getElementById('participationToggle');
     partToggle?.addEventListener('click', ()=>{ const next = !myParticipating; syncParticipationUI(next); socket.send('setParticipating:' + next); });
 
-    // Prefill sequence tooltips (nice to have)
+    // Prefill sequence tooltips
     try {
       fetch('/sequences').then(r => r.ok ? r.json() : null).then(json => {
         if (!json) return;
@@ -496,7 +487,7 @@
       syncAutoRevealUI();
       syncSequenceUI();
 
-      // Update topic readout + visibility (server truth)
+      // Update topic readout + visibility
       updateTopicDisplay(data.topicLabel || null, data.topicUrl || null);
       applyTopicUI();
 

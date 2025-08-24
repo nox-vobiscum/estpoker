@@ -53,6 +53,9 @@
   --host-pill-bdr-dark: rgba(59, 130, 246, .55);
   --kick-pill-bg-dark:  rgba(239, 68, 68, .18);
   --kick-pill-bdr-dark: rgba(239, 68, 68, .55);
+
+  /* Footer height for fixed footer spacing */
+  --footer-h: 38px;
 }
 
 /* ---------- Light mode overrides ---------- */
@@ -95,6 +98,7 @@ body {
   color: var(--text);
   font-family: Consolas, monospace;
   padding: 2rem;
+  padding-bottom: calc(2rem + var(--footer-h)); /* reserve space for fixed footer */
   margin: 0;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -157,25 +161,18 @@ strong { color: var(--text-strong); }
   background: var(--panel-2);
   border: 1px solid var(--border);
   border-radius: 10px;
-  /* more room below participants */
-  margin: 1rem 0 1rem !important;
+  margin: .9rem 0 1.2rem; /* a bit more air above/below */
 }
 .topic-label{
   white-space: nowrap;
   color: var(--text-strong);
 }
 .topic-text{
-  display:inline-block;
-  /* Less dominant: normal weight & slightly smaller than participant names */
-  font-weight: 400;
-  font-size: .95rem;
-  color: var(--text);
-  padding:.15rem .45rem;
-  border-radius: 6px;
-  background: var(--panel);
+  display:inline-block; font-weight:500; color: var(--text); /* toned down */
+  padding:.15rem .45rem; border-radius: 6px; background: var(--panel);
   border: 1px solid var(--border);
-  min-height: 26px;
-  line-height: 1.3;
+  min-height: 26px; line-height: 1.3;
+  font-size: .92rem; /* slightly smaller than names */
 }
 .topic-text a{ color: inherit; text-decoration: none; }
 .topic-text a:hover{ text-decoration: underline; }
@@ -186,7 +183,7 @@ strong { color: var(--text-strong); }
   grid-template-columns: 1fr max-content;
   gap: 8px;
   align-items: center;
-  margin: 1rem 0 1rem !important;
+  margin: .4rem 0 1rem;
 }
 .topic-input{
   height: 36px;
@@ -635,6 +632,26 @@ li{ margin-bottom:.4rem; line-height:1.5; font-size:1rem; }
 }
 .switch-control:disabled{ opacity:.6; cursor:not-allowed; }
 
+/* ---------- Footer (fixed) ---------- */
+.app-footer{
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  height: var(--footer-h);
+  display: grid;
+  place-items: center;
+  padding: 6px 10px;
+  background: var(--panel);
+  border-top: 1px solid var(--border);
+  z-index: 100;
+}
+.app-footer .footer-text{
+  font-size: 11px;
+  color: var(--text-dim);
+  text-align: center;
+}
+.app-footer a{ color: inherit; text-decoration: underline; }
+.app-footer a:hover{ text-decoration: none; }
+
 /* ---------- QR Overlay (if used) ---------- */
 .qr-overlay{ position:fixed; inset:0; z-index:1200; }
 .qr-backdrop{ position:absolute; inset:0; background:rgba(0,0,0,0.55); backdrop-filter: blur(2px); }
@@ -664,7 +681,7 @@ li{ margin-bottom:.4rem; line-height:1.5; font-size:1rem; }
 
 /* ---------- Responsive tweaks ---------- */
 @media (max-width: 600px){
-  body{ padding:1rem; }
+  body{ padding:1rem; padding-bottom: calc(1rem + var(--footer-h)); }
   h2{ font-size:.92rem; margin:.9rem 0 .6rem; }
 
   .card-grid{ grid-template-columns: repeat(4, minmax(0, 1fr)); gap:6px; }
@@ -722,7 +739,7 @@ li{ margin-bottom:.4rem; line-height:1.5; font-size:1rem; }
 .row-action.host{ background: var(--host-pill-bg-dark); border-color: var(--host-pill-bdr-dark); color:#e8f0ff; }
 .row-action.kick{ background: var(--kick-pill-bg-dark); border-color: var(--kick-pill-bdr-dark); color:#ffe7e7; }
 .row-action.host:hover{ box-shadow:0 0 0 2px rgba(59,130,246,.20); }
-.row-action.kick:hover{ box-shadow:0 0 0 2px rgba(239, 68, 68,.18); }
+.row-action.kick:hover{ box-shadow: 0 0 0 2px rgba(239, 68, 68,.18); }
 
 .row-action.host:focus-visible{ outline:none; box-shadow:0 0 0 3px rgba(59,130,246,.35); }
 .row-action.kick:focus-visible{ outline:none; box-shadow:0 0 0 3px rgba(239, 68, 68,.35); }
@@ -735,37 +752,25 @@ li{ margin-bottom:.4rem; line-height:1.5; font-size:1rem; }
 }
 :root[data-theme="light"] .row-action.kick:hover{ background:#FECACA; }
 
-/* iOS: round icon buttons, hide text labels (Host/Kick + Topic buttons) */
+/* ---------- Brand mark (optional) ---------- */
+.brandmark{ vertical-align:-3px; margin-right:8px; width:22px; height:22px; }
+
+/* ---------- iOS Safari tweaks for pills ---------- */
 @supports (-webkit-touch-callout: none){
   .row-action{
-    width: 40px;
-    height: 40px;
-    padding: 0;
-    border-radius: 50%;
-    -webkit-appearance: none;
-    appearance: none;
-    background-clip: padding-box;
-    display: inline-flex;
-    justify-content: center;
-    align-items: center;
-    line-height: 1;
+    width: 40px; height: 40px; padding: 0; border-radius: 50%;
+    -webkit-appearance: none; appearance: none; background-clip: padding-box;
+    display: inline-flex; justify-content: center; align-items: center; line-height: 1;
   }
-  .row-action .ra-label{
-    display: none !important; /* show icon only on iOS */
-  }
+  .row-action .ra-label{ display: none !important; }
   .row-action .ra-icon{
-    width: 1em;
-    height: 1em;
-    font-size: 20px;
-    line-height: 1;
-    transform: translateY(.5px);
+    width: 1em; height: 1em; font-size: 20px; line-height: 1; transform: translateY(.5px);
     font-family: "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",system-ui,sans-serif;
   }
-  /* keep alignment rules */
   #liveParticipantList .row-right > .row-action:first-of-type{ margin-left: auto; }
   #liveParticipantList .row-right :where(.status-icon, .vote-chip) ~ .row-action:first-of-type{ margin-left: auto; }
 }
 
-@media (max-width: 600px){
-  .row-action .ra-label{ display:none; }
+@media (max-width: 600px) and (-webkit-touch-callout: none){
+  #liveParticipantList .row-right{ gap:6px; }
 }
