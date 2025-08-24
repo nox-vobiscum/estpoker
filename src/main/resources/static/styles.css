@@ -735,24 +735,37 @@ li{ margin-bottom:.4rem; line-height:1.5; font-size:1rem; }
 }
 :root[data-theme="light"] .row-action.kick:hover{ background:#FECACA; }
 
-/* ---------- Brand mark (optional) ---------- */
-.brandmark{ vertical-align:-3px; margin-right:8px; width:22px; height:22px; }
-
-/* ---------- iOS Safari tweaks for pills ---------- */
+/* iOS: round icon buttons, hide text labels (Host/Kick + Topic buttons) */
 @supports (-webkit-touch-callout: none){
-  #liveParticipantList .row-action{
-    width:40px; height:40px; padding:0; border-radius:50%;
-    -webkit-appearance:none; appearance:none; background-clip: padding-box; line-height:1; justify-content:center;
+  .row-action{
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    border-radius: 50%;
+    -webkit-appearance: none;
+    appearance: none;
+    background-clip: padding-box;
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    line-height: 1;
   }
-  #liveParticipantList .row-action .ra-icon{
-    width:1em; height:1em; font-size:20px; line-height:1; transform: translateY(.5px);
+  .row-action .ra-label{
+    display: none !important; /* show icon only on iOS */
+  }
+  .row-action .ra-icon{
+    width: 1em;
+    height: 1em;
+    font-size: 20px;
+    line-height: 1;
+    transform: translateY(.5px);
     font-family: "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",system-ui,sans-serif;
   }
-  #liveParticipantList .row-action.host{ border-color: rgba(59,130,246,.60); box-shadow: 0 1px 6px rgba(59,130,246,.25); }
-  #liveParticipantList .row-action.kick{ border-color: rgba(239,68,68,.60); box-shadow: 0 1px 6px rgba(239,68,68,.25); }
-  #liveParticipantList .row-right > .row-action:first-of-type{ margin-left:auto; }
-  #liveParticipantList .row-right :where(.status-icon, .vote-chip) ~ .row-action:first-of-type{ margin-left:auto; }
+  /* keep alignment rules */
+  #liveParticipantList .row-right > .row-action:first-of-type{ margin-left: auto; }
+  #liveParticipantList .row-right :where(.status-icon, .vote-chip) ~ .row-action:first-of-type{ margin-left: auto; }
 }
-@media (max-width: 600px) and (-webkit-touch-callout: none){
-  #liveParticipantList .row-right{ gap:6px; }
+
+@media (max-width: 600px){
+  .row-action .ra-label{ display:none; }
 }
