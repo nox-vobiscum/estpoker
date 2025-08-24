@@ -279,7 +279,12 @@ strong { color: var(--text-strong); }
 }
 .menu-item:hover{ background: var(--panel-2-hover); border-color: var(--accent); box-shadow: 0 0 0 2px rgba(0,122,204,0.12); }
 .menu-item.disabled { opacity: .55; cursor: not-allowed; }
-.menu-item .mi-icon{ font-size:18px; line-height:1; }
+.menu-item .mi-icon{
+  font-size: 18px;
+  line-height: 1;
+  font-family: "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",system-ui,sans-serif;
+}
+
 
 /* Language split flag */
 .flag-split{

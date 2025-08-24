@@ -115,12 +115,12 @@
         <!-- Room actions (room only) -->
         <div class="menu-group" th:if="${showRoom}">
           <div class="group-title" th:text="#{menu.room}">Room</div>
-          <button id="closeRoomBtn" class="menu-item danger" type="button" style="display:none;">
-            <span class="mi-icon" aria-hidden="true">🗙</span>
-            <span th:text="#{room.close}">Close room for everyone</span>
-          </button>
+           <button id="closeRoomBtn" class="menu-item danger" type="button" style="display:none;">
+              <span class="mi-icon" aria-hidden="true">❌</span>
+              <span th:text="#{room.close}">Close room for everyone</span>
+            </button>
           <p id="closeHint" class="hint" style="display:none;" th:text="#{room.close.hint}">
-            Closes this room for all participants and returns to the start page.
+          Closes this room for all participants and returns to the start page.
           </p>
         </div>
       </div>
