@@ -31,30 +31,28 @@
       </dd>
     </dl>
 
-    <!-- Topic / Ticket (host can edit; visibility is host-controlled via menu toggle) -->
-    <section id="topicArea" class="topic-area" style="display:none;">
-      <h2 class="topic-title">
-        <span class="mi-icon" aria-hidden="true">📝</span>
-        <span th:text="#{label.topic}">Ticket/Story</span>
-      </h2>
-
-      <!-- Current topic display (link when URL is set) -->
-      <p id="topicDisplay" class="topic-display">—</p>
-
-      <!-- Host-only editor row -->
-      <div id="topicForm" class="topic-form" hidden>
-        <input id="topicInput"
-               class="input"
-               type="text"
-               th:attr="placeholder=#{topic.placeholder}"
-               placeholder="Paste JIRA link or type key (e.g., RBSEP-123)…">
-        <button id="topicSaveBtn"  class="button" type="button" th:text="#{button.saveTopic}">Save</button>
-        <button id="topicClearBtn" class="button ghost" type="button" th:text="#{button.clearTopic}">Clear</button>
-      </div>
-    </section>
-
     <h2 th:text="#{label.participants}">Participants</h2>
     <ul id="liveParticipantList"></ul>
+
+    <!-- Compact Topic chip row (below participants, above cards) -->
+    <div id="topicChipRow" class="topic-chip-row" style="display:none;">
+      <div id="topicDisplay" class="topic-chip">—</div>
+      <div class="topic-actions">
+        <button id="topicEditBtn"  class="button tiny" type="button" th:text="#{button.editTopic}">Edit</button>
+        <button id="topicClearBtn" class="button ghost tiny" type="button" th:text="#{button.clearTopic}">Clear</button>
+      </div>
+    </div>
+
+    <!-- Host-only compact editor; toggled by “Edit” -->
+    <div id="topicForm" class="topic-form compact" hidden>
+      <input id="topicInput"
+             class="input"
+             type="text"
+             th:attr="placeholder=#{topic.placeholder}"
+             placeholder="Paste JIRA link or type key (e.g., RBSEP-123)…">
+      <button id="topicSaveBtn" class="button tiny" type="button" th:text="#{button.saveTopic}">Save</button>
+      <button id="topicClearBtn_inline" class="button ghost tiny" type="button" th:text="#{button.clearTopic}">Clear</button>
+    </div>
 
     <h2 id="selectCardHeader" th:text="#{label.selectCard}">Choose a card:</h2>
 
@@ -102,7 +100,7 @@
      - Menu / theme / language lives in menu.js
      - This file handles room UI, websocket flow, and voting UX.
      - Consensus rule: if consensus -> hide median/range and do NOT mark outliers.
-     - NEW: Ticket/Story (Topic) area with host-only edit and host-only visibility toggle.
+     - NEW (Variant 3): compact Topic chip below participants, with Edit/Clear.
      ============================================================= */
 
   // --- Basic room state (server can overwrite via WS) -----------
@@ -137,8 +135,13 @@
   const TXT_TOPIC_CLEARED  = /*[[#{topic.cleared}]]*/ 'Topic cleared';
 
   // Host-controlled flags (server overwrites on first state)
-  let autoRevealEnabled = false;
-  let topicVisible      = true; // default true until server state arrives
+  let autoRevealEnabled   = false;
+  let topicVisible        = true; // visibility toggle from host (menu)
+  let topicEditOpen       = false; // local UI state (only for host)
+
+  // Current topic content (server is source of truth)
+  let currentTopicLabel   = null;
+  let currentTopicUrl     = null;
 
   // Specials set (kept in sync with backend)
   const SPECIALS = new Set(["❓","💬","☕"]);
@@ -245,6 +248,7 @@
     const hint = document.getElementById('seqHint');
     if (hint) hint.style.display = isHost ? 'none' : 'block';
   }
+
   function syncAutoRevealUI(){
     const row = document.getElementById('autoRevealRow');
     const st  = document.getElementById('arStatus');
@@ -263,67 +267,46 @@
     if (hint) hint.style.display = isHost ? 'none' : 'block';
   }
 
-  // --- Topic UI: show/hide area + host-only editor + menu toggle -----------
-  function syncTopicToggleUI(){
-    const row = document.getElementById('topicToggleRow');
-    const cb  = document.getElementById('topicToggle');
-    const st  = document.getElementById('topicStatus');
-    const hi  = document.getElementById('topicToggleHint');
+  // --- Topic helpers --------------------------------------------------------
+  function topicHasContent(){ return !!(currentTopicLabel || currentTopicUrl); }
 
-    if (st) st.textContent = topicVisible ? TXT_ON : TXT_OFF;
-
-    if (cb) {
-      cb.checked = topicVisible;
-      cb.setAttribute('aria-checked', topicVisible ? 'true' : 'false');
-      cb.disabled = !isHost;
-    }
-    if (row) row.classList.toggle('disabled', !isHost);
-    if (hi)  hi.style.display = isHost ? 'none' : 'block';
-
-    // Reflect visibility in the page
-    const area = document.getElementById('topicArea');
-    if (area) area.style.display = topicVisible ? 'block' : 'none';
-
-    // Editor row is host-only
-    const form = document.getElementById('topicForm');
-    if (form) form.hidden = !isHost;
-  }
-
-  // Update the readout (label + link) for current topic
   function updateTopicDisplay(label, url){
+    // Persist current content for UI logic
+    currentTopicLabel = label || null;
+    currentTopicUrl   = url   || null;
+
     const disp = document.getElementById('topicDisplay');
     if (!disp) return;
 
-    if (!label && !url) {
+    // Render chip text (link if URL present)
+    disp.innerHTML = '';
+    if (!topicHasContent()){
       disp.textContent = '—';
       return;
     }
-
-    // Build link or plain text
-    if (url) {
+    if (currentTopicUrl) {
       const a = document.createElement('a');
-      a.href = url; a.target = '_blank'; a.rel = 'noopener';
-      a.textContent = label || url;
-      disp.innerHTML = '';
+      a.href = currentTopicUrl; a.target = '_blank'; a.rel = 'noopener';
+      a.textContent = currentTopicLabel || currentTopicUrl;
       disp.appendChild(a);
     } else {
-      disp.textContent = label;
+      disp.textContent = currentTopicLabel;
     }
   }
 
-  // Parse a single input (URL or key/text) into {label, url}
-  function parseTopicInput(raw){
-    if (!raw) return { label:null, url:null };
-    const s = String(raw).trim();
-
-    // URL?
-    if (/^https?:\/\//i.test(s)) {
-      // Try to extract a ticket key like ABC-123 from URL as label
-      const m = s.match(/[A-Z][A-Z0-9]+-\d+/);
-      return { label: (m ? m[0] : s), url: s };
+  function syncTopicToggleUI(){
+    // Chip row visibility:
+    // - Non-host: only show if visible AND content exists.
+    // - Host: show whenever visible (so host can edit even if empty).
+    const chip = document.getElementById('topicChipRow');
+    if (chip) {
+      const showChip = !!(topicVisible && (isHost || topicHasContent()));
+      chip.style.display = showChip ? 'flex' : 'none';
     }
-    // Plain key/text -> label only
-    return { label: s, url: null };
+
+    // Editor (host-only) is a compact row toggled by "Edit"
+    const form = document.getElementById('topicForm');
+    if (form) form.hidden = !(isHost && topicVisible && topicEditOpen);
   }
 
   // --- Participation --------------------------------------------------------
@@ -345,10 +328,7 @@
   function applyHostPermissionsToCloseButton(isHost) {
     const btn = document.getElementById('closeRoomBtn');
     if (!btn) return;
-
-    // Make it visible regardless of role
     btn.style.display = 'grid';
-
     if (isHost) {
       btn.removeAttribute('disabled');
       btn.removeAttribute('aria-disabled');
@@ -358,7 +338,6 @@
       btn.setAttribute('disabled', 'disabled');
       btn.setAttribute('aria-disabled', 'true');
       btn.classList.add('disabled');
-      // Reuse existing i18n string (no new keys)
       btn.setAttribute('title', TXT_AR_ONLY_HOST);
     }
   }
@@ -368,62 +347,50 @@
     syncSequenceUI();
     syncAutoRevealUI();
     syncTopicToggleUI();
-    // Ensure "Close room" is visible immediately and correctly gated by role
     applyHostPermissionsToCloseButton(isHost);
 
-    // Sequence change (host only)
-    const seqChoice = document.getElementById('seqChoice');
-    seqChoice?.addEventListener('change', (e)=>{
-      const val = e.target?.value;
-      if (!val) return;
-      if (!isHost) {
-        showToast(/*[[#{sequence.onlyHost}]]*/ 'Only the host can change the sequence');
-        syncSequenceUI();
-        return;
+    // Topic: Edit toggles compact editor (host only)
+    const editBtn = document.getElementById('topicEditBtn');
+    editBtn?.addEventListener('click', ()=>{
+      if (!isHost) { showToast(TXT_AR_ONLY_HOST); return; }
+      topicEditOpen = !topicEditOpen;
+      syncTopicToggleUI();
+      if (topicEditOpen) {
+        const inp = document.getElementById('topicInput');
+        if (inp) { inp.value = currentTopicLabel || currentTopicUrl || ''; inp.focus(); }
       }
-      socket.send('setSequence:' + val);
     });
 
-    // Auto-Reveal switch (host only)
-    const arRow = document.getElementById('autoRevealRow');
-    const arToggle = document.getElementById('autoRevealToggle');
-    arRow?.addEventListener('click', (e)=>{
-      if (!isHost) { e.preventDefault(); e.stopPropagation(); showToast(TXT_AR_ONLY_HOST); }
-    });
-    arToggle?.addEventListener('click', ()=>{
-      if (!isHost) return;
-      const next = !autoRevealEnabled;
-      socket.send('setAutoReveal:' + next);
-    });
-
-    // Topic visibility switch (host only, in menu)
-    const tvRow = document.getElementById('topicToggleRow');
-    const tvCb  = document.getElementById('topicToggle');
-    tvRow?.addEventListener('click', (e)=>{
-      if (!isHost) { e.preventDefault(); e.stopPropagation(); showToast(TXT_AR_ONLY_HOST); }
-    });
-    tvCb?.addEventListener('click', ()=>{
-      if (!isHost) return;
-      const next = !topicVisible;
-      socket.send('setTopicVisible:' + next);
+    // Topic: Clear (chip button) – host only
+    const clrChip = document.getElementById('topicClearBtn');
+    clrChip?.addEventListener('click', ()=>{
+      if (!isHost) { showToast(TXT_AR_ONLY_HOST); return; }
+      socket.send('clearTopic');
+      showToast(TXT_TOPIC_CLEARED);
     });
 
     // Topic editor (host only)
     const inEl = document.getElementById('topicInput');
     const save = document.getElementById('topicSaveBtn');
-    const clr  = document.getElementById('topicClearBtn');
+    const clr2 = document.getElementById('topicClearBtn_inline');
 
     save?.addEventListener('click', ()=>{
       if (!isHost) return;
-      const { label, url } = parseTopicInput(inEl?.value || '');
+      const raw = inEl?.value || '';
+      const { label, url } = parseTopicInput(raw);
       const enc = encodeURIComponent(label || '') + '|' + encodeURIComponent(url || '');
       socket.send('setTopic:' + enc);
       if (inEl) inEl.value = '';
+      topicEditOpen = false;       // collapse after save
+      syncTopicToggleUI();
       showToast(TXT_TOPIC_SAVED);
     });
-    clr?.addEventListener('click', ()=>{
+
+    clr2?.addEventListener('click', ()=>{
       if (!isHost) return;
       socket.send('clearTopic');
+      topicEditOpen = false;
+      syncTopicToggleUI();
       showToast(TXT_TOPIC_CLEARED);
     });
 
@@ -450,6 +417,17 @@
         .catch(()=>{});
     } catch(e){}
   });
+
+  // --- Parse topic input (URL or key) --------------------------------------
+  function parseTopicInput(raw){
+    if (!raw) return { label:null, url:null };
+    const s = String(raw).trim();
+    if (/^https?:\/\//i.test(s)) {
+      const m = s.match(/[A-Z][A-Z0-9]+-\d+/);
+      return { label: (m ? m[0] : s), url: s };
+    }
+    return { label: s, url: null };
+  }
 
   // --- WebSocket wiring ----------------------------------------------------
   const cid = (function(){
@@ -540,6 +518,9 @@
 
       if (typeof data.autoRevealEnabled === 'boolean') autoRevealEnabled = data.autoRevealEnabled;
       if (typeof data.topicVisible      === 'boolean') topicVisible      = data.topicVisible;
+
+      // Topic content from server, then sync UI
+      updateTopicDisplay(data.topicLabel || null, data.topicUrl || null);
       syncAutoRevealUI();
       syncSequenceUI();
       syncTopicToggleUI();
@@ -553,13 +534,10 @@
       document.getElementById("revealButton").style.display = isHost && !votesRevealed ? "inline-block" : "none";
       document.getElementById("resetButton").style.display  = isHost && votesRevealed ? "inline-block"  : "none";
 
-      // NEW: always show Close Room button, disable for non-host
+      // Close Room button: always visible, disabled for non-host
       applyHostPermissionsToCloseButton(isHost);
       const closeHint = document.getElementById('closeHint');
       if (closeHint) closeHint.style.display = isHost ? 'block' : 'none';
-
-      // Topic display from server state
-      updateTopicDisplay(data.topicLabel || null, data.topicUrl || null);
 
       updateParticipantList(participants, votesRevealed);
 
@@ -588,11 +566,8 @@
         document.getElementById("revealButton").style.display = isHost && !votesRevealed ? "inline-block" : "none";
         document.getElementById("resetButton").style.display  = isHost && votesRevealed ? "inline-block"  : "none";
 
-        // NEW: always show Close Room button, disable for non-host
+        // Close Room button gating + topic chip/editor gating
         applyHostPermissionsToCloseButton(isHost);
-        const closeHint = document.getElementById('closeHint');
-        if (closeHint) closeHint.style.display = isHost ? 'block' : 'none';
-
         syncSequenceUI();
         syncAutoRevealUI();
         syncTopicToggleUI();
@@ -613,16 +588,6 @@
       location.replace(target);
     }
   }; // end socket.onmessage
-
-  // --- Host-only: close room -----------------------------------------------
-  document.addEventListener('DOMContentLoaded', () => {
-    const closeBtn = document.getElementById('closeRoomBtn');
-    closeBtn?.addEventListener('click', () => {
-      if (!isHost) return; // optional: showToast(TXT_AR_ONLY_HOST);
-      const ok = confirm(/*[[#{room.close.confirm}]]*/ "Close this room for everyone now?");
-      if (ok) socket.send("closeRoom");
-    });
-  });
 
   // --- Vote helpers ---------------------------------------------------------
   function sendVote(cardValue) {
@@ -951,7 +916,7 @@
   })();
   </script>
 
-  <!-- Inline toast + tiny topic styles -->
+  <!-- Inline toast-only styles (topic chip styles live in styles.css) -->
   <style>
     .toast{
       position:fixed;top:20px;right:20px;background-color:rgba(51,51,51,.95);color:#fff;
@@ -960,13 +925,6 @@
     }
     @keyframes fadein{to{opacity:.95;transform:translateY(0)}}
     @keyframes fadeout{to{opacity:0}}
-
-    .topic-area{margin:16px 0 20px; padding:12px 14px; border-radius:10px; background:var(--panel-bg, rgba(0,0,0,0.04))}
-    .topic-title{display:flex; align-items:center; gap:.5rem; margin:0 0 .5rem 0; font-size:1.1rem}
-    .topic-display{margin:.25rem 0 .75rem 0}
-    .topic-form{display:flex; gap:.5rem; align-items:center}
-    .topic-form .input{min-width:280px}
-    .button.ghost{background:transparent;border:1px solid currentColor;opacity:.8}
   </style>
 </body>
 </html>
