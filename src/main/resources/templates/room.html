@@ -37,15 +37,27 @@
 
     <!-- === Topic / Story (Variant 3) =======================================
          - Compact chip row shown between participants and card grid
-         - Host-only actions on the right (Edit / Clear)
+         - Host-only actions on the right (icon buttons)
          - Compact editor shown only when host + in edit mode
          - Visibility controlled via menu toggle (topicVisible)
          =================================================================== -->
     <div id="topicChipRow" class="topic-chip-row" style="display:none;">
       <div id="topicChip" class="topic-chip" data-tooltip="—">—</div>
       <div id="topicActions" class="topic-actions" hidden>
-        <button id="topicEditBtn"  class="button tiny" type="button" th:text="#{button.saveTopic}">Edit</button>
-        <button id="topicClearBtn" class="button tiny ghost" type="button" th:text="#{button.clearTopic}">Clear</button>
+        <!-- edit -->
+        <button id="topicEditBtn"
+                class="icon-button"
+                type="button"
+                aria-label="Edit topic"
+                data-tooltip="Edit">✏️</button>
+        <!-- clear -->
+        <button id="topicClearBtn"
+                class="icon-button"
+                type="button"
+                th:attr="aria-label=#{button.clearTopic}"
+                th:attrappend="data-tooltip=${#messages.msg('button.clearTopic')}"
+                aria-label="Clear topic"
+                data-tooltip="Clear topic">🧽</button>
       </div>
     </div>
 
@@ -55,8 +67,20 @@
              type="text"
              th:attr="placeholder=#{topic.placeholder}"
              placeholder="Paste JIRA link or type key (e.g., RBSEP-123)…">
-      <button id="topicSaveBtn"   class="button"       type="button" th:text="#{button.saveTopic}">Save</button>
-      <button id="topicCancelBtn" class="button ghost" type="button">Cancel</button>
+      <!-- save -->
+      <button id="topicSaveBtn"
+              class="icon-button"
+              type="button"
+              th:attr="aria-label=#{button.saveTopic}"
+              th:attrappend="data-tooltip=${#messages.msg('button.saveTopic')}"
+              aria-label="Save topic"
+              data-tooltip="Save">✅</button>
+      <!-- cancel -->
+      <button id="topicCancelBtn"
+              class="icon-button"
+              type="button"
+              aria-label="Cancel"
+              data-tooltip="Cancel">✖️</button>
     </div>
 
     <h2 id="selectCardHeader" th:text="#{label.selectCard}">Choose a card:</h2>
@@ -299,7 +323,6 @@
     const chip = document.getElementById('topicChip');
     if (!chip) return;
 
-    // Build text/link for the chip
     chip.innerHTML = '';
     if (!label && !url) {
       chip.textContent = '—';
@@ -374,6 +397,8 @@
     arToggle?.addEventListener('click', ()=>{
       if (!isHost) return;
       const next = !autoRevealEnabled;
+      autoRevealEnabled = next;           // optimistic UI
+      syncAutoRevealUI();
       socket.send('setAutoReveal:' + next);
     });
 
@@ -386,6 +411,8 @@
     tvCb?.addEventListener('click', ()=>{
       if (!isHost) return;
       const next = !topicVisible;
+      topicVisible = next;                 // <<< optimistic: update local flag
+      syncTopicToggleUI();                 // <<< refresh label + checkbox immediately
       socket.send('setTopicVisible:' + next);
     });
 
@@ -495,8 +522,30 @@
     + "&cid=" + encodeURIComponent(cid);
   const socket = new WebSocket(socketUrl);
 
+  // Client-side keep-alive pings (helps against proxy/idle timeouts)
+  const PING_INTERVAL_MS = 25000;
+  let pingTimer = null;
+  function startPing(){
+    stopPing();
+    pingTimer = setInterval(()=>{
+      if (socket && socket.readyState === WebSocket.OPEN) {
+        try { socket.send("ping:" + Date.now()); } catch(e){}
+      }
+    }, PING_INTERVAL_MS);
+  }
+  function stopPing(){ if (pingTimer) { clearInterval(pingTimer); pingTimer = null; } }
+  document.addEventListener('visibilitychange', ()=>{
+    if (document.visibilityState === 'visible' && socket.readyState === WebSocket.OPEN) {
+      try { socket.send("ping:" + Date.now()); } catch(e){}
+    }
+  });
+
   const MSG_HOST_YOU   = /*[[#{toast.youAreHost}]]*/ 'Host changed. You are now host!';
   const MSG_HOST_OTHER = /*[[#{toast.hostOther}]]*/ 'Host changed. {new} is now host.';
+
+  socket.onopen = () => { startPing(); };
+  socket.onclose = () => { stopPing(); };
+  socket.onerror = () => {}; // no-op; optional toast could be added
 
   socket.onmessage = (event) => {
     const data = JSON.parse(event.data);
