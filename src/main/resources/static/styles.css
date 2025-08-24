@@ -157,18 +157,25 @@ strong { color: var(--text-strong); }
   background: var(--panel-2);
   border: 1px solid var(--border);
   border-radius: 10px;
-  /* More breathing room below participant list; override inline fallback */
-  margin: 1rem 0 1rem !important; /* inline style in HTML gets overridden */
+  /* more room below participants */
+  margin: 1rem 0 1rem !important;
 }
 .topic-label{
   white-space: nowrap;
   color: var(--text-strong);
 }
 .topic-text{
-  display:inline-block; font-weight:700; color: var(--text-strong);
-  padding:.15rem .45rem; border-radius: 6px; background: var(--panel);
+  display:inline-block;
+  /* Less dominant: normal weight & slightly smaller than participant names */
+  font-weight: 400;
+  font-size: .95rem;
+  color: var(--text);
+  padding:.15rem .45rem;
+  border-radius: 6px;
+  background: var(--panel);
   border: 1px solid var(--border);
-  min-height: 26px; line-height: 1.3;
+  min-height: 26px;
+  line-height: 1.3;
 }
 .topic-text a{ color: inherit; text-decoration: none; }
 .topic-text a:hover{ text-decoration: underline; }
@@ -179,7 +186,6 @@ strong { color: var(--text-strong); }
   grid-template-columns: 1fr max-content;
   gap: 8px;
   align-items: center;
-  /* Match spacing with read-only row; override inline fallback */
   margin: 1rem 0 1rem !important;
 }
 .topic-input{

@@ -264,30 +264,14 @@
     if (hint) hint.style.display = isHost ? 'none' : 'block';
   }
 
-  // --- Topic UI: menu toggle + compact row/editor --------------------------
-  function syncTopicToggleUI(){
-    // Keep the menu switch, its label, and disabled state in sync with our local state.
-    const row = document.getElementById('topicToggleRow');
-    const cb  = document.getElementById('topicToggle');
-    const st  = document.getElementById('topicStatus');
-    const hi  = document.getElementById('topicToggleHint');
-
-    if (cb) {
-      cb.checked = !!topicVisible;
-      cb.setAttribute('aria-checked', cb.checked ? 'true' : 'false');
-      cb.disabled = !isHost;
-    }
-    // IMPORTANT: Label mirrors the actual visual switch (prevents "reversed" look)
-    if (st) st.textContent = (cb && cb.checked) ? TXT_ON : TXT_OFF;
-
-    if (row) row.classList.toggle('disabled', !isHost);
-    if (hi)  hi.style.display = isHost ? 'none' : 'block';
-  }
-
+  // --- Topic UI helpers -----------------------------------------------------
   function updateTopicDisplay(label, url){
     const disp = document.getElementById('topicDisplay');
     if (!disp) return;
-    if (!label && !url) { disp.textContent = '—'; return; }
+    if (!label && !url) {
+      disp.textContent = '—';
+      return;
+    }
     if (url) {
       const a = document.createElement('a');
       a.href = url; a.target = '_blank'; a.rel = 'noopener';
@@ -300,15 +284,16 @@
   }
 
   function applyTopicUI(){
-    // Always sync the menu toggle first so label/switch are correct
-    syncTopicToggleUI();
+    // menu status label
+    const st = document.getElementById('topicStatus');
+    if (st) st.textContent = topicVisible ? TXT_ON : TXT_OFF;
 
     const row  = document.getElementById('topicRow');   // compact line
     const edit = document.getElementById('topicEdit');  // editor
     const editBtn  = document.getElementById('topicEditBtn');
     const clrBtn   = document.getElementById('topicClearBtn');
 
-    // Row is visible for everyone iff topicVisible = true
+    // Row is only visible for everyone if topicVisible = true
     if (row)  row.style.display  = topicVisible ? 'grid' : 'none';
 
     // Host-only controls
@@ -348,7 +333,6 @@
   document.addEventListener('DOMContentLoaded', () => {
     syncSequenceUI();
     syncAutoRevealUI();
-    syncTopicToggleUI();
     applyTopicUI();
 
     // Sequence change (host only)
@@ -365,19 +349,11 @@
     arRow?.addEventListener('click', (e)=>{ if (!isHost) { e.preventDefault(); e.stopPropagation(); showToast(TXT_AR_ONLY_HOST); }});
     arToggle?.addEventListener('click', ()=>{ if (isHost) socket.send('setAutoReveal:' + !autoRevealEnabled); });
 
-    // Topic visibility toggle (host only) – menu switch with optimistic UI
+    // Topic visibility toggle (host only) – controlled in menu
     const tvRow = document.getElementById('topicToggleRow');
     const tvCb  = document.getElementById('topicToggle');
     tvRow?.addEventListener('click', (e)=>{ if (!isHost) { e.preventDefault(); e.stopPropagation(); showToast(TXT_AR_ONLY_HOST); }});
-    tvCb?.addEventListener('click', ()=>{
-      if (!isHost) return;
-      const next = !topicVisible;
-      // Optimistic update: reflect immediately in UI so label is never "reversed"
-      topicVisible = next;
-      syncTopicToggleUI();
-      applyTopicUI();
-      socket.send('setTopicVisible:' + next);
-    });
+    tvCb?.addEventListener('click', ()=>{ if (isHost) socket.send('setTopicVisible:' + !topicVisible); });
 
     // Topic editor wiring (host only)
     const inEl    = document.getElementById('topicInput');
@@ -389,12 +365,17 @@
     editBtn?.addEventListener('click', ()=>{ if (!isHost) return; isEditingTopic = true; applyTopicUI(); inEl?.focus(); });
     cancel?.addEventListener('click', ()=>{ isEditingTopic = false; applyTopicUI(); });
 
+    // Save: send to server AND update UI optimistically (bugfix)
     saveBtn?.addEventListener('click', ()=>{
       if (!isHost) return;
       const { label, url } = parseTopicInput(inEl?.value || '');
       const enc = encodeURIComponent(label || '') + '|' + encodeURIComponent(url || '');
       socket.send('setTopic:' + enc);
+      // Optimistic UI so the field updates immediately
+      updateTopicDisplay(label || null, url || null);
+      topicVisible = true;          // keep row visible after saving
       isEditingTopic = false;
+      applyTopicUI();
       if (inEl) inEl.value = '';
       showToast(TXT_TOPIC_SAVED);
     });
@@ -404,6 +385,8 @@
     clearBtn?.addEventListener('click', ()=>{
       if (!isHost) return;
       socket.send('clearTopic');
+      // Optimistic clear to avoid perceived lag
+      updateTopicDisplay(null, null);
       showToast(TXT_TOPIC_CLEARED);
     });
 
@@ -513,9 +496,8 @@
       syncAutoRevealUI();
       syncSequenceUI();
 
-      // Update topic readout + visibility
+      // Update topic readout + visibility (server truth)
       updateTopicDisplay(data.topicLabel || null, data.topicUrl || null);
-      syncTopicToggleUI();
       applyTopicUI();
 
       // Update my participation from server
@@ -553,7 +535,6 @@
         document.getElementById("resetButton").style.display  = isHost && votesRevealed ? "inline-block"  : "none";
         syncSequenceUI();
         syncAutoRevealUI();
-        syncTopicToggleUI();
         applyTopicUI();
       }
       showToast(newHost === participantName ? MSG_HOST_YOU : MSG_HOST_OTHER.replace('{new}', newHost));
