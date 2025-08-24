@@ -82,7 +82,7 @@ public class GameService {
      */
     public OptionalDouble calculateAverageVote(Room room) {
         List<String> votes = room.getParticipants().stream()
-                .filter(Participant::isParticipating)   // NEW: only participating users
+                .filter(Participant::isParticipating)
                 .map(Participant::getVote)
                 .filter(Objects::nonNull)
                 .collect(Collectors.toList());
@@ -101,7 +101,7 @@ public class GameService {
         if (room == null) return false;
         synchronized (room) {
             for (Participant p : room.getParticipants()) {
-                if (p.isActive() && p.isParticipating()) {   // NEW: only those who participate
+                if (p.isActive() && p.isParticipating()) {
                     String v = p.getVote();
                     if (v == null || !isValidVote(v)) {
                         return false;
@@ -162,7 +162,7 @@ public class GameService {
                 pData.put("vote", p.getVote());
                 pData.put("disconnected", !p.isActive());
                 pData.put("isHost", p.isHost());
-                pData.put("participating", p.isParticipating()); // NEW
+                pData.put("participating", p.isParticipating());
                 participants.add(pData);
             }
 
@@ -180,6 +180,10 @@ public class GameService {
 
             // Auto-Reveal Flag
             payload.put("autoRevealEnabled", room.isAutoRevealEnabled());
+
+            // Topic (Ticket/Story)
+            payload.put("topicLabel", room.getTopicLabel());
+            payload.put("topicUrl", room.getTopicUrl());
 
             String json = objectMapper.writeValueAsString(payload);
             broadcastToRoom(room, json);
@@ -202,7 +206,7 @@ public class GameService {
                 pData.put("vote", p.getVote());
                 pData.put("disconnected", !p.isActive());
                 pData.put("isHost", p.isHost());
-                pData.put("participating", p.isParticipating()); // NEW
+                pData.put("participating", p.isParticipating());
                 participants.add(pData);
             }
 
@@ -219,6 +223,10 @@ public class GameService {
             payload.put("cards", room.getCurrentCards());
 
             payload.put("autoRevealEnabled", room.isAutoRevealEnabled());
+
+            // Topic (Ticket/Story)
+            payload.put("topicLabel", room.getTopicLabel());
+            payload.put("topicUrl", room.getTopicUrl());
 
             String json = objectMapper.writeValueAsString(payload);
 
@@ -375,7 +383,7 @@ public class GameService {
         rooms.remove(room.getCode());
     }
 
-    /* ===== NEW: identity message only to the connecting session ===== */
+    /* ===== Identity message only to the connecting session ===== */
     public void sendIdentity(WebSocketSession session, String yourName, String cid) {
         try {
             Map<String, Object> payload = new HashMap<>();
@@ -390,5 +398,4 @@ public class GameService {
             e.printStackTrace();
         }
     }
-
 }

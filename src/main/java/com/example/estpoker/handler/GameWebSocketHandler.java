@@ -204,6 +204,38 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                     gameService.closeRoom(room);
                 }
             }
+
+        } else if (payload.startsWith("setTopic:")) {
+            // Format: setTopic:<label>|<url>  (URL-encoded components; url may be empty)
+            String rest = payload.substring("setTopic:".length());
+            String label = null;
+            String url   = null;
+            int sep = rest.indexOf('|');
+            if (sep >= 0) {
+                label = urlDecode(rest.substring(0, sep));
+                String u = urlDecode(rest.substring(sep + 1));
+                url = (u != null && !u.isBlank()) ? u : null;
+            } else {
+                label = urlDecode(rest);
+            }
+            String me = gameService.getParticipantName(session);
+            if (me != null) {
+                Participant p = room.getParticipant(me);
+                if (p != null && p.isHost()) {
+                    room.setTopic(label, url);
+                    gameService.broadcastRoomState(room);
+                }
+            }
+
+        } else if ("clearTopic".equals(payload)) {
+            String me = gameService.getParticipantName(session);
+            if (me != null) {
+                Participant p = room.getParticipant(me);
+                if (p != null && p.isHost()) {
+                    room.setTopic(null, null);
+                    gameService.broadcastRoomState(room);
+                }
+            }
         }
     }
 
@@ -221,9 +253,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         }
     }
 
-    /**
-     * Read a single query parameter from the WS URL and URL-decode it (UTF-8).
-     */
+    /** Read a single query parameter from the WS URL and URL-decode it (UTF-8). */
     private String getQueryParam(@NonNull WebSocketSession session, String key) {
         URI uri = session.getUri();
         if (uri == null || uri.getQuery() == null) return null;
@@ -238,5 +268,15 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             }
         }
         return null;
+    }
+
+    /** URL-decode helper for message parts. */
+    private String urlDecode(String s){
+        if (s == null) return null;
+        try {
+            return URLDecoder.decode(s, StandardCharsets.UTF_8);
+        } catch (Exception ignored) {
+            return s;
+        }
     }
 }

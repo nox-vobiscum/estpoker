@@ -22,6 +22,10 @@ public class Room {
     private String sequenceId = CardSequences.DEFAULT_SEQUENCE_ID;
     private List<String> currentCards = safeDeck(sequenceId);
 
+    // ===== Ticket / Story (Topic) =====
+    private String topicLabel; // e.g. "RBSEP-123" or free text
+    private String topicUrl;   // optional JIRA URL
+
     public Room(String code) { this.code = code; }
 
     /* ------------ Sequence helpers (delegation) ------------ */
@@ -46,6 +50,16 @@ public class Room {
     public synchronized String getSequenceId() { return sequenceId; }
     public synchronized List<String> getCurrentCards() { return new ArrayList<>(currentCards); }
 
+    /* ------------ Topic helpers ------------ */
+    public synchronized String getTopicLabel() { return topicLabel; }
+    public synchronized String getTopicUrl()   { return topicUrl; }
+
+    /** Set or clear the topic. Pass null/blank to clear fields. */
+    public synchronized void setTopic(String label, String url) {
+        this.topicLabel = (label == null || label.isBlank()) ? null : label.trim();
+        this.topicUrl   = (url == null || url.isBlank())       ? null : url.trim();
+    }
+
     /* ------------ Basic room info ------------ */
 
     public String getCode() { return code; }
@@ -69,7 +83,10 @@ public class Room {
 
     public synchronized void reset() {
         votesRevealed = false;
+        // Clear votes
         for (Participant p : participants) p.setVote(null);
+        // Clear topic per new round requirement
+        setTopic(null, null);
     }
 
     public synchronized void markInactive(String name) {

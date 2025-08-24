@@ -148,6 +148,52 @@ strong { color: var(--text-strong); }
 }
 .room-with-actions .icon-button { margin-left: 10px; }
 
+/* ---------- Topic row (Ticket/Story) ---------- */
+.topic-row{
+  display:grid;
+  grid-template-columns: max-content 1fr;
+  gap: 8px 10px;
+  align-items:center;
+  padding: 8px 10px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin-top: .6rem;
+}
+.topic-label{
+  white-space: nowrap;
+  color: var(--text-strong);
+}
+.topic-edit{
+  display: grid;
+  grid-template-columns: 1fr max-content;
+  gap: 8px;
+  align-items: center;
+}
+.topic-input{
+  height: 36px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--text);
+  padding: 0 .75rem;
+}
+.topic-actions{ display:flex; gap:6px; }
+.button-compact{ height: 32px; padding: 0 .8rem; border-radius: 10px; }
+.button-ghost{
+  height: 32px; padding: 0 .8rem; border-radius: 10px;
+  background: transparent; border: 1px solid var(--border); color: var(--text);
+}
+.button-ghost:hover{ background: var(--panel-hover); }
+
+.topic-view{ grid-column: 1 / -1; }
+.topic-link, .topic-text{
+  display:inline-block; font-weight:700; color: var(--text-strong);
+  padding:.15rem .45rem; border-radius: 6px; background: var(--panel);
+  border: 1px solid var(--border);
+}
+.topic-link:hover{ text-decoration: none; background: var(--panel-hover); }
+
 /* ---------- App menu: button ---------- */
 .menu-button {
   position: fixed;
@@ -173,39 +219,26 @@ strong { color: var(--text-strong); }
 /* ---------- App menu: overlay + panel (polished) ---------- */
 .hidden { display: none !important; }
 .menu-overlay { position: fixed; inset: 0; z-index: 1090; }
-/* optional: include bottom safe-area so gestures don’t occlude */
 .menu-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.45); backdrop-filter: blur(1px); padding-bottom: env(safe-area-inset-bottom); }
 :root[data-theme="light"] .menu-backdrop { background: rgba(0,0,0,0.25); }
 
 .menu-panel{
   position: absolute;
-  /* respect iOS top safe-area; small gap elsewhere */
   top: max(12px, env(safe-area-inset-top));
   right: 12px;
-
   width: min(440px, calc(100vw - 24px));
-
-  /* Fallback zuerst, dann dvh (überschreibt in modernen Browsern) */
-  max-height: calc(100vh - (max(12px, env(safe-area-inset-top)) + 12px));
-  /* dvh = dynamic viewport height (korrekt unter iOS Toolbars) */
   max-height: calc(100dvh - (max(12px, env(safe-area-inset-top)) + 12px));
-
   overflow-y: auto;
-  overflow-x: hidden;               /* no horizontal scroll */
+  overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
-
   background: var(--panel);
   color: var(--text);
   border: 1px solid var(--border);
   border-radius: 16px;
   box-shadow: 0 20px 40px rgba(0,0,0,.35);
-
-  /* bottom padding accounts for iOS home-indicator area */
   padding: 12px 12px calc(14px + env(safe-area-inset-bottom));
-
   animation: slideIn 180ms ease both;
 }
-
 @keyframes slideIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
 
 .menu-header{
@@ -287,7 +320,7 @@ strong { color: var(--text-strong); }
   box-shadow: 0 0 0 2px rgba(0,122,204,0.20);
 }
 
-/* Sequence radios (single column, one-line with ellipsis) */
+/* Sequence radios */
 .menu-choice.vertical{ flex-direction:column; gap:6px; }
 .radio-row{
   display:flex; align-items:center; gap:10px;
@@ -296,7 +329,7 @@ strong { color: var(--text-strong); }
   user-select:none;
   transition: background 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
   font-size:.9rem;
-  white-space: nowrap; overflow: hidden; /* keep in one line */
+  white-space: nowrap; overflow: hidden;
 }
 .radio-row input[type="radio"]{ width:16px; height:16px; accent-color: var(--accent); margin:0; flex:0 0 auto; }
 .radio-row span{ min-width:0; overflow:hidden; text-overflow:ellipsis; }
@@ -344,13 +377,11 @@ strong { color: var(--text-strong); }
 .icon-button:active{ transform: translateY(1px) scale(.98); }
 :root[data-theme="light"] .icon-button:hover{ box-shadow: 0 0 0 2px rgba(37,99,235,.12); }
 
-/* ---------- JS tooltip bubble (.tooltip) ----------
-   The app uses tooltip.js to create a single bubble; we style it here.
-   (We intentionally do NOT use CSS-only [data-tooltip] pseudo-tooltips.) */
+/* ---------- JS tooltip bubble (.tooltip) ---------- */
 .tooltip{
   position: absolute;
-  display: none;           /* shown by JS */
-  visibility: hidden;      /* JS toggles both for smoother placement */
+  display: none;
+  visibility: hidden;
   z-index: 2000;
   background: var(--panel);
   color: var(--text-strong);
@@ -450,7 +481,6 @@ button.selected{
 /* Hide any inline checkmark badge on cards */
 .card-grid .checkmark{ display:none !important; }
 
-
 /* card grid buttons for observers/spectators */
 .card-grid button:disabled {
   opacity: .55;
@@ -461,14 +491,12 @@ button.selected{
   box-shadow: none;
   transform: none !important;
 }
-
 .card-grid button:disabled:hover {
   background: var(--panel-2);
   border-color: var(--border);
   box-shadow: none;
   transform: none;
 }
-
 
 /* ---------- Participant list ---------- */
 ul{ list-style:none; padding:0; margin:0; }
@@ -502,8 +530,8 @@ li{ margin-bottom:.4rem; line-height:1.5; font-size:1rem; }
 
 /* Right block = status/vote left, actions pushed to right */
 .row-right{ display:flex; align-items:center; gap:6px; width:100%; }
-.row-right > .row-action:first-of-type{ margin-left:auto; } /* push first action to right */
-.row-right :where(.status-icon, .vote-chip) ~ .row-action:first-of-type{ margin-left:auto; } /* Safari-safe */
+.row-right > .row-action:first-of-type{ margin-left:auto; }
+.row-right :where(.status-icon, .vote-chip) ~ .row-action:first-of-type{ margin-left:auto; }
 .row-right .row-action + .row-action{ margin-left:8px; }
 .row-right .row-actions{ margin-left:auto; display:inline-flex; gap:6px; }
 
@@ -534,8 +562,8 @@ li{ margin-bottom:.4rem; line-height:1.5; font-size:1rem; }
 .vote-chip.outlier{
   position: relative;
   box-shadow:
-    0 0 0 3px rgba(255, 213, 79, .22),   /* warm outer ring */
-    inset 0 0 0 1px rgba(255, 213, 79, .55); /* crisp inner line */
+    0 0 0 3px rgba(255, 213, 79, .22),
+    inset 0 0 0 1px rgba(255, 213, 79, .55);
 }
 :root[data-theme="light"] .vote-chip.outlier{
   box-shadow:
@@ -570,7 +598,7 @@ li{ margin-bottom:.4rem; line-height:1.5; font-size:1rem; }
 @keyframes fadein{ to{ opacity:.95; transform: translateY(0);} }
 @keyframes fadeout{ to{ opacity:0; } }
 
-/* ---------- Menu switch control (works with :checked AND aria-checked) ---------- */
+/* ---------- Menu switch control ---------- */
 .menu-item.switch{ grid-template-columns: 28px 1fr max-content; align-items:center; }
 .switch-text{ display:flex; gap:6px; align-items:baseline; min-width:0; white-space:nowrap; }
 .switch-text strong{ max-width:60%; overflow:hidden; text-overflow:ellipsis; }
@@ -589,7 +617,6 @@ li{ margin-bottom:.4rem; line-height:1.5; font-size:1rem; }
   background:#fff; box-shadow:0 1px 2px rgba(0,0,0,.35);
   transition: transform 160ms ease;
 }
-/* checked or aria-checked=true show the ON state */
 .switch-control:checked,
 .switch-control[aria-checked="true"]{
   background: var(--accent);
@@ -652,6 +679,11 @@ li{ margin-bottom:.4rem; line-height:1.5; font-size:1rem; }
 
   ul li{ font-size: 1.05rem; line-height: 1.45; }
   .container h1:first-child{ margin-top: 1.2rem; }
+
+  /* Topic row fits single column on mobile */
+  .topic-row{ grid-template-columns: 1fr; }
+  .topic-label{ display:none; }
+  .topic-view{ margin-top: 4px; }
 
   /* Compact circular action pills; show icon only */
   .row-action{ width:36px; height:36px; padding:0; border-radius:50%; box-shadow: 0 2px 8px rgba(0,0,0,.20); }
