@@ -34,16 +34,27 @@ public class GameService {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    // --- Disconnect-Grace (~2s) ---
-    private static final long DISCONNECT_GRACE_MS = 2000L;
+    // --- Timers / Schedulers ---
     private final ScheduledExecutorService scheduler =
             Executors.newSingleThreadScheduledExecutor(r -> {
                 Thread t = new Thread(r, "disconnect-grace");
                 t.setDaemon(true);
                 return t;
             });
+
+    // --- Disconnect-Grace (~2s) for page refresh ---
+    private static final long DISCONNECT_GRACE_MS = 2000L;
+
+    // --- New: Host-transfer grace (avoid flapping) ---
+    private static final long HOST_TRANSFER_GRACE_MS = 90_000L;
+
+    // Keep track of pending disconnects & delayed host-transfers
     private final Map<String, ScheduledFuture<?>> pendingDisconnects = new ConcurrentHashMap<>();
+    private final Map<String, ScheduledFuture<?>> pendingHostTransfers = new ConcurrentHashMap<>();
     private static String key(Room room, String name) { return room.getCode() + "|" + name; }
+
+    // Optional: last heartbeat timestamp (can be used for diagnostics/metrics)
+    private final Map<String, Long> lastHeartbeat = new ConcurrentHashMap<>();
 
     public Room getOrCreateRoom(String roomCode) { return rooms.computeIfAbsent(roomCode, Room::new); }
     public Room getRoom(String roomCode) { return rooms.get(roomCode); }
@@ -73,6 +84,12 @@ public class GameService {
     public void resetVotes(String roomCode) {
         Room room = rooms.get(roomCode);
         if (room != null) room.reset();
+    }
+
+    /** Record heartbeat for a participant in a room (called on client 'ping'). */
+    public void recordHeartbeat(Room room, String participantName) {
+        if (room == null || participantName == null) return;
+        lastHeartbeat.put(key(room, participantName), System.currentTimeMillis());
     }
 
     /**
@@ -182,10 +199,10 @@ public class GameService {
             // Auto-Reveal flag
             payload.put("autoRevealEnabled", room.isAutoRevealEnabled());
 
-            // Topic (Ticket/Story) + visibility (NEW)
+            // Topic (Ticket/Story) + visibility
             payload.put("topicLabel", room.getTopicLabel());
             payload.put("topicUrl", room.getTopicUrl());
-            payload.put("topicVisible", room.isTopicVisible()); // <— NEW
+            payload.put("topicVisible", room.isTopicVisible());
 
             String json = objectMapper.writeValueAsString(payload);
             broadcastToRoom(room, json);
@@ -227,10 +244,10 @@ public class GameService {
 
             payload.put("autoRevealEnabled", room.isAutoRevealEnabled());
 
-            // Topic (Ticket/Story) + visibility (NEW)
+            // Topic (Ticket/Story) + visibility
             payload.put("topicLabel", room.getTopicLabel());
             payload.put("topicUrl", room.getTopicUrl());
-            payload.put("topicVisible", room.isTopicVisible()); // <— NEW
+            payload.put("topicVisible", room.isTopicVisible());
 
             String json = objectMapper.writeValueAsString(payload);
 
@@ -271,10 +288,17 @@ public class GameService {
         return all;
     }
 
-    // --- Disconnect-Grace Window ---
+    // --- Timer management helpers ---
+
     public void cancelPendingDisconnect(Room room, String participantName) {
         String k = key(room, participantName);
         ScheduledFuture<?> f = pendingDisconnects.remove(k);
+        if (f != null) f.cancel(false);
+    }
+
+    public void cancelPendingHostTransfer(Room room, String participantName) {
+        String k = key(room, participantName);
+        ScheduledFuture<?> f = pendingHostTransfers.remove(k);
         if (f != null) f.cancel(false);
     }
 
@@ -287,12 +311,15 @@ public class GameService {
         ScheduledFuture<?> f = scheduler.schedule(() -> {
             try {
                 Participant participant = room.getParticipant(participantName);
-                if (participant != null) participant.setActive(false);
-
-                String newHostName = room.assignNewHostIfNecessary(participantName);
-                if (newHostName != null) {
-                    broadcastHostChange(room, participantName, newHostName);
+                if (participant != null) {
+                    participant.setActive(false);
                 }
+
+                // Do not immediately transfer host on transient disconnects.
+                // Instead, delay host reassignment to avoid host flapping.
+                scheduleHostTransferIfStillInactive(room, participantName);
+
+                // Everyone sees updated "disconnected" state right away
                 broadcastRoomState(room);
             } finally {
                 pendingDisconnects.remove(k);
@@ -300,6 +327,35 @@ public class GameService {
         }, DISCONNECT_GRACE_MS, TimeUnit.MILLISECONDS);
 
         pendingDisconnects.put(k, f);
+    }
+
+    private void scheduleHostTransferIfStillInactive(Room room, String leavingName) {
+        if (room == null || leavingName == null) return;
+        String k = key(room, leavingName);
+
+        // Cancel any previous delayed host-transfer for this user
+        cancelPendingHostTransfer(room, leavingName);
+
+        ScheduledFuture<?> f = scheduler.schedule(() -> {
+            try {
+                Participant host = room.getHost();
+                // If the leaving participant was the host and is still inactive, transfer now
+                if (host != null && leavingName.equals(host.getName())) {
+                    Participant p = room.getParticipant(leavingName);
+                    if (p != null && !p.isActive()) {
+                        String newHostName = room.assignNewHostIfNecessary(leavingName);
+                        if (newHostName != null) {
+                            broadcastHostChange(room, leavingName, newHostName);
+                            broadcastRoomState(room);
+                        }
+                    }
+                }
+            } finally {
+                pendingHostTransfers.remove(k);
+            }
+        }, HOST_TRANSFER_GRACE_MS, TimeUnit.MILLISECONDS);
+
+        pendingHostTransfers.put(k, f);
     }
 
     // ===== kick participant (host only triggers via handler) =====
@@ -336,8 +392,9 @@ public class GameService {
             try { s.close(new CloseStatus(4001, "Kicked")); } catch (IOException ignored) {}
         }
 
-        // 2) cancel pending disconnects and remove from room
+        // 2) cancel pending timers and remove from room
         cancelPendingDisconnect(room, targetName);
+        cancelPendingHostTransfer(room, targetName);
         room.removeParticipant(targetName);
 
         // 3) if (unexpectedly) host -> find new host & notify
@@ -378,9 +435,10 @@ public class GameService {
             sessionToParticipantMap.remove(s);
         }
 
-        // 3) cancel pending disconnects
+        // 3) cancel pending timers
         for (Participant p : new ArrayList<>(room.getParticipants())) {
             cancelPendingDisconnect(room, p.getName());
+            cancelPendingHostTransfer(room, p.getName());
         }
 
         // 4) remove room from registry

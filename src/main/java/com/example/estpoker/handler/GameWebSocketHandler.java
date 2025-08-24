@@ -63,12 +63,16 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         // Remember mapping cid -> last known name for this room
         gameService.rememberClientName(roomCode, cid, participantName);
 
-        // Cancel any pending "disconnect grace" for this user
+        // Cancel any pending timers for this user (disconnect/host transfer)
         gameService.cancelPendingDisconnect(room, participantName);
+        gameService.cancelPendingHostTransfer(room, participantName);
 
         // Track the session -> room & session -> participant mappings
         gameService.addSession(session, room);
         gameService.trackParticipant(session, participantName);
+
+        // Record a heartbeat on connect (good initial lastSeen)
+        gameService.recordHeartbeat(room, participantName);
 
         // Tell only THIS session its authoritative name (prevents cross-tab rename)
         gameService.sendIdentity(session, participantName, cid);
@@ -83,6 +87,13 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         String payload = message.getPayload();
         Room room = gameService.getRoomForSession(session);
         if (room == null) return;
+
+        // === Lightweight heartbeat (keeps proxies/load balancers happy) ===
+        if (payload.startsWith("ping:")) {
+            String me = gameService.getParticipantName(session);
+            if (me != null) gameService.recordHeartbeat(room, me);
+            return; // never broadcast
+        }
 
         if (payload.startsWith("vote:")) {
             // FORMAT used to be "vote:<name>:<value>", but we IGNORE <name> to prevent spoofing.
@@ -244,8 +255,8 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                 Participant p = room.getParticipant(me);
                 if (p != null && p.isHost()) {
                     boolean visible = Boolean.parseBoolean(payload.substring("setTopicVisible:".length()));
-                    room.setTopicVisible(visible);          // requires new field + setter in Room
-                    gameService.broadcastRoomState(room);   // GameService will include topicVisible in payload
+                    room.setTopicVisible(visible);          // requires field + setter in Room
+                    gameService.broadcastRoomState(room);   // GameService includes topicVisible in payload
                 }
             }
         }
