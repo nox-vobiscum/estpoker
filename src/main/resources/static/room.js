@@ -1,7 +1,10 @@
-/* room.js — externalized room logic */
+/* D:\dev\estpoker\src\main\resources\static\room.js */
+/* room.js — externalized room logic (single IIFE, no inline HTML) */
 
 (() => {
-  // -------- Config aus <script data-*> ODER <body data-*> -----------
+  const TAG = '[ROOM]';
+
+  // --- config from <script data-*> OR <body data-*> ---
   function readConfig() {
     const script = document.currentScript || document.querySelector('script[src*="/room.js"]');
     const ds = (script && script.dataset) || {};
@@ -12,12 +15,9 @@
     };
   }
 
-  const TAG = '[ROOM]';
   const cfg = readConfig();
   let participantName = cfg.participantName;
   let roomCode        = cfg.roomCode;
-  window.__ep = { participantName, roomCode };
-  console.log(`${TAG} boot`, window.__ep);
 
   // --------------------------- State ---------------------------
   let selectedCard      = null;
@@ -28,25 +28,37 @@
   let currentDeckSig    = '';
   let myParticipating   = true;
 
-  // i18n Fallbacks
-  const TXT_AVG='Avg:', TXT_CONS='Consensus:', TXT_MEDIAN='Median:', TXT_RANGE='Range:';
-  const TXT_OUTLIER_HINT='Farthest from average', TXT_ON='On', TXT_OFF='Off';
-  const TXT_AR_ONLY_HOST='Only the host can change this setting.';
-  const TXT_MAKE_HOST='Make host', TXT_KICK='Kick', TXT_KICKED='The host has closed the room for you.';
-  const TXT_IM_IN="I'm estimating", TXT_OBSERVER='Observer', TXT_OBS_NO_PICK='As an observer you can’t pick a card.';
-  const MSG_HOST_YOU='Host changed. You are now host!', MSG_HOST_OTHER='Host changed. {new} is now host.';
+  const TXT_AVG = 'Avg:';
+  const TXT_CONS = 'Consensus:';
+  const TXT_MEDIAN = 'Median:';
+  const TXT_RANGE = 'Range:';
+  const TXT_OUTLIER_HINT = 'Farthest from average';
+  const TXT_ON = 'On';
+  const TXT_OFF = 'Off';
+  const TXT_AR_ONLY_HOST = 'Only the host can change this setting.';
+  const TXT_MAKE_HOST = 'Make host';
+  const TXT_KICK = 'Kick';
+  const TXT_KICKED = 'The host has closed the room for you.';
+  const TXT_IM_IN = "I'm estimating";
+  const TXT_OBSERVER = 'Observer';
+  const TXT_OBS_NO_PICK = 'As an observer you can’t pick a card.';
+  const MSG_HOST_YOU = 'Host changed. You are now host!';
+  const MSG_HOST_OTHER = 'Host changed. {new} is now host.';
 
-  let autoRevealEnabled=false, topicVisible=true, isEditingTopic=false;
+  let autoRevealEnabled = false;
+  let topicVisible      = true;
+  let isEditingTopic    = false;
+
   const SPECIALS = new Set(['❓','💬','☕']);
   const SEQ_CATALOG = Object.create(null);
 
   // ---------------------- UI helpers ----------------------
   function formatDeckForTooltip(cards){
-    if(!Array.isArray(cards)) return '';
-    const specials=cards.filter(c=>SPECIALS.has(String(c)));
-    const core=cards.filter(c=>!SPECIALS.has(String(c)));
-    const shown=core.slice(0,12), more=core.length>12?'…':'';
-    return shown.join(', ')+(more?' '+more:'')+(specials.length?`  (${specials.join(' ')})`:'');
+    if (!Array.isArray(cards)) return '';
+    const specials = cards.filter(c => SPECIALS.has(String(c)));
+    const core     = cards.filter(c => !SPECIALS.has(String(c)));
+    const max=12, shown=core.slice(0,max), more=core.length>max?'…':'';
+    return shown.join(', ') + (more?' '+more:'') + (specials.length?`  (${specials.join(' ')})`:'');
   }
   function updateSequenceTooltips(){
     document.querySelectorAll('#seqChoice .radio-row input[name="seq"]').forEach(inp=>{
@@ -67,7 +79,7 @@
     });
     grid.appendChild(btn);
   }
-  const deckSig = arr => Array.isArray(arr) ? arr.join('|') : '';
+  const deckSig = arr => Array.isArray(arr)?arr.join('|'):'';
 
   function renderCards(deck){
     const area=document.getElementById('cardsArea');
@@ -278,7 +290,7 @@
 
   // --------------------------- Boot ---------------------------
   function boot(){
-    console.info(`${TAG} boot …`);
+    console.info(`${TAG} boot`, { participantName, roomCode });
     connectWS();
 
     document.getElementById('seqChoice')?.addEventListener('change', e=>{
@@ -319,7 +331,10 @@
     const partToggle=document.getElementById('participationToggle');
     partToggle?.addEventListener('click', ()=>{ const next=!myParticipating; syncParticipationUI(next); socket?.send('setParticipating:'+next); });
 
-    // Prefill deck tooltips
+    document.getElementById('closeRoomBtn')?.addEventListener('click', ()=>{
+      if(isHost) socket?.send('closeRoom');
+    });
+
     try{
       fetch('/sequences').then(r=>r.ok?r.json():null).then(json=>{
         const obj = json?.sequences || json;
@@ -328,7 +343,11 @@
     }catch(e){}
   }
 
-  if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', boot); } else { boot(); }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot);
+  } else {
+    boot();
+  }
 
   // -------------------- Voting helpers & UI --------------------
   window.revealCards = () => { if (isHost) socket?.send('revealCards'); };
