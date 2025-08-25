@@ -58,21 +58,49 @@
       <div class="topic-actions">
         <button id="topicSaveBtn" class="row-action host" type="button"
                 th:attr="data-tooltip=#{button.saveTopic},aria-label=#{button.saveTopic}">
-          <span class="ra-icon">✅</span><span class="ra-label" th:text="#{button.saveTopic}">Save</span>
+          <span class="ra-icon">💾</span><span class="ra-label" th:text="#{button.saveTopic}">Save</span>
         </button>
         <button id="topicCancelBtn" class="row-action" type="button" data-tooltip="Cancel" aria-label="Cancel">
-          <span class="ra-icon">❌</span><span class="ra-label">Cancel</span>
+          <span class="ra-icon">✖</span><span class="ra-label">Cancel</span>
         </button>
       </div>
     </div>
 
-    <!-- Screenreader-only Label für den Kartenbereich -->
-    <span id="cardsLabel" class="sr-only" th:text="#{label.selectCard}">Choose a card</span>
+    <!-- Pre-Vote UI: Karten etc. -->
+    <div class="pre-vote">
+      <div id="seqChoice" class="seq-choice"></div>
+      <p id="seqHint" class="hint" th:text="#{hint.seqOnlyHost}">Only the host can change this.</p>
 
-    <div class="pre-vote" aria-labelledby="cardsLabel">
-      <div id="cardsArea"></div>
-      <button type="button" id="revealButton" class="button" style="display:none;"
-              th:text="#{button.reveal}" onclick="revealCards()"></button>
+      <div id="autoRevealRow" class="setting-row">
+        <span class="sr-label">Auto-reveal</span>
+        <span id="arStatus" class="sr-status">Off</span>
+        <label class="switch">
+          <input id="autoRevealToggle" type="checkbox" role="switch" aria-checked="false">
+          <span class="slider"></span>
+        </label>
+      </div>
+      <p id="arHint" class="hint" th:text="#{hint.autoRevealOnlyHost}">Only the host can change this setting.</p>
+
+      <div id="topicToggleRow" class="setting-row">
+        <span class="sr-label">Topic</span>
+        <span id="topicStatus" class="sr-status">On</span>
+        <label class="switch">
+          <input id="topicToggle" type="checkbox" role="switch" aria-checked="true">
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="card-grid" id="cardGrid"></div>
+
+      <div class="vote-actions">
+        <label class="switch">
+          <input id="participationToggle" type="checkbox" role="switch" aria-checked="true">
+          <span class="slider"></span>
+        </label>
+        <span id="partStatus" class="sr-status">I'm estimating</span>
+
+        <button type="button" id="revealButton" class="button" style="display:none;"
+                th:text="#{button.reveal}" onclick="revealCards()"></button>
     </div>
 
     <div class="post-vote" style="display:none;">
@@ -91,7 +119,7 @@
           <span id="medianVote" class="value">–</span>
         </span>
 
-        <span class="sep" aria-hidden="true" id="rangeSep" hidden> • </span>
+        <span id="rangeSep" class="sep" hidden aria-hidden="true"> • </span>
 
         <span id="rangeWrap" class="stat" hidden>
           <span id="rangeLabel" class="label" th:text="#{label.range}">Range:</span>
@@ -107,14 +135,12 @@
   <!-- Gemeinsame Skripte (Tooltip etc.) -->
   <th:block th:replace="~{fragments/scripts :: scripts}"></th:block>
 
-  <!-- Room-Logik (extern) – Daten via data-* am Script, Cache-Bust per v=6 -->
+  <!-- Room-Logik (extern) – Daten via data-* am Script -->
   <script defer th:src="@{/room.js?v=8}"
         th:attr="data-participant=${participantName},data-room=${roomCode}"></script>
-  
-  
+  <!-- Diagnose: minimaler WS-Handshake-Test -->
   <script defer src="/js/ws-probe.js"></script>
 
-
-  <div th:replace="~{fragments/footer :: appFooter}"></div>
+  <div th:replace="~{fragments/footer :: footer}"></div>
 </body>
 </html>
