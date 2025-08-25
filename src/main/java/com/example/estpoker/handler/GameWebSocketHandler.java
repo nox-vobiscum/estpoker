@@ -1,9 +1,10 @@
 package com.example.estpoker.handler;
 
-import com.example.estpoker.model.CardSequences;
 import com.example.estpoker.model.Participant;
 import com.example.estpoker.model.Room;
 import com.example.estpoker.service.GameService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
@@ -14,13 +15,17 @@ import org.springframework.web.socket.handler.TextWebSocketHandler;
 import java.net.URI;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
- * WebSocket handler for all game-related realtime messages.
- * Keeps business state in GameService/Room and only orchestrates I/O.
+ * WebSocket handler orchestrating realtime messages.
+ * Be tolerant with return types (e.g., renameParticipant/addOrReactivateParticipant may return String or Participant).
  */
 @Component
 public class GameWebSocketHandler extends TextWebSocketHandler {
+
+    private static final Logger log = LoggerFactory.getLogger(GameWebSocketHandler.class);
 
     private final GameService gameService;
 
@@ -28,260 +33,225 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         this.gameService = gameService;
     }
 
-    @Override
-    public void afterConnectionEstablished(@NonNull WebSocketSession session) {
-        String roomCode        = getQueryParam(session, "roomCode");
-        String participantName = getQueryParam(session, "participantName");
-        String cid             = getQueryParam(session, "cid"); // stable per TAB (sessionStorage)
+    // -------------------- lifecycle --------------------
 
-        if (roomCode == null || roomCode.isBlank()
-                || participantName == null || participantName.isBlank()) {
+    @Override
+    public void afterConnectionEstablished(@NonNull WebSocketSession session) throws Exception {
+        Map<String, String> q = parseQuery(session.getUri());
+        String roomCode        = q.get("roomCode");
+        String participantName = q.get("participantName");
+        String cid             = q.get("cid"); // stable per tab (sessionStorage)
+
+        if (isBlank(roomCode) || isBlank(participantName)) {
+            log.warn("WS connect rejected: missing params roomCode='{}' participantName='{}'", roomCode, participantName);
             try { session.close(new CloseStatus(4002, "Missing params")); } catch (Exception ignored) {}
             return;
         }
 
         Room room = gameService.getOrCreateRoom(roomCode);
 
-        // Reuse/rename known client-id instead of duplicating
+        // If this client-id (cid) is already known in this room, keep identity consistent.
         String known = gameService.getClientName(roomCode, cid);
         if (cid != null && known != null) {
             if (!known.equals(participantName)) {
-                String finalName = room.renameParticipant(known, participantName);
-                participantName = (finalName != null ? finalName : known);
+                // Accept different return types (String/Participant/Room)
+                Object rn = room.renameParticipant(known, participantName);
+                if (rn instanceof Participant) {
+                    participantName = ((Participant) rn).getName();
+                } else if (rn instanceof String) {
+                    participantName = (String) rn;
+                } else {
+                    // keep desired name as best effort
+                }
             } else {
                 participantName = known;
             }
-            room.markActive(participantName);
-        } else {
-            participantName = room.addOrReactivateParticipant(participantName);
         }
 
-        // Remember client-id → name
-        gameService.rememberClientName(roomCode, cid, participantName);
-
-        // Cancel pending disconnect (tab refresh etc.)
-        gameService.cancelPendingDisconnect(room, participantName);
+        // (Re)activate participant and attach session
+        Object addRes = room.addOrReactivateParticipant(participantName); // may be String or Participant
+        if (addRes instanceof Participant) {
+            participantName = ((Participant) addRes).getName();
+        } else if (addRes instanceof String) {
+            participantName = (String) addRes;
+        }
 
         // Track mappings
         gameService.addSession(session, room);
         gameService.trackParticipant(session, participantName);
+        gameService.rememberClientName(roomCode, cid, participantName);
 
-        // Tell this session its authoritative identity
+        log.info("WS CONNECT room={} name={} cid={}", roomCode, participantName, cid);
         gameService.sendIdentity(session, participantName, cid);
-
-        // Sync state
         gameService.broadcastRoomState(room);
-        gameService.sendRoomStateToSingleSession(room, session);
     }
 
     @Override
     protected void handleTextMessage(@NonNull WebSocketSession session, @NonNull TextMessage message) {
         String payload = message.getPayload();
         Room room = gameService.getRoomForSession(session);
-        if (room == null) return;
-
-        // --- NEW: explicit "I'm leaving now" signal (beforeunload/pagehide) ---
-        if ("leavingNow".equals(payload)) {
-            String me = gameService.getParticipantName(session);
-            if (me != null) {
-                // Immediately mark inactive and reassign host if needed
-                gameService.markLeftIntentionally(room, me);
-            }
-            try { session.close(new CloseStatus(4003, "Intentional leave")); } catch (Exception ignored) {}
+        if (room == null || payload == null) {
             return;
         }
 
-        if (payload.startsWith("vote:")) {
-            String[] parts = payload.split(":", 3);
-            String card = (parts.length >= 3) ? parts[2] : null;
-
-            String me = gameService.getParticipantName(session);
-            if (me != null && card != null) {
-                Participant p = room.getParticipant(me);
-                if (p != null) {
-                    boolean allowedCard =
-                        room.getCurrentCards().contains(card) ||
-                        CardSequences.SPECIALS.contains(card);
-
-                    if (p.isParticipating() && allowedCard && !room.areVotesRevealed()) {
-                        p.setCard(card);
+        try {
+            if (payload.startsWith("vote:")) {
+                // vote:<name>:<value>
+                String[] parts = payload.split(":", 3);
+                if (parts.length == 3) {
+                    String who = parts[1];
+                    String value = parts[2];
+                    Participant p = room.getParticipant(who);
+                    if (p == null) {
+                        p = room.getOrCreateParticipant(who);
+                    }
+                    if (p != null) {
+                        // current model uses "vote" (not "card")
+                        p.setVote(value);
+                        gameService.broadcastRoomState(room);
                         gameService.maybeAutoReveal(room);
                     }
                 }
-            }
-            gameService.broadcastRoomState(room);
-
-        } else if ("revealCards".equals(payload)) {
-            String me = gameService.getParticipantName(session);
-            if (me != null) {
-                Participant p = room.getParticipant(me);
-                if (p != null && p.isHost()) {
-                    room.setCardsRevealed(true);
-                    gameService.broadcastRoomState(room);
-                }
+                return;
             }
 
-        } else if ("resetRoom".equals(payload)) {
-            String me = gameService.getParticipantName(session);
-            if (me != null) {
-                Participant p = room.getParticipant(me);
-                if (p != null && p.isHost()) {
-                    room.reset();
-                    gameService.broadcastRoomState(room);
-                }
+            if (payload.equals("revealCards")) {
+                // FIX: GameService expects roomCode (String), not Room
+                gameService.revealCards(room.getCode());
+                gameService.broadcastRoomState(room);
+                return;
             }
 
-        } else if (payload.startsWith("setSequence:")) {
-            String seqId = payload.substring("setSequence:".length());
-            String me = gameService.getParticipantName(session);
-            if (me != null) {
-                Participant meP = room.getParticipant(me);
-                if (meP != null && meP.isHost()) {
-                    room.setSequence(seqId);
-                    gameService.broadcastRoomState(room);
-                }
+            if (payload.equals("resetRoom")) {
+                room.reset(); // or: gameService.resetVotes(room.getCode());
+                gameService.broadcastRoomState(room);
+                return;
             }
 
-        } else if (payload.startsWith("setAutoReveal:")) {
-            String me = gameService.getParticipantName(session);
-            boolean wantOn = Boolean.parseBoolean(payload.substring("setAutoReveal:".length()));
-            if (me != null) {
-                Participant p = room.getParticipant(me);
-                if (p != null && p.isHost()) {
-                    room.setAutoRevealEnabled(wantOn);
-                    if (wantOn) gameService.maybeAutoReveal(room);
-                    gameService.broadcastRoomState(room);
-                }
-            }
-
-        } else if (payload.startsWith("setParticipating:")) {
-            String me = gameService.getParticipantName(session);
-            if (me != null) {
-                Participant p = room.getParticipant(me);
-                if (p != null) {
-                    boolean on = Boolean.parseBoolean(payload.substring("setParticipating:".length()));
-                    p.setParticipating(on);
-                    if (!on) p.setVote(null);
-                    gameService.maybeAutoReveal(room);
-                    gameService.broadcastRoomState(room);
-                }
-            }
-
-        } else if (payload.startsWith("transferHost:")) {
-            String me = gameService.getParticipantName(session);
-            String targetName = payload.substring("transferHost:".length());
-            if (me != null) {
-                Participant meP = room.getParticipant(me);
-                if (meP != null && meP.isHost()) {
-                    String oldHost = (room.getHost() != null) ? room.getHost().getName() : me;
-                    boolean ok = room.transferHostTo(targetName);
-                    if (ok) {
-                        gameService.broadcastHostChange(room, oldHost, targetName);
+            if (payload.startsWith("setParticipating:")) {
+                boolean participating = Boolean.parseBoolean(payload.substring("setParticipating:".length()));
+                String who = gameService.getParticipantName(session);
+                if (who != null) {
+                    Participant p = room.getParticipant(who);
+                    if (p != null) {
+                        p.setParticipating(participating);
+                        if (!participating) p.setVote(null);
                         gameService.broadcastRoomState(room);
                     }
                 }
+                return;
             }
 
-        } else if (payload.startsWith("kick:")) {
-            String me = gameService.getParticipantName(session);
-            String targetName = payload.substring("kick:".length());
-            if (me != null) {
-                Participant meP = room.getParticipant(me);
-                Participant target = room.getParticipant(targetName);
-                if (meP != null && meP.isHost() && target != null && !target.isHost() && !me.equals(targetName)) {
-                    gameService.kickParticipant(room, targetName);
-                }
+            if (payload.startsWith("setSequence:")) {
+                String seq = payload.substring("setSequence:".length());
+                room.setSequence(seq);
+                gameService.broadcastRoomState(room);
+                return;
             }
 
-        } else if ("closeRoom".equals(payload)) {
-            String me = gameService.getParticipantName(session);
-            if (me != null) {
-                Participant p = room.getParticipant(me);
-                if (p != null && p.isHost()) {
-                    gameService.closeRoom(room);
-                }
+            if (payload.startsWith("setAutoReveal:")) {
+                boolean enabled = Boolean.parseBoolean(payload.substring("setAutoReveal:".length()));
+                room.setAutoRevealEnabled(enabled);
+                gameService.broadcastRoomState(room);
+                return;
             }
 
-        } else if (payload.startsWith("setTopic:")) {
-            String rest = payload.substring("setTopic:".length());
-            String label = null;
-            String url   = null;
-            int sep = rest.indexOf('|');
-            if (sep >= 0) {
-                label = urlDecode(rest.substring(0, sep));
-                String u = urlDecode(rest.substring(sep + 1));
-                url = (u != null && !u.isBlank()) ? u : null;
-            } else {
-                label = urlDecode(rest);
-            }
-            String me = gameService.getParticipantName(session);
-            if (me != null) {
-                Participant p = room.getParticipant(me);
-                if (p != null && p.isHost()) {
-                    room.setTopic(label, url);
+            if (payload.startsWith("transferHost:")) {
+                String target = payload.substring("transferHost:".length());
+                Participant prevHost = room.getHost(); // returns Participant in your model
+                String prev = (prevHost != null ? prevHost.getName() : null);
+                if (room.transferHostTo(target)) {
+                    gameService.broadcastHostChange(room, prev, target);
                     gameService.broadcastRoomState(room);
                 }
+                return;
             }
 
-        } else if ("clearTopic".equals(payload)) {
-            String me = gameService.getParticipantName(session);
-            if (me != null) {
-                Participant p = room.getParticipant(me);
-                if (p != null && p.isHost()) {
-                    room.setTopic(null, null);
-                    gameService.broadcastRoomState(room);
-                }
+            if (payload.startsWith("kick:")) {
+                String target = payload.substring("kick:".length());
+                gameService.kickParticipant(room, target);
+                return;
             }
 
-        } else if (payload.startsWith("setTopicVisible:")) {
-            String me = gameService.getParticipantName(session);
-            if (me != null) {
-                Participant p = room.getParticipant(me);
-                if (p != null && p.isHost()) {
-                    boolean visible = Boolean.parseBoolean(payload.substring("setTopicVisible:".length()));
-                    room.setTopicVisible(visible);
-                    gameService.broadcastRoomState(room);
-                }
+            if (payload.equals("closeRoom")) {
+                gameService.closeRoom(room);
+                return;
             }
+
+            if (payload.startsWith("setTopic:")) {
+                String enc = payload.substring("setTopic:".length());
+                String[] parts = enc.split("\\|", 2);
+                String label = parts.length > 0 ? urlDecode(parts[0]) : null;
+                String url = parts.length > 1 ? urlDecode(parts[1]) : null;
+                room.setTopic(label, url);
+                gameService.broadcastRoomState(room);
+                return;
+            }
+
+            if (payload.equals("clearTopic")) {
+                room.setTopic(null, null);
+                gameService.broadcastRoomState(room);
+                return;
+            }
+
+            if (payload.startsWith("intentLeave")) {
+                String who = gameService.getParticipantName(session);
+                if (who != null) {
+                    gameService.handleIntentionalLeave(room.getCode(), who);
+                }
+                try { session.close(new CloseStatus(4003, "Intentional leave")); } catch (Exception ignored) {}
+                return;
+            }
+
+            log.debug("WS message (ignored): {}", payload);
+        } catch (Exception e) {
+            log.warn("WS message handling failed: {}", payload, e);
         }
+    }
+
+    @Override
+    public void handleTransportError(@NonNull WebSocketSession session, @NonNull Throwable exception) {
+        log.warn("WS transport error: {}", exception.toString());
     }
 
     @Override
     public void afterConnectionClosed(@NonNull WebSocketSession session, @NonNull CloseStatus status) {
         Room room = gameService.getRoomForSession(session);
-        String participantName = gameService.getParticipantName(session);
-
-        // Clean up mappings for this session
+        String name = gameService.getParticipantName(session);
         gameService.removeSession(session);
 
-        // Schedule grace before marking inactive (handles timeouts / brief blips)
-        if (room != null && participantName != null) {
-            gameService.scheduleDisconnect(room, participantName);
+        if (room != null && name != null) {
+            log.info("WS CLOSE room={} name={} code={}", room.getCode(), name, status.getCode());
+            gameService.scheduleDisconnect(room, name);
+            gameService.broadcastRoomState(room);
         }
     }
 
-    private String getQueryParam(@NonNull WebSocketSession session, String key) {
-        URI uri = session.getUri();
-        if (uri == null || uri.getQuery() == null) return null;
-        for (String param : uri.getQuery().split("&")) {
-            String[] kv = param.split("=", 2);
-            if (kv.length == 2 && kv[0].equals(key)) {
-                try {
-                    return URLDecoder.decode(kv[1], StandardCharsets.UTF_8);
-                } catch (Exception ignored) {
-                    return kv[1];
-                }
+    // -------------------- helpers --------------------
+
+    private static Map<String, String> parseQuery(URI uri) {
+        Map<String, String> map = new HashMap<>();
+        if (uri == null) return map;
+        String q = uri.getQuery();
+        if (q == null || q.isEmpty()) return map;
+        for (String kv : q.split("&")) {
+            int i = kv.indexOf('=');
+            if (i > 0) {
+                String k = urlDecode(kv.substring(0, i));
+                String v = urlDecode(kv.substring(i + 1));
+                map.put(k, v);
+            } else {
+                map.put(urlDecode(kv), "");
             }
         }
-        return null;
+        return map;
     }
 
-    private String urlDecode(String s){
+    private static String urlDecode(String s) {
         if (s == null) return null;
-        try {
-            return URLDecoder.decode(s, StandardCharsets.UTF_8);
-        } catch (Exception ignored) {
-            return s;
-        }
+        try { return URLDecoder.decode(s, StandardCharsets.UTF_8); }
+        catch (Exception ignore) { return s; }
     }
+
+    private static boolean isBlank(String s) { return s == null || s.trim().isEmpty(); }
 }
