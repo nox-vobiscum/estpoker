@@ -43,23 +43,27 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
 
         Room room = gameService.getOrCreateRoom(roomCode);
 
-        // bekannte Identität per cid
+        // Stable identity per client id (cid)
         String known = gameService.getClientName(roomCode, cid);
         if (cid != null && known != null) {
             participantName = known;
         }
 
-        // Duplikate vermeiden: ggf. kurz inaktiv setzen
-        Participant existing = room.getParticipant(participantName);
-        if (existing != null) {
-            try { room.markInactive(participantName); } catch (Exception ignore) {}
-        }
-
+        // DO NOT markInactive here; let addOrReactivate handle duplicates/reactivation.
         Object addRes = room.addOrReactivateParticipant(participantName);
         if (addRes instanceof Participant) {
             participantName = ((Participant) addRes).getName();
         } else if (addRes instanceof String) {
             participantName = (String) addRes;
+        }
+
+        // Make sure the participant is flagged active (clears any 'disconnected' flag)
+        Participant p = room.getOrCreateParticipant(participantName);
+        if (p != null) {
+            try {
+                p.setDisconnected(false);
+                p.setParticipating(true); // sane default when (re)joining
+            } catch (Exception ignored) {}
         }
 
         gameService.addSession(session, room);
@@ -79,7 +83,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
 
         try {
             if ("ping".equals(payload)) {
-                // keepalive vom Client – optional "pong" senden
+                // keepalive from client; optionally respond
                 // session.sendMessage(new TextMessage("{\"type\":\"pong\"}"));
                 return;
             }
@@ -116,10 +120,10 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                 boolean participating = Boolean.parseBoolean(payload.substring("setParticipating:".length()));
                 String who = gameService.getParticipantName(session);
                 if (who != null) {
-                    Participant p = room.getParticipant(who);
-                    if (p != null) {
-                        p.setParticipating(participating);
-                        if (!participating) p.setVote(null);
+                    Participant p2 = room.getParticipant(who);
+                    if (p2 != null) {
+                        p2.setParticipating(participating);
+                        if (!participating) p2.setVote(null);
                         gameService.broadcastRoomState(room);
                     }
                 }
