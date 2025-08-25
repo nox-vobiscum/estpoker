@@ -766,7 +766,7 @@ li{ margin-bottom:.4rem; line-height:1.5; font-size:1rem; }
 }
 .site-footer a{
   color: inherit;
-  text-decoration: underline;
+  text-decoration: none;
 }
 
 /* Reserve space for fixed footer on larger screens */

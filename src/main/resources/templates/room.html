@@ -67,7 +67,6 @@
       </div>
     </div>
 
-    <!-- You suggested removing the "Choose a card" label; keeping the element but you can delete it if desired -->
     <h2 id="selectCardHeader" th:text="#{label.selectCard}">Choose a card:</h2>
 
     <div class="pre-vote">
@@ -77,7 +76,6 @@
     </div>
 
     <div class="post-vote" style="display:none;">
-      <!-- Results line: Avg + optional Median + Range; hide stats + outliers on consensus -->
       <p id="resultRow"
          class="average-label consensus-row"
          role="status"
@@ -106,21 +104,12 @@
     </div>
   </div>
 
-  <!-- Footer (fixed bottom) -->
-  <div th:replace="~{fragments/footer :: footer}"></div>
-
   <!-- Central scripts (must be before inline JS so defer-order is correct) -->
   <th:block th:replace="~{fragments/scripts :: scripts}"></th:block>
 
   <script th:inline="javascript">
-  /* ======================= Game logic ============================
-     - Menu / theme / language lives in menu.js
-     - This file handles room UI, websocket flow, and voting UX.
-     - Consensus rule: if consensus -> hide median/range and do NOT mark outliers.
-     - Topic area: compact row (visible if topicVisible) + host-only editor row.
-     ============================================================= */
+  /* ======================= Game logic ============================ */
 
-  // --- Basic room state (server can overwrite via WS) -----------
   let participantName   = /*[[${participantName}]]*/ "Guest";
   let roomCode          = /*[[${roomCode}]]*/ "demo";
   let selectedCard      = null;
@@ -130,10 +119,8 @@
   let currentSequenceId = 'fib-scrum';
   let currentDeckSig    = "";
 
-  // Client-side participation (optimistic UI)
   let myParticipating   = true;
 
-  // i18n strings used inside JS
   const TXT_AVG            = /*[[#{label.average}]]*/ 'Avg:';
   const TXT_CONS           = /*[[#{label.consensus}]]*/ 'Consensus:';
   const TXT_MEDIAN         = /*[[#{label.median}]]*/ 'Median:';
@@ -151,18 +138,13 @@
   const TXT_TOPIC_SAVED    = /*[[#{topic.saved}]]*/ 'Topic saved';
   const TXT_TOPIC_CLEARED  = /*[[#{topic.cleared}]]*/ 'Topic cleared';
 
-  // Host-controlled flags (server overwrites on first state)
   let autoRevealEnabled = false;
-  let topicVisible      = true; // server truth will arrive
+  let topicVisible      = true;
   let isEditingTopic    = false;
 
-  // Specials set (kept in sync with backend)
   const SPECIALS = new Set(["❓","💬","☕"]);
-
-  // Deck catalog for tooltips in the menu (filled either by WS or /sequences)
   const SEQ_CATALOG = Object.create(null);
 
-  // --- Sequence deck tooltip helpers ---------------------------------------
   function formatDeckForTooltip(cards){
     if (!Array.isArray(cards)) return '';
     const specials = cards.filter(c => SPECIALS.has(String(c)));
@@ -192,7 +174,6 @@
     });
   }
 
-  // --- Card rendering + interaction ----------------------------------------
   function addCardButton(grid, val){
     const btn = document.createElement('button');
     btn.type = 'button';
@@ -242,7 +223,6 @@
     });
   }
 
-  // --- Host-sensitive controls (enable/disable + hints) --------------------
   function syncSequenceUI(){
     const radios = document.querySelectorAll('#seqChoice input[name="seq"]');
     radios.forEach(r => {
@@ -267,8 +247,20 @@
     const hint = document.getElementById('arHint');
     if (hint) hint.style.display = isHost ? 'none' : 'block';
   }
+  /* NEW: keep Topic toggle visuals consistent with Auto-Reveal for non-hosts */
+  function syncTopicToggleUI(){
+    const row = document.getElementById('topicToggleRow');
+    const st  = document.getElementById('topicStatus');
+    const cb  = document.getElementById('topicToggle');
+    if (st) st.textContent = topicVisible ? TXT_ON : TXT_OFF;
+    if (cb) {
+      cb.checked = topicVisible;
+      cb.setAttribute('aria-checked', topicVisible ? 'true' : 'false');
+      cb.disabled = !isHost;                // disable switch for non-hosts
+    }
+    if (row) row.classList.toggle('disabled', !isHost); // dim whole row
+  }
 
-  // --- Topic UI helpers -----------------------------------------------------
   function updateTopicDisplay(label, url){
     const disp = document.getElementById('topicDisplay');
     if (!disp) return;
@@ -297,8 +289,10 @@
     const clrBtn   = document.getElementById('topicClearBtn');
 
     if (row)  row.style.display  = topicVisible ? 'grid' : 'none';
+
     if (editBtn) editBtn.style.display = isHost ? 'inline-flex' : 'none';
     if (clrBtn)  clrBtn.style.display  = isHost ? 'inline-flex' : 'none';
+
     if (edit) edit.style.display = (isHost && isEditingTopic) ? 'grid' : 'none';
   }
 
@@ -312,7 +306,6 @@
     return { label: s, url: null };
   }
 
-  // --- Participation --------------------------------------------------------
   function syncParticipationUI(on){
     const st  = document.getElementById('partStatus');
     const cb  = document.getElementById('participationToggle');
@@ -327,13 +320,12 @@
     highlightSelectedCard();
   }
 
-  // --- DOM ready ------------------------------------------------------------
   document.addEventListener('DOMContentLoaded', () => {
     syncSequenceUI();
     syncAutoRevealUI();
+    syncTopicToggleUI();   // NEW: ensure topic switch is greyed out for non-hosts
     applyTopicUI();
 
-    // Sequence change (host only)
     document.getElementById('seqChoice')?.addEventListener('change', (e)=>{
       const val = e.target?.value;
       if (!val) return;
@@ -341,19 +333,16 @@
       socket.send('setSequence:' + val);
     });
 
-    // Auto-Reveal switch (host only)
     const arRow = document.getElementById('autoRevealRow');
     const arToggle = document.getElementById('autoRevealToggle');
     arRow?.addEventListener('click', (e)=>{ if (!isHost) { e.preventDefault(); e.stopPropagation(); showToast(TXT_AR_ONLY_HOST); }});
     arToggle?.addEventListener('click', ()=>{ if (isHost) socket.send('setAutoReveal:' + !autoRevealEnabled); });
 
-    // Topic visibility toggle (host only)
     const tvRow = document.getElementById('topicToggleRow');
     const tvCb  = document.getElementById('topicToggle');
     tvRow?.addEventListener('click', (e)=>{ if (!isHost) { e.preventDefault(); e.stopPropagation(); showToast(TXT_AR_ONLY_HOST); }});
     tvCb?.addEventListener('click', ()=>{ if (isHost) socket.send('setTopicVisible:' + !topicVisible); });
 
-    // Topic editor wiring (host only)
     const inEl    = document.getElementById('topicInput');
     const saveBtn = document.getElementById('topicSaveBtn');
     const cancel  = document.getElementById('topicCancelBtn');
@@ -381,11 +370,9 @@
       showToast(TXT_TOPIC_CLEARED);
     });
 
-    // Participation switch (everyone)
     const partToggle = document.getElementById('participationToggle');
     partToggle?.addEventListener('click', ()=>{ const next = !myParticipating; syncParticipationUI(next); socket.send('setParticipating:' + next); });
 
-    // Prefill sequence tooltips
     try {
       fetch('/sequences').then(r => r.ok ? r.json() : null).then(json => {
         if (!json) return;
@@ -395,7 +382,6 @@
     } catch(e){}
   });
 
-  // --- WebSocket wiring -----------------------------------------------------
   const cid = (function(){
     try {
       const KEY = 'ep-cid';
@@ -424,7 +410,6 @@
   socket.onmessage = (event) => {
     const data = JSON.parse(event.data);
 
-    // Identity ping
     if (data.type === 'you' && typeof data.yourName === 'string') {
       if (!data.cid || data.cid === cid) {
         if (data.yourName !== participantName) {
@@ -436,13 +421,11 @@
       return;
     }
 
-    // Participant snapshot outside of voteUpdate
     if (Array.isArray(data.participants) && data.type !== "voteUpdate") {
       const revealed = !!data.votesRevealed;
       updateParticipantList(data.participants, revealed);
     }
 
-    // Deck changes
     if (data.sequenceId) {
       const newSig = deckSig(data.cards);
       const needRerender = (currentSequenceId !== data.sequenceId) || (newSig && newSig !== currentDeckSig);
@@ -458,13 +441,11 @@
       }
     }
 
-    // Optional: server can push all decks at once
     if (data.sequences && typeof data.sequences === 'object') {
       Object.assign(SEQ_CATALOG, data.sequences);
       updateSequenceTooltips();
     }
 
-    // Legacy identity form
     if (typeof data.yourName === 'string' && data.cid && data.cid === cid) {
       if (data.yourName !== participantName) {
         participantName = data.yourName;
@@ -473,7 +454,6 @@
       }
     }
 
-    // Main room state
     if (data.type === "voteUpdate") {
       const prevVotesRevealed = votesRevealed;
       const participants = Array.isArray(data.participants) ? data.participants : [];
@@ -486,17 +466,15 @@
 
       syncAutoRevealUI();
       syncSequenceUI();
+      syncTopicToggleUI();     // NEW: keep topic toggle visuals in sync with host status
 
-      // Update topic readout + visibility
       updateTopicDisplay(data.topicLabel || null, data.topicUrl || null);
       applyTopicUI();
 
-      // Update my participation from server
       const me = participants.find(p => p.name === participantName);
       const serverParticipating = me ? (me.participating !== false) : true;
       syncParticipationUI(serverParticipating);
 
-      // Host-only buttons (reveal/reset)
       document.getElementById("revealButton").style.display = isHost && !votesRevealed ? "inline-block" : "none";
       document.getElementById("resetButton").style.display  = isHost && votesRevealed ? "inline-block"  : "none";
 
@@ -526,6 +504,7 @@
         document.getElementById("resetButton").style.display  = isHost && votesRevealed ? "inline-block"  : "none";
         syncSequenceUI();
         syncAutoRevealUI();
+        syncTopicToggleUI();   // NEW: also update topic toggle on host change
         applyTopicUI();
       }
       showToast(newHost === participantName ? MSG_HOST_YOU : MSG_HOST_OTHER.replace('{new}', newHost));
@@ -539,9 +518,8 @@
       const target = data.redirect || "/";
       location.replace(target);
     }
-  }; // end socket.onmessage
+  };
 
-  // --- Host-only: close room -----------------------------------------------
   document.addEventListener('DOMContentLoaded', () => {
     const closeBtn = document.getElementById('closeRoomBtn');
     closeBtn?.addEventListener('click', () => {
@@ -551,7 +529,6 @@
     });
   });
 
-  // --- Vote helpers ---------------------------------------------------------
   function sendVote(cardValue) {
     if (!myParticipating) { showToast(TXT_OBS_NO_PICK); return; }
     if (votesRevealed) return;
@@ -574,7 +551,6 @@
   function revealCards() { if (isHost) socket.send("revealCards"); }
   function resetRoom()   { if (isHost) socket.send("resetRoom"); clearCardSelection(); }
 
-  // --- Host transfer & kick -------------------------------------------------
   function transferHost(name){
     if (!isHost || !name || name === participantName) return;
     socket.send("transferHost:" + name);
@@ -584,7 +560,6 @@
     socket.send("kick:" + name);
   }
 
-  // --- Participant list renderer -------------------------------------------
   function updateParticipantList(participants, revealed) {
     const list = document.getElementById("liveParticipantList");
     if (!list) return;
@@ -697,17 +672,16 @@
     clearTimeout(resizeTimer); resizeTimer = setTimeout(measureAndSetNameColumn, 150);
   });
 
-  // --- Average / consensus + stats -----------------------------------------
   function updateAverage(avg) {
     const avgSpan = document.getElementById("averageVote");
     if (avgSpan) avgSpan.textContent = avg != null ? avg : "-";
   }
   function setConsensusUI(on){
-    const row = document.getElementById('resultRow');
-    const lbl = document.getElementById('resultLabel');
+    const row = document.getElementById("resultRow");
+    const lbl = document.getElementById("resultLabel");
     if (!row || !lbl) return;
     lbl.textContent = on ? TXT_CONS : TXT_AVG;
-    row.classList.toggle('consensus', !!on);
+    row.classList.toggle("consensus", !!on);
   }
   function parseVoteNumeric(s){
     if (!s) return null;
@@ -806,7 +780,6 @@
     }
   }
 
-  // --- Tiny toast -----------------------------------------------------------
   function showToast(message) {
     const toast = document.createElement("div");
     toast.className = "toast";
@@ -815,7 +788,6 @@
     setTimeout(() => toast.remove(), 3000);
   }
 
-  // --- Invite/copy ----------------------------------------------------------
   (function(){
     const copyBtn = document.getElementById('copyRoomLink');
     const TXT_LINK_COPIED = /*[[#{invite.linkCopied}]]*/ 'Link copied to clipboard';
