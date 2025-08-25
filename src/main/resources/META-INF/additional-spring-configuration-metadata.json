@@ -16,7 +16,7 @@
     {
       "name": "app.websocket.allowed-origins",
       "type": "java.lang.String",
-      "description": "Comma-separated list of allowed WebSocket origins (e.g. https://ep.noxvobsicum.at,http://localhost:8080).",
+      "description": "Comma-separated list of allowed WebSocket origins (e.g. https://ep.noxvobiscum.at,http://localhost:8080).",
       "sourceType": "com.example.estpoker.config.WebSocketConfig"
     },
     {
