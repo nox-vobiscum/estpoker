@@ -1,62 +1,69 @@
-/* room.js — robustes Bootstrap + Fallbacks + Debug-Logs */
+/* room.js — externalized room logic with robust boot & diagnostics */
+
 (() => {
-  // --- where do we read name/room from? script data -> body data -> DOM text ---
-  const script = document.currentScript || document.querySelector('script[src*="/room.js"]');
-  const body   = document.body;
-  const text   = (id) => document.getElementById(id)?.textContent?.trim();
+  const TAG = "[ROOM]";
 
-  let participantName =
-      script?.dataset?.participant ||
-      body?.dataset?.participant ||
-      text('youName') ||
-      'Guest';
+  // ---- Resolve participant/room robustly (body → query → defaults) ----
+  function resolveIdentity() {
+    let name = document.body?.dataset?.participant || "";
+    let room = document.body?.dataset?.room || "";
+    try {
+      const q = new URLSearchParams(location.search);
+      if (!name) name = q.get("participantName") || q.get("name") || "";
+      if (!room) room = q.get("roomCode") || q.get("room") || "";
+    } catch (e) {}
+    return {
+      participantName: (typeof name === "string" && name) ? name : "Guest",
+      roomCode:        (typeof room === "string" && room) ? room : "demo"
+    };
+  }
 
-  let roomCode =
-      script?.dataset?.room ||
-      body?.dataset?.room ||
-      text('roomCodeVal') ||
-      'demo';
+  let { participantName, roomCode } = resolveIdentity();
 
-  // Simple debug handle so wir sehen sofort, ob die Datei die richtigen Werte hat
-  window.__ep = {
-    info: { participantName, roomCode, ts: Date.now() },
-  };
-  console.log('[ROOM] file loaded', window.__ep.info);
+  // Make a tiny probe available for debugging
+  window.__ep = { info: { participantName, roomCode, ts: Date.now() } };
+  console.info(`${TAG} file loaded`, window.__ep.info);
 
-  // -------- State --------
-  let selectedCard = null;
-  let votesRevealed = false;
-  let isHost = false;
-  let resizeTimer = null;
-  let currentSequenceId = 'fib-scrum';
-  let currentDeckSig = '';
-  let myParticipating = true;
+  // --------------------------- State ---------------------------
+  let selectedCard      = null;
+  let votesRevealed     = false;
+  let isHost            = false;
+  let resizeTimer       = null;
+  let currentSequenceId = "fib-scrum";
+  let currentDeckSig    = "";
+  let myParticipating   = true;
 
-  // i18n fallbacks
-  const TXT_AVG='Avg:', TXT_CONS='Consensus:', TXT_MEDIAN='Median:', TXT_RANGE='Range:';
-  const TXT_OUTLIER_HINT='Farthest from average';
-  const TXT_ON='On', TXT_OFF='Off';
-  const TXT_AR_ONLY_HOST='Only the host can change this setting.';
-  const TXT_MAKE_HOST='Make host', TXT_KICK='Kick';
-  const TXT_KICKED='The host has closed the room for you.';
-  const TXT_IM_IN="I'm estimating", TXT_OBSERVER='Observer', TXT_OBS_NO_PICK='As an observer you can’t pick a card.';
-  const MSG_HOST_YOU='Host changed. You are now host!';
-  const MSG_HOST_OTHER='Host changed. {new} is now host.';
+  const TXT_AVG = "Avg:";
+  const TXT_CONS = "Consensus:";
+  const TXT_MEDIAN = "Median:";
+  const TXT_RANGE = "Range:";
+  const TXT_OUTLIER_HINT = "Farthest from average";
+  const TXT_ON = "On";
+  const TXT_OFF = "Off";
+  const TXT_AR_ONLY_HOST = "Only the host can change this setting.";
+  const TXT_MAKE_HOST = "Make host";
+  const TXT_KICK = "Kick";
+  const TXT_KICKED = "The host has closed the room for you.";
+  const TXT_IM_IN = "I'm estimating";
+  const TXT_OBSERVER = "Observer";
+  const TXT_OBS_NO_PICK = "As an observer you can’t pick a card.";
+  const MSG_HOST_YOU = "Host changed. You are now host!";
+  const MSG_HOST_OTHER = "Host changed. {new} is now host.";
 
-  let autoRevealEnabled=false, topicVisible=true, isEditingTopic=false;
+  let autoRevealEnabled = false;
+  let topicVisible      = true;
+  let isEditingTopic    = false;
 
-  const SPECIALS = new Set(['❓','💬','☕']);
+  const SPECIALS = new Set(["❓","💬","☕"]);
   const SEQ_CATALOG = Object.create(null);
 
-  // ---------- helpers ----------
-  const deckSig = arr => Array.isArray(arr)?arr.join('|'):'';
-
+  // ---------------------- UI helpers (unchanged) ----------------------
   function formatDeckForTooltip(cards){
-    if(!Array.isArray(cards)) return '';
-    const specials=cards.filter(c=>SPECIALS.has(String(c)));
-    const core=cards.filter(c=>!SPECIALS.has(String(c)));
-    const shown=core.slice(0,12), more=core.length>12?'…':'';
-    return shown.join(', ') + (more?' '+more:'') + (specials.length?`  (${specials.join(' ')})`:'');
+    if (!Array.isArray(cards)) return "";
+    const specials = cards.filter(c => SPECIALS.has(String(c)));
+    const core     = cards.filter(c => !SPECIALS.has(String(c)));
+    const max=12, shown=core.slice(0,max), more=core.length>max?"…":"";
+    return shown.join(", ") + (more?" "+more:"") + (specials.length?`  (${specials.join(" ")})`:"");
   }
   function updateSequenceTooltips(){
     document.querySelectorAll('#seqChoice .radio-row input[name="seq"]').forEach(inp=>{
@@ -77,8 +84,11 @@
     });
     grid.appendChild(btn);
   }
+  const deckSig = arr => Array.isArray(arr)?arr.join('|'):'';
+
   function renderCards(deck){
-    const area=document.getElementById('cardsArea'); if(!area||!Array.isArray(deck)) return;
+    const area=document.getElementById('cardsArea');
+    if(!area || !Array.isArray(deck)) return;
     const regular=deck.filter(v=>!SPECIALS.has(v));
     const specials=deck.filter(v=>SPECIALS.has(v));
     area.innerHTML='';
@@ -118,7 +128,7 @@
     const disp=document.getElementById('topicDisplay'); if(!disp) return;
     if(!label && !url){ disp.textContent='—'; return; }
     if(url){ const a=document.createElement('a'); a.href=url; a.target='_blank'; a.rel='noopener'; a.textContent=label||url; disp.innerHTML=''; disp.appendChild(a); }
-    else { disp.textContent=label; }
+    else{ disp.textContent=label; }
   }
   function applyTopicUI(){
     const st=document.getElementById('topicStatus'); if(st) st.textContent=topicVisible?TXT_ON:TXT_OFF;
@@ -148,11 +158,12 @@
     updateCardInteractivity(myParticipating); highlightSelectedCard();
   }
 
-  // ---- WebSocket (reconnect + leave beacon) ----
-  const cid = (()=>{ try{ const KEY='ep-cid'; let id=sessionStorage.getItem(KEY);
+  // --------------------------- WebSocket ---------------------------
+  const cid = (()=>{ try{
+    const KEY='ep-cid'; let id=sessionStorage.getItem(KEY);
     if(!id){ id=(crypto.randomUUID?crypto.randomUUID():(Math.random().toString(36).slice(2)+'-'+Date.now())); sessionStorage.setItem(KEY,id); }
     return id;
-  }catch(e){ return Math.random().toString(36).slice(2)+'-'+Date.now(); } })();
+  }catch(e){ return Math.random().toString(36).slice(2)+'-'+Date.now(); }})();
 
   const wsProtocol = location.protocol === 'https:' ? 'wss://' : 'ws://';
   const baseSocketUrl = wsProtocol + location.host
@@ -163,18 +174,14 @@
   let socket=null, isUnloading=false, reconnectAttempts=0;
 
   function connectWS(){
-    console.log('[ROOM] connecting WS →', baseSocketUrl);
-    try{
-      socket = new WebSocket(baseSocketUrl);
-    }catch(e){
-      console.error('[ROOM] WS ctor failed', e);
-      return;
-    }
-    socket.onopen = () => { console.log('[ROOM] WS open'); reconnectAttempts=0; };
+    console.info(`${TAG} connecting WS →`, baseSocketUrl);
+    socket = new WebSocket(baseSocketUrl);
+
+    socket.onopen = () => { console.info(`${TAG} WS open`); reconnectAttempts=0; };
     socket.onmessage = handleMessage;
-    socket.onerror = (e) => console.warn('[ROOM] WS error', e);
+    socket.onerror = (e) => console.warn(`${TAG} WS error`, e);
     socket.onclose = (e) => {
-      console.warn('[ROOM] WS closed', e.code, e.reason || '');
+      console.warn(`${TAG} WS closed`, e.code, e.reason || '');
       if(isUnloading) return;
       const delay = Math.min(8000, 500 * Math.pow(2, reconnectAttempts++));
       setTimeout(connectWS, delay);
@@ -286,9 +293,10 @@
   window.addEventListener('pagehide', sendLeaveSignalsOnce, { capture:true });
   window.addEventListener('beforeunload', sendLeaveSignalsOnce, { capture:true });
 
-  // DOM ready → start
+  // --------------------------- Boot ---------------------------
   function boot(){
-    console.log('[ROOM] boot', { participantName, roomCode });
+    console.info(`${TAG} boot …`);
+
     connectWS();
 
     document.getElementById('seqChoice')?.addEventListener('change', e=>{
@@ -329,18 +337,22 @@
     const partToggle=document.getElementById('participationToggle');
     partToggle?.addEventListener('click', ()=>{ const next=!myParticipating; syncParticipationUI(next); socket?.send('setParticipating:'+next); });
 
-    try{ fetch('/sequences').then(r=>r.ok?r.json():null).then(json=>{
-      const obj = json?.sequences || json;
-      if(obj && typeof obj==='object'){ Object.assign(SEQ_CATALOG, obj); updateSequenceTooltips(); }
-    }).catch(()=>{});}catch(e){}
+    // Prefill deck tooltips
+    try{
+      fetch('/sequences').then(r=>r.ok?r.json():null).then(json=>{
+        const obj = json?.sequences || json;
+        if(obj && typeof obj==='object'){ Object.assign(SEQ_CATALOG, obj); updateSequenceTooltips(); }
+      }).catch(()=>{});
+    }catch(e){}
   }
+
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', boot, { once:true });
+    document.addEventListener('DOMContentLoaded', boot);
   } else {
     boot();
   }
 
-  // Voting helpers (exposed for inline buttons)
+  // -------------------- Voting helpers & UI --------------------
   window.revealCards = () => { if (isHost) socket?.send('revealCards'); };
   window.resetRoom   = () => { if (isHost) socket?.send('resetRoom'); clearCardSelection(); };
 
@@ -372,6 +384,7 @@
       icon.textContent = p.isHost ? '👑' : (p.disconnected ? '💤' : '👤');
 
       const nameSpan=document.createElement('span'); nameSpan.className='name'; nameSpan.textContent=p.name;
+
       const rightWrap=document.createElement('div'); rightWrap.className='row-right';
 
       if(revealed){
@@ -479,13 +492,4 @@
 
   function transferHost(name){ if(!isHost||!name) return; if(name===participantName) return; socket?.send('transferHost:'+name); }
   function kick(name){ if(!isHost||!name) return; if(name===participantName) return; socket?.send('kick:'+name); }
-
-  // Invite deep link copy
-  (function(){
-    const copyBtn=document.getElementById('copyRoomLink');
-    const TXT_LINK_COPIED='Link copied to clipboard'; const TXT_COPY_FAILED='Copy failed';
-    const deepLink=()=> location.origin + '/room?roomCode=' + encodeURIComponent(roomCode);
-    async function copyText(text){ try{ await navigator.clipboard.writeText(text); showToast(TXT_LINK_COPIED); } catch(e){ showToast(TXT_COPY_FAILED); } }
-    copyBtn?.addEventListener('click', ()=>copyText(deepLink()));
-  })();
 })();
