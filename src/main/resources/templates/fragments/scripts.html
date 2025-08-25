@@ -1,5 +1,11 @@
 <!-- templates/fragments/scripts.html -->
+<!-- Usage: place right before </body> with
+     <th:block th:replace="~{fragments/scripts :: scripts}"></th:block>
+-->
 <th:block th:fragment="scripts">
-  <!-- Tooltip (Root-Pfad wie im Live-Network) -->
-  <script defer th:src="@{/js/ui/tooltip.js}"></script>
+  <!-- Tooltip logic (custom bubble; never uses native title="") -->
+  <script th:src="@{/js/ui/tooltip.js}" defer></script>
+
+  <!-- DO NOT include menu.js here.
+       menu.js is loaded by the menu fragment itself to avoid double binding. -->
 </th:block>
