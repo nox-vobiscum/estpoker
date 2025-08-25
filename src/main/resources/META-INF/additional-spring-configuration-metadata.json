@@ -7,9 +7,23 @@
       "description": "Toggle to enable persistence of rooms using the database. When false, the app uses a No-Op adapter and does not access the DB."
     },
     {
+      "name": "app.websocket.path",
+      "type": "java.lang.String",
+      "defaultValue": "/gameSocket",
+      "description": "WebSocket endpoint path (must match WebSocketConfig mapping).",
+      "sourceType": "com.example.estpoker.config.WebSocketConfig"
+    },
+    {
       "name": "app.websocket.allowed-origins",
       "type": "java.lang.String",
       "description": "Comma-separated list of allowed WebSocket origins (e.g. https://ep.noxvobsicum.at,http://localhost:8080).",
+      "sourceType": "com.example.estpoker.config.WebSocketConfig"
+    },
+    {
+      "name": "app.websocket.debug-open",
+      "type": "java.lang.Boolean",
+      "defaultValue": false,
+      "description": "If true, allow all origins for WebSocket during local debugging (do not enable in production).",
       "sourceType": "com.example.estpoker.config.WebSocketConfig"
     }
   ]

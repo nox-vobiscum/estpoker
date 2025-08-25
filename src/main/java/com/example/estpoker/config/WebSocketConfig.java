@@ -22,11 +22,8 @@ public class WebSocketConfig implements WebSocketConfigurer {
 
   public WebSocketConfig(
       GameWebSocketHandler handler,
-      // configurable path (must match room.html)
       @Value("${app.websocket.path:/gameSocket}") String wsPath,
-      // CSV list; we’ll convert to patterns to avoid strict equality pitfalls
       @Value("${app.websocket.allowed-origins:https://ep.noxvobsicum.at,http://localhost:8080}") String originsCsv,
-      // quick switch to allow * during troubleshooting
       @Value("${app.websocket.debug-open:false}") boolean allowAll
   ) {
     this.handler = handler;
@@ -61,8 +58,6 @@ public class WebSocketConfig implements WebSocketConfigurer {
   @Override
   public void registerWebSocketHandlers(@NonNull WebSocketHandlerRegistry registry) {
     String[] patterns = allowAll ? new String[] {"*"} : originPatterns.toArray(String[]::new);
-
-    // Always use origin patterns; more robust across ports/subdomains/proxies.
     registry.addHandler(handler, wsPath)
             .setAllowedOriginPatterns(patterns);
   }
