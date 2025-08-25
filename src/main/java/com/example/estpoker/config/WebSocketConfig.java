@@ -8,7 +8,8 @@ import org.springframework.web.socket.config.annotation.EnableWebSocket;
 import org.springframework.web.socket.config.annotation.WebSocketConfigurer;
 import org.springframework.web.socket.config.annotation.WebSocketHandlerRegistry;
 
-import java.util.*;
+import java.util.Arrays;
+import java.util.List;
 import java.util.stream.Collectors;
 
 @Configuration
@@ -16,49 +17,41 @@ import java.util.stream.Collectors;
 public class WebSocketConfig implements WebSocketConfigurer {
 
   private final GameWebSocketHandler handler;
-  private final List<String> originPatterns;
-  private final String wsPath;
-  private final boolean allowAll;
+  private final String path;
+  private final List<String> allowedOrigins;
+  private final boolean debugOpen;
 
   public WebSocketConfig(
       GameWebSocketHandler handler,
-      @Value("${app.websocket.path:/gameSocket}") String wsPath,
-      @Value("${app.websocket.allowed-origins:https://ep.noxvobsicum.at,http://localhost:8080}") String originsCsv,
-      @Value("${app.websocket.debug-open:false}") boolean allowAll
+      @Value("${app.websocket.path:/gameSocket}") String path,
+      @Value("${app.websocket.allowed-origins:}") String originsCsv,
+      @Value("${app.websocket.debug-open:false}") boolean debugOpen
   ) {
     this.handler = handler;
-    this.wsPath = wsPath;
-    this.allowAll = allowAll;
-
-    List<String> list = Arrays.stream(originsCsv.split(","))
+    this.path = (path == null || path.isBlank()) ? "/gameSocket" : path.trim();
+    this.debugOpen = debugOpen;
+    this.allowedOrigins = Arrays.stream(originsCsv.split(","))
         .map(String::trim)
         .filter(s -> !s.isEmpty())
-        .flatMap(s -> expandToPatterns(s).stream())
-        .distinct()
         .collect(Collectors.toList());
-
-    this.originPatterns = list.isEmpty() ? Collections.singletonList("*") : list;
-  }
-
-  // Expand a few helpful variants into patterns (esp. localhost)
-  private static List<String> expandToPatterns(String origin) {
-    List<String> out = new ArrayList<>();
-    if ("*".equals(origin)) { out.add("*"); return out; }
-    out.add(origin);
-    if (origin.startsWith("http://localhost")) {
-      out.add("http://localhost:*");
-      out.add("http://127.0.0.1:*");
-    }
-    if (origin.startsWith("https://localhost")) {
-      out.add("https://localhost:*");
-    }
-    return out;
   }
 
   @Override
   public void registerWebSocketHandlers(@NonNull WebSocketHandlerRegistry registry) {
-    String[] patterns = allowAll ? new String[] {"*"} : originPatterns.toArray(String[]::new);
-    registry.addHandler(handler, wsPath)
-            .setAllowedOriginPatterns(patterns);
+    var registration = registry.addHandler(handler, path);
+
+    if (debugOpen || allowedOrigins.contains("*")) {
+      // Dev fallback: allow any origin (DO NOT enable in prod)
+      registration.setAllowedOriginPatterns("*");
+      return;
+    }
+
+    if (!allowedOrigins.isEmpty()) {
+      // Exact origins (best for prod)
+      registration.setAllowedOrigins(allowedOrigins.toArray(String[]::new));
+    } else {
+      // If list is empty, be permissive during setup to avoid a hard lockout
+      registration.setAllowedOriginPatterns("*");
+    }
   }
 }
