@@ -66,7 +66,7 @@
       </div>
     </div>
 
-    <!-- Screenreader-only label for the card deck (replaces visible H2) -->
+    <!-- Screenreader-only label for the card deck -->
     <span id="cardsLabel" class="sr-only" th:text="#{label.selectCard}">Choose a card</span>
 
     <div class="pre-vote" aria-labelledby="cardsLabel">
@@ -122,7 +122,7 @@
 
   let myParticipating   = true;
 
-  // i18n snippets
+  // i18n
   const TXT_AVG            = /*[[#{label.average}]]*/ 'Avg:';
   const TXT_CONS           = /*[[#{label.consensus}]]*/ 'Consensus:';
   const TXT_MEDIAN         = /*[[#{label.median}]]*/ 'Median:';
@@ -140,16 +140,15 @@
   const MSG_HOST_YOU       = /*[[#{toast.youAreHost}]]*/ 'Host changed. You are now host!';
   const MSG_HOST_OTHER     = /*[[#{toast.hostOther}]]*/ 'Host changed. {new} is now host.';
 
-  // Host-controlled flags
+  // Host flags
   let autoRevealEnabled = false;
   let topicVisible      = true;
   let isEditingTopic    = false;
 
-  // Specials + deck catalog
+  // Decks
   const SPECIALS = new Set(["❓","💬","☕"]);
   const SEQ_CATALOG = Object.create(null);
 
-  // Deck tooltips
   function formatDeckForTooltip(cards){
     if (!Array.isArray(cards)) return '';
     const specials = cards.filter(c => SPECIALS.has(String(c)));
@@ -487,8 +486,8 @@
   window.addEventListener('pagehide', sendLeaveSignalsOnce, { capture: true });
   window.addEventListener('beforeunload', sendLeaveSignalsOnce, { capture: true });
 
-  // DOM ready
-  document.addEventListener('DOMContentLoaded', () => {
+  // ---- Robust init: start() now or on DOMContentLoaded ----
+  function start() {
     connectWS();
 
     // Sequence change (host only)
@@ -545,7 +544,13 @@
         if (obj && typeof obj === 'object') { Object.assign(SEQ_CATALOG, obj); updateSequenceTooltips(); }
       }).catch(()=>{});
     } catch(e){}
-  });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', start, { once: true });
+  } else {
+    start();
+  }
 
   // Votes
   function sendVote(cardValue) {
