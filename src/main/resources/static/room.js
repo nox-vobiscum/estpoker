@@ -1,28 +1,22 @@
-/* room.js — externalized room logic with robust boot & diagnostics */
-
 (() => {
-  const TAG = "[ROOM]";
-
-  // ---- Resolve participant/room robustly (body → query → defaults) ----
-  function resolveIdentity() {
-    let name = document.body?.dataset?.participant || "";
-    let room = document.body?.dataset?.room || "";
-    try {
-      const q = new URLSearchParams(location.search);
-      if (!name) name = q.get("participantName") || q.get("name") || "";
-      if (!room) room = q.get("roomCode") || q.get("room") || "";
-    } catch (e) {}
+  // robust: config from <script data-*> OR <body data-*>
+  function readConfig() {
+    const script = document.currentScript || document.querySelector('script[src*="/room.js"]');
+    const ds = (script && script.dataset) || {};
+    const db = (document.body && document.body.dataset) || {};
     return {
-      participantName: (typeof name === "string" && name) ? name : "Guest",
-      roomCode:        (typeof room === "string" && room) ? room : "demo"
+      participantName: ds.participant || db.participant || 'Guest',
+      roomCode:        ds.room        || db.room        || 'demo',
     };
   }
 
-  let { participantName, roomCode } = resolveIdentity();
+  const cfg = readConfig();
+  let participantName = cfg.participantName;
+  let roomCode        = cfg.roomCode;
 
-  // Make a tiny probe available for debugging
-  window.__ep = { info: { participantName, roomCode, ts: Date.now() } };
-  console.info(`${TAG} file loaded`, window.__ep.info);
+  // Debug hook
+  window.__ep = { participantName, roomCode };
+  console.log('[ROOM] boot', window.__ep);
 
   // --------------------------- State ---------------------------
   let selectedCard      = null;
