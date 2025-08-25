@@ -800,5 +800,10 @@
     copyBtn?.addEventListener('click', ()=>copyText(deepLink()));
   })();
   </script>
+
+  <!-- Footer include (centralized) -->
+<div th:replace="~{fragments/footer :: footer}"></div>
+
+
 </body>
 </html>

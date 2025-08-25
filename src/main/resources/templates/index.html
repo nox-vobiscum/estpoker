@@ -38,9 +38,6 @@
   </form>
 </div>
 
-<!-- Footer -->
-<div th:replace="~{fragments/footer :: footer}"></div>
-
 <!-- Central scripts (menu + tooltip) -->
 <th:block th:replace="~{fragments/scripts :: scripts}"></th:block>
 
@@ -49,13 +46,11 @@
  * - remember last used name/room in localStorage
  * - simple client-side validation + keyboard niceties
  */
-
 (function(){
   const form  = document.getElementById('joinForm');
   const nameI = document.getElementById('nameInput');
   const roomI = document.getElementById('roomInput');
 
-  // Prefill from localStorage (purely UX sugar)
   document.addEventListener('DOMContentLoaded', () => {
     try {
       const lastName = localStorage.getItem('ep-name');
@@ -63,33 +58,28 @@
       if (lastName && !nameI.value) nameI.value = lastName;
       if (lastRoom && !roomI.value) roomI.value = lastRoom;
 
-      // Focus the first empty field; otherwise the Join button
       if (!nameI.value) nameI.focus();
       else if (!roomI.value) roomI.focus();
       else document.querySelector('.button')?.focus();
     } catch(e){}
   });
 
-  // Store values on submit (best-effort)
   form.addEventListener('submit', (e) => {
-    // Basic validation (keep it friendly)
     const name = nameI.value.trim();
     const room = roomI.value.trim();
 
     if (!name || !room) {
       e.preventDefault();
-      showToast(/* i18n-free */ 'Please enter your name and a room code.');
+      showToast('Please enter your name and a room code.');
       (!name ? nameI : roomI).focus();
       return;
     }
-
     try {
       localStorage.setItem('ep-name', name);
       localStorage.setItem('ep-room', room);
     } catch(e){}
   });
 
-  // Tiny toast reused across pages
   function showToast(message) {
     const toast = document.createElement("div");
     toast.className = "toast";
@@ -100,12 +90,11 @@
 })();
 </script>
 
-<!-- Inline toast CSS (shared look with room.html) -->
+<!-- Inline toast CSS (kept as-is) -->
 <style>
 .toast{position:fixed;top:20px;right:20px;background-color:rgba(51,51,51,.95);color:#fff;padding:12px 20px;border-radius:10px;z-index:9999;font-size:14px;box-shadow:0 6px 16px rgba(0,0,0,.25);transform:translateY(-10px);opacity:0;animation:fadein .22s ease forwards,fadeout .4s ease 2.0s forwards}
 @keyframes fadein{to{opacity:.95;transform:translateY(0)}}
 @keyframes fadeout{to{opacity:0}}
-/* quick form layout */
 .join-form{max-width:540px;margin:22px 0 0}
 .form-row{display:flex;flex-direction:column;gap:6px;margin:0 0 14px}
 .form-row label{font-weight:600;display:flex;gap:8px;align-items:center}
@@ -115,6 +104,9 @@
 .button{padding:10px 16px;border-radius:12px;border:none;background:#2b79ff;color:#fff;font-weight:700;cursor:pointer}
 .button:hover{filter:brightness(1.05)}
 </style>
+
+<!-- Footer include (centralized) -->
+<div th:replace="~{fragments/footer :: footer}"></div>
 
 </body>
 </html>
