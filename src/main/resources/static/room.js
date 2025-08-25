@@ -1,4 +1,4 @@
-/* room.js v12 — stable WS + proper disconnected styling (zzz + italic) */
+/* room.js v12.1 — stable WS + disconnected styling uses styles.css */
 (() => {
   'use strict';
   const TAG = '[ROOM]';
@@ -40,23 +40,6 @@
   setText('#youName', state.youName);
   setText('#roomCodeVal', state.roomCode);
 
-  // Inject minimal CSS for disconnected look (keeps styles.css untouched)
-  (function ensureDiscCss() {
-    const id = 'room-disc-style';
-    if (document.getElementById(id)) return;
-    const s = document.createElement('style');
-    s.id = id;
-    s.textContent = `
-      .p-row{display:flex;align-items:center;gap:.5rem;justify-content:space-between;padding:.35rem .6rem;border-radius:.5rem}
-      .p-left{display:flex;align-items:center;gap:.5rem;min-width:0}
-      .p-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-      .p-row.is-disconnected .p-name{font-style:italic;opacity:.75}
-      .p-zz{margin-right:.15rem}
-      .p-right{margin-left:1rem}
-    `;
-    document.head.appendChild(s);
-  })();
-
   // ----------------- WS connect -----------------
   function wsUrl() {
     const proto = location.protocol === 'https:' ? 'wss://' : 'ws://';
@@ -83,7 +66,6 @@
     s.onclose = (ev) => {
       state.connected = false;
       console.warn(TAG, 'CLOSE', ev.code, ev.reason || '');
-      // Light retry
       setTimeout(() => { if (!state.connected) connectWS(); }, 3000);
     };
 
@@ -131,7 +113,6 @@
         state.averageVote = m.averageVote ?? null;
         state.participants = Array.isArray(m.participants) ? m.participants : [];
 
-        // are we host?
         const me = state.participants.find(p => p && p.name === state.youName);
         state.isHost = !!(me && me.isHost);
 
@@ -164,7 +145,6 @@
       const li = document.createElement('li');
       li.className = 'p-row' + (p.disconnected ? ' is-disconnected' : '');
 
-      // left side: crown, zzz, name
       const left = document.createElement('div');
       left.className = 'p-left';
 
@@ -191,11 +171,10 @@
 
       li.appendChild(left);
 
-      // right side: status / vote
       const right = document.createElement('span');
       right.className = 'p-right';
       if (p.disconnected) {
-        right.textContent = ''; // no vote status if disconnected
+        right.textContent = '';
       } else if (!state.votesRevealed) {
         right.textContent = (p.vote != null ? '✓' : '');
         right.title = (p.vote != null ? 'Chosen' : '');

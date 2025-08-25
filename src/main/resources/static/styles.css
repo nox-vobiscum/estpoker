@@ -497,7 +497,7 @@ button.selected{
   transform: none;
 }
 
-/* ---------- Participant list ---------- */
+/* ---------- Participant list (legacy layout) ---------- */
 ul{ list-style:none; padding:0; margin:0; }
 li{ margin-bottom:.4rem; line-height:1.5; font-size:1rem; }
 
@@ -569,6 +569,14 @@ li{ margin-bottom:.4rem; line-height:1.5; font-size:1rem; }
     0 0 0 3px rgba(255, 213, 79, .28),
     inset 0 0 0 1px rgba(234, 179, 8, .55);
 }
+
+/* ---------- Participant list (new minimal layout for room.js v12+) ---------- */
+.p-row{display:flex;align-items:center;justify-content:space-between;gap:.5rem;padding:.35rem .6rem;border-radius:.5rem}
+.p-left{display:flex;align-items:center;gap:.5rem;min-width:0}
+.p-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.p-row.is-disconnected .p-name{font-style:italic;opacity:.75}
+.p-zz{margin-right:.15rem;letter-spacing:.5px;opacity:.85}
+.p-right{margin-left:1rem;min-width:2ch;text-align:right}
 
 /* Pre/Post vote + Average */
 .pre-vote{ margin-top: var(--pre-vote-margin-desktop); }
@@ -717,7 +725,7 @@ li{ margin-bottom:.4rem; line-height:1.5; font-size:1rem; }
 .row-action.host{ background: var(--host-pill-bg-dark); border-color: var(--host-pill-bdr-dark); color:#e8f0ff; }
 .row-action.kick{ background: var(--kick-pill-bg-dark); border-color: var(--kick-pill-bdr-dark); color:#ffe7e7; }
 .row-action.host:hover{ box-shadow:0 0 0 2px rgba(59,130,246,.20); }
-.row-action.kick:hover{ box-shadow:0 0 0 2px rgba(239, 68, 68,.18); }
+.row-action.kick:hover{ box-shadow: 0 0 0 2px rgba(239, 68, 68,.18); }
 
 .row-action.host:focus-visible{ outline:none; box-shadow:0 0 0 3px rgba(59,130,246,.35); }
 .row-action.kick:focus-visible{ outline:none; box-shadow:0 0 0 3px rgba(239, 68, 68,.35); }
