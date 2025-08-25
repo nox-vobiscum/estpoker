@@ -2,7 +2,7 @@
 <html xmlns:th="http://www.thymeleaf.org" th:lang="${#locale}" lang="en">
 <head th:replace="~{fragments/head :: head}"></head>
 
-<!-- Robust: Werte hier für JS hinterlegen -->
+<!-- Werte auch am <body> (robust gegen Caching / Fallback in room.js) -->
 <body th:attr="data-participant=${participantName},data-room=${roomCode}">
 
   <!-- Global app menu (full menu in the room) -->
@@ -109,8 +109,10 @@
   <!-- Common scripts (menu + tooltip) -->
   <th:block th:replace="~{fragments/scripts :: scripts}"></th:block>
 
-  <!-- Room logic (immer zuletzt laden) -->
-  <script defer src="/room.js"></script>
+  <!-- Room logic (zuletzt laden) – mit Cache-Buster + Daten auch am <script> -->
+  <script defer
+          th:src="@{/room.js(v=${#dates.createNow().getTime()})}"
+          th:attr="data-participant=${participantName},data-room=${roomCode}"></script>
 
   <div th:replace="~{fragments/footer :: appFooter}"></div>
 </body>
