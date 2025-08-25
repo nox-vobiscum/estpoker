@@ -110,6 +110,10 @@
   <!-- Room-Logik (extern) – Daten via data-* am Script, Cache-Bust per v=6 -->
   <script defer th:src="@{/room.js?v=8}"
         th:attr="data-participant=${participantName},data-room=${roomCode}"></script>
+  
+  
+  <script defer src="/js/ws-probe.js"></script>
+
 
   <div th:replace="~{fragments/footer :: appFooter}"></div>
 </body>
