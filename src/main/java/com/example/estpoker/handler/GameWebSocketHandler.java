@@ -43,13 +43,13 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
 
         Room room = gameService.getOrCreateRoom(roomCode);
 
-        // ggf. bekannten Namen anhand cid übernehmen
+        // bekannte Identität per cid
         String known = gameService.getClientName(roomCode, cid);
         if (cid != null && known != null) {
             participantName = known;
         }
 
-        // >>> WICHTIG gegen Duplikate:
+        // Duplikate vermeiden: ggf. kurz inaktiv setzen
         Participant existing = room.getParticipant(participantName);
         if (existing != null) {
             try { room.markInactive(participantName); } catch (Exception ignore) {}
@@ -78,6 +78,12 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         if (room == null || payload == null) return;
 
         try {
+            if ("ping".equals(payload)) {
+                // keepalive vom Client – optional "pong" senden
+                // session.sendMessage(new TextMessage("{\"type\":\"pong\"}"));
+                return;
+            }
+
             if (payload.startsWith("vote:")) {
                 String[] parts = payload.split(":", 3);
                 if (parts.length == 3) {
@@ -95,7 +101,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             }
 
             if ("revealCards".equals(payload)) {
-                gameService.revealCards(room.getCode()); // erwartet roomCode
+                gameService.revealCards(room.getCode());
                 gameService.broadcastRoomState(room);
                 return;
             }

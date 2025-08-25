@@ -69,21 +69,23 @@
     <!-- Pre-Vote UI: Karten etc. -->
     <div class="pre-vote">
       <div id="seqChoice" class="seq-choice"></div>
-      <p id="seqHint" class="hint" th:text="#{hint.seqOnlyHost}">Only the host can change this.</p>
+      <!-- Key an messages.* angepasst -->
+      <p id="seqHint" class="hint" th:text="#{sequence.onlyHost}">Only the host can change the sequence.</p>
 
       <div id="autoRevealRow" class="setting-row">
-        <span class="sr-label">Auto-reveal</span>
-        <span id="arStatus" class="sr-status">Off</span>
+        <span class="sr-label" th:text="#{menu.autoreveal}">Auto-reveal</span>
+        <span id="arStatus" class="sr-status" th:text="#{toggle.off}">Off</span>
         <label class="switch">
           <input id="autoRevealToggle" type="checkbox" role="switch" aria-checked="false">
           <span class="slider"></span>
         </label>
       </div>
-      <p id="arHint" class="hint" th:text="#{hint.autoRevealOnlyHost}">Only the host can change this setting.</p>
+      <!-- Key an messages.* angepasst -->
+      <p id="arHint" class="hint" th:text="#{autoreveal.onlyHost}">Only the host can change this setting.</p>
 
       <div id="topicToggleRow" class="setting-row">
-        <span class="sr-label">Topic</span>
-        <span id="topicStatus" class="sr-status">On</span>
+        <span class="sr-label" th:text="#{label.topic}">Topic</span>
+        <span id="topicStatus" class="sr-status" th:text="#{toggle.on}">On</span>
         <label class="switch">
           <input id="topicToggle" type="checkbox" role="switch" aria-checked="true">
           <span class="slider"></span>
@@ -97,11 +99,12 @@
           <input id="participationToggle" type="checkbox" role="switch" aria-checked="true">
           <span class="slider"></span>
         </label>
-        <span id="partStatus" class="sr-status">I'm estimating</span>
+        <span id="partStatus" class="sr-status" th:text="#{participation.imIn}">I'm estimating</span>
 
         <button type="button" id="revealButton" class="button" style="display:none;"
                 th:text="#{button.reveal}" onclick="revealCards()"></button>
-    </div>
+      </div>
+    </div> <!-- <<<< fehlender Close für pre-vote war hier -->
 
     <div class="post-vote" style="display:none;">
       <p id="resultRow"
@@ -136,8 +139,8 @@
   <th:block th:replace="~{fragments/scripts :: scripts}"></th:block>
 
   <!-- Room-Logik (extern) – Daten via data-* am Script -->
-  <script defer th:src="@{/room.js?v=10}"
-        th:attr="data-participant=${participantName},data-room=${roomCode}"></script>
+  <script defer th:src="@{/room.js?v=11}"
+          th:attr="data-participant=${participantName},data-room=${roomCode}"></script>
   <!-- Diagnose: minimaler WS-Handshake-Test -->
   <script defer src="/js/ws-probe.js"></script>
 

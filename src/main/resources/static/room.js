@@ -1,10 +1,10 @@
-/* room.js v10 — WS + Anti-Duplicate on reload */
+/* room.js v11 — stable WS (no leave on visibilitychange) + keepalive */
 (() => {
   'use strict';
   const TAG = '[ROOM]';
   const $ = (sel) => document.querySelector(sel);
 
-  // read params/data-*
+  // data-* / URL
   const scriptEl = document.querySelector('script[src*="/room.js"]');
   const ds = (scriptEl && scriptEl.dataset) || {};
   const url = new URL(location.href);
@@ -19,7 +19,9 @@
     votesRevealed:false,
     cards:    [],
     participants:[],
-    averageVote:null
+    averageVote:null,
+    keepaliveId:null,
+    reconnectDelay: 1500
   };
 
   // stable client id per tab
@@ -45,6 +47,16 @@
       + '&cid=' + encodeURIComponent(state.cid);
   }
 
+  function startKeepalive() {
+    stopKeepalive();
+    state.keepaliveId = setInterval(() => {
+      try { if (state.ws && state.ws.readyState === 1) state.ws.send('ping'); } catch(_){}
+    }, 25000);
+  }
+  function stopKeepalive() {
+    if (state.keepaliveId) { clearInterval(state.keepaliveId); state.keepaliveId = null; }
+  }
+
   function connectWS() {
     const u = wsUrl();
     console.info(TAG, 'connecting WS →', u);
@@ -52,13 +64,37 @@
     catch (e) { console.error(TAG, 'WS ctor failed', e); return; }
 
     const s = state.ws;
-    s.onopen    = () => { state.connected = true;  console.info(TAG, 'OPEN'); };
-    s.onclose   = (ev) => { state.connected = false; console.warn(TAG, 'CLOSE', ev.code, ev.reason||''); setTimeout(() => { if (!state.connected) connectWS(); }, 3000); };
-    s.onerror   = (e)  => console.warn(TAG, 'ERROR', e);
-    s.onmessage = (ev) => { try { handleMessage(JSON.parse(ev.data)); } catch(_){} };
+
+    s.onopen = () => {
+      state.connected = true;
+      state.reconnectDelay = 1500; // reset backoff
+      startKeepalive();
+      console.info(TAG, 'OPEN');
+    };
+
+    s.onclose = (ev) => {
+      state.connected = false;
+      stopKeepalive();
+      console.warn(TAG, 'CLOSE', ev.code, ev.reason||'');
+      // jittered backoff
+      const delay = Math.min(15000, Math.floor(state.reconnectDelay * (1.2 + Math.random() * 0.4)));
+      state.reconnectDelay = delay;
+      setTimeout(() => { if (!state.connected) connectWS(); }, delay);
+    };
+
+    s.onerror = (e) => console.warn(TAG, 'ERROR', e);
+
+    s.onmessage = (ev) => {
+      try {
+        const msg = JSON.parse(ev.data);
+        handleMessage(msg);
+      } catch (_) {
+        // non-JSON (e.g., "pong") ignorieren
+      }
+    };
   }
 
-  function send(line){ if (state.ws && state.ws.readyState === 1) state.ws.send(line); else console.warn(TAG,'send skipped', line); }
+  function send(line){ if (state.ws && state.ws.readyState === 1) state.ws.send(line); }
 
   function handleMessage(m) {
     switch (m.type) {
@@ -76,7 +112,8 @@
         break;
       }
       case 'roomClosed':
-        alert('Room was closed by host.'); try { state.ws && state.ws.close(4001,'room closed'); } catch(_){}
+        alert('Room was closed by host.');
+        try { state.ws && state.ws.close(4001, 'room closed'); } catch(_){}
         break;
       default: break;
     }
@@ -90,7 +127,7 @@
       if (p.isHost) { const crown = document.createElement('span'); crown.textContent = '👑 '; li.appendChild(crown); }
       const nameSpan = document.createElement('span'); nameSpan.textContent = p.name; li.appendChild(nameSpan);
       const status = document.createElement('span'); status.className = 'p-status';
-      if (p.disconnected) status.textContent = ' 🚪';
+      if (p.disconnected) status.textContent = ' 🧱';
       else if (!state.votesRevealed) status.textContent = (p.vote != null ? ' ✓' : '');
       else status.textContent = (p.vote != null ? `  ${p.vote}` : '  –');
       li.appendChild(status);
@@ -123,14 +160,14 @@
   window.revealCards = () => send('revealCards');
   window.resetRoom   = () => send('resetRoom');
 
-  // >>> wichtig gegen Duplikate beim Reload:
+  // Verlassen nur bei echtem Navigieren/Schließen:
   function gracefulLeave() {
     try { send('intentLeave'); } catch(_) {}
     try { state.ws && state.ws.close(4003, 'intentional leave'); } catch(_) {}
   }
   window.addEventListener('pagehide',  gracefulLeave, {capture:true});
   window.addEventListener('beforeunload', gracefulLeave, {capture:true});
-  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') gracefulLeave(); });
+  // KEIN visibilitychange mehr!
 
   function boot(){ console.info(TAG, 'boot'); connectWS(); }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
