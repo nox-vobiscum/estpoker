@@ -1,6 +1,9 @@
 package com.example.estpoker.config;
 
 import com.example.estpoker.handler.GameWebSocketHandler;
+import jakarta.annotation.PostConstruct;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.lang.NonNull;
@@ -16,42 +19,38 @@ import java.util.stream.Collectors;
 @EnableWebSocket
 public class WebSocketConfig implements WebSocketConfigurer {
 
+  private static final Logger log = LoggerFactory.getLogger(WebSocketConfig.class);
+
   private final GameWebSocketHandler handler;
-  private final String path;
   private final List<String> allowedOrigins;
-  private final boolean debugOpen;
 
   public WebSocketConfig(
       GameWebSocketHandler handler,
-      @Value("${app.websocket.path:/gameSocket}") String path,
-      @Value("${app.websocket.allowed-origins:}") String originsCsv,
-      @Value("${app.websocket.debug-open:false}") boolean debugOpen
+      // CSV aus application.properties / ENV
+      @Value("${app.websocket.allowed-origins:https://ep.noxvobiscum.at,http://localhost:8080}") String originsCsv
   ) {
     this.handler = handler;
-    this.path = (path == null || path.isBlank()) ? "/gameSocket" : path.trim();
-    this.debugOpen = debugOpen;
     this.allowedOrigins = Arrays.stream(originsCsv.split(","))
         .map(String::trim)
         .filter(s -> !s.isEmpty())
         .collect(Collectors.toList());
   }
 
+  @PostConstruct
+  void logWsOrigins() {
+    log.info("WebSocket allowed origins: {}", allowedOrigins);
+  }
+
   @Override
   public void registerWebSocketHandlers(@NonNull WebSocketHandlerRegistry registry) {
-    var registration = registry.addHandler(handler, path);
-
-    if (debugOpen || allowedOrigins.contains("*")) {
-      // Dev fallback: allow any origin (DO NOT enable in prod)
-      registration.setAllowedOriginPatterns("*");
-      return;
-    }
-
-    if (!allowedOrigins.isEmpty()) {
-      // Exact origins (best for prod)
-      registration.setAllowedOrigins(allowedOrigins.toArray(String[]::new));
+    var arr = allowedOrigins.toArray(String[]::new);
+    boolean hasWildcard = allowedOrigins.stream().anyMatch(s -> s.contains("*"));
+    if (hasWildcard) {
+      registry.addHandler(handler, "/gameSocket")
+              .setAllowedOriginPatterns(arr);
     } else {
-      // If list is empty, be permissive during setup to avoid a hard lockout
-      registration.setAllowedOriginPatterns("*");
+      registry.addHandler(handler, "/gameSocket")
+              .setAllowedOrigins(arr);
     }
   }
 }
