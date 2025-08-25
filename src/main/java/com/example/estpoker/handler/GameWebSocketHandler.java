@@ -22,7 +22,6 @@ import java.nio.charset.StandardCharsets;
 @Component
 public class GameWebSocketHandler extends TextWebSocketHandler {
 
-    private static final int CLOSE_CODE_NAVIGATE = 4100; // client-intended leave
     private final GameService gameService;
 
     public GameWebSocketHandler(GameService gameService) {
@@ -33,7 +32,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     public void afterConnectionEstablished(@NonNull WebSocketSession session) {
         String roomCode        = getQueryParam(session, "roomCode");
         String participantName = getQueryParam(session, "participantName");
-        String cid             = getQueryParam(session, "cid");
+        String cid             = getQueryParam(session, "cid"); // stable per TAB (sessionStorage)
 
         if (roomCode == null || roomCode.isBlank()
                 || participantName == null || participantName.isBlank()) {
@@ -43,6 +42,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
 
         Room room = gameService.getOrCreateRoom(roomCode);
 
+        // Reuse/rename known client-id instead of duplicating
         String known = gameService.getClientName(roomCode, cid);
         if (cid != null && known != null) {
             if (!known.equals(participantName)) {
@@ -56,17 +56,20 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             participantName = room.addOrReactivateParticipant(participantName);
         }
 
+        // Remember client-id → name
         gameService.rememberClientName(roomCode, cid, participantName);
 
+        // Cancel pending disconnect (tab refresh etc.)
         gameService.cancelPendingDisconnect(room, participantName);
-        gameService.cancelPendingHostTransfer(room, participantName);
 
+        // Track mappings
         gameService.addSession(session, room);
         gameService.trackParticipant(session, participantName);
 
-        gameService.recordHeartbeat(room, participantName);
+        // Tell this session its authoritative identity
         gameService.sendIdentity(session, participantName, cid);
 
+        // Sync state
         gameService.broadcastRoomState(room);
         gameService.sendRoomStateToSingleSession(room, session);
     }
@@ -77,16 +80,14 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         Room room = gameService.getRoomForSession(session);
         if (room == null) return;
 
-        // Heartbeat (no broadcast)
-        if (payload.startsWith("ping:")) {
+        // --- NEW: explicit "I'm leaving now" signal (beforeunload/pagehide) ---
+        if ("leavingNow".equals(payload)) {
             String me = gameService.getParticipantName(session);
-            if (me != null) gameService.recordHeartbeat(room, me);
-            return;
-        }
-        // Optional goodbye (no-op, client will close with 4100 right after)
-        if (payload.startsWith("bye")) {
-            String me = gameService.getParticipantName(session);
-            if (me != null) gameService.recordHeartbeat(room, me);
+            if (me != null) {
+                // Immediately mark inactive and reassign host if needed
+                gameService.markLeftIntentionally(room, me);
+            }
+            try { session.close(new CloseStatus(4003, "Intentional leave")); } catch (Exception ignored) {}
             return;
         }
 
@@ -250,11 +251,12 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         Room room = gameService.getRoomForSession(session);
         String participantName = gameService.getParticipantName(session);
 
+        // Clean up mappings for this session
         gameService.removeSession(session);
 
+        // Schedule grace before marking inactive (handles timeouts / brief blips)
         if (room != null && participantName != null) {
-            boolean deliberate = (status != null && status.getCode() == CLOSE_CODE_NAVIGATE);
-            gameService.scheduleDisconnect(room, participantName, deliberate);
+            gameService.scheduleDisconnect(room, participantName);
         }
     }
 
@@ -276,7 +278,10 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
 
     private String urlDecode(String s){
         if (s == null) return null;
-        try { return URLDecoder.decode(s, StandardCharsets.UTF_8); }
-        catch (Exception ignored) { return s; }
+        try {
+            return URLDecoder.decode(s, StandardCharsets.UTF_8);
+        } catch (Exception ignored) {
+            return s;
+        }
     }
 }

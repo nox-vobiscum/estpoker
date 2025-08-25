@@ -164,10 +164,10 @@ strong { color: var(--text-strong); }
   color: var(--text-strong);
 }
 .topic-text{
-  display:inline-block; font-weight:400; color: var(--text); /* tone down */
+  display:inline-block; font-weight:400; color: var(--text);
   padding:.15rem .45rem; border-radius: 6px; background: var(--panel);
   border: 1px solid var(--border);
-  min-height: 26px; line-height: 1.3; font-size: .92rem; /* smaller than names */
+  min-height: 26px; line-height: 1.3; font-size: .92rem;
 }
 .topic-text a{ color: inherit; text-decoration: none; }
 .topic-text a:hover{ text-decoration: underline; }
@@ -681,6 +681,9 @@ li{ margin-bottom:.4rem; line-height:1.5; font-size:1rem; }
   .topic-row{ grid-template-columns: 1fr; }
   .topic-label{ display:none; }
   .topic-actions{ justify-content:flex-end; }
+
+  /* NEW: action buttons icon-only on phones */
+  .row-action .ra-label{ display:none; }
 }
 
 /* Labels appear on wider screens */
@@ -730,30 +733,23 @@ li{ margin-bottom:.4rem; line-height:1.5; font-size:1rem; }
 /* ---------- Brand mark (optional) ---------- */
 .brandmark{ vertical-align:-3px; margin-right:8px; width:22px; height:22px; }
 
-/* ---------- iOS Safari tweaks for pills (GLOBAL) ---------- */
+/* ---------- iOS Safari tweaks for pills ---------- */
 @supports (-webkit-touch-callout: none){
-  /* Make all action pills icon-only and circular on iOS */
-  .row-action{
+  #liveParticipantList .row-action{
     width:40px; height:40px; padding:0; border-radius:50%;
-    -webkit-appearance:none; appearance:none; background-clip: padding-box;
-    line-height:1; justify-content:center;
+    -webkit-appearance:none; appearance:none; background-clip: padding-box; line-height:1; justify-content:center;
   }
-  .row-action .ra-icon{
+  #liveParticipantList .row-action .ra-icon{
     width:1em; height:1em; font-size:20px; line-height:1; transform: translateY(.5px);
     font-family: "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",system-ui,sans-serif;
   }
-  .row-action .ra-label{ display:none !important; } /* hide text labels on iOS */
-
-  /* Keep alignment helpers working without labels */
-  .row-right > .row-action:first-of-type{ margin-left:auto; }
-  .row-right :where(.status-icon, .vote-chip) ~ .row-action:first-of-type{ margin-left:auto; }
-
-  /* iOS emphasis rings */
-  .row-action.host{ border-color: rgba(59,130,246,.60); box-shadow: 0 1px 6px rgba(59,130,246,.25); }
-  .row-action.kick{ border-color: rgba(239,68,68,.60); box-shadow: 0 1px 6px rgba(239,68,68,.25); }
+  #liveParticipantList .row-action.host{ border-color: rgba(59,130,246,.60); box-shadow: 0 1px 6px rgba(59,130,246,.25); }
+  #liveParticipantList .row-action.kick{ border-color: rgba(239,68,68,.60); box-shadow: 0 1px 6px rgba(239,68,68,.25); }
+  #liveParticipantList .row-right > .row-action:first-of-type{ margin-left:auto; }
+  #liveParticipantList .row-right :where(.status-icon, .vote-chip) ~ .row-action:first-of-type{ margin-left:auto; }
 }
 @media (max-width: 600px) and (-webkit-touch-callout: none){
-  .row-right{ gap:6px; }
+  #liveParticipantList .row-right{ gap:6px; }
 }
 
 /* ---------- Footer (centralized) ---------- */
@@ -764,32 +760,39 @@ li{ margin-bottom:.4rem; line-height:1.5; font-size:1rem; }
   border-top: 1px solid var(--border);
   text-align: center;
   padding: 8px 12px;
-  font-size: .82rem;           /* base size (desktop) */
+  font-size: .82rem;
   line-height: 1.2;
-  z-index: 4;                  /* keep below sticky reveal/reset (z:5) */
+  z-index: 4;
   -webkit-user-select: none; user-select: none;
 }
 .app-footer a{
   color: inherit; text-decoration: underline; text-underline-offset: 2px;
 }
-
-/* Give content breathing room so fixed footer never overlaps */
-body{ padding-bottom: 68px; }         /* desktop default */
+body{ padding-bottom: 68px; }
 .container{ padding-bottom: 0; }
-
-/* --- Mobile: reduce size and ensure ≥50px gap above footer --- */
 @media (max-width: 600px){
   .app-footer{
-    font-size: .62rem;         /* ~30–40% smaller on phones */
+    font-size: .62rem;
     padding: 6px 10px;
-    margin-top: 50px;          /* visual cushion above footer */
+    margin-top: 50px;
   }
-  /* Reserve vertical space so sticky buttons and cards don't collide */
   body{ padding-bottom: max(80px, calc(env(safe-area-inset-bottom) + 68px)); }
   .container{ padding-bottom: max(80px, calc(env(safe-area-inset-bottom) + 68px)); }
 }
-
-/* --- iOS Safari fine-tune (extra-small footprint) --- */
 @supports (-webkit-touch-callout: none){
-  .app-footer{ font-size: .58rem; }   /* a touch smaller on iOS */
+  .app-footer{ font-size: .58rem; }
+}
+
+/* ---------- A11y helpers ---------- */
+/* NEW: screenreader-only utility for invisible labels */
+.sr-only{
+  position:absolute !important;
+  width:1px !important;
+  height:1px !important;
+  padding:0 !important;
+  margin:-1px !important;
+  overflow:hidden !important;
+  clip:rect(0,0,0,0) !important;
+  white-space:nowrap !important;
+  border:0 !important;
 }

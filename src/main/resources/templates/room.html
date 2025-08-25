@@ -39,7 +39,6 @@
       <span class="topic-label" aria-hidden="true">📝</span>
       <span id="topicDisplay" class="topic-text">—</span>
       <div class="topic-actions">
-        <!-- Host-only buttons; hidden for participants via JS -->
         <button id="topicEditBtn" class="row-action" type="button" data-tooltip="Edit" aria-label="Edit">
           <span class="ra-icon">✏️</span><span class="ra-label">Edit</span>
         </button>
@@ -67,12 +66,13 @@
       </div>
     </div>
 
-    <h2 id="selectCardHeader" th:text="#{label.selectCard}">Choose a card:</h2>
+    <!-- Screenreader-only label for the card deck (replaces visible H2) -->
+    <span id="cardsLabel" class="sr-only" th:text="#{label.selectCard}">Choose a card</span>
 
-    <div class="pre-vote">
+    <div class="pre-vote" aria-labelledby="cardsLabel">
       <div id="cardsArea"></div>
       <button type="button" id="revealButton" class="button" style="display:none;"
-              th:text="#{button.reveal}" onclick="revealCards()">Reveal cards</button>
+              th:text="#{button.reveal}" onclick="revealCards()"></button>
     </div>
 
     <div class="post-vote" style="display:none;">
@@ -100,16 +100,20 @@
       </p>
 
       <button type="button" id="resetButton" class="button" style="display:none;"
-              th:text="#{button.reset}" onclick="resetRoom()">Start new round</button>
+              th:text="#{button.reset}" onclick="resetRoom()"></button>
     </div>
   </div>
 
-  <!-- Central scripts (must be before inline JS so defer-order is correct) -->
+  <!-- Central scripts -->
   <th:block th:replace="~{fragments/scripts :: scripts}"></th:block>
 
   <script th:inline="javascript">
-  /* ======================= Game logic ============================ */
+  /* ======================= Game logic (stabilized) ==========================
+     - Adds robust reconnect (backoff) and an explicit "leavingNow" signal.
+     - Visible "Choose a card" header removed; SR-only label remains.
+     ======================================================================= */
 
+  // Basic room state
   let participantName   = /*[[${participantName}]]*/ "Guest";
   let roomCode          = /*[[${roomCode}]]*/ "demo";
   let selectedCard      = null;
@@ -145,6 +149,7 @@
   const SPECIALS = new Set(["❓","💬","☕"]);
   const SEQ_CATALOG = Object.create(null);
 
+  // Deck tooltips
   function formatDeckForTooltip(cards){
     if (!Array.isArray(cards)) return '';
     const specials = cards.filter(c => SPECIALS.has(String(c)));
@@ -164,8 +169,7 @@
       const id   = inp.value;
       const deck = SEQ_CATALOG[id];
       if (deck && deck.length){
-        const tip = formatDeckForTooltip(deck);
-        row.setAttribute('data-tooltip', tip);
+        row.setAttribute('data-tooltip', formatDeckForTooltip(deck));
         row.removeAttribute('title');
       } else {
         row.removeAttribute('data-tooltip');
@@ -247,19 +251,6 @@
     const hint = document.getElementById('arHint');
     if (hint) hint.style.display = isHost ? 'none' : 'block';
   }
-  /* NEW: keep Topic toggle visuals consistent with Auto-Reveal for non-hosts */
-  function syncTopicToggleUI(){
-    const row = document.getElementById('topicToggleRow');
-    const st  = document.getElementById('topicStatus');
-    const cb  = document.getElementById('topicToggle');
-    if (st) st.textContent = topicVisible ? TXT_ON : TXT_OFF;
-    if (cb) {
-      cb.checked = topicVisible;
-      cb.setAttribute('aria-checked', topicVisible ? 'true' : 'false');
-      cb.disabled = !isHost;                // disable switch for non-hosts
-    }
-    if (row) row.classList.toggle('disabled', !isHost); // dim whole row
-  }
 
   function updateTopicDisplay(label, url){
     const disp = document.getElementById('topicDisplay');
@@ -289,10 +280,8 @@
     const clrBtn   = document.getElementById('topicClearBtn');
 
     if (row)  row.style.display  = topicVisible ? 'grid' : 'none';
-
     if (editBtn) editBtn.style.display = isHost ? 'inline-flex' : 'none';
     if (clrBtn)  clrBtn.style.display  = isHost ? 'inline-flex' : 'none';
-
     if (edit) edit.style.display = (isHost && isEditingTopic) ? 'grid' : 'none';
   }
 
@@ -320,68 +309,7 @@
     highlightSelectedCard();
   }
 
-  document.addEventListener('DOMContentLoaded', () => {
-    syncSequenceUI();
-    syncAutoRevealUI();
-    syncTopicToggleUI();   // NEW: ensure topic switch is greyed out for non-hosts
-    applyTopicUI();
-
-    document.getElementById('seqChoice')?.addEventListener('change', (e)=>{
-      const val = e.target?.value;
-      if (!val) return;
-      if (!isHost) { showToast(/*[[#{sequence.onlyHost}]]*/ 'Only the host can change the sequence'); syncSequenceUI(); return; }
-      socket.send('setSequence:' + val);
-    });
-
-    const arRow = document.getElementById('autoRevealRow');
-    const arToggle = document.getElementById('autoRevealToggle');
-    arRow?.addEventListener('click', (e)=>{ if (!isHost) { e.preventDefault(); e.stopPropagation(); showToast(TXT_AR_ONLY_HOST); }});
-    arToggle?.addEventListener('click', ()=>{ if (isHost) socket.send('setAutoReveal:' + !autoRevealEnabled); });
-
-    const tvRow = document.getElementById('topicToggleRow');
-    const tvCb  = document.getElementById('topicToggle');
-    tvRow?.addEventListener('click', (e)=>{ if (!isHost) { e.preventDefault(); e.stopPropagation(); showToast(TXT_AR_ONLY_HOST); }});
-    tvCb?.addEventListener('click', ()=>{ if (isHost) socket.send('setTopicVisible:' + !topicVisible); });
-
-    const inEl    = document.getElementById('topicInput');
-    const saveBtn = document.getElementById('topicSaveBtn');
-    const cancel  = document.getElementById('topicCancelBtn');
-    const editBtn = document.getElementById('topicEditBtn');
-    const clearBtn= document.getElementById('topicClearBtn');
-
-    editBtn?.addEventListener('click', ()=>{ if (!isHost) return; isEditingTopic = true; applyTopicUI(); inEl?.focus(); });
-    cancel?.addEventListener('click', ()=>{ isEditingTopic = false; applyTopicUI(); });
-
-    saveBtn?.addEventListener('click', ()=>{
-      if (!isHost) return;
-      const { label, url } = parseTopicInput(inEl?.value || '');
-      const enc = encodeURIComponent(label || '') + '|' + encodeURIComponent(url || '');
-      socket.send('setTopic:' + enc);
-      isEditingTopic = false;
-      if (inEl) inEl.value = '';
-      showToast(TXT_TOPIC_SAVED);
-    });
-    inEl?.addEventListener('keydown', (e)=>{
-      if (e.key === 'Enter') { e.preventDefault(); saveBtn?.click(); }
-    });
-    clearBtn?.addEventListener('click', ()=>{
-      if (!isHost) return;
-      socket.send('clearTopic');
-      showToast(TXT_TOPIC_CLEARED);
-    });
-
-    const partToggle = document.getElementById('participationToggle');
-    partToggle?.addEventListener('click', ()=>{ const next = !myParticipating; syncParticipationUI(next); socket.send('setParticipating:' + next); });
-
-    try {
-      fetch('/sequences').then(r => r.ok ? r.json() : null).then(json => {
-        if (!json) return;
-        const obj = json.sequences || json;
-        if (obj && typeof obj === 'object') { Object.assign(SEQ_CATALOG, obj); updateSequenceTooltips(); }
-      }).catch(()=>{});
-    } catch(e){}
-  });
-
+  // --- Robust WebSocket (auto-reconnect + explicit leave beacon) -----------
   const cid = (function(){
     try {
       const KEY = 'ep-cid';
@@ -398,16 +326,32 @@
   })();
 
   const wsProtocol = location.protocol === "https:" ? "wss://" : "ws://";
-  const socketUrl = wsProtocol + location.host
+  const baseSocketUrl = wsProtocol + location.host
     + "/gameSocket?roomCode=" + encodeURIComponent(roomCode)
     + "&participantName=" + encodeURIComponent(participantName)
     + "&cid=" + encodeURIComponent(cid);
-  const socket = new WebSocket(socketUrl);
 
-  const MSG_HOST_YOU   = /*[[#{toast.youAreHost}]]*/ 'Host changed. You are now host!';
-  const MSG_HOST_OTHER = /*[[#{toast.hostOther}]]*/ 'Host changed. {new} is now host.';
+  let socket = null;
+  let isUnloading = false;
+  let reconnectAttempts = 0;
 
-  socket.onmessage = (event) => {
+  function connectWS(){
+    socket = new WebSocket(baseSocketUrl);
+
+    socket.onopen = () => {
+      reconnectAttempts = 0;
+    };
+
+    socket.onmessage = handleMessage;
+
+    socket.onclose = () => {
+      if (isUnloading) return;
+      const delay = Math.min(8000, 500 * Math.pow(2, reconnectAttempts++));
+      setTimeout(connectWS, delay);
+    };
+  }
+
+  function handleMessage(event){
     const data = JSON.parse(event.data);
 
     if (data.type === 'you' && typeof data.yourName === 'string') {
@@ -466,7 +410,6 @@
 
       syncAutoRevealUI();
       syncSequenceUI();
-      syncTopicToggleUI();     // NEW: keep topic toggle visuals in sync with host status
 
       updateTopicDisplay(data.topicLabel || null, data.topicUrl || null);
       applyTopicUI();
@@ -504,10 +447,9 @@
         document.getElementById("resetButton").style.display  = isHost && votesRevealed ? "inline-block"  : "none";
         syncSequenceUI();
         syncAutoRevealUI();
-        syncTopicToggleUI();   // NEW: also update topic toggle on host change
         applyTopicUI();
       }
-      showToast(newHost === participantName ? MSG_HOST_YOU : MSG_HOST_OTHER.replace('{new}', newHost));
+      showToast(newHost === participantName ? /*[[#{toast.youAreHost}]]*/ 'Host changed. You are now host!' : (/*[[#{toast.hostOther}]]*/ 'Host changed. {new} is now host.').replace('{new}', newHost));
 
     } else if (data.type === "kicked") {
       try { localStorage.setItem('ep-toast', TXT_KICKED); } catch(e) {}
@@ -518,17 +460,77 @@
       const target = data.redirect || "/";
       location.replace(target);
     }
-  };
+  }
 
+  // Explicit leave signaling (host reassign immediately if needed)
+  function sendLeaveSignalsOnce(){
+    if (isUnloading) return;
+    isUnloading = true;
+    try { if (socket && socket.readyState === 1) { socket.send("leavingNow"); } } catch(e){}
+    try {
+      const payload = new Blob([JSON.stringify({ roomCode, cid })], { type: 'application/json' });
+      navigator.sendBeacon('/signal/bye', payload);
+    } catch(e){}
+  }
+  window.addEventListener('pagehide', sendLeaveSignalsOnce, { capture: true });
+  window.addEventListener('beforeunload', sendLeaveSignalsOnce, { capture: true });
+
+  // Init after DOM ready
   document.addEventListener('DOMContentLoaded', () => {
-    const closeBtn = document.getElementById('closeRoomBtn');
-    closeBtn?.addEventListener('click', () => {
-      if (!isHost) return;
-      const ok = confirm(/*[[#{room.close.confirm}]]*/ "Close this room for everyone now?");
-      if (ok) socket.send("closeRoom");
+    connectWS();
+
+    document.getElementById('seqChoice')?.addEventListener('change', (e)=>{
+      const val = e.target?.value;
+      if (!val) return;
+      if (!isHost) { showToast(/*[[#{sequence.onlyHost}]]*/ 'Only the host can change the sequence'); syncSequenceUI(); return; }
+      socket.send('setSequence:' + val);
     });
+
+    const arRow = document.getElementById('autoRevealRow');
+    const arToggle = document.getElementById('autoRevealToggle');
+    arRow?.addEventListener('click', (e)=>{ if (!isHost) { e.preventDefault(); e.stopPropagation(); showToast(TXT_AR_ONLY_HOST); }});
+    arToggle?.addEventListener('click', ()=>{ if (isHost) socket.send('setAutoReveal:' + !autoRevealEnabled); });
+
+    const tvRow = document.getElementById('topicToggleRow');
+    const tvCb  = document.getElementById('topicToggle');
+    tvRow?.addEventListener('click', (e)=>{ if (!isHost) { e.preventDefault(); e.stopPropagation(); showToast(TXT_AR_ONLY_HOST); }});
+    tvCb?.addEventListener('click', ()=>{ if (isHost) socket.send('setTopicVisible:' + !topicVisible); });
+
+    const inEl    = document.getElementById('topicInput');
+    const saveBtn = document.getElementById('topicSaveBtn');
+    const cancel  = document.getElementById('topicCancelBtn');
+    const editBtn = document.getElementById('topicEditBtn');
+    const clearBtn= document.getElementById('topicClearBtn');
+
+    editBtn?.addEventListener('click', ()=>{ if (!isHost) return; isEditingTopic = true; applyTopicUI(); inEl?.focus(); });
+    cancel?.addEventListener('click', ()=>{ isEditingTopic = false; applyTopicUI(); });
+
+    saveBtn?.addEventListener('click', ()=>{
+      if (!isHost) return;
+      const { label, url } = parseTopicInput(inEl?.value || '');
+      const enc = encodeURIComponent(label || '') + '|' + encodeURIComponent(url || '');
+      socket.send('setTopic:' + enc);
+      isEditingTopic = false;
+      if (inEl) inEl.value = '';
+      showToast(TXT_TOPIC_SAVED);
+    });
+    inEl?.addEventListener('keydown', (e)=>{ if (e.key === 'Enter') { e.preventDefault(); saveBtn?.click(); }});
+
+    clearBtn?.addEventListener('click', ()=>{ if (!isHost) return; socket.send('clearTopic'); showToast(TXT_TOPIC_CLEARED); });
+
+    const partToggle = document.getElementById('participationToggle');
+    partToggle?.addEventListener('click', ()=>{ const next = !myParticipating; syncParticipationUI(next); socket.send('setParticipating:' + next); });
+
+    try {
+      fetch('/sequences').then(r => r.ok ? r.json() : null).then(json => {
+        if (!json) return;
+        const obj = json.sequences || json;
+        if (obj && typeof obj === 'object') { Object.assign(SEQ_CATALOG, obj); updateSequenceTooltips(); }
+      }).catch(()=>{});
+    } catch(e){}
   });
 
+  // Vote helpers
   function sendVote(cardValue) {
     if (!myParticipating) { showToast(TXT_OBS_NO_PICK); return; }
     if (votesRevealed) return;
@@ -677,11 +679,11 @@
     if (avgSpan) avgSpan.textContent = avg != null ? avg : "-";
   }
   function setConsensusUI(on){
-    const row = document.getElementById("resultRow");
-    const lbl = document.getElementById("resultLabel");
+    const row = document.getElementById('resultRow');
+    const lbl = document.getElementById('resultLabel');
     if (!row || !lbl) return;
     lbl.textContent = on ? TXT_CONS : TXT_AVG;
-    row.classList.toggle("consensus", !!on);
+    row.classList.toggle('consensus', !!on);
   }
   function parseVoteNumeric(s){
     if (!s) return null;
@@ -766,7 +768,6 @@
   function toggleView(revealed) {
     document.querySelectorAll(".pre-vote").forEach(e => e.style.display = revealed ? "none" : "block");
     document.querySelectorAll(".post-vote").forEach(e => e.style.display = revealed ? "block" : "none");
-    const h = document.getElementById("selectCardHeader"); if (h) h.style.display = revealed ? "none" : "block";
   }
   function showResults(participants, avg) {
     toggleView(true);
@@ -801,9 +802,6 @@
   })();
   </script>
 
-  <!-- Footer include (centralized) -->
-<div th:replace="~{fragments/footer :: footer}"></div>
-
-
+  <div th:replace="~{fragments/footer :: appFooter}"></div>
 </body>
 </html>

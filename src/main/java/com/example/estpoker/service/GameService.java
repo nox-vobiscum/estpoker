@@ -21,6 +21,7 @@ public class GameService {
     private final Map<WebSocketSession, Room> sessionToRoomMap = new ConcurrentHashMap<>();
     private final Map<WebSocketSession, String> sessionToParticipantMap = new ConcurrentHashMap<>();
 
+    // Stable Client-ID -> last known name (per room)
     private final Map<String, String> clientToName = new ConcurrentHashMap<>();
     private static String mapKey(String roomCode, String cid) { return roomCode + "|" + cid; }
     public String getClientName(String roomCode, String cid) {
@@ -33,21 +34,16 @@ public class GameService {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
+    // --- Disconnect-Grace (longer for transient issues) ---
+    private static final long DISCONNECT_GRACE_MS = 12_000L; // was 2000
     private final ScheduledExecutorService scheduler =
             Executors.newSingleThreadScheduledExecutor(r -> {
                 Thread t = new Thread(r, "disconnect-grace");
                 t.setDaemon(true);
                 return t;
             });
-
-    private static final long DISCONNECT_GRACE_MS = 2000L;
-    private static final long HOST_TRANSFER_GRACE_MS = 90_000L;
-
     private final Map<String, ScheduledFuture<?>> pendingDisconnects = new ConcurrentHashMap<>();
-    private final Map<String, ScheduledFuture<?>> pendingHostTransfers = new ConcurrentHashMap<>();
     private static String key(Room room, String name) { return room.getCode() + "|" + name; }
-
-    private final Map<String, Long> lastHeartbeat = new ConcurrentHashMap<>();
 
     public Room getOrCreateRoom(String roomCode) { return rooms.computeIfAbsent(roomCode, Room::new); }
     public Room getRoom(String roomCode) { return rooms.get(roomCode); }
@@ -79,11 +75,6 @@ public class GameService {
         if (room != null) room.reset();
     }
 
-    public void recordHeartbeat(Room room, String participantName) {
-        if (room == null || participantName == null) return;
-        lastHeartbeat.put(key(room, participantName), System.currentTimeMillis());
-    }
-
     public OptionalDouble calculateAverageVote(Room room) {
         List<String> votes = room.getParticipants().stream()
                 .filter(Participant::isParticipating)
@@ -93,7 +84,9 @@ public class GameService {
         return CardSequences.averageOfStrings(votes);
     }
 
-    public boolean isValidVote(String v) { return v != null && !CardSequences.SPECIALS.contains(v); }
+    public boolean isValidVote(String v) {
+        return v != null && !CardSequences.SPECIALS.contains(v);
+    }
 
     public boolean allActiveParticipantsHaveValidVotes(Room room) {
         if (room == null) return false;
@@ -101,7 +94,9 @@ public class GameService {
             for (Participant p : room.getParticipants()) {
                 if (p.isActive() && p.isParticipating()) {
                     String v = p.getVote();
-                    if (v == null || !isValidVote(v)) return false;
+                    if (v == null || !isValidVote(v)) {
+                        return false;
+                    }
                 }
             }
             return true;
@@ -125,6 +120,7 @@ public class GameService {
         sessionToRoomMap.entrySet().removeIf(entry -> {
             WebSocketSession session = entry.getKey();
             if (!entry.getValue().equals(room)) return false;
+
             try {
                 if (session.isOpen()) {
                     session.sendMessage(new TextMessage(message));
@@ -146,6 +142,7 @@ public class GameService {
 
             List<Participant> ordered = getOrderedParticipants(room);
             List<Map<String, Object>> participants = new ArrayList<>();
+
             for (Participant p : ordered) {
                 Map<String, Object> pData = new HashMap<>();
                 pData.put("name", p.getName());
@@ -167,8 +164,10 @@ public class GameService {
 
             payload.put("sequenceId", room.getSequenceId());
             payload.put("cards", room.getCurrentCards());
+
             payload.put("autoRevealEnabled", room.isAutoRevealEnabled());
 
+            // Topic (Ticket/Story) + visibility
             payload.put("topicLabel", room.getTopicLabel());
             payload.put("topicUrl", room.getTopicUrl());
             payload.put("topicVisible", room.isTopicVisible());
@@ -187,6 +186,7 @@ public class GameService {
 
             List<Participant> ordered = getOrderedParticipants(room);
             List<Map<String, Object>> participants = new ArrayList<>();
+
             for (Participant p : ordered) {
                 Map<String, Object> pData = new HashMap<>();
                 pData.put("name", p.getName());
@@ -196,6 +196,7 @@ public class GameService {
                 pData.put("participating", p.isParticipating());
                 participants.add(pData);
             }
+
             payload.put("participants", participants);
             payload.put("votesRevealed", room.areVotesRevealed());
 
@@ -207,14 +208,17 @@ public class GameService {
 
             payload.put("sequenceId", room.getSequenceId());
             payload.put("cards", room.getCurrentCards());
-            payload.put("autoRevealEnabled", room.isAutoRevealEnabled());
 
+            payload.put("autoRevealEnabled", room.isAutoRevealEnabled());
             payload.put("topicLabel", room.getTopicLabel());
             payload.put("topicUrl", room.getTopicUrl());
             payload.put("topicVisible", room.isTopicVisible());
 
             String json = objectMapper.writeValueAsString(payload);
-            if (targetSession.isOpen()) targetSession.sendMessage(new TextMessage(json));
+
+            if (targetSession.isOpen()) {
+                targetSession.sendMessage(new TextMessage(json));
+            }
 
         } catch (IOException e) {
             e.printStackTrace();
@@ -227,6 +231,7 @@ public class GameService {
             payload.put("type", "hostChanged");
             payload.put("oldHost", oldHostName);
             payload.put("newHost", newHostName);
+
             String json = objectMapper.writeValueAsString(payload);
             broadcastToRoom(room, json);
         } catch (IOException e) {
@@ -237,6 +242,7 @@ public class GameService {
     private List<Participant> getOrderedParticipants(Room room) {
         List<Participant> all = new ArrayList<>(room.getParticipants());
         Participant host = room.getHost();
+
         if (host != null) {
             all.removeIf(p -> p.getName().equals(host.getName()));
             List<Participant> ordered = new ArrayList<>();
@@ -247,27 +253,14 @@ public class GameService {
         return all;
     }
 
-    // ---- timers ----
-
+    // === Grace window handling ===
     public void cancelPendingDisconnect(Room room, String participantName) {
         String k = key(room, participantName);
         ScheduledFuture<?> f = pendingDisconnects.remove(k);
         if (f != null) f.cancel(false);
     }
 
-    public void cancelPendingHostTransfer(Room room, String participantName) {
-        String k = key(room, participantName);
-        ScheduledFuture<?> f = pendingHostTransfers.remove(k);
-        if (f != null) f.cancel(false);
-    }
-
-    // old signature kept for callers that don't pass deliberate flag
     public void scheduleDisconnect(Room room, String participantName) {
-        scheduleDisconnect(room, participantName, false);
-    }
-
-    /** Schedule marking a participant inactive and (optionally) host transfer policy. */
-    public void scheduleDisconnect(Room room, String participantName, boolean deliberate) {
         if (room == null || participantName == null) return;
         String k = key(room, participantName);
 
@@ -278,20 +271,10 @@ public class GameService {
                 Participant participant = room.getParticipant(participantName);
                 if (participant != null) participant.setActive(false);
 
-                if (deliberate) {
-                    // Deliberate leave: if host left, transfer immediately after grace.
-                    Participant host = room.getHost();
-                    if (host != null && participantName.equals(host.getName())) {
-                        String newHostName = room.assignNewHostIfNecessary(participantName);
-                        if (newHostName != null) {
-                            broadcastHostChange(room, participantName, newHostName);
-                        }
-                    }
-                } else {
-                    // Unintentional disconnect: delay possible host transfer (avoid flapping)
-                    scheduleHostTransferIfStillInactive(room, participantName);
+                String newHostName = room.assignNewHostIfNecessary(participantName);
+                if (newHostName != null) {
+                    broadcastHostChange(room, participantName, newHostName);
                 }
-
                 broadcastRoomState(room);
             } finally {
                 pendingDisconnects.remove(k);
@@ -301,33 +284,31 @@ public class GameService {
         pendingDisconnects.put(k, f);
     }
 
-    private void scheduleHostTransferIfStillInactive(Room room, String leavingName) {
-        if (room == null || leavingName == null) return;
-        String k = key(room, leavingName);
+    // === NEW: immediate leave (explicit user intent) ===
+    public void markLeftIntentionally(Room room, String participantName) {
+        if (room == null || participantName == null) return;
 
-        cancelPendingHostTransfer(room, leavingName);
+        cancelPendingDisconnect(room, participantName);
 
-        ScheduledFuture<?> f = scheduler.schedule(() -> {
-            try {
-                Participant host = room.getHost();
-                if (host != null && leavingName.equals(host.getName())) {
-                    Participant p = room.getParticipant(leavingName);
-                    if (p != null && !p.isActive()) {
-                        String newHostName = room.assignNewHostIfNecessary(leavingName);
-                        if (newHostName != null) {
-                            broadcastHostChange(room, leavingName, newHostName);
-                            broadcastRoomState(room);
-                        }
-                    }
-                }
-            } finally {
-                pendingHostTransfers.remove(k);
-            }
-        }, HOST_TRANSFER_GRACE_MS, TimeUnit.MILLISECONDS);
+        Participant participant = room.getParticipant(participantName);
+        if (participant != null) participant.setActive(false);
 
-        pendingHostTransfers.put(k, f);
+        String newHost = room.assignNewHostIfNecessary(participantName);
+        if (newHost != null) {
+            broadcastHostChange(room, participantName, newHost);
+        }
+        broadcastRoomState(room);
     }
 
+    // Convenience for REST beacon
+    public void handleIntentionalLeave(String roomCode, String participantName) {
+        Room room = getRoom(roomCode);
+        if (room != null && participantName != null) {
+            markLeftIntentionally(room, participantName);
+        }
+    }
+
+    // ===== kick participant =====
     public void kickParticipant(Room room, String targetName) {
         if (room == null || targetName == null) return;
 
@@ -352,14 +333,15 @@ public class GameService {
             }
         }
         for (WebSocketSession s : targetSessions) {
-            try { if (s.isOpen()) s.sendMessage(new TextMessage(json)); } catch (IOException ignored) {}
+            try {
+                if (s.isOpen()) s.sendMessage(new TextMessage(json));
+            } catch (IOException ignored) {}
             sessionToRoomMap.remove(s);
             sessionToParticipantMap.remove(s);
             try { s.close(new CloseStatus(4001, "Kicked")); } catch (IOException ignored) {}
         }
 
         cancelPendingDisconnect(room, targetName);
-        cancelPendingHostTransfer(room, targetName);
         room.removeParticipant(targetName);
 
         String newHost = room.assignNewHostIfNecessary(targetName);
@@ -369,6 +351,7 @@ public class GameService {
         broadcastRoomState(room);
     }
 
+    // ===== close room =====
     public void closeRoom(Room room) {
         if (room == null) return;
 
@@ -384,7 +367,9 @@ public class GameService {
 
         List<WebSocketSession> toClose = new ArrayList<>();
         for (Map.Entry<WebSocketSession, Room> e : sessionToRoomMap.entrySet()) {
-            if (room.equals(e.getValue())) toClose.add(e.getKey());
+            if (room.equals(e.getValue())) {
+                toClose.add(e.getKey());
+            }
         }
         for (WebSocketSession s : toClose) {
             try { s.close(new CloseStatus(4000, "Room closed")); } catch (IOException ignored) {}
@@ -394,7 +379,6 @@ public class GameService {
 
         for (Participant p : new ArrayList<>(room.getParticipants())) {
             cancelPendingDisconnect(room, p.getName());
-            cancelPendingHostTransfer(room, p.getName());
         }
 
         rooms.remove(room.getCode());
@@ -407,7 +391,9 @@ public class GameService {
             payload.put("yourName", yourName);
             if (cid != null) payload.put("cid", cid);
             String json = objectMapper.writeValueAsString(payload);
-            if (session.isOpen()) session.sendMessage(new TextMessage(json));
+            if (session.isOpen()) {
+                session.sendMessage(new TextMessage(json));
+            }
         } catch (IOException e) {
             e.printStackTrace();
         }
