@@ -136,7 +136,7 @@
   <th:block th:replace="~{fragments/scripts :: scripts}"></th:block>
 
   <!-- Room-Logik (extern) – Daten via data-* am Script -->
-  <script defer th:src="@{/room.js?v=8}"
+  <script defer th:src="@{/room.js?v=10}"
         th:attr="data-participant=${participantName},data-room=${roomCode}"></script>
   <!-- Diagnose: minimaler WS-Handshake-Test -->
   <script defer src="/js/ws-probe.js"></script>

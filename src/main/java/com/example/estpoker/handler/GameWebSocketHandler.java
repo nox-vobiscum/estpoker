@@ -18,29 +18,22 @@ import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 
-/**
- * WebSocket handler orchestrating realtime messages.
- * Be tolerant with return types (e.g., renameParticipant/addOrReactivateParticipant may return String or Participant).
- */
 @Component
 public class GameWebSocketHandler extends TextWebSocketHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GameWebSocketHandler.class);
-
     private final GameService gameService;
 
     public GameWebSocketHandler(GameService gameService) {
         this.gameService = gameService;
     }
 
-    // -------------------- lifecycle --------------------
-
     @Override
     public void afterConnectionEstablished(@NonNull WebSocketSession session) throws Exception {
         Map<String, String> q = parseQuery(session.getUri());
         String roomCode        = q.get("roomCode");
         String participantName = q.get("participantName");
-        String cid             = q.get("cid"); // stable per tab (sessionStorage)
+        String cid             = q.get("cid");
 
         if (isBlank(roomCode) || isBlank(participantName)) {
             log.warn("WS connect rejected: missing params roomCode='{}' participantName='{}'", roomCode, participantName);
@@ -50,33 +43,25 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
 
         Room room = gameService.getOrCreateRoom(roomCode);
 
-        // If this client-id (cid) is already known in this room, keep identity consistent.
+        // ggf. bekannten Namen anhand cid übernehmen
         String known = gameService.getClientName(roomCode, cid);
         if (cid != null && known != null) {
-            if (!known.equals(participantName)) {
-                // Accept different return types (String/Participant/Room)
-                Object rn = room.renameParticipant(known, participantName);
-                if (rn instanceof Participant) {
-                    participantName = ((Participant) rn).getName();
-                } else if (rn instanceof String) {
-                    participantName = (String) rn;
-                } else {
-                    // keep desired name as best effort
-                }
-            } else {
-                participantName = known;
-            }
+            participantName = known;
         }
 
-        // (Re)activate participant and attach session
-        Object addRes = room.addOrReactivateParticipant(participantName); // may be String or Participant
+        // >>> WICHTIG gegen Duplikate:
+        Participant existing = room.getParticipant(participantName);
+        if (existing != null) {
+            try { room.markInactive(participantName); } catch (Exception ignore) {}
+        }
+
+        Object addRes = room.addOrReactivateParticipant(participantName);
         if (addRes instanceof Participant) {
             participantName = ((Participant) addRes).getName();
         } else if (addRes instanceof String) {
             participantName = (String) addRes;
         }
 
-        // Track mappings
         gameService.addSession(session, room);
         gameService.trackParticipant(session, participantName);
         gameService.rememberClientName(roomCode, cid, participantName);
@@ -90,23 +75,17 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     protected void handleTextMessage(@NonNull WebSocketSession session, @NonNull TextMessage message) {
         String payload = message.getPayload();
         Room room = gameService.getRoomForSession(session);
-        if (room == null || payload == null) {
-            return;
-        }
+        if (room == null || payload == null) return;
 
         try {
             if (payload.startsWith("vote:")) {
-                // vote:<name>:<value>
                 String[] parts = payload.split(":", 3);
                 if (parts.length == 3) {
                     String who = parts[1];
                     String value = parts[2];
                     Participant p = room.getParticipant(who);
-                    if (p == null) {
-                        p = room.getOrCreateParticipant(who);
-                    }
+                    if (p == null) p = room.getOrCreateParticipant(who);
                     if (p != null) {
-                        // current model uses "vote" (not "card")
                         p.setVote(value);
                         gameService.broadcastRoomState(room);
                         gameService.maybeAutoReveal(room);
@@ -115,15 +94,14 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                 return;
             }
 
-            if (payload.equals("revealCards")) {
-                // FIX: GameService expects roomCode (String), not Room
-                gameService.revealCards(room.getCode());
+            if ("revealCards".equals(payload)) {
+                gameService.revealCards(room.getCode()); // erwartet roomCode
                 gameService.broadcastRoomState(room);
                 return;
             }
 
-            if (payload.equals("resetRoom")) {
-                room.reset(); // or: gameService.resetVotes(room.getCode());
+            if ("resetRoom".equals(payload)) {
+                room.reset();
                 gameService.broadcastRoomState(room);
                 return;
             }
@@ -158,7 +136,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
 
             if (payload.startsWith("transferHost:")) {
                 String target = payload.substring("transferHost:".length());
-                Participant prevHost = room.getHost(); // returns Participant in your model
+                Participant prevHost = room.getHost();
                 String prev = (prevHost != null ? prevHost.getName() : null);
                 if (room.transferHostTo(target)) {
                     gameService.broadcastHostChange(room, prev, target);
@@ -173,7 +151,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                 return;
             }
 
-            if (payload.equals("closeRoom")) {
+            if ("closeRoom".equals(payload)) {
                 gameService.closeRoom(room);
                 return;
             }
@@ -188,15 +166,16 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                 return;
             }
 
-            if (payload.equals("clearTopic")) {
+            if ("clearTopic".equals(payload)) {
                 room.setTopic(null, null);
                 gameService.broadcastRoomState(room);
                 return;
             }
 
-            if (payload.startsWith("intentLeave")) {
+            if ("intentLeave".equals(payload)) {
                 String who = gameService.getParticipantName(session);
                 if (who != null) {
+                    try { room.markInactive(who); } catch (Exception ignore) {}
                     gameService.handleIntentionalLeave(room.getCode(), who);
                 }
                 try { session.close(new CloseStatus(4003, "Intentional leave")); } catch (Exception ignored) {}
@@ -218,17 +197,18 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     public void afterConnectionClosed(@NonNull WebSocketSession session, @NonNull CloseStatus status) {
         Room room = gameService.getRoomForSession(session);
         String name = gameService.getParticipantName(session);
+
         gameService.removeSession(session);
 
         if (room != null && name != null) {
+            try { room.markInactive(name); } catch (Exception ignore) {}
             log.info("WS CLOSE room={} name={} code={}", room.getCode(), name, status.getCode());
             gameService.scheduleDisconnect(room, name);
             gameService.broadcastRoomState(room);
         }
     }
 
-    // -------------------- helpers --------------------
-
+    // helpers
     private static Map<String, String> parseQuery(URI uri) {
         Map<String, String> map = new HashMap<>();
         if (uri == null) return map;
@@ -246,12 +226,10 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         }
         return map;
     }
-
     private static String urlDecode(String s) {
         if (s == null) return null;
         try { return URLDecoder.decode(s, StandardCharsets.UTF_8); }
         catch (Exception ignore) { return s; }
     }
-
     private static boolean isBlank(String s) { return s == null || s.trim().isEmpty(); }
 }
