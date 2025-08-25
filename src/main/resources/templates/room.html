@@ -108,12 +108,9 @@
   <th:block th:replace="~{fragments/scripts :: scripts}"></th:block>
 
   <script th:inline="javascript">
-  /* ======================= Game logic (stabilized) ==========================
-     - Adds robust reconnect (backoff) and an explicit "leavingNow" signal.
-     - Visible "Choose a card" header removed; SR-only label remains.
-     ======================================================================= */
+  /* ====== Room logic (stable WS + graceful leave) ========================= */
 
-  // Basic room state
+  // Basic state
   let participantName   = /*[[${participantName}]]*/ "Guest";
   let roomCode          = /*[[${roomCode}]]*/ "demo";
   let selectedCard      = null;
@@ -125,6 +122,7 @@
 
   let myParticipating   = true;
 
+  // i18n snippets
   const TXT_AVG            = /*[[#{label.average}]]*/ 'Avg:';
   const TXT_CONS           = /*[[#{label.consensus}]]*/ 'Consensus:';
   const TXT_MEDIAN         = /*[[#{label.median}]]*/ 'Median:';
@@ -139,13 +137,15 @@
   const TXT_IM_IN          = /*[[#{participation.imIn}]]*/ "I'm estimating";
   const TXT_OBSERVER       = /*[[#{participation.observer}]]*/ "Observer";
   const TXT_OBS_NO_PICK    = /*[[#{observer.noPick}]]*/ 'As an observer you can’t pick a card.';
-  const TXT_TOPIC_SAVED    = /*[[#{topic.saved}]]*/ 'Topic saved';
-  const TXT_TOPIC_CLEARED  = /*[[#{topic.cleared}]]*/ 'Topic cleared';
+  const MSG_HOST_YOU       = /*[[#{toast.youAreHost}]]*/ 'Host changed. You are now host!';
+  const MSG_HOST_OTHER     = /*[[#{toast.hostOther}]]*/ 'Host changed. {new} is now host.';
 
+  // Host-controlled flags
   let autoRevealEnabled = false;
   let topicVisible      = true;
   let isEditingTopic    = false;
 
+  // Specials + deck catalog
   const SPECIALS = new Set(["❓","💬","☕"]);
   const SEQ_CATALOG = Object.create(null);
 
@@ -178,6 +178,7 @@
     });
   }
 
+  // Cards
   function addCardButton(grid, val){
     const btn = document.createElement('button');
     btn.type = 'button';
@@ -227,6 +228,7 @@
     });
   }
 
+  // Host-sensitive controls
   function syncSequenceUI(){
     const radios = document.querySelectorAll('#seqChoice input[name="seq"]');
     radios.forEach(r => {
@@ -252,13 +254,11 @@
     if (hint) hint.style.display = isHost ? 'none' : 'block';
   }
 
+  // Topic UI
   function updateTopicDisplay(label, url){
     const disp = document.getElementById('topicDisplay');
     if (!disp) return;
-    if (!label && !url) {
-      disp.textContent = '—';
-      return;
-    }
+    if (!label && !url) { disp.textContent = '—'; return; }
     if (url) {
       const a = document.createElement('a');
       a.href = url; a.target = '_blank'; a.rel = 'noopener';
@@ -269,7 +269,6 @@
       disp.textContent = label;
     }
   }
-
   function applyTopicUI(){
     const st = document.getElementById('topicStatus');
     if (st) st.textContent = topicVisible ? TXT_ON : TXT_OFF;
@@ -284,7 +283,6 @@
     if (clrBtn)  clrBtn.style.display  = isHost ? 'inline-flex' : 'none';
     if (edit) edit.style.display = (isHost && isEditingTopic) ? 'grid' : 'none';
   }
-
   function parseTopicInput(raw){
     if (!raw) return { label:null, url:null };
     const s = String(raw).trim();
@@ -295,6 +293,7 @@
     return { label: s, url: null };
   }
 
+  // Participation
   function syncParticipationUI(on){
     const st  = document.getElementById('partStatus');
     const cb  = document.getElementById('participationToggle');
@@ -309,7 +308,7 @@
     highlightSelectedCard();
   }
 
-  // --- Robust WebSocket (auto-reconnect + explicit leave beacon) -----------
+  // Robust WebSocket (reconnect + leave beacon)
   const cid = (function(){
     try {
       const KEY = 'ep-cid';
@@ -337,14 +336,21 @@
 
   function connectWS(){
     socket = new WebSocket(baseSocketUrl);
+    console.log("WS connect →", baseSocketUrl);
 
     socket.onopen = () => {
+      console.log("WS open");
       reconnectAttempts = 0;
     };
 
     socket.onmessage = handleMessage;
 
-    socket.onclose = () => {
+    socket.onerror = (e) => {
+      console.error("WS error", e);
+    };
+
+    socket.onclose = (e) => {
+      console.warn("WS closed", e.code, e.reason || "");
       if (isUnloading) return;
       const delay = Math.min(8000, 500 * Math.pow(2, reconnectAttempts++));
       setTimeout(connectWS, delay);
@@ -354,6 +360,7 @@
   function handleMessage(event){
     const data = JSON.parse(event.data);
 
+    // Identity ping
     if (data.type === 'you' && typeof data.yourName === 'string') {
       if (!data.cid || data.cid === cid) {
         if (data.yourName !== participantName) {
@@ -365,11 +372,13 @@
       return;
     }
 
+    // Snapshot outside of voteUpdate
     if (Array.isArray(data.participants) && data.type !== "voteUpdate") {
       const revealed = !!data.votesRevealed;
       updateParticipantList(data.participants, revealed);
     }
 
+    // Deck change
     if (data.sequenceId) {
       const newSig = deckSig(data.cards);
       const needRerender = (currentSequenceId !== data.sequenceId) || (newSig && newSig !== currentDeckSig);
@@ -385,11 +394,13 @@
       }
     }
 
+    // Optional: all decks at once
     if (data.sequences && typeof data.sequences === 'object') {
       Object.assign(SEQ_CATALOG, data.sequences);
       updateSequenceTooltips();
     }
 
+    // Legacy identity
     if (typeof data.yourName === 'string' && data.cid && data.cid === cid) {
       if (data.yourName !== participantName) {
         participantName = data.yourName;
@@ -398,6 +409,7 @@
       }
     }
 
+    // Main state
     if (data.type === "voteUpdate") {
       const prevVotesRevealed = votesRevealed;
       const participants = Array.isArray(data.participants) ? data.participants : [];
@@ -449,7 +461,7 @@
         syncAutoRevealUI();
         applyTopicUI();
       }
-      showToast(newHost === participantName ? /*[[#{toast.youAreHost}]]*/ 'Host changed. You are now host!' : (/*[[#{toast.hostOther}]]*/ 'Host changed. {new} is now host.').replace('{new}', newHost));
+      showToast(newHost === participantName ? MSG_HOST_YOU : MSG_HOST_OTHER.replace('{new}', newHost));
 
     } else if (data.type === "kicked") {
       try { localStorage.setItem('ep-toast', TXT_KICKED); } catch(e) {}
@@ -462,7 +474,7 @@
     }
   }
 
-  // Explicit leave signaling (host reassign immediately if needed)
+  // Leave signals
   function sendLeaveSignalsOnce(){
     if (isUnloading) return;
     isUnloading = true;
@@ -475,10 +487,11 @@
   window.addEventListener('pagehide', sendLeaveSignalsOnce, { capture: true });
   window.addEventListener('beforeunload', sendLeaveSignalsOnce, { capture: true });
 
-  // Init after DOM ready
+  // DOM ready
   document.addEventListener('DOMContentLoaded', () => {
     connectWS();
 
+    // Sequence change (host only)
     document.getElementById('seqChoice')?.addEventListener('change', (e)=>{
       const val = e.target?.value;
       if (!val) return;
@@ -486,16 +499,19 @@
       socket.send('setSequence:' + val);
     });
 
+    // Auto-reveal (host only)
     const arRow = document.getElementById('autoRevealRow');
     const arToggle = document.getElementById('autoRevealToggle');
     arRow?.addEventListener('click', (e)=>{ if (!isHost) { e.preventDefault(); e.stopPropagation(); showToast(TXT_AR_ONLY_HOST); }});
     arToggle?.addEventListener('click', ()=>{ if (isHost) socket.send('setAutoReveal:' + !autoRevealEnabled); });
 
+    // Topic visibility (host only)
     const tvRow = document.getElementById('topicToggleRow');
     const tvCb  = document.getElementById('topicToggle');
     tvRow?.addEventListener('click', (e)=>{ if (!isHost) { e.preventDefault(); e.stopPropagation(); showToast(TXT_AR_ONLY_HOST); }});
     tvCb?.addEventListener('click', ()=>{ if (isHost) socket.send('setTopicVisible:' + !topicVisible); });
 
+    // Topic editor (host only)
     const inEl    = document.getElementById('topicInput');
     const saveBtn = document.getElementById('topicSaveBtn');
     const cancel  = document.getElementById('topicCancelBtn');
@@ -512,15 +528,16 @@
       socket.send('setTopic:' + enc);
       isEditingTopic = false;
       if (inEl) inEl.value = '';
-      showToast(TXT_TOPIC_SAVED);
+      showToast(/*[[#{topic.saved}]]*/ 'Topic saved');
     });
     inEl?.addEventListener('keydown', (e)=>{ if (e.key === 'Enter') { e.preventDefault(); saveBtn?.click(); }});
+    clearBtn?.addEventListener('click', ()=>{ if (!isHost) return; socket.send('clearTopic'); showToast(/*[[#{topic.cleared}]]*/ 'Topic cleared'); });
 
-    clearBtn?.addEventListener('click', ()=>{ if (!isHost) return; socket.send('clearTopic'); showToast(TXT_TOPIC_CLEARED); });
-
+    // Participation (everyone)
     const partToggle = document.getElementById('participationToggle');
     partToggle?.addEventListener('click', ()=>{ const next = !myParticipating; syncParticipationUI(next); socket.send('setParticipating:' + next); });
 
+    // Prefill deck tooltips
     try {
       fetch('/sequences').then(r => r.ok ? r.json() : null).then(json => {
         if (!json) return;
@@ -530,7 +547,7 @@
     } catch(e){}
   });
 
-  // Vote helpers
+  // Votes
   function sendVote(cardValue) {
     if (!myParticipating) { showToast(TXT_OBS_NO_PICK); return; }
     if (votesRevealed) return;
@@ -553,6 +570,7 @@
   function revealCards() { if (isHost) socket.send("revealCards"); }
   function resetRoom()   { if (isHost) socket.send("resetRoom"); clearCardSelection(); }
 
+  // Host transfer & kick
   function transferHost(name){
     if (!isHost || !name || name === participantName) return;
     socket.send("transferHost:" + name);
@@ -562,6 +580,7 @@
     socket.send("kick:" + name);
   }
 
+  // Participant list
   function updateParticipantList(participants, revealed) {
     const list = document.getElementById("liveParticipantList");
     if (!list) return;
@@ -674,6 +693,7 @@
     clearTimeout(resizeTimer); resizeTimer = setTimeout(measureAndSetNameColumn, 150);
   });
 
+  // Stats / consensus
   function updateAverage(avg) {
     const avgSpan = document.getElementById("averageVote");
     if (avgSpan) avgSpan.textContent = avg != null ? avg : "-";
@@ -716,7 +736,7 @@
   function fmt(n){
     if (n == null || !Number.isFinite(n)) return "-";
     const r = Math.round(n * 100) / 100;
-    return Number.isInteger(r) ? String(r) : String(r);
+    return String(r);
   }
   function computeStats(participants){
     const nums = [];
@@ -781,6 +801,7 @@
     }
   }
 
+  // Toast
   function showToast(message) {
     const toast = document.createElement("div");
     toast.className = "toast";
@@ -789,6 +810,7 @@
     setTimeout(() => toast.remove(), 3000);
   }
 
+  // Invite deep link copy
   (function(){
     const copyBtn = document.getElementById('copyRoomLink');
     const TXT_LINK_COPIED = /*[[#{invite.linkCopied}]]*/ 'Link copied to clipboard';
