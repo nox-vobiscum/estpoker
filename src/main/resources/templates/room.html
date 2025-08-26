@@ -65,17 +65,11 @@
       </div>
     </div>
 
-    <!-- Pre-Vote: only participation toggle + cards remain -->
+    <!-- Pre-Vote: cards only; participation is controlled via menu -->
     <div class="pre-vote">
       <div class="card-grid" id="cardGrid"></div>
 
       <div class="vote-actions">
-        <label class="switch">
-          <input id="participationToggle" type="checkbox" role="switch" aria-checked="true">
-          <span class="slider"></span>
-        </label>
-        <span id="partStatus" class="sr-status" th:text="#{participation.imIn}">I'm estimating</span>
-
         <button type="button" id="revealButton" class="button" style="display:none;"
                 th:text="#{button.reveal}" onclick="revealCards()"></button>
       </div>
@@ -111,8 +105,8 @@
 
   <th:block th:replace="~{fragments/scripts :: scripts}"></th:block>
 
-  <!-- room connector (bumped to v15) -->
-  <script defer th:src="@{/js/room.js?v=15}"
+  <!-- room connector -->
+  <script defer th:src="@{/js/room.js?v=20}"
           th:attr="data-participant=${participantName},data-room=${roomCode}"></script>
   <script defer src="/js/ws-probe.js"></script>
 
