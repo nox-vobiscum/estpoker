@@ -1,4 +1,4 @@
-// menu.js — central menu + tooltips + theme + language + sequence bridge
+// menu.js — central menu + tooltips + theme + language (data-tooltip only)
 (function(){
   // Prevent double-binding if the script is accidentally loaded twice.
   if (window.__epMenuInit) return; window.__epMenuInit = true;
@@ -46,6 +46,7 @@
     btn.setAttribute('aria-label','Close menu');
     btn.textContent = '✕';
     lastFocus = document.activeElement;
+    // Focus first focusable without popping tooltips (tooltip.js ignores focus while menu-open)
     setTimeout(()=>focusables()[0]?.focus(), 0);
     window.addEventListener('keydown', trapTab);
   }
@@ -121,7 +122,6 @@
     }
     function nextLang(cur){ return isDe(cur) ? 'en' : 'de'; }
 
-    // GET /i18n?lang=... (server sets session locale and redirects back)
     function switchLang(to){ location.href = '/i18n?lang=' + encodeURIComponent(to); }
 
     document.addEventListener('DOMContentLoaded', function(){
@@ -134,6 +134,21 @@
     });
   })();
 
+  /* ---- Sequence radios (overlay → room.js via custom event) ---- */
+  document.addEventListener('DOMContentLoaded', function(){
+    const root = document.getElementById('menuSeqChoice');
+    if (!root) return;
+    const radios = root.querySelectorAll('input[type="radio"][name="menu-seq"]');
+    radios.forEach(r => {
+      r.addEventListener('change', () => {
+        if (!r.checked) return;
+        const id = r.value; // expects e.g. "fib.scrum"
+        // Bridge to room.js
+        document.dispatchEvent(new CustomEvent('ep:sequence-change', { detail: { id } }));
+      });
+    });
+  });
+
   /* ---- Room actions coming from overlay ---- */
   const closeBtn = doc.getElementById('closeRoomBtn');
   if (closeBtn) {
@@ -141,18 +156,6 @@
       // bubble an app-level event; room.js listens and will confirm + send ws
       document.dispatchEvent(new CustomEvent('ep:close-room'));
       closeMenu();
-    });
-  }
-
-  /* ---- Sequence radios → bubble to room.js ---- */
-  const seqRoot = doc.getElementById('menuSeqChoice');
-  if (seqRoot) {
-    seqRoot.addEventListener('change', (e) => {
-      const t = e.target;
-      if (t && t.name === 'menu-seq' && t.value) {
-        // Fire app-level event with selected sequence id
-        document.dispatchEvent(new CustomEvent('ep:sequence-change', { detail: { id: t.value } }));
-      }
     });
   }
 

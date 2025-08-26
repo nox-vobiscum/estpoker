@@ -67,6 +67,11 @@
     return null;
   }
 
+  function isInsideMenu(target){
+    const overlay = document.getElementById('appMenuOverlay');
+    return !!(overlay && overlay.contains(target));
+  }
+
   // --- Show/hide core logic ------------------------------------------------
   document.addEventListener('pointerover', (e) => {
     if (isScrolling) return;                // ignore during/just-after scroll
@@ -75,7 +80,7 @@
     if (t) placeTip(t);
   }, true);
 
-    document.addEventListener('pointerout', (e) => {
+  document.addEventListener('pointerout', (e) => {
     const from = findTarget(e.target);
     const to   = findTarget(e.relatedTarget);
     if (!from) return;
@@ -83,10 +88,11 @@
     hideTip();
   }, true);
 
-  // Keyboard accessibility
+  // Keyboard accessibility: suppress tooltips *on focus* while menu is open
   document.addEventListener('focusin', (e) => {
+    if (document.body.classList.contains('menu-open')) return; // don't pop tips on menu auto-focus
     const t = findTarget(e.target);
-    if (t) placeTip(t);
+    if (t && !isInsideMenu(t)) placeTip(t); // ignore focus tips inside the menu; hover still works
   }, true);
   document.addEventListener('focusout', (e) => {
     const t = findTarget(e.target);
@@ -101,7 +107,7 @@
     hideTip();
   }
   // Page-level interactions
-  window.addEventListener('scroll', startScrollMask, true); // capture helps with document scrolling
+  window.addEventListener('scroll', startScrollMask, true);
   window.addEventListener('wheel', startScrollMask, { passive: true, capture: true });
   window.addEventListener('touchstart', startScrollMask, { passive: true, capture: true });
   window.addEventListener('touchmove', startScrollMask, { passive: true, capture: true });
@@ -114,7 +120,6 @@
   });
 
   // --- Menu integration without touching menu.js ---------------------------
-  // If the app adds body.menu-open or toggles #appMenuOverlay.hidden, hide tooltips
   function observeMenuState() {
     try {
       const bodyObs = new MutationObserver(() => {
@@ -130,12 +135,9 @@
     } catch (_) { /* no-op */ }
   }
 
-  // Also hook scroll on the menu containers directly (scroll doesn't bubble)
   function hookMenuScroll() {
     const overlay = document.getElementById('appMenuOverlay');
     const panel = overlay ? overlay.querySelector('.menu-panel') : null;
-
-    // capture = false here; we listen directly on the elements that actually scroll
     overlay && overlay.addEventListener('scroll', startScrollMask, { passive: true });
     panel   && panel.addEventListener('scroll', startScrollMask, { passive: true });
   }
@@ -150,7 +152,7 @@
     hookMenuScroll();
   }
 
-    // Zusätzliche, harmlose Hides für Edge Cases:
+  // Extra hides for odd cases
   window.addEventListener('orientationchange', hideTip, { passive: true, capture: true });
   document.addEventListener('visibilitychange', () => { if (document.hidden) hideTip(); }, true);
 

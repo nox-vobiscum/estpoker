@@ -1,4 +1,4 @@
-/* room.js v16 — presence-stable, host controls, consensus/outliers, grouped cards */
+/* room.js v17 — presence-stable, host controls, consensus display, grouped cards */
 (() => {
   'use strict';
   const TAG = '[ROOM]';
@@ -201,12 +201,16 @@
         chip.className = 'vote-chip';
         let display = (p.vote == null || p.vote === '') ? '–' : String(p.vote);
         chip.textContent = display;
-        if (display === '☕' || display === '∞' || display === '?') chip.classList.add('special');
+
+        // Make "inactive / did-not-vote / observer" chips grey
+        const grey = (!!p.disconnected || !!p.observer || p.vote == null || p.vote === '');
+        if (display === '☕' || display === '∞' || display === '?' || display === '💬' || grey) chip.classList.add('special');
+
         if (state.outliers && state.outliers.includes(p.name)) chip.classList.add('outlier');
         right.appendChild(chip);
       }
 
-      // Host-only actions: make host / kick
+      // Host-only actions: make host / kick (❌)
       if (state.isHost && p.name !== state.youName) {
         const actionsWrap = document.createElement('span');
         actionsWrap.className = 'row-actions';
@@ -225,7 +229,7 @@
         const kickBtn = document.createElement('button');
         kickBtn.type = 'button';
         kickBtn.className = 'row-action kick';
-        kickBtn.innerHTML = '<span class="ra-icon">🦶</span><span class="ra-label">Kick</span>';
+        kickBtn.innerHTML = '<span class="ra-icon">❌</span><span class="ra-label">Kick</span>';
         kickBtn.addEventListener('click', () => {
           const de  = (document.documentElement.lang||'en').toLowerCase().startsWith('de');
           const msg = de ? `${p.name} wirklich entfernen?` : `Remove ${p.name}?`;
@@ -246,10 +250,12 @@
     if (val == null) return false;
     const s = String(val).trim();
     if (state.sequenceId === 'fib.enh') {
-      return (s === '☕' || s === '?'); // ∞ shows like a number in this one
+      return (s === '☕' || s === '?' || s === '💬'); // ∞ stays with numbers for this seq
     }
-    return (s === '☕' || s === '?' || s === '∞');
+    return (s === '☕' || s === '?' || s === '∞' || s === '💬');
   }
+
+  function uniq(arr){ return Array.from(new Set(arr)); }
 
   function renderCards() {
     const grid = $('#cardGrid'); if (!grid) return;
@@ -262,6 +268,11 @@
     const numeric = [], special = [];
     state.cards.forEach(val => (isSpecialCard(val) ? special : numeric).push(val));
 
+    // Ensure specials ❓, 💬, ☕ always present (deduped)
+    const mustHave = ['?','💬','☕'];
+    special.push(...mustHave.filter(x => !special.includes(x)));
+    const specialsFinal = uniq(special);
+
     function addBtn(val){
       const btn = document.createElement('button');
       btn.type = 'button';
@@ -273,32 +284,22 @@
 
     numeric.forEach(addBtn);
 
-    if (special.length) {
+    if (specialsFinal.length) {
       const br = document.createElement('div');
       br.className = 'grid-break';
       grid.appendChild(br);
-      special.forEach(addBtn);
+      specialsFinal.forEach(addBtn);
     }
 
     const revealBtn = $('#revealButton');
     const resetBtn  = $('#resetButton');
     if (revealBtn) revealBtn.style.display = (!state.votesRevealed && state.isHost) ? '' : 'none';
     if (resetBtn)  resetBtn.style.display  = ( state.votesRevealed && state.isHost) ? '' : 'none';
-
-    const partStatus = $('#partStatus');
-    if (partStatus && me) {
-      partStatus.textContent = !isObserver
-        ? (document.documentElement.lang === 'de' ? 'Ich schätze mit' : "I'm estimating")
-        : (document.documentElement.lang === 'de' ? 'Beobachter:in' : 'Observer');
-    }
   }
 
   function renderResultBar() {
     const avgEl = $('#averageVote');
-    if (avgEl) avgEl.textContent = (state.averageVote != null ? String(state.averageVote) : 'N/A');
-
     const medianWrap = $('#medianWrap');
-    const medianEl   = $('#medianVote');
     const rangeWrap  = $('#rangeWrap');
     const rangeSep   = $('#rangeSep');
     const resRow     = $('#resultRow');
@@ -312,25 +313,29 @@
     }
 
     if (state.votesRevealed) {
-      if (medianWrap && medianEl) {
-        if (state.medianVote) { medianEl.textContent = state.medianVote; medianWrap.hidden = false; }
-        else { medianWrap.hidden = true; }
-      }
-      if (rangeWrap) {
-        if (state.rangeText) { setText('#rangeVote', state.rangeText); rangeWrap.hidden = false; if (rangeSep) rangeSep.hidden = false; }
-        else { rangeWrap.hidden = true; if (rangeSep) rangeSep.hidden = true; }
-      }
-      if (resRow && resLabel) {
-        resRow.classList.toggle('is-consensus', !!state.consensus);
-        if (state.consensus) {
-          resLabel.textContent = (document.documentElement.lang === 'de' ? 'Konsens 🎉' : 'Consensus 🎉');
-          resRow.classList.add('consensus');
-        } else {
-          resLabel.textContent = (document.documentElement.lang === 'de' ? 'Ø' : 'Avg:');
-          resRow.classList.remove('consensus');
+      if (state.consensus) {
+        // Only show "Consensus 🎉  <avg>"
+        if (avgEl) avgEl.textContent = (state.averageVote != null ? String(state.averageVote) : 'N/A');
+        if (resRow) resRow.classList.add('consensus','is-consensus');
+        if (resLabel) resLabel.textContent = (document.documentElement.lang === 'de' ? 'Konsens 🎉' : 'Consensus 🎉');
+        if (medianWrap) medianWrap.hidden = true;
+        if (rangeWrap)  rangeWrap.hidden  = true;
+        if (rangeSep)   rangeSep.hidden   = true;
+      } else {
+        if (avgEl) avgEl.textContent = (state.averageVote != null ? String(state.averageVote) : 'N/A');
+        if (resRow) resRow.classList.remove('consensus');
+        if (resLabel) resLabel.textContent = (document.documentElement.lang === 'de' ? 'Ø' : 'Avg:');
+        if (medianWrap) {
+          if (state.medianVote) { $('#medianVote').textContent = state.medianVote; medianWrap.hidden = false; }
+          else medianWrap.hidden = true;
+        }
+        if (rangeWrap) {
+          if (state.rangeText) { $('#rangeVote').textContent = state.rangeText; rangeWrap.hidden = false; if (rangeSep) rangeSep.hidden = false; }
+          else { rangeWrap.hidden = true; if (rangeSep) rangeSep.hidden = true; }
         }
       }
     } else {
+      if (avgEl) avgEl.textContent = 'N/A';
       if (medianWrap) medianWrap.hidden = true;
       if (rangeWrap)  rangeWrap.hidden  = true;
       if (rangeSep)   rangeSep.hidden   = true;
@@ -417,11 +422,13 @@
 
   // --- menu / toggles wiring (once) ---
   function wireOnce() {
-    // Hide any legacy in-page menu rows if still present
+    // Hide legacy in-page toggles that shall not be visible in the content area
     const arRow = $('#autoRevealRow'); if (arRow) arRow.style.display = 'none';
-    const topicRow = $('#topicToggleRow'); if (topicRow) topicRow.style.display = 'none';
+    const topicToggleRow = $('#topicToggleRow'); if (topicToggleRow) topicToggleRow.style.display = 'none';
+    const partSwitch = document.querySelector('.vote-actions .switch'); if (partSwitch) partSwitch.style.display='none';
+    const partStatus = $('#partStatus'); if (partStatus) partStatus.style.display='none';
 
-    // copy link
+    // copy link (smaller button, toast on success)
     const copyBtn = $('#copyRoomLink');
     if (copyBtn) copyBtn.addEventListener('click', async () => {
       try {
@@ -435,13 +442,9 @@
       }
     });
 
-    const partToggle = $('#participationToggle');
-    if (partToggle) {
-      partToggle.addEventListener('change', (e) => {
-        const estimating = !!e.target.checked;
-        send(`participation:${estimating}`);
-      });
-    }
+    // participation switch was hidden; keep behavior for menu only
+    const mPart = $('#menuParticipationToggle');
+    if (mPart) mPart.addEventListener('change', (e) => { const estimating = !!e.target.checked; send(`participation:${estimating}`); });
 
     // topic edit/save/clear (host-only guarded)
     const editBtn = $('#topicEditBtn');
@@ -481,10 +484,6 @@
         send('topicClear');
       });
     }
-
-    // MENU toggles (guarded for non-host)
-    const mPart = $('#menuParticipationToggle');
-    if (mPart) mPart.addEventListener('change', (e) => { const estimating = !!e.target.checked; send(`participation:${estimating}`); });
 
     const mTopic = $('#menuTopicToggle');
     if (mTopic) mTopic.addEventListener('change', (e) => { if (!state.isHost) { syncMenuFromState(); return; } const on = !!e.target.checked; send(`topicToggle:${on}`); });
