@@ -1,15 +1,20 @@
 /* Accessible tooltip (single bubble) — mouse hover only; keyboard focus OK
    Extras:
    - Hides on scroll/touch/wheel/pointerdown and Esc
-   - No "auto-open" on menu open: mask until first pointer move
-   - Works inside the menu; hides while scrolling panels
+   - Cooldown right after opening the app menu, so nothing flashes under the cursor
+   - Hides while scrolling inside the menu panel without touching menu.js
 */
 (function () {
   if (window.__epTooltipInit) return;
   window.__epTooltipInit = true;
 
   let tipEl, isScrolling = false, hideTimer = null;
-  let suppressUntilMove = false; // mask after menu opens to avoid auto-popup
+
+  // Cooldown right after opening the overlay menu
+  const MENU_COOLDOWN_MS = 400;
+  let menuOpenedAt = 0;
+
+  function now() { return Date.now ? Date.now() : new Date().getTime(); }
 
   function ensureTip() {
     if (!tipEl) {
@@ -29,7 +34,7 @@
     tipEl.style.display = 'none';
     tipEl.style.visibility = 'hidden';
   }
-  // exposed for other scripts
+  // allow other scripts (e.g., menu.js) to hide explicitly
   window.__epTooltipHide = hideTip;
 
   function placeTip(target) {
@@ -41,7 +46,7 @@
     el.style.visibility = 'hidden';
     el.style.display = 'block';
 
-    const r = target.getBoundingClientRect();
+    const r  = target.getBoundingClientRect();
     const tr = el.getBoundingClientRect();
 
     let top = window.scrollY + r.top - tr.height - 8;
@@ -68,11 +73,17 @@
     return null;
   }
 
+  // Returns true while we're within cooldown just after opening menu
+  function inMenuCooldown() {
+    return menuOpenedAt && (now() - menuOpenedAt) < MENU_COOLDOWN_MS;
+  }
+
   // --- Show/hide core logic ------------------------------------------------
   document.addEventListener('pointerover', (e) => {
-    if (isScrolling) return;                           // ignore during/after scroll
-    if (suppressUntilMove) return;                     // mask right after menu opens
+    if (isScrolling) return;                       // ignore during/just-after scroll
     if (e.pointerType && e.pointerType !== 'mouse') return; // hover only on mouse
+    if (inMenuCooldown()) return;                  // new: skip right after menu opens
+
     const t = findTarget(e.target);
     if (t) placeTip(t);
   }, true);
@@ -87,7 +98,7 @@
 
   // Keyboard accessibility
   document.addEventListener('focusin', (e) => {
-    if (suppressUntilMove) return;
+    if (inMenuCooldown()) return;                  // also respect cooldown for focus
     const t = findTarget(e.target);
     if (t) placeTip(t);
   }, true);
@@ -103,7 +114,8 @@
     hideTimer = setTimeout(() => { isScrolling = false; }, 150);
     hideTip();
   }
-  window.addEventListener('scroll', startScrollMask, true);
+  // Page-level interactions
+  window.addEventListener('scroll', startScrollMask, true); // capture helps with document scrolling
   window.addEventListener('wheel', startScrollMask, { passive: true, capture: true });
   window.addEventListener('touchstart', startScrollMask, { passive: true, capture: true });
   window.addEventListener('touchmove', startScrollMask, { passive: true, capture: true });
@@ -116,27 +128,25 @@
   });
 
   // --- Menu integration ----------------------------------------------------
-  // When the menu opens (body gets .menu-open), hide current tooltip and
-  // enable a short mask until the user moves the pointer — prevents
-  // the language row tooltip from appearing "automatically".
+  // Observe adding/removing of body.menu-open and overlay visibility.
   function observeMenuState() {
     try {
       const bodyObs = new MutationObserver(() => {
         const open = document.body.classList.contains('menu-open');
         if (open) {
-          hideTip();
-          suppressUntilMove = true;
+          hideTip();                // hide immediately
+          menuOpenedAt = now();     // start cooldown so nothing flashes in
         }
       });
       bodyObs.observe(document.body, { attributes: true, attributeFilter: ['class'] });
 
-      // Clear the mask on first pointer move after open
-      window.addEventListener('pointermove', () => { suppressUntilMove = false; }, { once: false, passive: true });
-
-      // Hide while overlay/panel reflows
       const overlay = document.getElementById('appMenuOverlay');
       if (overlay) {
-        const ovObs = new MutationObserver(() => hideTip());
+        const ovObs = new MutationObserver(() => {
+          // Any overlay attribute change → reset cooldown briefly and hide
+          hideTip();
+          menuOpenedAt = now();
+        });
         ovObs.observe(overlay, { attributes: true, attributeFilter: ['class', 'style', 'hidden'] });
       }
     } catch (_) { /* no-op */ }
@@ -146,6 +156,8 @@
   function hookMenuScroll() {
     const overlay = document.getElementById('appMenuOverlay');
     const panel = overlay ? overlay.querySelector('.menu-panel') : null;
+
+    // capture = false here; we listen directly on the elements that actually scroll
     overlay && overlay.addEventListener('scroll', startScrollMask, { passive: true });
     panel   && panel.addEventListener('scroll', startScrollMask, { passive: true });
   }
@@ -160,7 +172,7 @@
     hookMenuScroll();
   }
 
-  // Extra hides for odd cases
+  // Extra gentle hides for edge cases
   window.addEventListener('orientationchange', hideTip, { passive: true, capture: true });
   document.addEventListener('visibilitychange', () => { if (document.hidden) hideTip(); }, true);
 

@@ -25,11 +25,11 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
 
     private final GameService gameService;
 
-    // per-session index (room, cid, name); Concurrent for safety
+    // Per-session index (room, cid, name)
     private final Map<String, Conn> bySession = new ConcurrentHashMap<>();
 
-    // host inactivity threshold (ms) after which we reassign (hard demotion)
-    private static final long HOST_INACTIVE_MS = 120_000L;
+    // Hard host reassignment threshold (align with service grace)
+    private static final long HOST_INACTIVE_MS = 600_000L; // 10 minutes
 
     public GameWebSocketHandler(GameService gameService) {
         this.gameService = gameService;
@@ -44,20 +44,19 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
 
         log.info("WS OPEN room={} name={} cid={}", roomCode, name, cid);
 
-        // Join with CID for sticky identity.
+        // Join with (roomCode, cid, name)
         Room room = gameService.join(roomCode, cid, name);
 
-        // Track session so GameService can broadcast to it.
+        // Track session
         gameService.addSession(session, room);
         gameService.trackParticipant(session, name);
 
-        // Store lightweight connection info locally.
+        // Store local index
         bySession.put(session.getId(), new Conn(roomCode, cid, name));
 
-        // Inform client about canonical name & cid.
+        // Tell client the canonical identity
         gameService.sendIdentity(session, name, cid);
-
-        // Initial state is broadcast by join(); nothing else to do here.
+        // Note: join() already broadcasts the room state.
     }
 
     @Override
@@ -67,114 +66,96 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         if (c == null) return;
 
         final String roomCode = c.room;
-        final String name     = c.name; // server-side logical name for this session
+        final String name     = c.name;
         final String cid      = c.cid;
         final String payload  = message.getPayload();
 
-        // Simple line protocol with small fan-out
+        // Simple line protocol
         if (payload.startsWith("vote:")) {
-            // vote:<ignoredName>:<val> – we send by CID to keep identity sticky across renames
+            // vote:<ignoredName>:<val>  – use CID-bound identity for stability
             String[] parts = payload.split(":", 3);
             if (parts.length >= 3) {
-                gameService.setVote(roomCode, cid, parts[2]); // auto-reveal & broadcast in service
+                gameService.setVote(roomCode, cid, parts[2]); // server handles auto-reveal check
             }
             return;
         }
 
+        if (payload.startsWith("topicSave:")) {
+            if (!isHost(roomCode, name)) return;
+            String text = payload.substring("topicSave:".length());
+            gameService.saveTopic(roomCode, decode(text));     // broadcasts
+            return;
+        }
+
+        if (payload.startsWith("topicToggle:")) {
+            if (!isHost(roomCode, name)) return;
+            boolean on = Boolean.parseBoolean(payload.substring("topicToggle:".length()));
+            gameService.setTopicEnabled(roomCode, on);         // broadcasts
+            return;
+        }
+
+        if (payload.startsWith("participation:")) {
+            boolean estimating = Boolean.parseBoolean(payload.substring("participation:".length()));
+            gameService.setObserver(roomCode, cid, !estimating); // broadcasts
+            return;
+        }
+
+        if (payload.startsWith("autoReveal:")) {
+            if (!isHost(roomCode, name)) return;
+            boolean on = Boolean.parseBoolean(payload.substring("autoReveal:".length()));
+            gameService.setAutoRevealEnabled(roomCode, on);     // broadcasts
+            // If already all votes present, reveal immediately
+            if (on && gameService.shouldAutoReveal(roomCode)) {
+                gameService.reveal(roomCode);
+            }
+            return;
+        }
+
+        if (payload.startsWith("sequence:")) {
+            if (!isHost(roomCode, name)) return;
+            String id = decode(payload.substring("sequence:".length()));
+            gameService.setSequence(roomCode, id);              // sets, resets round, broadcasts
+            return;
+        }
+
+        if (payload.startsWith("makeHost:")) {
+            if (!isHost(roomCode, name)) return;
+            String target = decode(payload.substring("makeHost:".length()));
+            gameService.makeHost(roomCode, target);             // assigns & broadcasts
+            return;
+        }
+
+        if (payload.startsWith("kick:")) {
+            if (!isHost(roomCode, name)) return;
+            String target = decode(payload.substring("kick:".length()));
+            Room room = gameService.getRoom(roomCode);
+            if (room != null) gameService.kickParticipant(room, target);
+            return;
+        }
+
+        // Switch on simple keywords
         switch (payload) {
-            case "revealCards" -> gameService.reveal(roomCode);         // broadcasted
-            case "resetRoom"   -> gameService.reset(roomCode);          // broadcasted
-            case "ping"        -> gameService.touch(roomCode, cid);     // heartbeat only (CID-based)
+            case "revealCards" -> gameService.reveal(roomCode);       // broadcasts
+            case "resetRoom"   -> gameService.reset(roomCode);        // broadcasts
+            case "intentionalLeave" -> gameService.handleIntentionalLeave(roomCode, name); // best-effort leave
+            case "ping"        -> gameService.touch(roomCode, cid);   // CID-based heartbeat
+            case "topicClear"  -> {                                    // host-only
+                if (!isHost(roomCode, name)) return;
+                gameService.clearTopic(roomCode);                     // broadcasts
+            }
             case "closeRoom"   -> {
                 Room room = gameService.getRoom(roomCode);
                 if (room != null) {
                     Participant host = room.getHost();
                     boolean isHost = (host != null && Objects.equals(host.getName(), name));
                     if (isHost) {
-                        gameService.closeRoom(room); // broadcasts 'roomClosed' and closes all
+                        gameService.closeRoom(room);                  // broadcasts + closes sessions
                     } else {
                         log.warn("closeRoom ignored: {} is not host of {}", name, roomCode);
                     }
                 }
             }
-            case "intentionalLeave" -> {
-                // User navigated away / closed tab intentionally.
-                gameService.handleIntentionalLeave(roomCode, name);
-            }
-            default -> {
-                // Parameterized commands
-                if (payload.startsWith("sequence:")) {
-                    // sequence:<id>  – host only
-                    String id = payload.substring("sequence:".length()).trim();
-                    if (!id.isEmpty()) {
-                        Room room = gameService.getRoom(roomCode);
-                        if (room != null && isHost(room, name)) {
-                            gameService.setSequence(roomCode, id); // resets round & broadcasts
-                        } else {
-                            log.warn("sequence ignored (not host): room={} by={}", roomCode, name);
-                        }
-                    }
-                } else if (payload.startsWith("makeHost:")) {
-                    // makeHost:<targetName> – host only, promote user
-                    String target = decode(payload.substring("makeHost:".length()));
-                    Room room = gameService.getRoom(roomCode);
-                    if (room != null && isHost(room, name)) {
-                        gameService.makeHost(roomCode, target);
-                    } else {
-                        log.warn("makeHost ignored (not host): room={} by={}", roomCode, name);
-                    }
-                } else if (payload.startsWith("kick:")) {
-                    // kick:<targetName> – host only
-                    String target = decode(payload.substring("kick:".length()));
-                    Room room = gameService.getRoom(roomCode);
-                    if (room != null && isHost(room, name)) {
-                        gameService.kickParticipant(room, target);
-                    } else {
-                        log.warn("kick ignored (not host): room={} by={}", roomCode, name);
-                    }
-                } else if (payload.startsWith("topicSave:")) {
-                    // topic operations are host-only
-                    String text = payload.substring("topicSave:".length());
-                    Room room = gameService.getRoom(roomCode);
-                    if (room != null && isHost(room, name)) {
-                        gameService.saveTopic(roomCode, decode(text));           // broadcasts
-                    } else {
-                        log.warn("topicSave ignored (not host): room={} by={}", roomCode, name);
-                    }
-                } else if ("topicClear".equals(payload)) {
-                    Room room = gameService.getRoom(roomCode);
-                    if (room != null && isHost(room, name)) {
-                        gameService.clearTopic(roomCode);                        // broadcasts
-                    } else {
-                        log.warn("topicClear ignored (not host): room={} by={}", roomCode, name);
-                    }
-                } else if (payload.startsWith("topicToggle:")) {
-                    boolean on = Boolean.parseBoolean(payload.substring("topicToggle:".length()));
-                    Room room = gameService.getRoom(roomCode);
-                    if (room != null && isHost(room, name)) {
-                        gameService.setTopicEnabled(roomCode, on);               // broadcasts
-                    } else {
-                        log.warn("topicToggle ignored (not host): room={} by={}", roomCode, name);
-                    }
-                } else if (payload.startsWith("participation:")) {
-                    boolean estimating = Boolean.parseBoolean(payload.substring("participation:".length()));
-                    // participation toggle is user-controlled; map by CID/name
-                    gameService.setObserver(roomCode, cid, !estimating);         // broadcasts
-                } else if (payload.startsWith("autoReveal:")) {
-                    boolean on = Boolean.parseBoolean(payload.substring("autoReveal:".length()));
-                    Room room = gameService.getRoom(roomCode);
-                    if (room != null && isHost(room, name)) {
-                        gameService.setAutoRevealEnabled(roomCode, on);          // broadcasts
-                        if (on && gameService.shouldAutoReveal(roomCode)) {
-                            gameService.reveal(roomCode);
-                        }
-                    } else {
-                        log.warn("autoReveal ignored (not host): room={} by={}", roomCode, name);
-                    }
-                } else {
-                    log.debug("Ignored message: {}", payload);
-                }
-            }
+            default -> log.debug("Ignored message: {}", payload);
         }
     }
 
@@ -199,8 +180,8 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         Room room = gameService.getRoom(roomCode);
         if (room != null) gameService.scheduleDisconnect(room, name);
 
+        // Re-evaluate host after grace; hard demotion uses threshold
         gameService.ensureHost(roomCode, 0L, HOST_INACTIVE_MS);
-        // No immediate broadcast; scheduleDisconnect() will handle it.
     }
 
     /* ---------------- helpers ---------------- */
@@ -227,7 +208,10 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         }
     }
 
-    private static boolean isHost(Room room, String name) {
+    /** Check if caller is current host. */
+    private boolean isHost(String roomCode, String name) {
+        Room room = gameService.getRoom(roomCode);
+        if (room == null) return false;
         Participant host = room.getHost();
         return host != null && Objects.equals(host.getName(), name);
     }

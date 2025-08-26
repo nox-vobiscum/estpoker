@@ -1,8 +1,8 @@
 package com.example.estpoker.service;
 
+import com.example.estpoker.model.CardSequences;
 import com.example.estpoker.model.Participant;
 import com.example.estpoker.model.Room;
-import com.example.estpoker.model.CardSequences;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.web.socket.CloseStatus;
@@ -41,11 +41,8 @@ public class GameService {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     // --- disconnect grace ---
-    // Long grace (10 min) to avoid marking people inactive for brief tab switches.
-    private static final long DISCONNECT_GRACE_MS = 600_000L;
-
-    // Short grace (2 s) used for intentionalLeave to allow quick undo but keep UX snappy.
-    private static final long INTENTIONAL_LEAVE_MS = 2_000L;
+    // Long grace to avoid flapping when user just switches tabs
+    private static final long DISCONNECT_GRACE_MS = 600_000L; // 10 minutes
 
     private final ScheduledExecutorService scheduler =
             Executors.newSingleThreadScheduledExecutor(r -> {
@@ -110,10 +107,7 @@ public class GameService {
         return room;
     }
 
-    /**
-     * Mark connected/disconnected by CID (2nd parameter is CID, per handler usage).
-     * If announce==true, broadcast state.
-     */
+    /** Mark connected/disconnected by CID (2nd parameter is CID, per handler usage). */
     public void markConnected(String roomCode, String cid, boolean announce) {
         Room room = getOrCreateRoom(roomCode);
         synchronized (room) {
@@ -133,7 +127,7 @@ public class GameService {
     }
 
     /**
-     * Update a vote. Accepts either a name or a CID as second argument (handler sends CID).
+     * Update a vote. Accepts either a name or a CID as second argument.
      * Triggers auto-reveal if enabled and all active participants have valid votes.
      */
     public void setVote(String roomCode, String nameOrCid, String value) {
@@ -156,7 +150,7 @@ public class GameService {
         broadcastRoomState(room);
     }
 
-    /** Explicitly reveal cards. */
+    /** Reveal result explicitly. */
     public void reveal(String roomCode) {
         Room room = getOrCreateRoom(roomCode);
         synchronized (room) { room.setCardsRevealed(true); }
@@ -167,43 +161,6 @@ public class GameService {
     public void reset(String roomCode) {
         Room room = getOrCreateRoom(roomCode);
         synchronized (room) { room.reset(); }
-        broadcastRoomState(room);
-    }
-
-    /** Set card sequence by id (resets round). */
-    public void setSequence(String roomCode, String sequenceId) {
-        Room room = getOrCreateRoom(roomCode);
-        synchronized (room) {
-            String id = normalizeSequenceId(sequenceId); // local normalization
-            room.setSequenceId(id);
-            room.reset(); // clear votes & hidden state to match new deck
-        }
-        broadcastRoomState(room);
-    }
-
-    /** Promote target to host. */
-    public void makeHost(String roomCode, String targetName) {
-        if (targetName == null || targetName.isBlank()) return;
-        Room room = getOrCreateRoom(roomCode);
-
-        String oldHost = null;
-        synchronized (room) {
-            Participant host = room.getHost();
-            if (host != null) {
-                oldHost = host.getName();
-                host.setHost(false);
-            }
-            Participant target = room.getParticipant(targetName);
-            if (target == null) {
-                // Allow promoting a participant that will soon reconnect
-                target = new Participant(targetName);
-                room.addParticipant(target);
-            }
-            target.setActive(true);
-            target.setHost(true);
-            target.bumpLastSeen();
-        }
-        broadcastHostChange(room, oldHost, targetName);
         broadcastRoomState(room);
     }
 
@@ -219,13 +176,13 @@ public class GameService {
         broadcastRoomState(room);
     }
 
-    /** Clear topic content; keep visibility false. */
+    /** Clear topic and keep visibility as-is (client will hide when toggle is off). */
     public void clearTopic(String roomCode) {
         Room room = getOrCreateRoom(roomCode);
         synchronized (room) {
             room.setTopicLabel(null);
             room.setTopicUrl(null);
-            room.setTopicVisible(false);
+            // Do not force-visibility; UI controls visibility separately
         }
         broadcastRoomState(room);
     }
@@ -242,6 +199,53 @@ public class GameService {
         Room room = getOrCreateRoom(roomCode);
         synchronized (room) { room.setAutoRevealEnabled(enabled); }
         broadcastRoomState(room);
+    }
+
+    /**
+     * Change active card sequence by id (e.g., "fib.scrum", "fib.enh", "fib.math", "pow2", "tshirt").
+     * Resets the round and broadcasts new deck + cleared votes.
+     */
+    public void setSequence(String roomCode, String sequenceId) {
+        if (sequenceId == null || sequenceId.isBlank()) return;
+        Room room = getOrCreateRoom(roomCode);
+        synchronized (room) {
+            // Accept id as provided; Room/CardSequences handle validation internally
+            room.setSequenceId(sequenceId.trim());
+            room.reset(); // clear votes & revealed state for new deck
+        }
+        broadcastRoomState(room);
+    }
+
+    /** Assign host to target name and broadcast hostChanged + new room state. */
+    public void makeHost(String roomCode, String targetName) {
+        if (targetName == null || targetName.isBlank()) return;
+        Room room = getOrCreateRoom(roomCode);
+
+        String oldHostName = null;
+        String newHostName = null;
+
+        synchronized (room) {
+            Participant target = room.getParticipant(targetName);
+            if (target == null) return;
+
+            Participant current = room.getHost();
+            if (current != null) {
+                if (Objects.equals(current.getName(), target.getName())) {
+                    // Already host → nothing to do
+                    return;
+                }
+                oldHostName = current.getName();
+                current.setHost(false);
+            }
+
+            target.setHost(true);
+            newHostName = target.getName();
+        }
+
+        if (newHostName != null) {
+            broadcastHostChange(room, oldHostName, newHostName);
+            broadcastRoomState(room);
+        }
     }
 
     /**
@@ -325,17 +329,7 @@ public class GameService {
 
     // --- calculations / helpers ---------------------------------------------------------------
 
-    public void revealCards(String roomCode) {
-        Room room = rooms.get(roomCode);
-        if (room != null) room.setCardsRevealed(true);
-    }
-
-    public void resetVotes(String roomCode) {
-        Room room = rooms.get(roomCode);
-        if (room != null) room.reset();
-    }
-
-    /** Average over active+participating, deduped by name, ignoring specials (incl. ∞). */
+    /** Average over active+participating, deduped by name, ignoring specials. */
     public OptionalDouble calculateAverageVote(Room room) {
         Map<String, Double> nv = collectNumericVotes(room);
         return nv.values().stream().mapToDouble(Double::doubleValue).average();
@@ -404,7 +398,7 @@ public class GameService {
         return out;
     }
 
-    /** Collect numeric votes: active + participating, dedupe by name, ignore specials/null (incl. ∞). */
+    /** Collect numeric votes: active + participating, dedupe by name, ignore specials/null. */
     private Map<String, Double> collectNumericVotes(Room room) {
         Map<String, Double> out = new LinkedHashMap<>();
         if (room == null) return out;
@@ -413,22 +407,14 @@ public class GameService {
             if (!p.isActive() || !p.isParticipating()) continue;
             if (!seen.add(p.getName())) continue;
             String v = p.getVote();
-            if (isSpecialVote(v)) continue; // ignore specials (including ∞)
             OptionalDouble num = CardSequences.parseNumeric(v);
             if (num.isPresent()) out.put(p.getName(), num.getAsDouble());
         }
         return out;
     }
 
-    /** Treat "∞" like a special for calculations and auto-reveal checks. */
-    private boolean isSpecialVote(String v) {
-        return v == null || CardSequences.SPECIALS.contains(v) || "∞".equals(v);
-    }
-
-    /** Valid numeric vote for auto-reveal completeness. */
     public boolean isValidVote(String v) {
-        if (isSpecialVote(v)) return false;
-        return CardSequences.parseNumeric(v).isPresent();
+        return v != null && !CardSequences.SPECIALS.contains(v);
     }
 
     public boolean allActiveParticipantsHaveValidVotes(Room room) {
@@ -436,7 +422,7 @@ public class GameService {
         for (Participant p : room.getParticipants()) {
             if (p.isActive() && p.isParticipating()) {
                 String v = p.getVote();
-                if (!isValidVote(v)) return false;
+                if (v == null || !isValidVote(v)) return false;
             }
         }
         return true;
@@ -496,14 +482,14 @@ public class GameService {
 
             Locale loc = Locale.getDefault();
 
-            // Average
+            // Average (existing)
             OptionalDouble avg = calculateAverageVote(room);
             String avgDisplay = avg.isPresent()
                     ? CardSequences.formatAverage(avg, loc)
                     : "-";
             payload.put("averageVote", revealed ? avgDisplay : null);
 
-            // median / range / consensus / outliers (only when revealed)
+            // Extra stats
             if (revealed) {
                 OptionalDouble med = calculateMedian(room);
                 payload.put("medianVote", med.isPresent() ? CardSequences.formatAverage(med, loc) : null);
@@ -646,10 +632,6 @@ public class GameService {
     }
 
     public void scheduleDisconnect(Room room, String participantName) {
-        scheduleDisconnect(room, participantName, DISCONNECT_GRACE_MS);
-    }
-
-    public void scheduleDisconnect(Room room, String participantName, long delayMs) {
         if (room == null || participantName == null) return;
         String k = key(room, participantName);
 
@@ -668,12 +650,12 @@ public class GameService {
             } finally {
                 pendingDisconnects.remove(k);
             }
-        }, Math.max(0L, delayMs), TimeUnit.MILLISECONDS);
+        }, DISCONNECT_GRACE_MS, TimeUnit.MILLISECONDS);
 
         pendingDisconnects.put(k, f);
     }
 
-    // --- explicit leave / kick / close ---------------------------------------------------------
+    // explicit leave / kick / close -------------------------------------------------------------
 
     public void markLeftIntentionally(Room room, String participantName) {
         if (room == null || participantName == null) return;
@@ -692,8 +674,7 @@ public class GameService {
     public void handleIntentionalLeave(String roomCode, String participantName) {
         Room room = getRoom(roomCode);
         if (room != null && participantName != null) {
-            // Short grace (2s) before we actually mark left & possibly reassign host.
-            scheduleDisconnect(room, participantName, INTENTIONAL_LEAVE_MS);
+            markLeftIntentionally(room, participantName); // immediate, no grace
         }
     }
 
@@ -804,27 +785,5 @@ public class GameService {
             label = s.length() > 140 ? s.substring(0, 140) + "…" : s;
         }
         return new String[]{label, url};
-    }
-
-    // --- sequence id normalization (local to service) ------------------------------------------
-
-    /** Map radio/button values and aliases to our canonical sequence ids. */
-    private static String normalizeSequenceId(String in) {
-        if (in == null || in.isBlank()) return "fib.scrum";
-        String s = in.trim().toLowerCase(Locale.ROOT);
-        // Already canonical?
-        if (s.equals("fib.scrum") || s.equals("fib.enh") || s.equals("fib.math") ||
-            s.equals("pow2") || s.equals("tshirt")) {
-            return s;
-        }
-        // Aliases from UI / older builds
-        return switch (s) {
-            case "fib-scrum" -> "fib.scrum";
-            case "fib-enh"   -> "fib.enh";
-            case "fib-math"  -> "fib.math";
-            case "powers2", "pow-2", "pow_2" -> "pow2";
-            case "t-shirt", "tee", "t_shirt" -> "tshirt";
-            default -> "fib.scrum";
-        };
     }
 }
