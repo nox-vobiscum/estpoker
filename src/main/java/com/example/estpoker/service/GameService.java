@@ -1,8 +1,8 @@
 package com.example.estpoker.service;
 
-import com.example.estpoker.model.CardSequences;
 import com.example.estpoker.model.Participant;
 import com.example.estpoker.model.Room;
+import com.example.estpoker.model.CardSequences;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.web.socket.CloseStatus;
@@ -35,14 +35,15 @@ public class GameService {
         if (cid != null && name != null && !name.isBlank()) {
             clientToName.put(mapKey(roomCode, cid), name);
         }
-        // else ignore
     }
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     // --- disconnect grace ---
-    // Long grace to avoid flapping when user just switches tabs
-    private static final long DISCONNECT_GRACE_MS = 600_000L; // 10 minutes
+    /** Lange Kulanz für echte Verbindungsabbrüche / Tabwechsel */
+    private static final long DISCONNECT_GRACE_MS = 120_000L;
+    /** Kurze Kulanz bei bewusstem Verlassen (Refresh/Close via beforeunload) */
+    private static final long INTENTIONAL_GRACE_MS = 2_000L;
 
     private final ScheduledExecutorService scheduler =
             Executors.newSingleThreadScheduledExecutor(r -> {
@@ -78,7 +79,6 @@ public class GameService {
     public Room join(String roomCode, String cid, String participantName) {
         Room room = getOrCreateRoom(roomCode);
         synchronized (room) {
-            // If CID already known, reuse that participant (no duplicate on refresh)
             Participant p = room.getParticipantByCid(cid).orElse(null);
 
             if (p == null) {
@@ -91,6 +91,9 @@ public class GameService {
                 // Link cid -> canonical name for future reconnects
                 room.linkCid(cid, p.getName());
             }
+
+            // ABBRUCH evtl. geplanter Disconnect (wichtig für schnellen Refresh)
+            cancelPendingDisconnect(room, p.getName());
 
             // Mark presence
             p.setActive(true);
@@ -107,17 +110,22 @@ public class GameService {
         return room;
     }
 
-    /** Mark connected/disconnected by CID (2nd parameter is CID, per handler usage). */
+    /**
+     * Mark connected/disconnected by CID (2nd parameter is CID, per handler usage).
+     * If announce==true, broadcast state.
+     */
     public void markConnected(String roomCode, String cid, boolean announce) {
         Room room = getOrCreateRoom(roomCode);
         synchronized (room) {
             Participant p = room.getParticipantByCid(cid).orElse(null);
             if (p == null) {
-                // Fallback: try last known name for this cid
                 String last = getClientName(roomCode, cid);
                 if (last != null) p = room.getParticipant(last);
             }
             if (p != null) {
+                // Reconnect → geplanten Disconnect abbrechen
+                cancelPendingDisconnect(room, p.getName());
+
                 p.setActive(true);
                 p.bumpLastSeen();
                 if (room.getHost() == null) p.setHost(true);
@@ -127,16 +135,15 @@ public class GameService {
     }
 
     /**
-     * Update a vote. Accepts either a name or a CID as second argument.
+     * Update a vote. Accepts either a name or a CID as second argument (handler sends CID).
      * Triggers auto-reveal if enabled and all active participants have valid votes.
      */
     public void setVote(String roomCode, String nameOrCid, String value) {
         Room room = getOrCreateRoom(roomCode);
         synchronized (room) {
             Participant p = room.getParticipantByCid(nameOrCid).orElse(null);
-            if (p == null) p = room.getParticipant(nameOrCid); // fallback: treat as name
+            if (p == null) p = room.getParticipant(nameOrCid);
             if (p == null) {
-                // If totally unknown, create by name as last resort (rare)
                 p = new Participant(nameOrCid);
                 room.addParticipant(p);
             }
@@ -176,13 +183,13 @@ public class GameService {
         broadcastRoomState(room);
     }
 
-    /** Clear topic and keep visibility as-is (client will hide when toggle is off). */
+    /** Clear topic and hide it. */
     public void clearTopic(String roomCode) {
         Room room = getOrCreateRoom(roomCode);
         synchronized (room) {
             room.setTopicLabel(null);
             room.setTopicUrl(null);
-            // Do not force-visibility; UI controls visibility separately
+            room.setTopicVisible(false);
         }
         broadcastRoomState(room);
     }
@@ -194,58 +201,11 @@ public class GameService {
         broadcastRoomState(room);
     }
 
-    /** Toggle auto-reveal flag and broadcast. */
+    /** NEW: Toggle auto-reveal flag and broadcast. */
     public void setAutoRevealEnabled(String roomCode, boolean enabled) {
         Room room = getOrCreateRoom(roomCode);
         synchronized (room) { room.setAutoRevealEnabled(enabled); }
         broadcastRoomState(room);
-    }
-
-    /**
-     * Change active card sequence by id (e.g., "fib.scrum", "fib.enh", "fib.math", "pow2", "tshirt").
-     * Resets the round and broadcasts new deck + cleared votes.
-     */
-    public void setSequence(String roomCode, String sequenceId) {
-        if (sequenceId == null || sequenceId.isBlank()) return;
-        Room room = getOrCreateRoom(roomCode);
-        synchronized (room) {
-            // Accept id as provided; Room/CardSequences handle validation internally
-            room.setSequenceId(sequenceId.trim());
-            room.reset(); // clear votes & revealed state for new deck
-        }
-        broadcastRoomState(room);
-    }
-
-    /** Assign host to target name and broadcast hostChanged + new room state. */
-    public void makeHost(String roomCode, String targetName) {
-        if (targetName == null || targetName.isBlank()) return;
-        Room room = getOrCreateRoom(roomCode);
-
-        String oldHostName = null;
-        String newHostName = null;
-
-        synchronized (room) {
-            Participant target = room.getParticipant(targetName);
-            if (target == null) return;
-
-            Participant current = room.getHost();
-            if (current != null) {
-                if (Objects.equals(current.getName(), target.getName())) {
-                    // Already host → nothing to do
-                    return;
-                }
-                oldHostName = current.getName();
-                current.setHost(false);
-            }
-
-            target.setHost(true);
-            newHostName = target.getName();
-        }
-
-        if (newHostName != null) {
-            broadcastHostChange(room, oldHostName, newHostName);
-            broadcastRoomState(room);
-        }
     }
 
     /**
@@ -328,6 +288,16 @@ public class GameService {
     }
 
     // --- calculations / helpers ---------------------------------------------------------------
+
+    public void revealCards(String roomCode) {
+        Room room = rooms.get(roomCode);
+        if (room != null) room.setCardsRevealed(true);
+    }
+
+    public void resetVotes(String roomCode) {
+        Room room = rooms.get(roomCode);
+        if (room != null) room.reset();
+    }
 
     /** Average over active+participating, deduped by name, ignoring specials. */
     public OptionalDouble calculateAverageVote(Room room) {
@@ -489,7 +459,7 @@ public class GameService {
                     : "-";
             payload.put("averageVote", revealed ? avgDisplay : null);
 
-            // Extra stats
+            // NEW: median / range / consensus / outliers (only when revealed)
             if (revealed) {
                 OptionalDouble med = calculateMedian(room);
                 payload.put("medianVote", med.isPresent() ? CardSequences.formatAverage(med, loc) : null);
@@ -631,7 +601,13 @@ public class GameService {
         if (f != null) f.cancel(false);
     }
 
+    /** Default: lange Kulanz */
     public void scheduleDisconnect(Room room, String participantName) {
+        scheduleDisconnect(room, participantName, DISCONNECT_GRACE_MS);
+    }
+
+    /** Overload: frei wählbare Kulanzdauer (z.B. 2s bei intentionalLeave) */
+    public void scheduleDisconnect(Room room, String participantName, long delayMs) {
         if (room == null || participantName == null) return;
         String k = key(room, participantName);
 
@@ -650,12 +626,12 @@ public class GameService {
             } finally {
                 pendingDisconnects.remove(k);
             }
-        }, DISCONNECT_GRACE_MS, TimeUnit.MILLISECONDS);
+        }, Math.max(0L, delayMs), TimeUnit.MILLISECONDS);
 
         pendingDisconnects.put(k, f);
     }
 
-    // explicit leave / kick / close -------------------------------------------------------------
+    // --- explicit leave / kick / close ---------------------------------------------------------
 
     public void markLeftIntentionally(Room room, String participantName) {
         if (room == null || participantName == null) return;
@@ -671,10 +647,11 @@ public class GameService {
         broadcastRoomState(room);
     }
 
+    /** Intendiertes Verlassen: kurze 2s-Kulanz -> Hostwechsel nur, wenn nicht sofort wieder da */
     public void handleIntentionalLeave(String roomCode, String participantName) {
         Room room = getRoom(roomCode);
         if (room != null && participantName != null) {
-            markLeftIntentionally(room, participantName); // immediate, no grace
+            scheduleDisconnect(room, participantName, INTENTIONAL_GRACE_MS);
         }
     }
 
