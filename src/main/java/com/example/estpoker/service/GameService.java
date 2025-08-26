@@ -14,9 +14,8 @@ import java.util.*;
 import java.util.concurrent.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
-/** Game service: room state, participants, voting, topic, auto-reveal, host rotation. */
+/** Game service: room state, participants, voting, topic, auto-reveal, host rotation, sequence changes. */
 @Service
 public class GameService {
 
@@ -197,7 +196,7 @@ public class GameService {
         broadcastRoomState(room);
     }
 
-    /** NEW: Toggle auto-reveal flag and broadcast. */
+    /** Toggle auto-reveal flag and broadcast. */
     public void setAutoRevealEnabled(String roomCode, boolean enabled) {
         Room room = getOrCreateRoom(roomCode);
         synchronized (room) { room.setAutoRevealEnabled(enabled); }
@@ -281,6 +280,23 @@ public class GameService {
             broadcastHostChange(room, oldHost, newHost);
             broadcastRoomState(room);
         }
+    }
+
+    // --- sequence management -------------------------------------------------------------------
+
+    private static final Set<String> SEQUENCE_IDS = Set.of(
+            "fib.scrum", "fib.enh", "fib.math", "pow2", "tshirt"
+    );
+
+    /** Change card sequence by id; resets round to keep state coherent. */
+    public void setSequence(String roomCode, String id) {
+        Room room = getOrCreateRoom(roomCode);
+        String seq = SEQUENCE_IDS.contains(id) ? id : "fib.scrum";
+        synchronized (room) {
+            room.setSequenceId(seq); // Room should compute cards from id (getCurrentCards)
+            room.reset();            // clear votes & reveal state on sequence change
+        }
+        broadcastRoomState(room);
     }
 
     // --- calculations / helpers ---------------------------------------------------------------
@@ -455,7 +471,7 @@ public class GameService {
                     : "-";
             payload.put("averageVote", revealed ? avgDisplay : null);
 
-            // NEW: median / range / consensus / outliers (only when revealed)
+            // Extended stats when revealed
             if (revealed) {
                 OptionalDouble med = calculateMedian(room);
                 payload.put("medianVote", med.isPresent() ? CardSequences.formatAverage(med, loc) : null);
