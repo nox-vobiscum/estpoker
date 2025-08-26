@@ -1,4 +1,4 @@
-/* room.js v20 — WS connector, participants, host controls, deck layout */
+/* room.js v21 — WS connector, participants, host controls, deck layout (participation only via menu) */
 (() => {
   'use strict';
   const TAG = '[ROOM]';
@@ -83,7 +83,7 @@
       stopHeartbeat();
       state.connected = false;
       console.warn(TAG, 'CLOSE', ev.code, ev.reason || '');
-      if (state.suppressReconnect || ev.code === 4000 || ev.code === 4001) return; // no reconnect on controlled close
+      if (state.suppressReconnect || ev.code === 4000 || ev.code === 4001) return; // controlled close → no reconnect
       setTimeout(() => { if (!state.connected) connectWS(); }, 2000);
     };
     s.onerror = (e) => console.warn(TAG, 'ERROR', e);
@@ -236,25 +236,23 @@
   function renderCards() {
     const gridWrap = $('#cardGrid'); if (!gridWrap) return;
 
-    // IMPORTANT: older markup gives #cardGrid the "card-grid" class (outer grid).
-    // Remove it so our two-row layout (numbers grid + specials grid) works correctly.
+    // Remove legacy grid class on wrapper to support our two-row layout.
     gridWrap.classList.remove('card-grid', 'fixed4');
-
     gridWrap.innerHTML = '';
 
     const me = state.participants.find(pp => pp.name === state.youName);
     const isObserver = !!(me && me.observer);
     const disabled = state.votesRevealed || isObserver;
 
-    // Split values into primary (numbers + "∞") and specials (❓ 💬 ☕)
+    // Split into primary (numbers + "∞") and specials (❓ 💬 ☕)
     const specialsSet = new Set(['❓','💬','☕']);
     const all = Array.isArray(state.cards) ? state.cards.map(v => String(v)) : [];
     const primary = [];
-    const specials = new Set(['❓','💬','☕']); // always present
+    const specials = new Set(['❓','💬','☕']); // ensure always present
 
     for (const v of all) {
       if (specialsSet.has(v)) specials.add(v);
-      else primary.push(v); // includes "∞" -> like a number
+      else primary.push(v); // includes "∞" -> treated like number for layout
     }
 
     // Primary row
@@ -270,7 +268,7 @@
     });
     gridWrap.appendChild(grid1);
 
-    // Specials row in fixed order
+    // Specials row (fixed order)
     const order = ['❓','💬','☕'];
     const grid2 = document.createElement('div');
     grid2.className = 'card-grid fixed4';
@@ -290,14 +288,6 @@
     const resetBtn  = $('#resetButton');
     if (revealBtn) revealBtn.style.display = (!state.votesRevealed && state.isHost) ? '' : 'none';
     if (resetBtn)  resetBtn.style.display  = ( state.votesRevealed && state.isHost) ? '' : 'none';
-
-    // Participation label near toggle
-    const partStatus = $('#partStatus');
-    if (partStatus && me) {
-      partStatus.textContent = !isObserver
-        ? (isDe() ? 'Ich schätze mit' : "I'm estimating")
-        : (isDe() ? 'Beobachter:in' : 'Observer');
-    }
   }
 
   function renderResultBar() {
@@ -320,7 +310,7 @@
     if (state.votesRevealed && state.consensus && state.averageVote) {
       row.classList.add('consensus');
       setText('#resultLabel', isDe() ? 'Consensus' : 'Consensus');
-      setText(avgEl, String(state.averageVote)); // no trailing dot
+      setText(avgEl, String(state.averageVote));
       if (medWrap)   medWrap.hidden = true;
       if (rangeWrap) rangeWrap.hidden = true;
       if (rangeSep)  rangeSep.hidden = true;
@@ -345,18 +335,15 @@
 
   // --- topic UI ---
   function renderTopic() {
-    const row = $('#topicRow');
+    const row  = $('#topicRow');
     const edit = $('#topicEdit');
     const disp = $('#topicDisplay');
-    const toggle = $('#topicToggle');
-    const status = $('#topicStatus');
 
-    if (toggle) { toggle.checked = !!state.topicVisible; toggle.setAttribute('aria-checked', String(!!state.topicVisible)); }
-    if (status) status.textContent = state.topicVisible ? (isDe() ? 'An' : 'On') : (isDe() ? 'Aus' : 'Off');
-
+    // visibility from server-controlled toggle (menu)
     const shouldShow = !!state.topicVisible;
     if (row) row.style.display = shouldShow ? '' : 'none';
 
+    // content
     if (disp) {
       if (state.topicLabel && state.topicUrl) {
         disp.innerHTML = `<a href="${encodeURI(state.topicUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(state.topicLabel)}</a>`;
@@ -366,29 +353,27 @@
         disp.textContent = '—';
       }
     }
+
     if (edit && !shouldShow) edit.style.display = 'none';
   }
 
   // --- auto-reveal UI ---
   function renderAutoReveal() {
-    const tgl = $('#autoRevealToggle');
-    if (tgl) { tgl.checked = !!state.autoRevealEnabled; tgl.setAttribute('aria-checked', String(!!state.autoRevealEnabled)); }
-    const preSt  = document.querySelector('.pre-vote #arStatus');
+    // Only update the overlay label now (no content label)
     const menuSt = document.querySelector('#appMenuOverlay #menuArStatus');
     const statusText = state.autoRevealEnabled ? (isDe() ? 'An' : 'On') : (isDe() ? 'Aus' : 'Off');
-    if (preSt)  preSt.textContent = statusText;
     if (menuSt) menuSt.textContent = statusText;
   }
 
   // --- keep overlay/menu in sync ---
   function syncMenuFromState() {
-    // Topic
+    // Topic (menu)
     const mTgl = $('#menuTopicToggle');
     const mSt  = $('#menuTopicStatus');
     if (mTgl) { mTgl.checked = !!state.topicVisible; mTgl.setAttribute('aria-checked', String(!!state.topicVisible)); }
     if (mSt) mSt.textContent = state.topicVisible ? (isDe() ? 'An' : 'On') : (isDe() ? 'Aus' : 'Off');
 
-    // Participation
+    // Participation (menu only)
     const me = state.participants.find(p => p.name === state.youName);
     const isObserver = !!(me && me.observer);
     const mPTgl = $('#menuParticipationToggle');
@@ -397,7 +382,7 @@
     if (mPSt)  mPSt.textContent = !isObserver ? (isDe() ? 'Ich schätze mit' : "I'm estimating")
                                               : (isDe() ? 'Beobachter:in' : 'Observer');
 
-    // Auto-reveal
+    // Auto-reveal (menu)
     const mARTgl = $('#menuAutoRevealToggle');
     if (mARTgl) { mARTgl.checked = !!state.autoRevealEnabled; mARTgl.setAttribute('aria-checked', String(!!state.autoRevealEnabled)); }
 
@@ -409,7 +394,7 @@
       r.disabled = !state.isHost;
     });
 
-    // Host-only toggles/hints
+    // Host-only hints
     const isHost = state.isHost;
     ['menuAutoRevealToggle','menuTopicToggle'].forEach(id => {
       const el = $('#'+id);
@@ -436,16 +421,6 @@
       const link = `${location.origin}/invite?roomCode=${encodeURIComponent(state.roomCode)}`;
       try { await navigator.clipboard.writeText(link); toast(isDe() ? 'Link in die Zwischenablage kopiert' : 'Link copied to clipboard'); copyBtn.setAttribute('data-tooltip', isDe() ? 'Link kopiert' : 'Link copied'); }
       catch { copyBtn.setAttribute('data-tooltip', isDe() ? 'Kopieren nicht möglich' : 'Copy failed'); }
-    });
-
-    // participation switch
-    $('#participationToggle')?.addEventListener('change', (e) => {
-      const estimating = !!e.target.checked; send(`participation:${estimating}`);
-    });
-
-    // topic toggle
-    $('#topicToggle')?.addEventListener('change', (e) => {
-      const on = !!e.target.checked; send(`topicToggle:${on}`);
     });
 
     // topic edit/save/clear
@@ -479,8 +454,14 @@
       send('topicClear');
     });
 
-    // auto-reveal toggle
-    $('#autoRevealToggle')?.addEventListener('change', (e) => {
+    // MENU toggles
+    $('#menuParticipationToggle')?.addEventListener('change', (e) => {
+      const estimating = !!e.target.checked; send(`participation:${estimating}`);
+    });
+    $('#menuTopicToggle')?.addEventListener('change', (e) => {
+      const on = !!e.target.checked; send(`topicToggle:${on}`);
+    });
+    $('#menuAutoRevealToggle')?.addEventListener('change', (e) => {
       const on = !!e.target.checked; send(`autoReveal:${on}`);
     });
 
