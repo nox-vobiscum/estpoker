@@ -1,4 +1,4 @@
-// menu.js — central menu + tooltips + theme + language (data-tooltip only)
+// menu.js — central menu + tooltips + theme + language + sequence bridge
 (function(){
   // Prevent double-binding if the script is accidentally loaded twice.
   if (window.__epMenuInit) return; window.__epMenuInit = true;
@@ -141,6 +141,18 @@
       // bubble an app-level event; room.js listens and will confirm + send ws
       document.dispatchEvent(new CustomEvent('ep:close-room'));
       closeMenu();
+    });
+  }
+
+  /* ---- Sequence radios → bubble to room.js ---- */
+  const seqRoot = doc.getElementById('menuSeqChoice');
+  if (seqRoot) {
+    seqRoot.addEventListener('change', (e) => {
+      const t = e.target;
+      if (t && t.name === 'menu-seq' && t.value) {
+        // Fire app-level event with selected sequence id
+        document.dispatchEvent(new CustomEvent('ep:sequence-change', { detail: { id: t.value } }));
+      }
     });
   }
 

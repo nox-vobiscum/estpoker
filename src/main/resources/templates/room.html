@@ -3,7 +3,7 @@
 <head th:replace="~{fragments/head :: head}"></head>
 <body>
 
-  <!-- App menu (fragment; stable, no JS relocation) -->
+  <!-- App menu (fragment) -->
   <div th:replace="~{fragments/menu :: appMenu(showSeq=${true}, showAuto=${true}, showRoom=${true})}"></div>
 
   <div class="container">
@@ -47,7 +47,7 @@
       </div>
     </div>
 
-    <!-- Topic editor -->
+    <!-- Topic editor (host-only; JS toggles visibility) -->
     <div id="topicEdit" class="topic-edit" style="display:none;">
       <input id="topicInput"
              class="topic-input"
@@ -65,30 +65,8 @@
       </div>
     </div>
 
-    <!-- Pre-Vote -->
+    <!-- Pre-Vote: only participation toggle + cards remain -->
     <div class="pre-vote">
-      <div id="seqChoice" class="seq-choice"></div>
-      <p id="seqHint" class="hint" th:text="#{sequence.onlyHost}">Only the host can change this.</p>
-
-      <div id="autoRevealRow" class="setting-row">
-        <span class="sr-label" th:text="#{menu.autoreveal}">Auto-reveal</span>
-        <span id="arStatus" class="sr-status" th:text="#{toggle.off}">Off</span>
-        <label class="switch">
-          <input id="autoRevealToggle" type="checkbox" role="switch" aria-checked="false">
-          <span class="slider"></span>
-        </label>
-      </div>
-      <p id="arHint" class="hint" th:text="#{autoreveal.onlyHost}">Only the host can change this setting.</p>
-
-      <div id="topicToggleRow" class="setting-row">
-        <span class="sr-label">Topic</span>
-        <span id="topicStatus" class="sr-status">On</span>
-        <label class="switch">
-          <input id="topicToggle" type="checkbox" role="switch" aria-checked="true">
-          <span class="slider"></span>
-        </label>
-      </div>
-
       <div class="card-grid" id="cardGrid"></div>
 
       <div class="vote-actions">
@@ -133,7 +111,8 @@
 
   <th:block th:replace="~{fragments/scripts :: scripts}"></th:block>
 
-  <script defer th:src="@{/js/room.js?v=14}"
+  <!-- room connector (bumped to v15) -->
+  <script defer th:src="@{/js/room.js?v=15}"
           th:attr="data-participant=${participantName},data-room=${roomCode}"></script>
   <script defer src="/js/ws-probe.js"></script>
 

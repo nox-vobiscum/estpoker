@@ -73,22 +73,22 @@
           </div>
         </div>
 
-        <!-- Card sequence (room context; read-only hint for non-host; events kommen über room.js) -->
+        <!-- Card sequence (room context; host-only hint; events are bridged to room.js) -->
         <div class="menu-group" th:if="${showSeq}">
           <div class="group-title" th:text="#{menu.sequence}">Card sequence</div>
 
-          <!-- Eigene ID, damit kein Konflikt mit In-Page #seqChoice -->
+          <!-- Dedicated ID to avoid clashing with in-page elements -->
           <div id="menuSeqChoice" class="menu-choice vertical">
             <label class="radio-row">
-              <input type="radio" name="menu-seq" value="fib-scrum" checked>
+              <input type="radio" name="menu-seq" value="fib.scrum" checked>
               <span th:text="#{sequence.fib.scrum}">Fibonacci (Scrum)</span>
             </label>
             <label class="radio-row">
-              <input type="radio" name="menu-seq" value="fib-enh">
+              <input type="radio" name="menu-seq" value="fib.enh">
               <span th:text="#{sequence.fib.enh}">Fibonacci (Scrum enhanced)</span>
             </label>
             <label class="radio-row">
-              <input type="radio" name="menu-seq" value="fib-math">
+              <input type="radio" name="menu-seq" value="fib.math">
               <span th:text="#{sequence.fib.math}">Fibonacci (mathematical)</span>
             </label>
             <label class="radio-row">
@@ -106,7 +106,7 @@
           </p>
         </div>
 
-        <!-- Auto-reveal + Topic visibility (Overlay-IDs mit Prefix, damit keine Duplikate) -->
+        <!-- Auto-reveal + Topic visibility (overlay IDs are prefixed to avoid duplicates) -->
         <div class="menu-group" th:if="${showAuto}">
           <div class="group-title" th:text="#{menu.autoreveal}">Auto-reveal</div>
 
@@ -179,6 +179,6 @@
     </div>
   </div>
 
-  <!-- menu behavior script (loaded by the fragment to avoid double-binding elsewhere) -->
+  <!-- menu behavior script (fragment-owned to avoid guessing in pages) -->
   <script defer th:src="@{/js/menu.js}"></script>
 </div>

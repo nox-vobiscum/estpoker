@@ -1,4 +1,4 @@
-/* room.js v14 — robust connector for /gameSocket (CID-based, topic, host-safe) */
+/* room.js v15 — robust connector for /gameSocket (CID-based, host-safe, sequence sync) */
 (() => {
   'use strict';
   const TAG = '[ROOM]';
@@ -6,6 +6,14 @@
   // --- DOM helpers ---
   const $ = (s) => document.querySelector(s);
   const setText = (sel, v) => { const el = typeof sel === 'string' ? $(sel) : sel; if (el) el.textContent = v ?? ''; };
+  const setDisabled = (elOrSel, on) => {
+    const el = typeof elOrSel === 'string' ? $(elOrSel) : elOrSel;
+    if (!el) return;
+    if (on) el.setAttribute('disabled', 'true'); else el.removeAttribute('disabled');
+    // add/remove .disabled on typical wrappers
+    const row = el.closest('.menu-item, .radio-row');
+    if (row) row.classList.toggle('disabled', !!on);
+  };
 
   // --- state ---
   const scriptEl = document.querySelector('script[src*="/js/room.js"]');
@@ -18,12 +26,16 @@
     cid: null,
     ws: null,
     connected: false,
+    noReconnect: false,
 
     isHost: false,
     votesRevealed: false,
     cards: [],
     participants: [],
     averageVote: null,
+    medianVote: null,
+    rangeText: null,
+    consensus: false,
 
     // Topic from GameService
     topicVisible: true,
@@ -31,7 +43,10 @@
     topicUrl: null,
 
     // Auto-reveal from GameService
-    autoRevealEnabled: false
+    autoRevealEnabled: false,
+
+    // Sequence
+    sequenceId: 'fib.scrum'
   };
 
   // stable per-tab client id
@@ -74,7 +89,9 @@
       state.connected = false;
       console.warn(TAG, 'CLOSE', ev.code, ev.reason || '');
       stopHeartbeat();
-      setTimeout(() => { if (!state.connected) connectWS(); }, 2000);
+      // Do not reconnect on intentional closes (room closed / kicked) or if we already redirected
+      if (state.noReconnect || ev.code === 4000 || ev.code === 4001) return;
+      setTimeout(() => { if (!state.connected && !state.noReconnect) connectWS(); }, 2000);
     };
     s.onerror = (e) => console.warn(TAG, 'ERROR', e);
     s.onmessage = (ev) => {
@@ -117,6 +134,10 @@
         state.cards = Array.isArray(m.cards) ? m.cards : state.cards;
         state.votesRevealed = !!m.votesRevealed;
         state.averageVote = m.averageVote ?? null;
+        state.medianVote  = m.medianVote ?? null;
+        state.rangeText   = m.range ?? null;
+        state.consensus   = !!m.consensus;
+        state.sequenceId  = m.sequenceId || state.sequenceId;
 
         const raw = Array.isArray(m.participants) ? m.participants : [];
         state.participants = raw.map(p => ({ ...p, observer: p.participating === false }));
@@ -135,8 +156,26 @@
         renderResultBar();
         renderTopic();
         renderAutoReveal();
-        syncMenuFromState();  // keep overlay labels/toggles in sync
-
+        syncMenuFromState();  // keep overlay labels/toggles/radios in sync
+        break;
+      }
+      case 'roomClosed': {
+        // Server asks us to leave; redirect path provided
+        const redirect = m.redirect || '/';
+        state.noReconnect = true;
+        try { state.ws && state.ws.close(4000, 'Room closed'); } catch {}
+        location.href = redirect;
+        break;
+      }
+      case 'kicked': {
+        const redirect = m.redirect || '/';
+        state.noReconnect = true;
+        try { state.ws && state.ws.close(4001, 'Kicked'); } catch {}
+        location.href = redirect;
+        break;
+      }
+      case 'hostChanged': {
+        // Optional: could toast; we just resync via subsequent voteUpdate
         break;
       }
       default: break;
@@ -187,7 +226,7 @@
         chip.className = 'vote-chip';
         let display = (p.vote == null || p.vote === '') ? '–' : String(p.vote);
         chip.textContent = display;
-        if (display === '☕' || display === '∞') chip.classList.add('special'); // infinity treated like special in UI
+        if (display === '☕' || display === '∞') chip.classList.add('special');
         right.appendChild(chip);
       }
 
@@ -211,7 +250,7 @@
       btn.type = 'button';
       btn.textContent = String(val);
       if (disabled) btn.disabled = true;
-      btn.addEventListener('click', () => send(`vote:${state.youName}:${val}`));
+      btn.addEventListener('click', () => send(`vote:${state.youName}:${val}`)); // name is stable mapping on server
       grid.appendChild(btn);
     });
 
@@ -232,11 +271,41 @@
     const avgEl = $('#averageVote');
     if (avgEl) avgEl.textContent = (state.averageVote != null ? String(state.averageVote) : 'N/A');
 
+    const medianWrap = $('#medianWrap');
+    const medianEl   = $('#medianVote');
+    const rangeWrap  = $('#rangeWrap');
+    const rangeSep   = $('#rangeSep');
+
     const pre  = document.querySelector('.pre-vote');
     const post = document.querySelector('.post-vote');
     if (pre && post) {
       pre.style.display  = state.votesRevealed ? 'none' : '';
       post.style.display = state.votesRevealed ? '' : 'none';
+    }
+
+    if (state.votesRevealed) {
+      if (medianWrap && medianEl) {
+        if (state.medianVote) {
+          medianEl.textContent = state.medianVote;
+          medianWrap.hidden = false;
+        } else {
+          medianWrap.hidden = true;
+        }
+      }
+      if (rangeWrap) {
+        if (state.rangeText) {
+          setText('#rangeVote', state.rangeText);
+          rangeWrap.hidden = false;
+          if (rangeSep) rangeSep.hidden = false;
+        } else {
+          rangeWrap.hidden = true;
+          if (rangeSep) rangeSep.hidden = true;
+        }
+      }
+    } else {
+      if (medianWrap) medianWrap.hidden = true;
+      if (rangeWrap)  rangeWrap.hidden  = true;
+      if (rangeSep)   rangeSep.hidden   = true;
     }
   }
 
@@ -245,14 +314,6 @@
     const row = $('#topicRow');
     const edit = $('#topicEdit');
     const disp = $('#topicDisplay');
-    const toggle = $('#topicToggle');
-    const status = $('#topicStatus');
-
-    if (toggle) {
-      toggle.checked = !!state.topicVisible;
-      toggle.setAttribute('aria-checked', String(!!state.topicVisible));
-    }
-    if (status) status.textContent = state.topicVisible ? 'On' : 'Off';
 
     if (disp) {
       if (state.topicLabel && state.topicUrl) {
@@ -264,25 +325,28 @@
       }
     }
 
+    // Visibility + host-only actions
     const shouldShow = !!state.topicVisible;
-    if (row) row.style.display = shouldShow ? '' : 'none';
-    if (edit && !shouldShow) edit.style.display = 'none';
+    if (row) {
+      row.style.display = shouldShow ? '' : 'none';
+      const actions = row.querySelector('.topic-actions');
+      if (actions) actions.style.display = state.isHost ? '' : 'none';
+    }
+    if (edit) {
+      if (!shouldShow) edit.style.display = 'none';
+      if (!state.isHost && edit.style.display !== 'none') {
+        // If we lost host while editing, close editor
+        edit.style.display = 'none';
+        if (row) row.style.display = shouldShow ? '' : 'none';
+      }
+    }
   }
 
   // --- auto-reveal UI ---
   function renderAutoReveal() {
-    // Pre-vote toggle
-    const tgl = $('#autoRevealToggle');
-    if (tgl) {
-      tgl.checked = !!state.autoRevealEnabled;
-      tgl.setAttribute('aria-checked', String(!!state.autoRevealEnabled));
-    }
-
-    // Status text (both in pre-vote row and in menu overlay if present)
-    const preSt  = document.querySelector('.pre-vote #arStatus');
-    const menuSt = document.querySelector('#appMenuOverlay #arStatus');
+    // Status text (overlay + keep any pre-vote mirrors if later reintroduced)
+    const menuSt = $('#menuArStatus');
     const statusText = state.autoRevealEnabled ? 'On' : 'Off';
-    if (preSt)  preSt.textContent = statusText;
     if (menuSt) menuSt.textContent = statusText;
   }
 
@@ -290,7 +354,7 @@
   function syncMenuFromState() {
     const isDe = (document.documentElement.lang||'en').toLowerCase().startsWith('de');
 
-    // Topic
+    // Topic toggle (overlay)
     const mTgl = $('#menuTopicToggle');
     const mSt  = $('#menuTopicStatus');
     if (mTgl) {
@@ -299,7 +363,7 @@
     }
     if (mSt) mSt.textContent = state.topicVisible ? (isDe ? 'An' : 'On') : (isDe ? 'Aus' : 'Off');
 
-    // Participation
+    // Participation status text in overlay
     const me = state.participants.find(p => p.name === state.youName);
     const isObserver = !!(me && me.observer);
     const mPTgl = $('#menuParticipationToggle');
@@ -317,6 +381,31 @@
       mARTgl.checked = !!state.autoRevealEnabled;
       mARTgl.setAttribute('aria-checked', String(!!state.autoRevealEnabled));
     }
+
+    // Sequence radios (overlay)
+    const seqRoot = $('#menuSeqChoice');
+    if (seqRoot) {
+      const all = seqRoot.querySelectorAll('input[type="radio"][name="menu-seq"]');
+      all.forEach(r => { r.checked = (r.value === state.sequenceId); });
+    }
+
+    // Host locks (disable host-only controls for non-host)
+    const hostOnly = !state.isHost;
+    // Auto-reveal & topic visibility are host-only
+    setDisabled('#menuAutoRevealToggle', hostOnly);
+    setDisabled('#menuTopicToggle',      hostOnly);
+    // Sequence radios host-only
+    if (seqRoot) {
+      seqRoot.querySelectorAll('input[type="radio"]').forEach(r => setDisabled(r, hostOnly));
+    }
+
+    // Host-only hints visibility
+    const seqHint = $('#menuSeqHint');
+    const arHint  = $('#menuArHint');
+    const topicHint = $('#menuTopicToggleHint');
+    if (seqHint)  seqHint.style.display  = hostOnly ? '' : 'none';
+    if (arHint)   arHint.style.display   = hostOnly ? '' : 'none';
+    if (topicHint)topicHint.style.display= hostOnly ? '' : 'none';
   }
 
   // --- actions exposed for HTML buttons ---
@@ -348,16 +437,7 @@
       });
     }
 
-    // topic toggle (pre-vote row)
-    const topicToggle = $('#topicToggle');
-    if (topicToggle) {
-      topicToggle.addEventListener('change', (e) => {
-        const on = !!e.target.checked;
-        send(`topicToggle:${on}`);
-      });
-    }
-
-    // topic edit/save/clear
+    // topic edit/save/clear (host-only guarded)
     const editBtn = $('#topicEditBtn');
     const clearBtn = $('#topicClearBtn');
     const editBox = $('#topicEdit');
@@ -396,15 +476,6 @@
       });
     }
 
-    // auto-reveal toggle (pre-vote row; server handler folgt)
-    const arToggle = $('#autoRevealToggle');
-    if (arToggle) {
-      arToggle.addEventListener('change', (e) => {
-        const on = !!e.target.checked;
-        send(`autoReveal:${on}`);
-      });
-    }
-
     // --- MENU toggles (namespaced) ---
     const mPart = $('#menuParticipationToggle');
     if (mPart) {
@@ -417,6 +488,7 @@
     const mTopic = $('#menuTopicToggle');
     if (mTopic) {
       mTopic.addEventListener('change', (e) => {
+        if (!state.isHost) { syncMenuFromState(); return; } // guard + reset UI
         const on = !!e.target.checked;
         send(`topicToggle:${on}`);
       });
@@ -425,6 +497,7 @@
     const mAR = $('#menuAutoRevealToggle');
     if (mAR) {
       mAR.addEventListener('change', (e) => {
+        if (!state.isHost) { syncMenuFromState(); return; } // guard + reset UI
         const on = !!e.target.checked;
         send(`autoReveal:${on}`);
       });
@@ -436,6 +509,14 @@
       const de  = (document.documentElement.lang||'en').toLowerCase().startsWith('de');
       const msg = de ? 'Diesen Raum für alle schließen?' : 'Close this room for everyone?';
       if (confirm(msg)) send('closeRoom');
+    });
+
+    // menu: sequence change bridge (from menu.js)
+    document.addEventListener('ep:sequence-change', (e) => {
+      const id = e && e.detail && e.detail.id;
+      if (!id) return;
+      if (!state.isHost) { syncMenuFromState(); return; }
+      send('sequence:' + id);
     });
   }
 
