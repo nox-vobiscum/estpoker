@@ -1,22 +1,12 @@
-/* room.js v20 — WS connector & UI sync (CID-based, topic visibility, consensus-only bar) */
+/* room.js v19 — WS connector, participants, host controls, deck layout */
 (() => {
   'use strict';
   const TAG = '[ROOM]';
 
   // --- DOM helpers ---
-  const $ = (s) => document.querySelector(s);
+  const $  = (s) => document.querySelector(s);
+  const $$ = (s) => Array.from(document.querySelectorAll(s));
   const setText = (sel, v) => { const el = typeof sel === 'string' ? $(sel) : sel; if (el) el.textContent = v ?? ''; };
-
-  // --- toast utility (small, unobtrusive) ---
-  function showToast(msg){
-    try{
-      const t = document.createElement('div');
-      t.className = 'toast';
-      t.textContent = msg;
-      document.body.appendChild(t);
-      setTimeout(()=>{ t.remove(); }, 3000);
-    }catch(_){}
-  }
 
   // --- state ---
   const scriptEl = document.querySelector('script[src*="/js/room.js"]');
@@ -29,26 +19,28 @@
     cid: null,
     ws: null,
     connected: false,
-    noReconnect: false,
+    suppressReconnect: false,
 
     isHost: false,
     votesRevealed: false,
     cards: [],
-    sequenceId: null,
     participants: [],
     averageVote: null,
     medianVote: null,
-    rangeText: null,
+    range: null,
     consensus: false,
     outliers: [],
 
-    // Topic from GameService
-    topicVisible: false,
+    // Topic from server
+    topicVisible: true,
     topicLabel: '',
     topicUrl: null,
 
-    // Auto-reveal from GameService
-    autoRevealEnabled: false
+    // Auto-reveal from server
+    autoRevealEnabled: false,
+
+    // Sequence
+    sequenceId: 'fib.scrum',
   };
 
   // stable per-tab client id
@@ -88,12 +80,12 @@
       heartbeat();
     };
     s.onclose = (ev) => {
+      stopHeartbeat();
       state.connected = false;
       console.warn(TAG, 'CLOSE', ev.code, ev.reason || '');
-      stopHeartbeat();
-      // Avoid reconnect after server-initiated room close/kick
-      if (ev.code === 4000 || ev.code === 4001) { state.noReconnect = true; return; }
-      if (!state.noReconnect) setTimeout(() => { if (!state.connected) connectWS(); }, 2000);
+      // Suppress reconnect on controlled closes
+      if (state.suppressReconnect || ev.code === 4000 || ev.code === 4001) return;
+      setTimeout(() => { if (!state.connected) connectWS(); }, 2000);
     };
     s.onerror = (e) => console.warn(TAG, 'ERROR', e);
     s.onmessage = (ev) => {
@@ -112,16 +104,11 @@
   let hbT = null;
   function heartbeat() {
     stopHeartbeat();
-    hbT = setInterval(() => send('ping'), 25000); // keep logically active
+    hbT = setInterval(() => send('ping'), 25000);
   }
   function stopHeartbeat() {
     if (hbT) { clearInterval(hbT); hbT = null; }
   }
-
-  // Send intentional leave on unload (best-effort)
-  window.addEventListener('pagehide', () => {
-    try { if (state.ws && state.ws.readyState === 1) state.ws.send('intentionalLeave'); } catch(_){}
-  });
 
   // --- messages ---
   function handleMessage(m) {
@@ -137,28 +124,40 @@
         }
         break;
       }
+      case 'hostChanged': {
+        toast( (isDe() ? 'Host gewechselt zu ' : 'Host changed to ') + (m.newHost || '—') );
+        break;
+      }
+      case 'kicked': {
+        state.suppressReconnect = true;
+        const to = m.redirect || '/';
+        location.replace(to);
+        break;
+      }
+      case 'roomClosed': {
+        state.suppressReconnect = true;
+        const to = m.redirect || '/';
+        location.replace(to);
+        break;
+      }
       case 'voteUpdate': {
         state.cards = Array.isArray(m.cards) ? m.cards : state.cards;
-        state.sequenceId = m.sequenceId || state.sequenceId;
         state.votesRevealed = !!m.votesRevealed;
-
-        const raw = Array.isArray(m.participants) ? m.participants : [];
-        state.participants = raw.map(p => ({
-          ...p,
-          observer: p.participating === false
-        }));
-
         state.averageVote = m.averageVote ?? null;
         state.medianVote  = m.medianVote ?? null;
-        state.rangeText   = m.range ?? null;
+        state.range       = m.range ?? null;
         state.consensus   = !!m.consensus;
         state.outliers    = Array.isArray(m.outliers) ? m.outliers : [];
+
+        const raw = Array.isArray(m.participants) ? m.participants : [];
+        state.participants = raw.map(p => ({ ...p, observer: p.participating === false }));
 
         state.topicVisible = !!m.topicVisible;
         state.topicLabel   = m.topicLabel || '';
         state.topicUrl     = m.topicUrl || null;
 
         state.autoRevealEnabled = !!m.autoRevealEnabled;
+        state.sequenceId = m.sequenceId || state.sequenceId;
 
         const me = state.participants.find(p => p && p.name === state.youName);
         state.isHost = !!(me && me.isHost);
@@ -168,24 +167,7 @@
         renderResultBar();
         renderTopic();
         renderAutoReveal();
-        syncMenuFromState();  // keep overlay labels/toggles in sync
-        break;
-      }
-      case 'hostChanged': {
-        const de = (document.documentElement.lang||'en').toLowerCase().startsWith('de');
-        showToast(de ? `Host gewechselt zu ${m.newHost}` : `Host changed to ${m.newHost}`);
-        break;
-      }
-      case 'roomClosed': {
-        state.noReconnect = true;
-        const to = m.redirect || '/';
-        location.href = to;
-        break;
-      }
-      case 'kicked': {
-        state.noReconnect = true;
-        const to = m.redirect || '/';
-        location.href = to;
+        syncMenuFromState();
         break;
       }
       default: break;
@@ -198,17 +180,18 @@
     if (!ul) return;
     ul.innerHTML = '';
 
+    const me = state.participants.find(p => p.name === state.youName);
+
     state.participants.forEach(p => {
       const li = document.createElement('li');
       li.className = 'participant-row';
       if (p.disconnected) li.classList.add('disconnected');
       if (p.isHost) li.classList.add('is-host');
 
-      // Left icon: crown for host, person silhouette for everyone else (sleep if disconnected)
+      // Left icon: host crown or silhouette
       const left = document.createElement('span');
       left.className = 'participant-icon';
       if (p.isHost) { left.classList.add('host'); left.textContent = '👑'; }
-      else if (p.disconnected) { left.classList.add('inactive'); left.textContent = '💤'; }
       else { left.textContent = '👤'; }
       li.appendChild(left);
 
@@ -218,67 +201,78 @@
       name.textContent = p.name;
       li.appendChild(name);
 
-      // Right side: status / actions
+      // Right side: status + action pills
       const right = document.createElement('div');
       right.className = 'row-right';
 
+      // Status (left of actions)
+      const status = document.createElement('span');
+      status.className = 'status-icon';
+
       if (!state.votesRevealed) {
         if (p.observer) {
-          const eye = document.createElement('span');
-          eye.className = 'status-icon observer';
-          eye.textContent = '👁';
-          right.appendChild(eye);
-        } else if (!p.disconnected && (p.vote == null || p.vote === '')) {
-          const pend = document.createElement('span');
-          pend.className = 'status-icon pending';
-          pend.textContent = '⌛';
-          right.appendChild(pend);
-        } else if (!p.disconnected && !p.observer && p.vote != null) {
-          const done = document.createElement('span');
-          done.className = 'status-icon done';
-          done.textContent = '✓';
-          right.appendChild(done);
+          status.textContent = '👁';
+          status.classList.add('observer');
+          right.appendChild(status);
+        } else if (!p.disconnected && p.vote != null) {
+          status.textContent = '✅';
+          status.classList.add('done');
+          right.appendChild(status);
+        } else {
+          status.textContent = '⏳';
+          status.classList.add('pending');
+          right.appendChild(status);
         }
       } else {
-        const chip = document.createElement('span');
-        chip.className = 'vote-chip';
-        let display = (p.vote == null || p.vote === '') ? '–' : String(p.vote);
-        chip.textContent = display;
+        // After reveal:
+        if (p.observer) {
+          // Keep the eye icon for observers even after reveal
+          status.textContent = '👁';
+          status.classList.add('observer');
+          right.appendChild(status);
+        } else {
+          // Show chip with the revealed vote (or dash)
+          const chip = document.createElement('span');
+          chip.className = 'vote-chip';
+          let display = (p.vote == null || p.vote === '') ? '–' : String(p.vote);
+          chip.textContent = display;
 
-        // Gray out observers / disconnected
-        if (p.observer || p.disconnected) chip.classList.add('special');
+          // Specials appear with 'special' tint (∞ is NOT treated as special in UI)
+          if (display === '☕' || display === '❓' || display === '💬') chip.classList.add('special');
 
-        // Specials
-        if (display === '☕' || display === '💬' || display === '❓') chip.classList.add('special');
-
-        // Highlight outliers
-        if (state.outliers && state.outliers.indexOf(p.name) >= 0) chip.classList.add('outlier');
-
-        chip.setAttribute('data-val', display);
-        right.appendChild(chip);
+          // Outlier ring if applicable
+          if (Array.isArray(state.outliers) && state.outliers.includes(p.name)) {
+            chip.classList.add('outlier');
+          }
+          right.appendChild(chip);
+        }
       }
 
-      // Host tools: make host / kick (visible only if YOU are host and target != you)
-      if (state.isHost && p.name !== state.youName) {
+      // Host-only action pills (not for self)
+      if (state.isHost && !p.isHost && p.name !== (me && me.name)) {
         const makeHost = document.createElement('button');
         makeHost.type = 'button';
         makeHost.className = 'row-action host';
-        makeHost.innerHTML = `<span class="ra-icon">👑</span><span class="ra-label">Host</span>`;
+        makeHost.title = isDe() ? 'Zum Host machen' : 'Make host';
+        makeHost.innerHTML = '<span class="ra-icon">👑</span><span class="ra-label">Host</span>';
         makeHost.addEventListener('click', () => {
-          const de = (document.documentElement.lang||'en').toLowerCase().startsWith('de');
-          const ok = confirm(de ? `Host-Rolle an ${p.name} übergeben?` : `Make ${p.name} the host?`);
-          if (ok) send('makeHost:' + encodeURIComponent(p.name));
+          const msg = isDe()
+            ? `Host-Rolle an ${p.name} übergeben?`
+            : `Make ${p.name} the host?`;
+          if (confirm(msg)) send('makeHost:' + encodeURIComponent(p.name));
         });
         right.appendChild(makeHost);
 
         const kick = document.createElement('button');
         kick.type = 'button';
         kick.className = 'row-action kick';
-        kick.innerHTML = `<span class="ra-icon">❌</span><span class="ra-label">Kick</span>`;
+        kick.title = isDe() ? 'Teilnehmer entfernen' : 'Kick participant';
+        kick.innerHTML = '<span class="ra-icon">❌</span><span class="ra-label">Kick</span>';
         kick.addEventListener('click', () => {
-          const de = (document.documentElement.lang||'en').toLowerCase().startsWith('de');
-          const ok = confirm(de ? `${p.name} aus dem Raum entfernen?` : `Remove ${p.name} from the room?`);
-          if (ok) send('kick:' + encodeURIComponent(p.name));
+          const msg = isDe()
+            ? `Teilnehmer ${p.name} entfernen?`
+            : `Remove ${p.name}?`;
+          if (confirm(msg)) send('kick:' + encodeURIComponent(p.name));
         });
         right.appendChild(kick);
       }
@@ -290,96 +284,109 @@
 
   // --- cards UI ---
   function renderCards() {
-    const grid = $('#cardGrid');
-    if (!grid) return;
-    grid.innerHTML = '';
-
-    // Split numbers vs specials; Infinity is numeric for fib.enh (UI-only).
-    const seqId = state.sequenceId || '';
-    const specials = ['❓','💬','☕'];
-    const isInfinityNumeric = seqId === 'fib.enh';
-    const nums = [];
-    const extras = [];
-    state.cards.forEach(val => {
-      if (specials.includes(val)) { extras.push(val); }
-      else if (val === '∞' && !isInfinityNumeric) { extras.push(val); }
-      else { nums.push(val); }
-    });
+    const gridWrap = $('#cardGrid');
+    if (!gridWrap) return;
+    gridWrap.innerHTML = '';
 
     const me = state.participants.find(pp => pp.name === state.youName);
     const isObserver = !!(me && me.observer);
     const disabled = state.votesRevealed || isObserver;
 
-    function addRow(values){
-      const rowWrap = document.createElement('div');
-      rowWrap.className = 'card-row';
-      values.forEach(val => {
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.textContent = String(val);
-        if (disabled) btn.disabled = true;
-        btn.addEventListener('click', () => send(`vote:${state.youName}:${val}`));
-        rowWrap.appendChild(btn);
-      });
-      grid.appendChild(rowWrap);
+    // Split values into primary (numbers + "∞") and specials (❓ 💬 ☕)
+    const specialsSet = new Set(['❓','💬','☕']);
+    const all = Array.isArray(state.cards) ? state.cards.map(v => String(v)) : [];
+    const primary = [];
+    const specials = new Set(['❓','💬','☕']); // ensure always present as requested
+
+    for (const v of all) {
+      if (specialsSet.has(v)) specials.add(v);
+      else primary.push(v); // includes "∞" -> shown like a number
     }
 
-    if (nums.length) addRow(nums);
-    if (extras.length) addRow(extras);
+    // Primary row
+    const grid1 = document.createElement('div');
+    grid1.className = 'card-grid';
+    primary.forEach(val => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.textContent = String(val);
+      if (disabled) btn.disabled = true;
+      btn.addEventListener('click', () => send(`vote:${state.youName}:${val}`));
+      grid1.appendChild(btn);
+    });
+    gridWrap.appendChild(grid1);
 
+    // Specials row: ❓ 💬 ☕ in fixed order
+    const order = ['❓','💬','☕'];
+    const grid2 = document.createElement('div');
+    grid2.className = 'card-grid fixed4'; // compact row
+    order.forEach(val => {
+      if (!specials.has(val)) return;
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.textContent = val;
+      if (disabled) btn.disabled = true;
+      btn.addEventListener('click', () => send(`vote:${state.youName}:${val}`));
+      grid2.appendChild(btn);
+    });
+    gridWrap.appendChild(grid2);
+
+    // Reveal / Reset buttons visibility
     const revealBtn = $('#revealButton');
     const resetBtn  = $('#resetButton');
     if (revealBtn) revealBtn.style.display = (!state.votesRevealed && state.isHost) ? '' : 'none';
     if (resetBtn)  resetBtn.style.display  = ( state.votesRevealed && state.isHost) ? '' : 'none';
 
+    // Participation label near toggle
     const partStatus = $('#partStatus');
     if (partStatus && me) {
       partStatus.textContent = !isObserver
-        ? (document.documentElement.lang === 'de' ? 'Ich schätze mit' : "I'm estimating")
-        : (document.documentElement.lang === 'de' ? 'Beobachter:in' : 'Observer');
+        ? (isDe() ? 'Ich schätze mit' : "I'm estimating")
+        : (isDe() ? 'Beobachter:in' : 'Observer');
     }
   }
 
   function renderResultBar() {
     const avgEl = $('#averageVote');
-    const medianWrap = $('#medianWrap');
-    const rangeWrap  = $('#rangeWrap');
-    const rangeSep   = $('#rangeSep');
-    const resultRow  = $('#resultRow');
-    const resultLabel = $('#resultLabel');
+    const medWrap = $('#medianWrap');
+    const rangeWrap = $('#rangeWrap');
+    const rangeSep = $('#rangeSep');
+
+    const pre  = document.querySelector('.pre-vote');
+    const post = document.querySelector('.post-vote');
+    if (pre && post) {
+      pre.style.display  = state.votesRevealed ? 'none' : '';
+      post.style.display = state.votesRevealed ? '' : 'none';
+    }
+
+    const row = $('#resultRow');
+    if (!row) return;
 
     // Consensus-only display
-    if (state.consensus) {
-      if (resultRow) resultRow.classList.add('consensus');
-      if (resultLabel) resultLabel.textContent =
-        (document.documentElement.lang === 'de' ? '🎉 Konsens' : '🎉 Consensus');
-      if (avgEl) avgEl.textContent = (state.averageVote != null ? String(state.averageVote) : '–');
+    if (state.votesRevealed && state.consensus && state.averageVote) {
+      row.classList.add('consensus');
+      setText('#resultLabel', isDe() ? 'Consensus' : 'Consensus');
+      setText(avgEl, String(state.averageVote)); // no trailing dot
+      if (medWrap)   medWrap.hidden = true;
+      if (rangeWrap) rangeWrap.hidden = true;
+      if (rangeSep)  rangeSep.hidden = true;
+    } else {
+      row.classList.toggle('consensus', false);
+      setText('#resultLabel', isDe() ? 'Avg:' : 'Avg:');
+      if (avgEl) avgEl.textContent = (state.votesRevealed && state.averageVote != null) ? String(state.averageVote) : '–';
 
-      // hide rest
-      if (medianWrap) medianWrap.hidden = true;
-      if (rangeWrap)  rangeWrap.hidden = true;
-      if (rangeSep)   rangeSep.hidden = true;
-      return;
+      if (medWrap) {
+        const showMed = state.votesRevealed && !!state.medianVote && !state.consensus;
+        medWrap.hidden = !showMed;
+        setText('#medianVote', showMed ? String(state.medianVote) : '–');
+      }
+      if (rangeWrap) {
+        const showRange = state.votesRevealed && !!state.range && !state.consensus;
+        rangeWrap.hidden = !showRange;
+        if (rangeSep) rangeSep.hidden = !showRange;
+        setText('#rangeVote', showRange ? String(state.range) : '–');
+      }
     }
-
-    // Non-consensus: show average + optional stats
-    if (resultRow) resultRow.classList.remove('consensus');
-    if (resultLabel) resultLabel.textContent =
-      (document.documentElement.lang === 'de' ? 'Durchschnitt' : 'Average');
-    if (avgEl) avgEl.textContent = (state.averageVote != null ? String(state.averageVote) : '–');
-
-    const showMed = !!state.medianVote;
-    const showRng = !!state.rangeText;
-
-    if (medianWrap) {
-      medianWrap.hidden = !showMed;
-      $('#medianVote') && ($('#medianVote').textContent = showMed ? String(state.medianVote) : '–');
-    }
-    if (rangeWrap) {
-      rangeWrap.hidden = !showRng;
-      $('#rangeVote') && ($('#rangeVote').textContent = showRng ? String(state.rangeText) : '–');
-    }
-    if (rangeSep) rangeSep.hidden = !(showMed && showRng);
   }
 
   // --- topic UI ---
@@ -394,7 +401,11 @@
       toggle.checked = !!state.topicVisible;
       toggle.setAttribute('aria-checked', String(!!state.topicVisible));
     }
-    if (status) status.textContent = state.topicVisible ? 'On' : 'Off';
+    if (status) status.textContent = state.topicVisible ? (isDe() ? 'An' : 'On') : (isDe() ? 'Aus' : 'Off');
+
+    // Only show row when toggle is ON
+    const shouldShow = !!state.topicVisible;
+    if (row) row.style.display = shouldShow ? '' : 'none';
 
     if (disp) {
       if (state.topicLabel && state.topicUrl) {
@@ -406,8 +417,6 @@
       }
     }
 
-    const shouldShow = !!state.topicVisible;
-    if (row) row.style.display = shouldShow ? '' : 'none';
     if (edit && !shouldShow) edit.style.display = 'none';
   }
 
@@ -422,16 +431,14 @@
 
     // Status text (both in pre-vote row and in menu overlay if present)
     const preSt  = document.querySelector('.pre-vote #arStatus');
-    const menuSt = document.querySelector('#appMenuOverlay #menuArStatus, #appMenuOverlay #arStatus');
-    const statusText = state.autoRevealEnabled ? 'On' : 'Off';
+    const menuSt = document.querySelector('#appMenuOverlay #menuArStatus');
+    const statusText = state.autoRevealEnabled ? (isDe() ? 'An' : 'On') : (isDe() ? 'Aus' : 'Off');
     if (preSt)  preSt.textContent = statusText;
     if (menuSt) menuSt.textContent = statusText;
   }
 
   // --- keep overlay/menu in sync with latest state ---
   function syncMenuFromState() {
-    const isDe = (document.documentElement.lang||'en').toLowerCase().startsWith('de');
-
     // Topic
     const mTgl = $('#menuTopicToggle');
     const mSt  = $('#menuTopicStatus');
@@ -439,7 +446,7 @@
       mTgl.checked = !!state.topicVisible;
       mTgl.setAttribute('aria-checked', String(!!state.topicVisible));
     }
-    if (mSt) mSt.textContent = state.topicVisible ? (isDe ? 'An' : 'On') : (isDe ? 'Aus' : 'Off');
+    if (mSt) mSt.textContent = state.topicVisible ? (isDe() ? 'An' : 'On') : (isDe() ? 'Aus' : 'Off');
 
     // Participation
     const me = state.participants.find(p => p.name === state.youName);
@@ -450,8 +457,8 @@
       mPTgl.checked = !isObserver;
       mPTgl.setAttribute('aria-checked', String(!isObserver));
     }
-    if (mPSt) mPSt.textContent = !isObserver ? (isDe ? 'Ich schätze mit' : "I'm estimating")
-                                            : (isDe ? 'Beobachter:in' : 'Observer');
+    if (mPSt) mPSt.textContent = !isObserver ? (isDe() ? 'Ich schätze mit' : "I'm estimating")
+                                            : (isDe() ? 'Beobachter:in' : 'Observer');
 
     // Auto-reveal (menu toggle)
     const mARTgl = $('#menuAutoRevealToggle');
@@ -459,6 +466,27 @@
       mARTgl.checked = !!state.autoRevealEnabled;
       mARTgl.setAttribute('aria-checked', String(!!state.autoRevealEnabled));
     }
+
+    // Sequence radios (if present)
+    const seqId = state.sequenceId;
+    $$('#menuSeqChoice input[type="radio"][name="menu-seq"]').forEach(r => {
+      r.checked = (r.value === seqId);
+      r.closest('.radio-row')?.classList.toggle('disabled', !state.isHost);
+      r.disabled = !state.isHost;
+    });
+
+    // Host-only hints/toggles
+    const isHost = state.isHost;
+    const hostOnlyIds = ['menuAutoRevealToggle','menuTopicToggle'];
+    hostOnlyIds.forEach(id => {
+      const el = $('#'+id);
+      el && (el.disabled = !isHost);
+      const row = el?.closest('.menu-item') || el?.closest('.menu-group');
+      row && row.classList.toggle('disabled', !isHost);
+    });
+    $('#menuSeqHint')?.classList.toggle('hidden', isHost);
+    $('#menuArHint')?.classList.toggle('hidden', isHost);
+    $('#menuTopicToggleHint')?.classList.toggle('hidden', isHost);
   }
 
   // --- actions exposed for HTML buttons ---
@@ -472,14 +500,13 @@
     // copy link
     const copyBtn = $('#copyRoomLink');
     if (copyBtn) copyBtn.addEventListener('click', async () => {
+      const link = `${location.origin}/invite?roomCode=${encodeURIComponent(state.roomCode)}`;
       try {
-        const link = `${location.origin}/invite?roomCode=${encodeURIComponent(state.roomCode)}`;
         await navigator.clipboard.writeText(link);
-        const de = (document.documentElement.lang||'en').toLowerCase().startsWith('de');
-        showToast(de ? 'Link kopiert' : 'Link copied');
+        toast(isDe() ? 'Link in die Zwischenablage kopiert' : 'Link copied to clipboard');
+        copyBtn.setAttribute('data-tooltip', isDe() ? 'Link kopiert' : 'Link copied');
       } catch {
-        const de = (document.documentElement.lang||'en').toLowerCase().startsWith('de');
-        showToast(de ? 'Kopieren nicht möglich' : 'Copy failed');
+        copyBtn.setAttribute('data-tooltip', isDe() ? 'Kopieren nicht möglich' : 'Copy failed');
       }
     });
 
@@ -536,9 +563,7 @@
     if (clearBtn) {
       clearBtn.addEventListener('click', () => {
         if (!state.isHost) return;
-        send('topicClear');
-        // Keep row visible only if toggle is On (state updates on next tick)
-        setTimeout(()=>{ $('#topicRow').style.display = state.topicVisible ? '' : 'none'; }, 50);
+        send('topicClear'); // server keeps visibility; UI will render empty label
       });
     }
 
@@ -551,46 +576,25 @@
       });
     }
 
-    // --- MENU toggles (namespaced) ---
-    const mPart = $('#menuParticipationToggle');
-    if (mPart) {
-      mPart.addEventListener('change', (e) => {
-        const estimating = !!e.target.checked;
-        send(`participation:${estimating}`);
-      });
-    }
-
-    const mTopic = $('#menuTopicToggle');
-    if (mTopic) {
-      mTopic.addEventListener('change', (e) => {
-        const on = !!e.target.checked;
-        send(`topicToggle:${on}`);
-      });
-    }
-
-    const mAR = $('#menuAutoRevealToggle');
-    if (mAR) {
-      mAR.addEventListener('change', (e) => {
-        const on = !!e.target.checked;
-        send(`autoReveal:${on}`);
-      });
-    }
-
-    // menu: close room event (from menu.js)
-    document.addEventListener('ep:close-room', () => {
-      if (!state.isHost) return;
-      const de  = (document.documentElement.lang||'en').toLowerCase().startsWith('de');
-      const msg = de ? 'Diesen Raum für alle schließen?' : 'Close this room for everyone?';
-      if (confirm(msg)) send('closeRoom');
-    });
-
-    // optional: sequence change coming from menu overlay
-    document.addEventListener('ep:sequence-change', (e) => {
-      const id = (e && e.detail && e.detail.id) || null;
+    // --- MENU / Overlay integrations ---
+    // Sequence change bubbled from menu.js
+    document.addEventListener('ep:sequence-change', (ev) => {
+      const id = ev?.detail?.id;
       if (!id) return;
       if (!state.isHost) return;
       send('sequence:' + encodeURIComponent(id));
     });
+
+    // menu: close room event (from menu.js)
+    document.addEventListener('ep:close-room', () => {
+      if (!state.isHost) return;
+      const msg = isDe() ? 'Diesen Raum für alle schließen?' : 'Close this room for everyone?';
+      if (confirm(msg)) send('closeRoom');
+    });
+
+    // Best-effort intentional leave (not guaranteed during unload)
+    window.addEventListener('pagehide', () => { try { send('intentionalLeave'); } catch {} }, { capture: true });
+    window.addEventListener('beforeunload', () => { try { send('intentionalLeave'); } catch {} });
   }
 
   // --- utils ---
@@ -598,6 +602,17 @@
     return String(s).replace(/[&<>"']/g, c => (
       { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]
     ));
+  }
+  function isDe(){ return (document.documentElement.lang||'en').toLowerCase().startsWith('de'); }
+
+  function toast(text){
+    try{
+      const el = document.createElement('div');
+      el.className = 'toast';
+      el.textContent = String(text||'');
+      document.body.appendChild(el);
+      setTimeout(()=>{ el.remove(); }, 3000);
+    }catch(_){}
   }
 
   // --- boot ---
