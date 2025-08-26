@@ -8,7 +8,7 @@
   <meta name="color-scheme" content="dark light"/>
 
   <!-- Title from i18n -->
-  <title th:text="#{app.title}">RBS' Estimation Poker</title>
+  <title th:text="#{app.title}" data-i18n="app.title">RBS' Estimation Poker</title>
 
   <!-- Favicons -->
   <link rel="icon" type="image/svg+xml" th:href="@{/favicon.svg}"/>
@@ -26,7 +26,7 @@
     }catch(e){}})();
   </script>
 
-  <!-- Base styles (single source of truth; tooltip styles are included here) -->
+  <!-- Base styles -->
   <link rel="stylesheet" th:href="@{/styles.css}"/>
-  <!-- Removed dead include: /css/tooltip.css -->
+  <!-- Tooltip CSS removed (consolidated into styles.css) -->
 </th:block>

@@ -1,4 +1,4 @@
-// menu.js — central menu + tooltips + theme + language (data-tooltip only)
+// menu.js — central menu + theme + language + i18n runtime + sequence dispatch
 (function(){
   // Prevent double-binding if the script is accidentally loaded twice.
   if (window.__epMenuInit) return; window.__epMenuInit = true;
@@ -12,11 +12,61 @@
   // If the menu fragment is not present on the page, bail out gracefully.
   if (!btn || !overlay) return;
 
-  const TIP_THEME_LIGHT  = overlay?.dataset.tipThemeLight  || 'Theme: Light';
-  const TIP_THEME_DARK   = overlay?.dataset.tipThemeDark   || 'Theme: Dark';
-  const TIP_THEME_SYSTEM = overlay?.dataset.tipThemeSystem || 'Theme: System';
-  const TPL_LANG_TO      = overlay?.dataset.tipLangTo      || 'Switch language → {0}';
+  // --- lightweight i18n runtime --------------------------------------------------------------
+  // Usage:
+  //   await __epI18n.load('de'); __epI18n.apply(document);
+  //   const s = __epI18n.t('menu.language','Language');
+  window.__epI18n = window.__epI18n || (function(){
+    const cache = new Map(); // lang -> catalog
+    let lang = (document.documentElement.lang || 'en').toLowerCase();
+    let catalog = null;
 
+    function norm(l){ return (l||'en').toLowerCase().split('-')[0]; }
+
+    async function load(nextLang){
+      const target = norm(nextLang);
+      if (catalog && lang === target) return catalog;
+      if (cache.has(target)) { lang = target; catalog = cache.get(target); return catalog; }
+      const res = await fetch(`/i18n/messages?lang=${encodeURIComponent(target)}`, { credentials: 'same-origin' });
+      const json = await res.json();
+      cache.set(target, json);
+      lang = target; catalog = json;
+
+      // Also set session locale on server (ignore redirect)
+      try { fetch(`/i18n?lang=${encodeURIComponent(target)}`, { credentials: 'same-origin', redirect: 'manual' }); } catch {}
+      return catalog;
+    }
+
+    function t(key, fallback){
+      if (catalog && Object.prototype.hasOwnProperty.call(catalog, key)) return String(catalog[key]);
+      return (fallback != null) ? String(fallback) : key;
+    }
+
+    function apply(root){
+      const r = root || document;
+      // text content
+      r.querySelectorAll('[data-i18n]').forEach(el => {
+        const key = el.getAttribute('data-i18n'); if (!key) return;
+        el.textContent = t(key, el.textContent);
+      });
+      // attributes: data-i18n-attr="title:key1;aria-label:key2;data-tooltip:key3"
+      r.querySelectorAll('[data-i18n-attr]').forEach(el => {
+        const spec = el.getAttribute('data-i18n-attr'); if (!spec) return;
+        spec.split(';').forEach(pair => {
+          const [attr, k] = pair.split(':').map(s => s && s.trim());
+          if (!attr || !k) return;
+          el.setAttribute(attr, t(k, el.getAttribute(attr)));
+        });
+      });
+      document.documentElement.setAttribute('lang', lang);
+      // Tell the app
+      try { document.dispatchEvent(new CustomEvent('ep:lang-changed', { detail: { lang, catalog } })); } catch {}
+    }
+
+    return { load, apply, t, get lang(){ return lang; }, get catalog(){ return catalog; } };
+  })();
+
+  // Tooltip helper
   function setNiceTooltip(el, text){
     if (!el) return;
     if (text) el.setAttribute('data-tooltip', text);
@@ -24,7 +74,7 @@
     el.removeAttribute('title'); // no native browser tooltip
   }
 
-  /* ---- Menu open/close + focus trap ---- */
+  // --- Menu open/close + focus trap ----------------------------------------------------------
   let lastFocus = null;
   function focusables(){
     // Focus trap: collect interactive elements within the panel
@@ -46,7 +96,6 @@
     btn.setAttribute('aria-label','Close menu');
     btn.textContent = '✕';
     lastFocus = document.activeElement;
-    // Focus first focusable without popping tooltips (tooltip.js ignores focus while menu-open)
     setTimeout(()=>focusables()[0]?.focus(), 0);
     window.addEventListener('keydown', trapTab);
   }
@@ -67,7 +116,7 @@
   backdrop?.addEventListener('click', closeMenu);
   window.addEventListener('keydown', (e)=>{ if(e.key==='Escape') closeMenu(); });
 
-  /* ---- Theme ---- */
+  // --- Theme ----------------------------------------------------------------------------------
   const bLight  = doc.getElementById('themeLight');
   const bDark   = doc.getElementById('themeDark');
   const bSystem = doc.getElementById('themeSystem');
@@ -88,68 +137,89 @@
     ({light:bLight, dark:bDark, system:bSystem}[t||'dark'])?.setAttribute('aria-pressed','true');
   }
 
+  // --- Language (no-reload switch) ------------------------------------------------------------
+  const langRow = doc.getElementById('langRow');
+  const flagA   = langRow?.querySelector('.flag-a');
+  const flagB   = langRow?.querySelector('.flag-b');
+  const langLbl = doc.getElementById('langCurrent');
+
+  function isDe(lang){ return String(lang||'').toLowerCase().startsWith('de'); }
+  function labelFor(lang){ return isDe(lang) ? 'Deutsch' : 'English'; }
+  function setSplit(lang){
+    if (!flagA || !flagB) return;
+    if (isDe(lang)) { flagA.src='/flags/de.svg'; flagB.src='/flags/at.svg'; if (langLbl) langLbl.textContent='Deutsch'; }
+    else { flagA.src='/flags/us.svg'; flagB.src='/flags/gb.svg'; if (langLbl) langLbl.textContent='English'; }
+  }
+  function nextLang(cur){ return isDe(cur) ? 'en' : 'de'; }
+
+  async function switchLangDynamic(to){
+    try{
+      await window.__epI18n.load(to);
+      window.__epI18n.apply(document);           // swap texts/attributes live
+      setSplit(to);                               // update flag row
+      // Update theme tooltips with fresh catalog (fallback to previous dataset)
+      const tipLight  = window.__epI18n.t('title.theme.light',  overlay?.dataset.tipThemeLight  || 'Theme: Light');
+      const tipDark   = window.__epI18n.t('title.theme.dark',   overlay?.dataset.tipThemeDark   || 'Theme: Dark');
+      const tipSystem = window.__epI18n.t('title.theme.system', overlay?.dataset.tipThemeSystem || 'Theme: System');
+
+      setNiceTooltip(bLight,  tipLight);
+      setNiceTooltip(bDark,   tipDark);
+      setNiceTooltip(bSystem, tipSystem);
+
+      const toLabel = labelFor(to);
+      const tpl = window.__epI18n.t('title.lang.to', overlay?.dataset.tipLangTo || 'Switch language → {0}');
+      setNiceTooltip(langRow, tpl.replace('{0}', toLabel));
+    }catch(e){
+      console.warn('[MENU] lang switch failed', e);
+    }
+  }
+
+  // --- Sequence picker (overlay → app) --------------------------------------------------------
+  function wireSequencePicker(){
+    const root = doc.getElementById('menuSeqChoice');
+    if (!root) return;
+    root.addEventListener('change', (e) => {
+      const r = e.target;
+      if (!r || r.type !== 'radio' || r.name !== 'menu-seq') return;
+      const id = r.value;
+      try { document.dispatchEvent(new CustomEvent('ep:sequence-change', { detail: { id } })); } catch {}
+    });
+  }
+
+  // --- Initial wiring after DOMContentLoaded --------------------------------------------------
   document.addEventListener('DOMContentLoaded', function(){
+    // Theme init
     const saved = localStorage.getItem('estpoker-theme') || 'dark';
     ({light:bLight, dark:bDark, system:bSystem}[saved])?.classList.add('active');
     ({light:bLight, dark:bDark, system:bSystem}[saved])?.setAttribute('aria-pressed','true');
-
-    // Pretty tooltips
-    setNiceTooltip(bLight,  TIP_THEME_LIGHT);
-    setNiceTooltip(bDark,   TIP_THEME_DARK);
-    setNiceTooltip(bSystem, TIP_THEME_SYSTEM);
+    // Pretty tooltips (init; will be updated again on lang change)
+    const tipLight  = overlay?.dataset.tipThemeLight  || 'Theme: Light';
+    const tipDark   = overlay?.dataset.tipThemeDark   || 'Theme: Dark';
+    const tipSystem = overlay?.dataset.tipThemeSystem || 'Theme: System';
+    setNiceTooltip(bLight,  tipLight);
+    setNiceTooltip(bDark,   tipDark);
+    setNiceTooltip(bSystem, tipSystem);
 
     // Theme buttons
     bLight?.addEventListener('click', ()=>applyTheme('light'));
     bDark?.addEventListener('click',  ()=>applyTheme('dark'));
     bSystem?.addEventListener('click',()=>applyTheme('system'));
-  });
 
-  /* ---- Language ---- */
-  (function(){
-    const row   = doc.getElementById('langRow');
-    if (!row) return;
-
-    const a     = row.querySelector('.flag-a');
-    const b     = row.querySelector('.flag-b');
-    const label = doc.getElementById('langCurrent');
-
-    function isDe(lang){ return String(lang||'').toLowerCase().startsWith('de'); }
-    function labelFor(lang){ return isDe(lang) ? 'Deutsch' : 'English'; }
-    function setSplit(lang){
-      if (!a || !b) return;
-      if (isDe(lang)) { a.src='/flags/de.svg'; b.src='/flags/at.svg'; if (label) label.textContent='Deutsch'; }
-      else { a.src='/flags/us.svg'; b.src='/flags/gb.svg'; if (label) label.textContent='English'; }
-    }
-    function nextLang(cur){ return isDe(cur) ? 'en' : 'de'; }
-
-    function switchLang(to){ location.href = '/i18n?lang=' + encodeURIComponent(to); }
-
-    document.addEventListener('DOMContentLoaded', function(){
+    // Language row
+    if (langRow) {
       const cur = (document.documentElement.lang || 'en');
       setSplit(cur);
       const to  = nextLang(cur);
-      const tip = (TPL_LANG_TO || 'Switch language → {0}').replace('{0}', labelFor(to));
-      setNiceTooltip(row, tip);
-      row.addEventListener('click', function(){ switchLang(to); });
-    });
-  })();
+      const tip = (overlay?.dataset.tipLangTo || 'Switch language → {0}').replace('{0}', labelFor(to));
+      setNiceTooltip(langRow, tip);
+      langRow.addEventListener('click', () => switchLangDynamic(nextLang(document.documentElement.lang || 'en')));
+    }
 
-  /* ---- Sequence radios (overlay → room.js via custom event) ---- */
-  document.addEventListener('DOMContentLoaded', function(){
-    const root = document.getElementById('menuSeqChoice');
-    if (!root) return;
-    const radios = root.querySelectorAll('input[type="radio"][name="menu-seq"]');
-    radios.forEach(r => {
-      r.addEventListener('change', () => {
-        if (!r.checked) return;
-        const id = r.value; // expects e.g. "fib.scrum"
-        // Bridge to room.js
-        document.dispatchEvent(new CustomEvent('ep:sequence-change', { detail: { id } }));
-      });
-    });
+    // Sequence radios
+    wireSequencePicker();
   });
 
-  /* ---- Room actions coming from overlay ---- */
+  // --- Room actions coming from overlay -------------------------------------------------------
   const closeBtn = doc.getElementById('closeRoomBtn');
   if (closeBtn) {
     closeBtn.addEventListener('click', () => {

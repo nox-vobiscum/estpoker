@@ -9,14 +9,14 @@
   <div class="container">
     <h1 class="app-title">
       <img src="/favicon.svg" alt="" width="24" height="24" class="logo">
-      <span th:text="#{ui.heading}">RBS' Estimation Poker</span>
+      <span th:text="#{ui.heading}" data-i18n="ui.heading">RBS' Estimation Poker</span>
     </h1>
 
     <dl class="main-info">
-      <dt><span class="mi-icon" aria-hidden="true">👤</span><span class="mi-label" th:text="#{label.you}">You are:</span></dt>
+      <dt><span class="mi-icon" aria-hidden="true">👤</span><span class="mi-label" th:text="#{label.you}" data-i18n="label.you">You are:</span></dt>
       <dd><strong id="youName" th:text="${participantName}">Guest</strong></dd>
 
-      <dt><span class="mi-icon" aria-hidden="true">🆔</span><span class="mi-label" th:text="#{label.room}">Room:</span></dt>
+      <dt><span class="mi-icon" aria-hidden="true">🆔</span><span class="mi-label" th:text="#{label.room}" data-i18n="label.room">Room:</span></dt>
       <dd>
         <div class="room-with-actions">
           <strong id="roomCodeVal" th:text="${roomCode}">demo</strong>
@@ -24,12 +24,13 @@
                   class="icon-button"
                   type="button"
                   th:attr="aria-label=#{invite.copyLink},data-tooltip=#{invite.copyLink}"
+                  data-i18n-attr="aria-label:invite.copyLink;data-tooltip:invite.copyLink"
                   aria-live="polite">🔗</button>
         </div>
       </dd>
     </dl>
 
-    <h2 th:text="#{label.participants}">Participants</h2>
+    <h2 th:text="#{label.participants}" data-i18n="label.participants">Participants</h2>
     <ul id="liveParticipantList"></ul>
 
     <!-- Topic compact row (view) -->
@@ -37,12 +38,15 @@
       <span class="topic-label" aria-hidden="true">📝</span>
       <span id="topicDisplay" class="topic-text">—</span>
       <div class="topic-actions">
-        <button id="topicEditBtn" class="row-action" type="button" data-tooltip="Edit" aria-label="Edit">
-          <span class="ra-icon">✏️</span><span class="ra-label">Edit</span>
+        <button id="topicEditBtn" class="row-action" type="button"
+                data-i18n-attr="data-tooltip:button.edit;aria-label:button.edit"
+                data-tooltip="Edit" aria-label="Edit">
+          <span class="ra-icon">✏️</span><span class="ra-label" data-i18n="button.edit">Edit</span>
         </button>
         <button id="topicClearBtn" class="row-action kick" type="button"
-                th:attr="data-tooltip=#{button.clearTopic},aria-label=#{button.clearTopic}">
-          <span class="ra-icon">🧹</span><span class="ra-label" th:text="#{button.clearTopic}">Clear</span>
+                th:attr="data-tooltip=#{button.clearTopic},aria-label=#{button.clearTopic}"
+                data-i18n-attr="data-tooltip:button.clearTopic;aria-label:button.clearTopic">
+          <span class="ra-icon">🧹</span><span class="ra-label" th:text="#{button.clearTopic}" data-i18n="button.clearTopic">Clear</span>
         </button>
       </div>
     </div>
@@ -53,25 +57,30 @@
              class="topic-input"
              type="text"
              th:attr="placeholder=#{topic.placeholder}"
+             data-i18n-attr="placeholder:topic.placeholder"
              placeholder="Paste JIRA link or type key (e.g., RBSEP-123)…">
       <div class="topic-actions">
         <button id="topicSaveBtn" class="row-action host" type="button"
-                th:attr="data-tooltip=#{button.saveTopic},aria-label=#{button.saveTopic}">
-          <span class="ra-icon">💾</span><span class="ra-label" th:text="#{button.saveTopic}">Save</span>
+                th:attr="data-tooltip=#{button.saveTopic},aria-label=#{button.saveTopic}"
+                data-i18n-attr="data-tooltip:button.saveTopic;aria-label:button.saveTopic">
+          <span class="ra-icon">💾</span><span class="ra-label" th:text="#{button.saveTopic}" data-i18n="button.saveTopic">Save</span>
         </button>
-        <button id="topicCancelBtn" class="row-action" type="button" data-tooltip="Cancel" aria-label="Cancel">
-          <span class="ra-icon">✖</span><span class="ra-label">Cancel</span>
+        <button id="topicCancelBtn" class="row-action" type="button"
+                data-i18n-attr="data-tooltip:button.cancel;aria-label:button.cancel"
+                data-tooltip="Cancel" aria-label="Cancel">
+          <span class="ra-icon">✖</span><span class="ra-label" data-i18n="button.cancel">Cancel</span>
         </button>
       </div>
     </div>
 
-    <!-- Pre-Vote: cards only; participation is controlled via menu -->
+    <!-- Pre-Vote: cards + (host) reveal -->
     <div class="pre-vote">
       <div class="card-grid" id="cardGrid"></div>
 
       <div class="vote-actions">
         <button type="button" id="revealButton" class="button" style="display:none;"
-                th:text="#{button.reveal}" onclick="revealCards()"></button>
+                th:text="#{button.reveal}" data-i18n="button.reveal"
+                onclick="revealCards()"></button>
       </div>
     </div>
 
@@ -80,33 +89,34 @@
       <p id="resultRow"
          class="average-label consensus-row"
          role="status" aria-live="polite" aria-atomic="true">
-        <span id="resultLabel" class="label" th:text="#{label.average}">Avg:</span>
+        <span id="resultLabel" class="label" th:text="#{label.average}" data-i18n="label.average">Avg:</span>
         <span id="averageVote" class="value">–</span>
 
         <span class="sep" aria-hidden="true"> • </span>
 
         <span id="medianWrap" class="stat" hidden>
-          <span id="medianLabel" class="label" th:text="#{label.median}">Median:</span>
+          <span id="medianLabel" class="label" th:text="#{label.median}" data-i18n="label.median">Median:</span>
           <span id="medianVote" class="value">–</span>
         </span>
 
         <span id="rangeSep" class="sep" hidden aria-hidden="true"> • </span>
 
         <span id="rangeWrap" class="stat" hidden>
-          <span id="rangeLabel" class="label" th:text="#{label.range}">Range:</span>
+          <span id="rangeLabel" class="label" th:text="#{label.range}" data-i18n="label.range">Range:</span>
           <span id="rangeVote" class="value">–</span>
         </span>
       </p>
 
       <button type="button" id="resetButton" class="button" style="display:none;"
-              th:text="#{button.reset}" onclick="resetRoom()"></button>
+              th:text="#{button.reset}" data-i18n="button.reset"
+              onclick="resetRoom()"></button>
     </div>
   </div>
 
   <th:block th:replace="~{fragments/scripts :: scripts}"></th:block>
 
-  <!-- room connector -->
-  <script defer th:src="@{/js/room.js?v=20}"
+  <!-- room connector (bumped to v21) -->
+  <script defer th:src="@{/js/room.js?v=21}"
           th:attr="data-participant=${participantName},data-room=${roomCode}"></script>
   <script defer src="/js/ws-probe.js"></script>
 
