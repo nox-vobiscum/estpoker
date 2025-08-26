@@ -99,6 +99,14 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
+/* NEW: unify fonts across native controls (fix mixed system font in menu) */
+button, input, select, textarea { font: inherit; color: inherit; }
+
+/* Ensure key menu elements inherit the same face (defensive) */
+.menu-panel, .menu-section, .menu-item, .choice-btn, .radio-row,
+.group-title, .menu-header h3 { font-family: inherit; }
+
 body.menu-open { overflow: hidden; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
@@ -362,7 +370,7 @@ strong { color: var(--text-strong); }
 /* ---------- Icon button (room code copy) ---------- */
 .icon-button{
   display:inline-flex; align-items:center; justify-content:center;
-  width: 24px; height: 24px; /* smaller */
+  width: 28px; height: 28px;
   border-radius: 8px;
   background: var(--panel-2);
   color: var(--text);
@@ -370,7 +378,7 @@ strong { color: var(--text-strong); }
   cursor: pointer;
   transition: background 180ms ease, border-color 180ms ease, transform 120ms ease, box-shadow 180ms ease;
   -webkit-tap-highlight-color: transparent;
-  font-size: 14px; line-height: 1; /* smaller */
+  font-size: 16px; line-height: 1;
 }
 .icon-button:hover{ background: var(--panel-2-hover); border-color: var(--accent); box-shadow: 0 0 0 2px rgba(0,122,204,.12); }
 .icon-button:active{ transform: translateY(1px) scale(.98); }
@@ -545,7 +553,6 @@ li{ margin-bottom:.4rem; line-height:1.5; font-size:1rem; }
 .status-icon.done{ color: var(--ok); filter: drop-shadow(0 0 2px rgba(76,175,80,.6)); }
 .status-icon.pending{ color: var(--warn); opacity:.95; }
 .status-icon.observer{ color: var(--text-dim); opacity:.95; }
-.status-icon.sleep{ color: var(--text-dim); opacity:.9; } /* NEW: sleeping icon style */
 
 /* Vote chip */
 .vote-chip{
@@ -661,10 +668,9 @@ li{ margin-bottom:.4rem; line-height:1.5; font-size:1rem; }
 .qr-header h3{ margin:0; font-size:1rem; color: var(--text-strong); }
 .qr-close{ border:1px solid var(--border); background: var(--panel-2); border-radius:8px; width:34px; height:34px; cursor:pointer; }
 .qr-body{ display:grid; place-items:center; padding:16px; }
-.qr-actions{ display:flex; justify-content:flex-end; gap:8px; padding:8px; }
+.qr-actions{ display:flex; justify-content:flex-end; gap:8px; }
 #qrCanvas{ image-rendering: pixelated; width:320px; height:320px; border-radius:10px; background:#fff; }
 
-/* ---------- Reduced motion ---------- */
 @media (prefers-reduced-motion: reduce){
   .menu-panel, .qr-dialog{ animation: none; }
 }
@@ -825,7 +831,3 @@ body{ padding-bottom: 68px; }
 
 /* Ensure no horizontal scroll in panels */
 .no-horizontal-scroll { overflow-x: hidden !important; }
-
-/* ---------- Guard: menu switches should only show inside overlay ---------- */
-#menuParticipationRow{ display:none !important; }                 /* hide by default */
-#appMenuOverlay #menuParticipationRow{ display:grid !important; } /* show in overlay only */
