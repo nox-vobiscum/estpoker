@@ -1,27 +1,23 @@
 <!-- templates/fragments/menu.html -->
-<!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
-<body>
-<!--
-  Reusable app menu (hamburger → overlay).
-  Parameters:
-    - showSeq  : show card sequence picker (room context, host-only)
-    - showAuto : show auto-reveal toggle (room context, host-only)
-    - showRoom : show room-specific actions/controls
+<!-- Reusable app menu (hamburger → overlay) -->
+<!-- Parameter:
+     - showSeq  : show card sequence picker (room context, host-only hint)
+     - showAuto : show auto-reveal toggle (room context, host-only hint)
+     - showRoom : show room-specific actions/controls
 -->
 <div th:fragment="appMenu (showSeq, showAuto, showRoom)"
      th:with="showSeq=${showSeq}?:false,
               showAuto=${showAuto}?:false,
               showRoom=${showRoom}?:false">
 
-  <!-- Hamburger trigger (stays visible on page) -->
+  <!-- Hamburger trigger -->
   <button id="menuButton" class="menu-button"
           aria-expanded="false"
           aria-controls="appMenuOverlay"
           th:attr="aria-label=#{menu.open}"
           aria-label="Open menu">☰</button>
 
-  <!-- Overlay + panel root (hidden until opened by menu.js) -->
+  <!-- Overlay root -->
   <div id="appMenuOverlay"
        class="menu-overlay hidden"
        role="dialog"
@@ -35,13 +31,13 @@
        ">
     <div class="menu-backdrop" data-close></div>
 
-    <div class="menu-panel">
+    <div class="menu-panel no-horizontal-scroll">
       <!-- Sticky header -->
       <div class="menu-header">
         <h3 id="menuTitle" th:text="#{menu.title}">Settings</h3>
       </div>
 
-      <!-- Scrollable content -->
+      <!-- Scrollable body -->
       <div class="menu-section">
 
         <!-- Language switch (handled in menu.js) -->
@@ -58,7 +54,7 @@
           </span>
         </button>
 
-        <!-- Theme choice (3 explicit options) -->
+        <!-- Theme -->
         <div class="menu-group">
           <div class="group-title" th:text="#{menu.theme}">Theme</div>
           <div class="menu-choice">
@@ -77,48 +73,48 @@
           </div>
         </div>
 
-        <!-- Card sequence (room context; disabled for non-host in room.html) -->
+        <!-- Card sequence (room context; read-only hint for non-host; events kommen über room.js) -->
         <div class="menu-group" th:if="${showSeq}">
           <div class="group-title" th:text="#{menu.sequence}">Card sequence</div>
 
-          <!-- Radio list; tooltips are filled from /sequences in room.js -->
-          <div id="seqChoice" class="menu-choice vertical">
+          <!-- Eigene ID, damit kein Konflikt mit In-Page #seqChoice -->
+          <div id="menuSeqChoice" class="menu-choice vertical">
             <label class="radio-row">
-              <input type="radio" name="seq" value="fib-scrum" checked>
+              <input type="radio" name="menu-seq" value="fib-scrum" checked>
               <span th:text="#{sequence.fib.scrum}">Fibonacci (Scrum)</span>
             </label>
             <label class="radio-row">
-              <input type="radio" name="seq" value="fib-enh">
+              <input type="radio" name="menu-seq" value="fib-enh">
               <span th:text="#{sequence.fib.enh}">Fibonacci (Scrum enhanced)</span>
             </label>
             <label class="radio-row">
-              <input type="radio" name="seq" value="fib-math">
+              <input type="radio" name="menu-seq" value="fib-math">
               <span th:text="#{sequence.fib.math}">Fibonacci (mathematical)</span>
             </label>
             <label class="radio-row">
-              <input type="radio" name="seq" value="pow2">
+              <input type="radio" name="menu-seq" value="pow2">
               <span th:text="#{sequence.pow2}">Powers of 2</span>
             </label>
             <label class="radio-row">
-              <input type="radio" name="seq" value="tshirt">
+              <input type="radio" name="menu-seq" value="tshirt">
               <span th:text="#{sequence.tshirt}">T-Shirt sizes</span>
             </label>
           </div>
 
-          <p id="seqHint" class="hint" th:text="#{sequence.onlyHost}">
+          <p id="menuSeqHint" class="hint" th:text="#{sequence.onlyHost}">
             Only the host can change the sequence
           </p>
         </div>
 
-        <!-- Auto-reveal + Topic visibility -->
+        <!-- Auto-reveal + Topic visibility (Overlay-IDs mit Prefix, damit keine Duplikate) -->
         <div class="menu-group" th:if="${showAuto}">
           <div class="group-title" th:text="#{menu.autoreveal}">Auto-reveal</div>
 
-          <label id="autoRevealRow" class="menu-item switch" for="menuAutoRevealToggle">
+          <label id="menuAutoRevealRow" class="menu-item switch" for="menuAutoRevealToggle">
             <span class="mi-icon" aria-hidden="true">⚡</span>
             <span class="switch-text">
               <span th:text="#{menu.autoreveal}">Auto-reveal</span>:
-              <strong id="arStatus">Off</strong>
+              <strong id="menuArStatus">Off</strong>
             </span>
             <input id="menuAutoRevealToggle"
                    class="switch-control"
@@ -126,11 +122,11 @@
                    role="switch"
                    aria-checked="false">
           </label>
-          <p id="arHint" class="hint" th:text="#{autoreveal.onlyHost}">
+          <p id="menuArHint" class="hint" th:text="#{autoreveal.onlyHost}">
             Only the host can change this setting
           </p>
 
-          <label id="topicToggleRow" class="menu-item switch" for="menuTopicToggle">
+          <label id="menuTopicToggleRow" class="menu-item switch" for="menuTopicToggle">
             <span class="mi-icon" aria-hidden="true">📝</span>
             <span class="switch-text">
               <strong th:text="#{label.topic}">Ticket/Story</strong>:
@@ -142,17 +138,17 @@
                    role="switch"
                    aria-checked="false">
           </label>
-          <p id="topicToggleHint" class="hint" style="display:none;"
+          <p id="menuTopicToggleHint" class="hint" style="display:none;"
              th:text="#{autoreveal.onlyHost}">
             Only the host can change this setting
           </p>
         </div>
 
-        <!-- Participation -->
+        <!-- Participation (Overlay) -->
         <div class="menu-group" th:if="${showRoom}">
           <div class="group-title" th:text="#{menu.participation}">Participation</div>
 
-          <label id="participationRow" class="menu-item switch" for="menuParticipationToggle">
+          <label id="menuParticipationRow" class="menu-item switch" for="menuParticipationToggle">
             <span class="mi-icon" aria-hidden="true">🧑‍🤝‍🧑</span>
             <span class="switch-text">
               <span th:text="#{menu.participation}">Participation</span>:
@@ -183,8 +179,6 @@
     </div>
   </div>
 
-  <!-- IMPORTANT: menu behavior script (correct static path) -->
+  <!-- menu behavior script (loaded by the fragment to avoid double-binding elsewhere) -->
   <script defer th:src="@{/js/menu.js}"></script>
 </div>
-</body>
-</html>
