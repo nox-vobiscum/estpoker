@@ -2,6 +2,7 @@
    Extras:
    - Hides on scroll/touch/wheel/pointerdown and Esc
    - Hides when app menu opens (observes body.menu-open or overlay visibility)
+   - Prevent show while the app menu is open (no auto-start-on-open)
    - Hides while scrolling inside the menu panel without touching menu.js
 */
 (function () {
@@ -30,6 +31,14 @@
   }
   // allow other scripts (e.g., menu.js) to hide explicitly
   window.__epTooltipHide = hideTip;
+
+  function isMenuOpen() {
+    // Guard: never show tooltips while menu overlay is open
+    if (document.body.classList.contains('menu-open')) return true;
+    const overlay = document.getElementById('appMenuOverlay');
+    if (overlay && !overlay.classList.contains('hidden')) return true;
+    return false;
+  }
 
   function placeTip(target) {
     const text = target.getAttribute('data-tooltip');
@@ -67,14 +76,10 @@
     return null;
   }
 
-  function isInsideMenu(target){
-    const overlay = document.getElementById('appMenuOverlay');
-    return !!(overlay && overlay.contains(target));
-  }
-
   // --- Show/hide core logic ------------------------------------------------
   document.addEventListener('pointerover', (e) => {
     if (isScrolling) return;                // ignore during/just-after scroll
+    if (isMenuOpen()) return;               // no tooltip while menu is open
     if (e.pointerType && e.pointerType !== 'mouse') return; // hover only on mouse
     const t = findTarget(e.target);
     if (t) placeTip(t);
@@ -88,11 +93,11 @@
     hideTip();
   }, true);
 
-  // Keyboard accessibility: suppress tooltips *on focus* while menu is open
+  // Keyboard accessibility
   document.addEventListener('focusin', (e) => {
-    if (document.body.classList.contains('menu-open')) return; // don't pop tips on menu auto-focus
+    if (isMenuOpen()) return;               // guard against showing while menu open
     const t = findTarget(e.target);
-    if (t && !isInsideMenu(t)) placeTip(t); // ignore focus tips inside the menu; hover still works
+    if (t) placeTip(t);
   }, true);
   document.addEventListener('focusout', (e) => {
     const t = findTarget(e.target);
@@ -107,7 +112,7 @@
     hideTip();
   }
   // Page-level interactions
-  window.addEventListener('scroll', startScrollMask, true);
+  window.addEventListener('scroll', startScrollMask, true); // capture helps with document scrolling
   window.addEventListener('wheel', startScrollMask, { passive: true, capture: true });
   window.addEventListener('touchstart', startScrollMask, { passive: true, capture: true });
   window.addEventListener('touchmove', startScrollMask, { passive: true, capture: true });
@@ -120,6 +125,7 @@
   });
 
   // --- Menu integration without touching menu.js ---------------------------
+  // If the app adds body.menu-open or toggles #appMenuOverlay.hidden, hide tooltips
   function observeMenuState() {
     try {
       const bodyObs = new MutationObserver(() => {
@@ -135,9 +141,12 @@
     } catch (_) { /* no-op */ }
   }
 
+  // Also hook scroll on the menu containers directly (scroll doesn't bubble)
   function hookMenuScroll() {
     const overlay = document.getElementById('appMenuOverlay');
     const panel = overlay ? overlay.querySelector('.menu-panel') : null;
+
+    // capture = false here; we listen directly on the elements that actually scroll
     overlay && overlay.addEventListener('scroll', startScrollMask, { passive: true });
     panel   && panel.addEventListener('scroll', startScrollMask, { passive: true });
   }
@@ -152,7 +161,7 @@
     hookMenuScroll();
   }
 
-  // Extra hides for odd cases
+  // Additional harmless hides for edge cases
   window.addEventListener('orientationchange', hideTip, { passive: true, capture: true });
   document.addEventListener('visibilitychange', () => { if (document.hidden) hideTip(); }, true);
 
