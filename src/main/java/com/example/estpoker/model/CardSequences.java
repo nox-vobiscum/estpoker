@@ -12,7 +12,7 @@ public final class CardSequences {
 
     private CardSequences() {}
 
-    /* --- Specials --- */
+    /* --- Specials (global, appended to every deck) --- */
     public static final List<String> SPECIALS = List.of("❓","💬","☕");
     public static final Set<String> SPECIALS_SET = new HashSet<>(SPECIALS);
 
@@ -27,13 +27,15 @@ public final class CardSequences {
         "0,5", 0.5
     );
 
-    /* --- Sequence registry (central) --- */
-    public static final String DEFAULT_SEQUENCE_ID = "fib-scrum";
+    /* --- Sequence registry (unified to dot-notation) --- */
+    public static final String DEFAULT_SEQUENCE_ID = "fib.scrum";
+    public static final String INFINITY = "\u221E";
 
     public static final Map<String, List<String>> SEQUENCES = Map.of(
-        "fib-math",  List.of("0","1","2","3","5","8","13","21","34","55"),
-        "fib-scrum", List.of("1","2","3","5","8","13","20","40"),
-        "fib-enh",   List.of("0","½","1","2","3","5","8","13","20","40","100","\u221E"),
+        "fib.math",  List.of("0","1","2","3","5","8","13","21","34","55","89"),
+        "fib.scrum", List.of("1","2","3","5","8","13","20","40"),
+        // Infinity appears only in the enhanced Fibonacci sequence (UI-only card, excluded from stats)
+        "fib.enh",   List.of("0","½","1","2","3","5","8","13","20","40","100", INFINITY),
         "pow2",      List.of("2","4","8","16","32","64","128"),
         "tshirt",    List.of("XXS","XS","S","M","L","XL","XXL","XXXL")
     );
@@ -62,6 +64,7 @@ public final class CardSequences {
         if (s == null) return OptionalDouble.empty();
         s = s.trim();
         if (s.isEmpty() || SPECIALS_SET.contains(s)) return OptionalDouble.empty();
+        if (INFINITY.equals(s)) return OptionalDouble.empty(); // treat ∞ as non-numeric (excluded from stats)
 
         Double alias = ALIASES.get(s);
         if (alias != null) return OptionalDouble.of(alias);
