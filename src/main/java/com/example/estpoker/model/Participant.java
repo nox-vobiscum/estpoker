@@ -1,48 +1,51 @@
 package com.example.estpoker.model;
 
-public class Participant {
-    private String name;            // <- not final to allow rename
-    private String vote;
-    private boolean active = true;
-    private boolean disconnected = false;
-    private boolean isHost = false; // host flag
+import java.util.Objects;
 
-    // NEW: participates in estimation (default true)
-    private boolean participating = true;
+/** Simple participant model used by GameService and Room. */
+public class Participant {
+
+    private final String name;
+    private String vote;                 // current vote token
+    private boolean active = true;       // considered connected/active by server
+    private boolean participating = true;// false => observer
+    private boolean host = false;        // host flag
+    private volatile long lastSeenAt = System.currentTimeMillis(); // heartbeat
 
     public Participant(String name) {
-        this.name = name;
+        this.name = Objects.requireNonNull(name, "name");
     }
 
+    // identity
     public String getName() { return name; }
-    public void setName(String name) { this.name = name; }
 
+    // vote
     public String getVote() { return vote; }
     public void setVote(String vote) { this.vote = vote; }
 
-    // legacy alias used elsewhere
-    public void setCard(String card) { this.vote = card; }
-
+    // presence
     public boolean isActive() { return active; }
     public void setActive(boolean active) { this.active = active; }
 
-    public boolean isDisconnected() { return disconnected; }
-    public void setDisconnected(boolean disconnected) { this.disconnected = disconnected; }
+    public long getLastSeenAt() { return lastSeenAt; }
+    public void bumpLastSeen() { this.lastSeenAt = System.currentTimeMillis(); }
 
-    public boolean isHost() { return isHost; }
-    public void setHost(boolean host) { isHost = host; }
-
+    // roles
     public boolean isParticipating() { return participating; }
     public void setParticipating(boolean participating) { this.participating = participating; }
 
-    // convenience helpers (optional)
-    public void markConnected() {
-        this.active = true;
-        this.disconnected = false;
-    }
+    public boolean isHost() { return host; }
+    public void setHost(boolean host) { this.host = host; }
 
-    public void markDisconnected() {
-        this.active = false;
-        this.disconnected = true;
+    @Override
+    public String toString() {
+        return "Participant{" +
+                "name='" + name + '\'' +
+                ", vote='" + vote + '\'' +
+                ", active=" + active +
+                ", participating=" + participating +
+                ", host=" + host +
+                ", lastSeenAt=" + lastSeenAt +
+                '}';
     }
 }

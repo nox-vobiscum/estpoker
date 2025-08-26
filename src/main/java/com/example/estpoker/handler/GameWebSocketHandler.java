@@ -1,6 +1,5 @@
 package com.example.estpoker.handler;
 
-import com.example.estpoker.model.Participant;
 import com.example.estpoker.model.Room;
 import com.example.estpoker.service.GameService;
 import org.slf4j.Logger;
@@ -17,12 +16,20 @@ import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 
 @Component
 public class GameWebSocketHandler extends TextWebSocketHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GameWebSocketHandler.class);
+
     private final GameService gameService;
+
+    // keep a tiny per-session index (room, cid, name) to avoid recomputing
+    private final Map<String, Conn> bySession = new HashMap<>();
+
+    // Host inactivity threshold (ms) after which we reassign
+    private static final long HOST_INACTIVE_MS = 120_000L;
 
     public GameWebSocketHandler(GameService gameService) {
         this.gameService = gameService;
@@ -31,215 +38,162 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     @Override
     public void afterConnectionEstablished(@NonNull WebSocketSession session) throws Exception {
         Map<String, String> q = parseQuery(session.getUri());
-        String roomCode        = q.get("roomCode");
-        String participantName = q.get("participantName");
-        String cid             = q.get("cid");
+        final String roomCode = q.getOrDefault("roomCode", "demo").trim();
+        final String name = q.getOrDefault("participantName", "Guest").trim();
+        final String cid = q.getOrDefault("cid", "cid-" + session.getId()).trim();
 
-        if (isBlank(roomCode) || isBlank(participantName)) {
-            log.warn("WS connect rejected: missing params roomCode='{}' participantName='{}'", roomCode, participantName);
-            try { session.close(new CloseStatus(4002, "Missing params")); } catch (Exception ignored) {}
-            return;
-        }
+        log.info("WS OPEN room={} name={} cid={}", roomCode, name, cid);
 
-        Room room = gameService.getOrCreateRoom(roomCode);
+        // Join (dedupe by name), remember cid mapping, ensure host
+        Room room = gameService.join(roomCode, name, cid);
 
-        // Stable identity per client id (cid)
-        String known = gameService.getClientName(roomCode, cid);
-        if (cid != null && known != null) {
-            participantName = known;
-        }
-
-        // DO NOT markInactive here; let addOrReactivate handle duplicates/reactivation.
-        Object addRes = room.addOrReactivateParticipant(participantName);
-        if (addRes instanceof Participant) {
-            participantName = ((Participant) addRes).getName();
-        } else if (addRes instanceof String) {
-            participantName = (String) addRes;
-        }
-
-        // Make sure the participant is flagged active (clears any 'disconnected' flag)
-        Participant p = room.getOrCreateParticipant(participantName);
-        if (p != null) {
-            try {
-                p.setDisconnected(false);
-                p.setParticipating(true); // sane default when (re)joining
-            } catch (Exception ignored) {}
-        }
-
+        // Track session so GameService can broadcast to it
         gameService.addSession(session, room);
-        gameService.trackParticipant(session, participantName);
-        gameService.rememberClientName(roomCode, cid, participantName);
+        gameService.trackParticipant(session, name);
 
-        log.info("WS CONNECT room={} name={} cid={}", roomCode, participantName, cid);
-        gameService.sendIdentity(session, participantName, cid);
+        // Store lightweight local connection info
+        bySession.put(session.getId(), new Conn(roomCode, cid, name));
+
+        // Tell the client back its canonical name (in case normalization happened)
+        gameService.sendIdentity(session, name, cid);
+
+        // Push full state to everyone in the room
         gameService.broadcastRoomState(room);
     }
 
     @Override
-    protected void handleTextMessage(@NonNull WebSocketSession session, @NonNull TextMessage message) {
-        String payload = message.getPayload();
-        Room room = gameService.getRoomForSession(session);
-        if (room == null || payload == null) return;
+    protected void handleTextMessage(@NonNull WebSocketSession session, @NonNull TextMessage message) throws Exception {
+        Conn c = bySession.get(session.getId());
+        if (c == null) return;
 
-        try {
-            if ("ping".equals(payload)) {
-                // keepalive from client; optionally respond
-                // session.sendMessage(new TextMessage("{\"type\":\"pong\"}"));
-                return;
+        final String roomCode = c.room;
+        final String name = c.name; // stable logical name we track for this session
+        final String payload = message.getPayload();
+
+        // Simple line protocol
+        if (payload.startsWith("vote:")) {
+            // vote:<name>:<val>  (we ignore <name> from the wire, use our tracked one)
+            String[] parts = payload.split(":", 3);
+            if (parts.length >= 3) {
+                String val = parts[2];
+                gameService.setVote(roomCode, name, val);
+                maybeAutoReveal(roomCode);
+                Room room = gameService.getRoom(roomCode);
+                if (room != null) gameService.broadcastRoomState(room);
             }
+            return;
+        }
 
-            if (payload.startsWith("vote:")) {
-                String[] parts = payload.split(":", 3);
-                if (parts.length == 3) {
-                    String who = parts[1];
-                    String value = parts[2];
-                    Participant p = room.getParticipant(who);
-                    if (p == null) p = room.getOrCreateParticipant(who);
-                    if (p != null) {
-                        p.setVote(value);
-                        gameService.broadcastRoomState(room);
-                        gameService.maybeAutoReveal(room);
-                    }
+        switch (payload) {
+            case "revealCards" -> {
+                gameService.reveal(roomCode);
+                Room room = gameService.getRoom(roomCode);
+                if (room != null) gameService.broadcastRoomState(room);
+            }
+            case "resetRoom" -> {
+                gameService.reset(roomCode);
+                Room room = gameService.getRoom(roomCode);
+                if (room != null) gameService.broadcastRoomState(room);
+            }
+            case "ping" -> {
+                gameService.touch(roomCode, name);
+            }
+            default -> {
+                // Topic & participation toggles
+                if (payload.startsWith("topicSave:")) {
+                    String text = payload.substring("topicSave:".length());
+                    gameService.saveTopic(roomCode, decode(text));
+                    Room room = gameService.getRoom(roomCode);
+                    if (room != null) gameService.broadcastRoomState(room);
+                } else if ("topicClear".equals(payload)) {
+                    gameService.clearTopic(roomCode);
+                    Room room = gameService.getRoom(roomCode);
+                    if (room != null) gameService.broadcastRoomState(room);
+                } else if (payload.startsWith("topicToggle:")) {
+                    boolean on = Boolean.parseBoolean(payload.substring("topicToggle:".length()));
+                    gameService.setTopicEnabled(roomCode, on);
+                    Room room = gameService.getRoom(roomCode);
+                    if (room != null) gameService.broadcastRoomState(room);
+                } else if (payload.startsWith("participation:")) {
+                    boolean estimating = Boolean.parseBoolean(payload.substring("participation:".length()));
+                    gameService.setObserver(roomCode, name, !estimating);
+                    Room room = gameService.getRoom(roomCode);
+                    if (room != null) gameService.broadcastRoomState(room);
+                } else {
+                    log.debug("Ignored message: {}", payload);
                 }
-                return;
             }
-
-            if ("revealCards".equals(payload)) {
-                gameService.revealCards(room.getCode());
-                gameService.broadcastRoomState(room);
-                return;
-            }
-
-            if ("resetRoom".equals(payload)) {
-                room.reset();
-                gameService.broadcastRoomState(room);
-                return;
-            }
-
-            if (payload.startsWith("setParticipating:")) {
-                boolean participating = Boolean.parseBoolean(payload.substring("setParticipating:".length()));
-                String who = gameService.getParticipantName(session);
-                if (who != null) {
-                    Participant p2 = room.getParticipant(who);
-                    if (p2 != null) {
-                        p2.setParticipating(participating);
-                        if (!participating) p2.setVote(null);
-                        gameService.broadcastRoomState(room);
-                    }
-                }
-                return;
-            }
-
-            if (payload.startsWith("setSequence:")) {
-                String seq = payload.substring("setSequence:".length());
-                room.setSequence(seq);
-                gameService.broadcastRoomState(room);
-                return;
-            }
-
-            if (payload.startsWith("setAutoReveal:")) {
-                boolean enabled = Boolean.parseBoolean(payload.substring("setAutoReveal:".length()));
-                room.setAutoRevealEnabled(enabled);
-                gameService.broadcastRoomState(room);
-                return;
-            }
-
-            if (payload.startsWith("transferHost:")) {
-                String target = payload.substring("transferHost:".length());
-                Participant prevHost = room.getHost();
-                String prev = (prevHost != null ? prevHost.getName() : null);
-                if (room.transferHostTo(target)) {
-                    gameService.broadcastHostChange(room, prev, target);
-                    gameService.broadcastRoomState(room);
-                }
-                return;
-            }
-
-            if (payload.startsWith("kick:")) {
-                String target = payload.substring("kick:".length());
-                gameService.kickParticipant(room, target);
-                return;
-            }
-
-            if ("closeRoom".equals(payload)) {
-                gameService.closeRoom(room);
-                return;
-            }
-
-            if (payload.startsWith("setTopic:")) {
-                String enc = payload.substring("setTopic:".length());
-                String[] parts = enc.split("\\|", 2);
-                String label = parts.length > 0 ? urlDecode(parts[0]) : null;
-                String url = parts.length > 1 ? urlDecode(parts[1]) : null;
-                room.setTopic(label, url);
-                gameService.broadcastRoomState(room);
-                return;
-            }
-
-            if ("clearTopic".equals(payload)) {
-                room.setTopic(null, null);
-                gameService.broadcastRoomState(room);
-                return;
-            }
-
-            if ("intentLeave".equals(payload)) {
-                String who = gameService.getParticipantName(session);
-                if (who != null) {
-                    try { room.markInactive(who); } catch (Exception ignore) {}
-                    gameService.handleIntentionalLeave(room.getCode(), who);
-                }
-                try { session.close(new CloseStatus(4003, "Intentional leave")); } catch (Exception ignored) {}
-                return;
-            }
-
-            log.debug("WS message (ignored): {}", payload);
-        } catch (Exception e) {
-            log.warn("WS message handling failed: {}", payload, e);
         }
     }
 
     @Override
     public void handleTransportError(@NonNull WebSocketSession session, @NonNull Throwable exception) {
-        log.warn("WS transport error: {}", exception.toString());
+        log.warn("WS ERROR sid={} : {}", session.getId(), exception.toString());
     }
 
     @Override
     public void afterConnectionClosed(@NonNull WebSocketSession session, @NonNull CloseStatus status) {
-        Room room = gameService.getRoomForSession(session);
-        String name = gameService.getParticipantName(session);
+        Conn c = bySession.remove(session.getId());
+        if (c == null) return;
 
+        final String roomCode = c.room;
+        final String name = c.name;
+
+        log.info("WS CLOSE room={} name={} cid={} code={} reason={}",
+                roomCode, name, c.cid, status.getCode(), status.getReason());
+
+        // Drop from GameService’s session maps
         gameService.removeSession(session);
 
-        if (room != null && name != null) {
-            try { room.markInactive(name); } catch (Exception ignore) {}
-            log.info("WS CLOSE room={} name={} code={}", room.getCode(), name, status.getCode());
+        // Schedule a graceful disconnect (prevents instant host loss / duplicate rows)
+        Room room = gameService.getRoom(roomCode);
+        if (room != null) {
             gameService.scheduleDisconnect(room, name);
-            gameService.broadcastRoomState(room);
         }
+
+        // Make sure a host exists (reassign if current one truly idle too long)
+        gameService.ensureHost(roomCode, 0L, HOST_INACTIVE_MS);
+
+        // Broadcast latest state
+        if (room != null) gameService.broadcastRoomState(room);
     }
 
-    // helpers
+    /* ---------------- helpers ---------------- */
+
     private static Map<String, String> parseQuery(URI uri) {
         Map<String, String> map = new HashMap<>();
-        if (uri == null) return map;
-        String q = uri.getQuery();
-        if (q == null || q.isEmpty()) return map;
-        for (String kv : q.split("&")) {
+        if (uri == null || uri.getQuery() == null) return map;
+        for (String kv : uri.getQuery().split("&")) {
             int i = kv.indexOf('=');
             if (i > 0) {
-                String k = urlDecode(kv.substring(0, i));
-                String v = urlDecode(kv.substring(i + 1));
+                String k = URLDecoder.decode(kv.substring(0, i), StandardCharsets.UTF_8);
+                String v = URLDecoder.decode(kv.substring(i + 1), StandardCharsets.UTF_8);
                 map.put(k, v);
-            } else {
-                map.put(urlDecode(kv), "");
             }
         }
         return map;
     }
-    private static String urlDecode(String s) {
-        if (s == null) return null;
-        try { return URLDecoder.decode(s, StandardCharsets.UTF_8); }
-        catch (Exception ignore) { return s; }
+
+    private static String decode(String s) {
+        try {
+            return URLDecoder.decode(s, StandardCharsets.UTF_8);
+        } catch (Exception e) {
+            return s;
+        }
     }
-    private static boolean isBlank(String s) { return s == null || s.trim().isEmpty(); }
+
+    private void maybeAutoReveal(String roomCode) {
+        if (gameService.shouldAutoReveal(roomCode)) {
+            gameService.reveal(roomCode);
+        }
+    }
+
+    /** Small immutable connection record. */
+    private record Conn(String room, String cid, String name) {
+        Conn {
+            Objects.requireNonNull(room, "room");
+            Objects.requireNonNull(cid, "cid");
+            Objects.requireNonNull(name, "name");
+        }
+    }
 }

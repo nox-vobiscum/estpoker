@@ -3,7 +3,7 @@
 <head th:replace="~{fragments/head :: head}"></head>
 <body>
 
-  <!-- Globales App-Menü (vollständiges Menü im Room) -->
+  <!-- App menu (fragment; stable, no JS relocation) -->
   <div th:replace="~{fragments/menu :: appMenu(showSeq=${true}, showAuto=${true}, showRoom=${true})}"></div>
 
   <div class="container">
@@ -12,7 +12,6 @@
       <span th:text="#{ui.heading}">RBS' Estimation Poker</span>
     </h1>
 
-    <!-- Du + Raum-Info -->
     <dl class="main-info">
       <dt><span class="mi-icon" aria-hidden="true">👤</span><span class="mi-label" th:text="#{label.you}">You are:</span></dt>
       <dd><strong id="youName" th:text="${participantName}">Guest</strong></dd>
@@ -25,8 +24,7 @@
                   class="icon-button"
                   type="button"
                   th:attr="aria-label=#{invite.copyLink},data-tooltip=#{invite.copyLink}"
-                  aria-live="polite">🔗
-          </button>
+                  aria-live="polite">🔗</button>
         </div>
       </dd>
     </dl>
@@ -34,7 +32,7 @@
     <h2 th:text="#{label.participants}">Participants</h2>
     <ul id="liveParticipantList"></ul>
 
-    <!-- Topic (Ticket/Story) — kompakte Anzeige + Editor (nur Host) -->
+    <!-- Topic compact row (view) -->
     <div id="topicRow" class="topic-row" style="display:none;">
       <span class="topic-label" aria-hidden="true">📝</span>
       <span id="topicDisplay" class="topic-text">—</span>
@@ -49,6 +47,7 @@
       </div>
     </div>
 
+    <!-- Topic editor -->
     <div id="topicEdit" class="topic-edit" style="display:none;">
       <input id="topicInput"
              class="topic-input"
@@ -66,11 +65,10 @@
       </div>
     </div>
 
-    <!-- Pre-Vote UI: Karten etc. -->
+    <!-- Pre-Vote -->
     <div class="pre-vote">
       <div id="seqChoice" class="seq-choice"></div>
-      <!-- Key an messages.* angepasst -->
-      <p id="seqHint" class="hint" th:text="#{sequence.onlyHost}">Only the host can change the sequence.</p>
+      <p id="seqHint" class="hint" th:text="#{sequence.onlyHost}">Only the host can change this.</p>
 
       <div id="autoRevealRow" class="setting-row">
         <span class="sr-label" th:text="#{menu.autoreveal}">Auto-reveal</span>
@@ -80,12 +78,11 @@
           <span class="slider"></span>
         </label>
       </div>
-      <!-- Key an messages.* angepasst -->
       <p id="arHint" class="hint" th:text="#{autoreveal.onlyHost}">Only the host can change this setting.</p>
 
       <div id="topicToggleRow" class="setting-row">
-        <span class="sr-label" th:text="#{label.topic}">Topic</span>
-        <span id="topicStatus" class="sr-status" th:text="#{toggle.on}">On</span>
+        <span class="sr-label">Topic</span>
+        <span id="topicStatus" class="sr-status">On</span>
         <label class="switch">
           <input id="topicToggle" type="checkbox" role="switch" aria-checked="true">
           <span class="slider"></span>
@@ -104,14 +101,13 @@
         <button type="button" id="revealButton" class="button" style="display:none;"
                 th:text="#{button.reveal}" onclick="revealCards()"></button>
       </div>
-    </div> <!-- <<<< fehlender Close für pre-vote war hier -->
+    </div>
 
+    <!-- Post-Vote -->
     <div class="post-vote" style="display:none;">
       <p id="resultRow"
          class="average-label consensus-row"
-         role="status"
-         aria-live="polite"
-         aria-atomic="true">
+         role="status" aria-live="polite" aria-atomic="true">
         <span id="resultLabel" class="label" th:text="#{label.average}">Avg:</span>
         <span id="averageVote" class="value">–</span>
 
@@ -135,13 +131,10 @@
     </div>
   </div>
 
-  <!-- Gemeinsame Skripte (Tooltip etc.) -->
   <th:block th:replace="~{fragments/scripts :: scripts}"></th:block>
 
-  <!-- Room-Logik (extern) – Daten via data-* am Script -->
-  <script defer th:src="@{/room.js?v=11}"
+  <script defer th:src="@{/room.js?v=12}"
           th:attr="data-participant=${participantName},data-room=${roomCode}"></script>
-  <!-- Diagnose: minimaler WS-Handshake-Test -->
   <script defer src="/js/ws-probe.js"></script>
 
   <div th:replace="~{fragments/footer :: footer}"></div>
