@@ -2,22 +2,20 @@ package com.example.estpoker.model;
 
 import java.text.NumberFormat;
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * Central registry and helpers for estimation card sequences,
- * special cards, parsing numeric values, and average formatting.
+ * special cards, parsing numeric values, and stats/formatting.
  */
 public final class CardSequences {
 
     private CardSequences() {}
 
     /* --- Specials --- */
-    // Fixed order for the deck (UI)
     public static final List<String> SPECIALS = List.of("❓","💬","☕");
-    // Fast membership check for logic/parsing
     public static final Set<String> SPECIALS_SET = new HashSet<>(SPECIALS);
 
-    /** Convenience helper: check if a value is a special card. */
     public static boolean isSpecial(String s) {
         return s != null && SPECIALS_SET.contains(s);
     }
@@ -32,29 +30,19 @@ public final class CardSequences {
     /* --- Sequence registry (central) --- */
     public static final String DEFAULT_SEQUENCE_ID = "fib-scrum";
 
-    /** Public registry in case UI/server wants to list the keys. */
     public static final Map<String, List<String>> SEQUENCES = Map.of(
-        // Fibonacci (mathematical)
         "fib-math",  List.of("0","1","2","3","5","8","13","21","34","55"),
-        // Fibonacci (Scrum – without 100)
         "fib-scrum", List.of("1","2","3","5","8","13","20","40"),
-        // Fibonacci (Scrum enhanced – includes 0, ½ and 100)
         "fib-enh",   List.of("0","½","1","2","3","5","8","13","20","40","100","\u221E"),
-        // Powers of two – up to 128 (consistent with previous Room.java)
         "pow2",      List.of("2","4","8","16","32","64","128"),
-        // T-Shirt sizes
         "tshirt",    List.of("XXS","XS","S","M","L","XL","XXL","XXXL")
     );
 
-    /** Normalize unknown IDs to the default ID. */
     public static String normalizeSequenceId(String seqId) {
         return (seqId != null && SEQUENCES.containsKey(seqId)) ? seqId : DEFAULT_SEQUENCE_ID;
     }
 
-    /**
-     * Returns the full deck = base sequence + SPECIALS (in fixed order).
-     * Unknown IDs are normalized to DEFAULT.
-     */
+    /** Full deck = base sequence + SPECIALS. */
     public static List<String> buildDeck(String seqId) {
         String id = normalizeSequenceId(seqId);
         List<String> base = SEQUENCES.get(id);
@@ -64,24 +52,20 @@ public final class CardSequences {
         return out;
     }
 
-    /** All valid sequence IDs (e.g., for UI dropdowns). */
     public static Set<String> allSequenceIds() {
         return SEQUENCES.keySet();
     }
 
-    /* --- Parsing & averaging --- */
+    /* --- Parsing & basic averaging --- */
 
-    /** Try to parse a card value into a number. Specials yield empty. */
     public static OptionalDouble parseNumeric(String s) {
         if (s == null) return OptionalDouble.empty();
         s = s.trim();
         if (s.isEmpty() || SPECIALS_SET.contains(s)) return OptionalDouble.empty();
 
-        // Aliases (½, 1/2, 0,5 ...)
         Double alias = ALIASES.get(s);
         if (alias != null) return OptionalDouble.of(alias);
 
-        // Fraction a/b
         if (s.matches("\\d+\\s*/\\s*\\d+")) {
             try {
                 String[] p = s.split("/");
@@ -92,7 +76,6 @@ public final class CardSequences {
             return OptionalDouble.empty();
         }
 
-        // Decimal with comma or dot
         try {
             return OptionalDouble.of(Double.parseDouble(s.replace(',', '.')));
         } catch (NumberFormatException e) {
@@ -100,7 +83,6 @@ public final class CardSequences {
         }
     }
 
-    /** Average over string votes. Specials are ignored. */
     public static OptionalDouble averageOfStrings(Collection<String> votes) {
         if (votes == null) return OptionalDouble.empty();
         return votes.stream()
@@ -110,13 +92,92 @@ public final class CardSequences {
                 .average();
     }
 
-    /** Nicely formatted average (locale-aware, max 2 fraction digits). */
     public static String formatAverage(OptionalDouble avgOpt, Locale locale) {
         if (avgOpt == null || avgOpt.isEmpty()) return "–";
+        return formatNumber(avgOpt.getAsDouble(), locale);
+    }
+
+    public static String formatNumber(double value, Locale locale) {
         NumberFormat nf = NumberFormat.getNumberInstance(
                 (locale != null ? locale : Locale.getDefault()));
         nf.setMaximumFractionDigits(2);
         nf.setMinimumFractionDigits(0);
-        return nf.format(avgOpt.getAsDouble());
+        return nf.format(value);
     }
+
+    /* --- Extended statistics: median, range, consensus, outlier --- */
+
+    public static OptionalDouble medianOfStrings(Collection<String> votes) {
+        if (votes == null) return OptionalDouble.empty();
+        List<Double> nums = votes.stream()
+                .map(CardSequences::parseNumeric)
+                .filter(OptionalDouble::isPresent)
+                .map(OptionalDouble::getAsDouble)
+                .sorted()
+                .collect(Collectors.toList());
+        int n = nums.size();
+        if (n == 0) return OptionalDouble.empty();
+        if (n % 2 == 1) {
+            return OptionalDouble.of(nums.get(n / 2));
+        } else {
+            return OptionalDouble.of((nums.get(n / 2 - 1) + nums.get(n / 2)) / 2.0);
+        }
+    }
+
+    public static Optional<Range> rangeOfStrings(Collection<String> votes) {
+        if (votes == null) return Optional.empty();
+        boolean found = false;
+        double min = Double.POSITIVE_INFINITY;
+        double max = Double.NEGATIVE_INFINITY;
+        for (String v : votes) {
+            OptionalDouble od = parseNumeric(v);
+            if (od.isEmpty()) continue;
+            double d = od.getAsDouble();
+            if (d < min) min = d;
+            if (d > max) max = d;
+            found = true;
+        }
+        return found ? Optional.of(new Range(min, max)) : Optional.empty();
+    }
+
+    public static boolean isConsensus(Collection<String> votes) {
+        if (votes == null) return false;
+        Double first = null;
+        for (String v : votes) {
+            OptionalDouble od = parseNumeric(v);
+            if (od.isEmpty()) continue;
+            double d = od.getAsDouble();
+            if (first == null) first = d;
+            else if (!equalsEps(first, d)) return false;
+        }
+        return first != null;
+    }
+
+    /** Outlier candidate (farthest from average), only if >= 3 numeric votes. */
+    public static OptionalDouble farthestFromAverage(Collection<String> votes) {
+        if (votes == null) return OptionalDouble.empty();
+        double[] arr = votes.stream()
+                .map(CardSequences::parseNumeric)
+                .filter(OptionalDouble::isPresent)
+                .mapToDouble(OptionalDouble::getAsDouble)
+                .toArray();
+        if (arr.length < 3) return OptionalDouble.empty();
+
+        double avg = Arrays.stream(arr).average().orElse(Double.NaN);
+        double best = arr[0];
+        double bestDist = Math.abs(best - avg);
+        for (int i = 1; i < arr.length; i++) {
+            double v = arr[i];
+            double d = Math.abs(v - avg);
+            if (d > bestDist) { bestDist = d; best = v; }
+        }
+        return OptionalDouble.of(best);
+    }
+
+    private static boolean equalsEps(double a, double b) {
+        return Math.abs(a - b) <= 1e-9;
+    }
+
+    /** Inclusive numeric range. */
+    public static record Range(double min, double max) {}
 }

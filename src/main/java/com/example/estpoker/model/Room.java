@@ -1,6 +1,7 @@
 package com.example.estpoker.model;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 /** In-memory room state. Thread-safe enough when external code synchronizes on the Room instance. */
@@ -26,6 +27,9 @@ public class Room {
     private String topicLabel;
     private String topicUrl;
     private boolean topicVisible = false;
+
+    // Stable Client-ID (cid) -> participant name mapping (prevents duplicates on refresh)
+    private final Map<String, String> cidToName = new ConcurrentHashMap<>();
 
     public Room(String code) {
         this.code = Objects.requireNonNull(code, "code");
@@ -61,6 +65,8 @@ public class Room {
     public void removeParticipant(String name) {
         if (name == null) return;
         participants.removeIf(p -> name.equals(p.getName()));
+        // also drop any cid mappings pointing to this name
+        cidToName.entrySet().removeIf(e -> name.equals(e.getValue()));
     }
 
     public Participant getHost() {
@@ -112,6 +118,9 @@ public class Room {
     public boolean areVotesRevealed() { return cardsRevealed; }
     public void setCardsRevealed(boolean revealed) { this.cardsRevealed = revealed; }
 
+    /** Alias for handler compatibility. */
+    public boolean isVotesRevealed() { return areVotesRevealed(); }
+
     /** Reset votes for a new round and hide results. */
     public void reset() {
         for (Participant p : participants) p.setVote(null);
@@ -129,6 +138,9 @@ public class Room {
 
     public List<String> getCurrentCards() { return currentCards; }
 
+    /** Alias for handler compatibility. */
+    public List<String> getCards() { return getCurrentCards(); }
+
     // --- auto reveal ---
     public boolean isAutoRevealEnabled() { return autoRevealEnabled; }
     public void setAutoRevealEnabled(boolean autoRevealEnabled) { this.autoRevealEnabled = autoRevealEnabled; }
@@ -142,6 +154,53 @@ public class Room {
 
     public boolean isTopicVisible() { return topicVisible; }
     public void setTopicVisible(boolean topicVisible) { this.topicVisible = topicVisible; }
+
+    /** Aliases for handler compatibility. */
+    public boolean isTopicEnabled() { return isTopicVisible(); }
+    public String getTopic() { return topicLabel != null ? topicLabel : ""; }
+
+    // --- cid mapping (used by handler to resolve canonical name after join) ---
+    /** Link a stable client id to a participant name. */
+    public void linkCid(String cid, String name) {
+        if (cid == null || name == null) return;
+        cidToName.put(cid, name);
+    }
+
+    /** Remove a cid mapping (e.g., on final disconnect). */
+    public void unlinkCid(String cid) {
+        if (cid == null) return;
+        cidToName.remove(cid);
+    }
+
+    /** Lookup participant by cid (if known). */
+    public Optional<Participant> getParticipantByCid(String cid) {
+        if (cid == null) return Optional.empty();
+        String name = cidToName.get(cid);
+        if (name == null) return Optional.empty();
+        return Optional.ofNullable(getParticipant(name));
+    }
+
+    // --- derived stats (on-the-fly, for handler convenience) ---
+    /**
+     * Average as display string if revealed; otherwise null.
+     * Uses only active & participating voters with a numeric/non-special vote.
+     */
+    public String getAverage() {
+        if (!cardsRevealed) return null;
+
+        // collect valid votes
+        Set<String> seen = new HashSet<>();
+        List<String> votes = new ArrayList<>();
+        for (Participant p : participants) {
+            if (p.isActive() && p.isParticipating() && seen.add(p.getName())) {
+                String v = p.getVote();
+                if (v != null && !CardSequences.SPECIALS.contains(v)) votes.add(v);
+            }
+        }
+
+        OptionalDouble avg = CardSequences.averageOfStrings(votes);
+        return avg.isPresent() ? CardSequences.formatAverage(avg, Locale.getDefault()) : null;
+    }
 
     // --- helpers ---
     private static List<String> defaultDeckFor(String id) {

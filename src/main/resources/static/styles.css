@@ -389,7 +389,8 @@ strong { color: var(--text-strong); }
   border-radius: 6px;
   box-shadow: var(--shadow);
   font-size: .85rem;
-  white-space: nowrap;
+  white-space: nowrap;pointer-events: none;
+  max-width: 360px;
 }
 .tooltip::before{
   content:"";
@@ -400,6 +401,11 @@ strong { color: var(--text-strong); }
   border-left: 1px solid var(--border);
   border-top: 1px solid var(--border);
   bottom: -5px;
+}
+.tooltip[data-pos="below"]::before{
+  top: -5px;
+  bottom: auto;
+  transform: translateX(-50%) rotate(225deg);
 }
 
 /* ---------- Landing / form ---------- */
@@ -804,3 +810,17 @@ body{ padding-bottom: 68px; }
   white-space:nowrap !important;
   border:0 !important;
 }
+
+/* JS-driven tooltip bubble created by js/ui/tooltip.js (class="tooltip") */
+[data-tooltip] { cursor: help; }
+
+/* One-line truncation helper for labels/text cells */
+.truncate-1 {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Ensure no horizontal scroll in panels */
+.no-horizontal-scroll { overflow-x: hidden !important; }

@@ -36,12 +36,13 @@ public class GameService {
         if (cid != null && name != null && !name.isBlank()) {
             clientToName.put(mapKey(roomCode, cid), name);
         }
+        // else ignore
     }
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     // --- disconnect grace ---
-    private static final long DISCONNECT_GRACE_MS = 120_000L; // keep generous to avoid flapping
+    private static final long DISCONNECT_GRACE_MS = 120_000L; // generous to avoid flapping
 
     private final ScheduledExecutorService scheduler =
             Executors.newSingleThreadScheduledExecutor(r -> {
@@ -70,20 +71,34 @@ public class GameService {
 
     // --- public api used by handler -------------------------------------------------------------
 
-    /** Join or rejoin; dedupe by name; ensure there is a host. Returns the room. */
-    public Room join(String roomCode, String participantName, String cid) {
+    /**
+     * Join or rejoin by stable CID (prevents duplicate rows on refresh).
+     * Signature matches the handler: (roomCode, cid, participantName).
+     */
+    public Room join(String roomCode, String cid, String participantName) {
         Room room = getOrCreateRoom(roomCode);
         synchronized (room) {
-            Participant p = room.getParticipant(participantName);
+            // If CID already known, reuse that participant (no duplicate on refresh)
+            Participant p = room.getParticipantByCid(cid).orElse(null);
+
             if (p == null) {
-                p = new Participant(participantName);
-                room.addParticipant(p);
+                // No cid mapping yet → try by provided name
+                p = room.getParticipant(participantName);
+                if (p == null) {
+                    p = new Participant(participantName);
+                    room.addParticipant(p);
+                }
+                // Link cid -> canonical name for future reconnects
+                room.linkCid(cid, p.getName());
             }
+
+            // Mark presence
             p.setActive(true);
             p.setParticipating(true); // default when joining
             p.bumpLastSeen();
-            rememberClientName(roomCode, cid, participantName);
+            rememberClientName(roomCode, cid, p.getName());
 
+            // Ensure a host exists
             if (room.getHost() == null) {
                 p.setHost(true);
             }
@@ -92,29 +107,40 @@ public class GameService {
         return room;
     }
 
-    /** Mark connected (e.g., on open or resume). If announce==true, broadcast. */
-    public void markConnected(String roomCode, String participantName, boolean announce) {
+    /**
+     * Mark connected/disconnected by CID (2nd parameter is CID, per handler usage).
+     * If announce==true, broadcast state.
+     */
+    public void markConnected(String roomCode, String cid, boolean announce) {
         Room room = getOrCreateRoom(roomCode);
         synchronized (room) {
-            Participant p = room.getParticipant(participantName);
+            Participant p = room.getParticipantByCid(cid).orElse(null);
             if (p == null) {
-                p = new Participant(participantName);
-                room.addParticipant(p);
+                // Fallback: try last known name for this cid
+                String last = getClientName(roomCode, cid);
+                if (last != null) p = room.getParticipant(last);
             }
-            p.setActive(true);
-            p.bumpLastSeen();
-            if (room.getHost() == null) p.setHost(true);
+            if (p != null) {
+                p.setActive(true);
+                p.bumpLastSeen();
+                if (room.getHost() == null) p.setHost(true);
+            }
         }
         if (announce) broadcastRoomState(room);
     }
 
-    /** Update a vote. Triggers auto-reveal if enabled and all active participants have valid votes. */
-    public void setVote(String roomCode, String name, String value) {
+    /**
+     * Update a vote. Accepts either a name or a CID as second argument (handler sends CID).
+     * Triggers auto-reveal if enabled and all active participants have valid votes.
+     */
+    public void setVote(String roomCode, String nameOrCid, String value) {
         Room room = getOrCreateRoom(roomCode);
         synchronized (room) {
-            Participant p = room.getParticipant(name);
+            Participant p = room.getParticipantByCid(nameOrCid).orElse(null);
+            if (p == null) p = room.getParticipant(nameOrCid); // fallback: treat as name
             if (p == null) {
-                p = new Participant(name);
+                // If totally unknown, create by name as last resort (rare)
+                p = new Participant(nameOrCid);
                 room.addParticipant(p);
             }
             p.setVote(value);
@@ -171,13 +197,25 @@ public class GameService {
         broadcastRoomState(room);
     }
 
-    /** Observer toggle: observer=false => participating=true. Clears vote when becoming observer. */
-    public void setObserver(String roomCode, String name, boolean observer) {
+    /** NEW: Toggle auto-reveal flag and broadcast. */
+    public void setAutoRevealEnabled(String roomCode, boolean enabled) {
+        Room room = getOrCreateRoom(roomCode);
+        synchronized (room) { room.setAutoRevealEnabled(enabled); }
+        broadcastRoomState(room);
+    }
+
+    /**
+     * Observer toggle (handler passes CID as 2nd argument; this also supports name).
+     * observer=false => participating=true. Clears vote when becoming observer.
+     */
+    public void setObserver(String roomCode, String nameOrCid, boolean observer) {
         Room room = getOrCreateRoom(roomCode);
         synchronized (room) {
-            Participant p = room.getParticipant(name);
+            Participant p = room.getParticipantByCid(nameOrCid).orElse(null);
+            if (p == null) p = room.getParticipant(nameOrCid);
+
             if (p == null) {
-                p = new Participant(name);
+                p = new Participant(nameOrCid);
                 room.addParticipant(p);
             }
             boolean participating = !observer;
@@ -188,11 +226,12 @@ public class GameService {
         broadcastRoomState(room);
     }
 
-    /** Keep-alive ping from client; prevents false host demotion. */
-    public void touch(String roomCode, String name) {
+    /** Keep-alive ping from client (supports cid or name); prevents false host demotion. */
+    public void touch(String roomCode, String nameOrCid) {
         Room room = getOrCreateRoom(roomCode);
         synchronized (room) {
-            Participant p = room.getParticipant(name);
+            Participant p = room.getParticipantByCid(nameOrCid).orElse(null);
+            if (p == null) p = room.getParticipant(nameOrCid);
             if (p != null) {
                 p.setActive(true);
                 p.bumpLastSeen();
@@ -256,17 +295,88 @@ public class GameService {
         if (room != null) room.reset();
     }
 
+    /** Average over active+participating, deduped by name, ignoring specials. */
     public OptionalDouble calculateAverageVote(Room room) {
-        // Count each logical person once (dedupe by name) and only active + participating
+        Map<String, Double> nv = collectNumericVotes(room);
+        return nv.values().stream().mapToDouble(Double::doubleValue).average();
+    }
+
+    /** Median over the same filtered set as average. */
+    public OptionalDouble calculateMedian(Room room) {
+        Map<String, Double> nv = collectNumericVotes(room);
+        if (nv.isEmpty()) return OptionalDouble.empty();
+        List<Double> sorted = new ArrayList<>(nv.values());
+        sorted.sort(Comparator.naturalOrder());
+        int n = sorted.size();
+        if (n % 2 == 1) return OptionalDouble.of(sorted.get(n / 2));
+        double m = (sorted.get(n / 2 - 1) + sorted.get(n / 2)) / 2.0;
+        return OptionalDouble.of(m);
+    }
+
+    /** Range string "min–max" (localized formatting) for same filtered set as average. */
+    public String calculateRange(Room room, Locale locale) {
+        Map<String, Double> nv = collectNumericVotes(room);
+        if (nv.size() < 1) return null;
+        double min = nv.values().stream().mapToDouble(Double::doubleValue).min().orElse(Double.NaN);
+        double max = nv.values().stream().mapToDouble(Double::doubleValue).max().orElse(Double.NaN);
+        if (Double.isNaN(min) || Double.isNaN(max)) return null;
+
+        String minS = CardSequences.formatAverage(OptionalDouble.of(min), locale);
+        String maxS = CardSequences.formatAverage(OptionalDouble.of(max), locale);
+
+        // use a real en-dash; keep it simple
+        return minS + "–" + maxS;
+    }
+
+    /** True if all numeric votes (after filtering) are identical AND >= 1 present. */
+    public boolean isConsensus(Room room) {
+        Map<String, Double> nv = collectNumericVotes(room);
+        if (nv.isEmpty()) return false;
+        double first = nv.values().iterator().next();
+        for (double v : nv.values()) {
+            if (Double.compare(v, first) != 0) return false;
+        }
+        return true;
+    }
+
+    /** Names furthest from the average (>=3 numeric votes). */
+    public List<String> farthestFromAverageNames(Room room) {
+        Map<String, Double> nv = collectNumericVotes(room);
+        if (nv.size() < 3) return List.of();
+        OptionalDouble avgOpt = nv.values().stream().mapToDouble(Double::doubleValue).average();
+        if (avgOpt.isEmpty()) return List.of();
+        double avg = avgOpt.getAsDouble();
+
+        double maxDist = -1d;
+        Map<String, Double> dist = new LinkedHashMap<>();
+        for (Map.Entry<String, Double> e : nv.entrySet()) {
+            double d = Math.abs(e.getValue() - avg);
+            dist.put(e.getKey(), d);
+            if (d > maxDist) maxDist = d;
+        }
+        if (maxDist <= 0) return List.of();
+
+        final double eps = 1e-9;
+        List<String> out = new ArrayList<>();
+        for (Map.Entry<String, Double> e : dist.entrySet()) {
+            if (Math.abs(e.getValue() - maxDist) <= eps) out.add(e.getKey());
+        }
+        return out;
+    }
+
+    /** Collect numeric votes: active + participating, dedupe by name, ignore specials/null. */
+    private Map<String, Double> collectNumericVotes(Room room) {
+        Map<String, Double> out = new LinkedHashMap<>();
+        if (room == null) return out;
         Set<String> seen = new HashSet<>();
-        List<String> votes = room.getParticipants().stream()
-                .filter(Participant::isParticipating)
-                .filter(Participant::isActive)
-                .filter(p -> seen.add(p.getName()))
-                .map(Participant::getVote)
-                .filter(Objects::nonNull)
-                .collect(Collectors.toList());
-        return CardSequences.averageOfStrings(votes);
+        for (Participant p : room.getParticipants()) {
+            if (!p.isActive() || !p.isParticipating()) continue;
+            if (!seen.add(p.getName())) continue;
+            String v = p.getVote();
+            OptionalDouble num = CardSequences.parseNumeric(v);
+            if (num.isPresent()) out.put(p.getName(), num.getAsDouble());
+        }
+        return out;
     }
 
     public boolean isValidVote(String v) {
@@ -333,13 +443,37 @@ public class GameService {
             }
             payload.put("participants", new ArrayList<>(byName.values()));
 
-            payload.put("votesRevealed", room.areVotesRevealed());
+            boolean revealed = room.areVotesRevealed();
+            payload.put("votesRevealed", revealed);
 
+            Locale loc = Locale.getDefault();
+
+            // Average (existing)
             OptionalDouble avg = calculateAverageVote(room);
             String avgDisplay = avg.isPresent()
-                    ? CardSequences.formatAverage(avg, Locale.getDefault())
+                    ? CardSequences.formatAverage(avg, loc)
                     : "-";
-            payload.put("averageVote", room.areVotesRevealed() ? avgDisplay : null);
+            payload.put("averageVote", revealed ? avgDisplay : null);
+
+            // NEW: median / range / consensus / outliers (only when revealed)
+            if (revealed) {
+                OptionalDouble med = calculateMedian(room);
+                payload.put("medianVote", med.isPresent() ? CardSequences.formatAverage(med, loc) : null);
+
+                String range = calculateRange(room, loc);
+                payload.put("range", range);
+
+                boolean consensus = isConsensus(room);
+                payload.put("consensus", consensus);
+
+                List<String> outliers = farthestFromAverageNames(room);
+                payload.put("outliers", outliers);
+            } else {
+                payload.put("medianVote", null);
+                payload.put("range", null);
+                payload.put("consensus", false);
+                payload.put("outliers", List.of());
+            }
 
             payload.put("sequenceId", room.getSequenceId());
             payload.put("cards", room.getCurrentCards());
@@ -383,13 +517,36 @@ public class GameService {
             }
 
             payload.put("participants", new ArrayList<>(byName.values()));
-            payload.put("votesRevealed", room.areVotesRevealed());
+
+            boolean revealed = room.areVotesRevealed();
+            payload.put("votesRevealed", revealed);
+
+            Locale loc = Locale.getDefault();
 
             OptionalDouble avg = calculateAverageVote(room);
             String avgDisplay = avg.isPresent()
-                    ? CardSequences.formatAverage(avg, Locale.getDefault())
+                    ? CardSequences.formatAverage(avg, loc)
                     : "-";
-            payload.put("averageVote", room.areVotesRevealed() ? avgDisplay : null);
+            payload.put("averageVote", revealed ? avgDisplay : null);
+
+            if (revealed) {
+                OptionalDouble med = calculateMedian(room);
+                payload.put("medianVote", med.isPresent() ? CardSequences.formatAverage(med, loc) : null);
+
+                String range = calculateRange(room, loc);
+                payload.put("range", range);
+
+                boolean consensus = isConsensus(room);
+                payload.put("consensus", consensus);
+
+                List<String> outliers = farthestFromAverageNames(room);
+                payload.put("outliers", outliers);
+            } else {
+                payload.put("medianVote", null);
+                payload.put("range", null);
+                payload.put("consensus", false);
+                payload.put("outliers", List.of());
+            }
 
             payload.put("sequenceId", room.getSequenceId());
             payload.put("cards", room.getCurrentCards());
@@ -522,6 +679,12 @@ public class GameService {
         if (newHost != null) broadcastHostChange(room, targetName, newHost);
 
         broadcastRoomState(room);
+    }
+
+    /** Overload: close by room code. */
+    public void closeRoom(String roomCode) {
+        Room room = getRoom(roomCode);
+        closeRoom(room);
     }
 
     public void closeRoom(Room room) {

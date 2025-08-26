@@ -44,16 +44,18 @@
     const tr = el.getBoundingClientRect();
 
     let top = window.scrollY + r.top - tr.height - 8;
+    let placedBelow = false;
     let left = window.scrollX + r.left + (r.width - tr.width) / 2;
 
     // keep in viewport horizontally
     left = Math.max(window.scrollX + 4, Math.min(left, window.scrollX + window.innerWidth - tr.width - 4));
     // if not enough space above, place below
-    if (top < window.scrollY + 4) top = window.scrollY + r.bottom + 8;
+    if (top < window.scrollY + 4) { top = window.scrollY + r.bottom + 8; placedBelow = true; }
 
     el.style.top = top + 'px';
     el.style.left = left + 'px';
     el.style.visibility = 'visible';
+    el.dataset.pos = placedBelow ? 'below' : 'above';
   }
 
   function findTarget(node) {
@@ -73,9 +75,12 @@
     if (t) placeTip(t);
   }, true);
 
-  document.addEventListener('pointerout', (e) => {
-    const t = findTarget(e.target);
-    if (t) hideTip();
+    document.addEventListener('pointerout', (e) => {
+    const from = findTarget(e.target);
+    const to   = findTarget(e.relatedTarget);
+    if (!from) return;
+    if (to && (from === to)) return;
+    hideTip();
   }, true);
 
   // Keyboard accessibility
@@ -146,9 +151,7 @@
   }
 
     // Zusätzliche, harmlose Hides für Edge Cases:
-  window.addEventListener('resize', hideTip, { passive: true, capture: true });
   window.addEventListener('orientationchange', hideTip, { passive: true, capture: true });
   document.addEventListener('visibilitychange', () => { if (document.hidden) hideTip(); }, true);
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') hideTip(); }, true);
 
 })();

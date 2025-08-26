@@ -37,6 +37,12 @@ public class Participant {
     public boolean isHost() { return host; }
     public void setHost(boolean host) { this.host = host; }
 
+    // --- aliases for handler compatibility ---
+    /** Observer is the inverse of participating. */
+    public boolean isObserver() { return !participating; }
+    /** Connected maps to our 'active' flag. */
+    public boolean isConnected() { return active; }
+
     @Override
     public String toString() {
         return "Participant{" +

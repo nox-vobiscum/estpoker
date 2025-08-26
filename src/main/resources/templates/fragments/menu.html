@@ -114,13 +114,13 @@
         <div class="menu-group" th:if="${showAuto}">
           <div class="group-title" th:text="#{menu.autoreveal}">Auto-reveal</div>
 
-          <label id="autoRevealRow" class="menu-item switch" for="autoRevealToggle">
+          <label id="autoRevealRow" class="menu-item switch" for="menuAutoRevealToggle">
             <span class="mi-icon" aria-hidden="true">⚡</span>
             <span class="switch-text">
               <span th:text="#{menu.autoreveal}">Auto-reveal</span>:
               <strong id="arStatus">Off</strong>
             </span>
-            <input id="autoRevealToggle"
+            <input id="menuAutoRevealToggle"
                    class="switch-control"
                    type="checkbox"
                    role="switch"
@@ -130,13 +130,13 @@
             Only the host can change this setting
           </p>
 
-          <label id="topicToggleRow" class="menu-item switch" for="topicToggle">
+          <label id="topicToggleRow" class="menu-item switch" for="menuTopicToggle">
             <span class="mi-icon" aria-hidden="true">📝</span>
             <span class="switch-text">
               <strong th:text="#{label.topic}">Ticket/Story</strong>:
-              <span id="topicStatus">Off</span>
+              <span id="menuTopicStatus">Off</span>
             </span>
-            <input id="topicToggle"
+            <input id="menuTopicToggle"
                    class="switch-control"
                    type="checkbox"
                    role="switch"
@@ -152,13 +152,13 @@
         <div class="menu-group" th:if="${showRoom}">
           <div class="group-title" th:text="#{menu.participation}">Participation</div>
 
-          <label id="participationRow" class="menu-item switch" for="participationToggle">
+          <label id="participationRow" class="menu-item switch" for="menuParticipationToggle">
             <span class="mi-icon" aria-hidden="true">🧑‍🤝‍🧑</span>
             <span class="switch-text">
               <span th:text="#{menu.participation}">Participation</span>:
-              <strong id="partStatus">I'm estimating</strong>
+              <strong id="menuPartStatus">I'm estimating</strong>
             </span>
-            <input id="participationToggle"
+            <input id="menuParticipationToggle"
                    class="switch-control"
                    type="checkbox"
                    role="switch"
