@@ -824,3 +824,9 @@ body{ padding-bottom: 68px; }
 
 /* Ensure no horizontal scroll in panels */
 .no-horizontal-scroll { overflow-x: hidden !important; }
+
+/* Force a new line inside the card grid for specials */
+.grid-break{
+  grid-column: 1 / -1;
+  height: 0;
+}

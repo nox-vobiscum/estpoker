@@ -35,13 +35,12 @@ public class GameService {
         if (cid != null && name != null && !name.isBlank()) {
             clientToName.put(mapKey(roomCode, cid), name);
         }
-        // else ignore
     }
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     // --- disconnect grace ---
-    private static final long DISCONNECT_GRACE_MS = 120_000L; // generous to avoid flapping
+    private static final long DISCONNECT_GRACE_MS = 120_000L; // keep generous for accidental drops
 
     private final ScheduledExecutorService scheduler =
             Executors.newSingleThreadScheduledExecutor(r -> {
@@ -56,9 +55,9 @@ public class GameService {
     // --- rooms ---
     public Room getOrCreateRoom(String roomCode) { return rooms.computeIfAbsent(roomCode, Room::new); }
     public Room getRoom(String roomCode) { return rooms.get(roomCode); }
-    public Room room(String roomCode) { return getRoom(roomCode); } // alias for handler
+    public Room room(String roomCode) { return getRoom(roomCode); } // alias
 
-    // --- ws session tracking (kept as-is for handler integration) ---
+    // --- ws session tracking ---
     public void addSession(WebSocketSession session, Room room) { sessionToRoomMap.put(session, room); }
     public void trackParticipant(WebSocketSession session, String participantName) { sessionToParticipantMap.put(session, participantName); }
     public Room getRoomForSession(WebSocketSession session) { return sessionToRoomMap.get(session); }
@@ -70,52 +69,35 @@ public class GameService {
 
     // --- public api used by handler -------------------------------------------------------------
 
-    /**
-     * Join or rejoin by stable CID (prevents duplicate rows on refresh).
-     * Signature matches the handler: (roomCode, cid, participantName).
-     */
+    /** Join or rejoin by stable CID (prevents duplicate rows on refresh). */
     public Room join(String roomCode, String cid, String participantName) {
         Room room = getOrCreateRoom(roomCode);
         synchronized (room) {
-            // If CID already known, reuse that participant (no duplicate on refresh)
             Participant p = room.getParticipantByCid(cid).orElse(null);
-
             if (p == null) {
-                // No cid mapping yet → try by provided name
                 p = room.getParticipant(participantName);
                 if (p == null) {
                     p = new Participant(participantName);
                     room.addParticipant(p);
                 }
-                // Link cid -> canonical name for future reconnects
                 room.linkCid(cid, p.getName());
             }
-
-            // Mark presence
             p.setActive(true);
-            p.setParticipating(true); // default when joining
+            p.setParticipating(true);
             p.bumpLastSeen();
             rememberClientName(roomCode, cid, p.getName());
-
-            // Ensure a host exists
-            if (room.getHost() == null) {
-                p.setHost(true);
-            }
+            if (room.getHost() == null) p.setHost(true);
         }
         broadcastRoomState(room);
         return room;
     }
 
-    /**
-     * Mark connected/disconnected by CID (2nd parameter is CID, per handler usage).
-     * If announce==true, broadcast state.
-     */
+    /** Mark connected/disconnected by CID (announce optionally). */
     public void markConnected(String roomCode, String cid, boolean announce) {
         Room room = getOrCreateRoom(roomCode);
         synchronized (room) {
             Participant p = room.getParticipantByCid(cid).orElse(null);
             if (p == null) {
-                // Fallback: try last known name for this cid
                 String last = getClientName(roomCode, cid);
                 if (last != null) p = room.getParticipant(last);
             }
@@ -128,23 +110,15 @@ public class GameService {
         if (announce) broadcastRoomState(room);
     }
 
-    /**
-     * Update a vote. Accepts either a name or a CID as second argument (handler sends CID).
-     * Triggers auto-reveal if enabled and all active participants have valid votes.
-     */
+    /** Update a vote (name or CID allowed). */
     public void setVote(String roomCode, String nameOrCid, String value) {
         Room room = getOrCreateRoom(roomCode);
         synchronized (room) {
             Participant p = room.getParticipantByCid(nameOrCid).orElse(null);
-            if (p == null) p = room.getParticipant(nameOrCid); // fallback: treat as name
-            if (p == null) {
-                // If totally unknown, create by name as last resort (rare)
-                p = new Participant(nameOrCid);
-                room.addParticipant(p);
-            }
+            if (p == null) p = room.getParticipant(nameOrCid);
+            if (p == null) { p = new Participant(nameOrCid); room.addParticipant(p); }
             p.setVote(value);
             p.bumpLastSeen();
-
             if (room.isAutoRevealEnabled() && !room.areVotesRevealed() && allActiveParticipantsHaveValidVotes(room)) {
                 room.setCardsRevealed(true);
             }
@@ -166,7 +140,7 @@ public class GameService {
         broadcastRoomState(room);
     }
 
-    /** Save topic (label+optional url), make it visible. */
+    /** Save topic (label+optional url), keep visible. */
     public void saveTopic(String roomCode, String input) {
         Room room = getOrCreateRoom(roomCode);
         String[] parsed = parseTopic(input);
@@ -178,13 +152,13 @@ public class GameService {
         broadcastRoomState(room);
     }
 
-    /** Clear topic and hide it. */
+    /** Clear topic but keep row visible (empty). */
     public void clearTopic(String roomCode) {
         Room room = getOrCreateRoom(roomCode);
         synchronized (room) {
             room.setTopicLabel(null);
             room.setTopicUrl(null);
-            room.setTopicVisible(false);
+            room.setTopicVisible(true); // keep visible
         }
         broadcastRoomState(room);
     }
@@ -203,42 +177,32 @@ public class GameService {
         broadcastRoomState(room);
     }
 
-    /**
-     * Observer toggle (handler passes CID as 2nd argument; this also supports name).
-     * observer=false => participating=true. Clears vote when becoming observer.
-     */
+    /** Observer toggle (supports name or CID); clears vote for observers. */
     public void setObserver(String roomCode, String nameOrCid, boolean observer) {
         Room room = getOrCreateRoom(roomCode);
         synchronized (room) {
             Participant p = room.getParticipantByCid(nameOrCid).orElse(null);
             if (p == null) p = room.getParticipant(nameOrCid);
-
-            if (p == null) {
-                p = new Participant(nameOrCid);
-                room.addParticipant(p);
-            }
+            if (p == null) { p = new Participant(nameOrCid); room.addParticipant(p); }
             boolean participating = !observer;
             p.setParticipating(participating);
-            if (!participating) p.setVote(null); // observers cannot hold a vote
+            if (!participating) p.setVote(null);
             p.bumpLastSeen();
         }
         broadcastRoomState(room);
     }
 
-    /** Keep-alive ping from client (supports cid or name); prevents false host demotion. */
+    /** Keep-alive ping (supports CID or name). */
     public void touch(String roomCode, String nameOrCid) {
         Room room = getOrCreateRoom(roomCode);
         synchronized (room) {
             Participant p = room.getParticipantByCid(nameOrCid).orElse(null);
             if (p == null) p = room.getParticipant(nameOrCid);
-            if (p != null) {
-                p.setActive(true);
-                p.bumpLastSeen();
-            }
+            if (p != null) { p.setActive(true); p.bumpLastSeen(); }
         }
     }
 
-    /** Return true if auto-reveal conditions are met (check only, do not flip state). */
+    /** Auto-reveal condition check. */
     public boolean shouldAutoReveal(String roomCode) {
         Room room = getRoom(roomCode);
         if (room == null) return false;
@@ -249,21 +213,15 @@ public class GameService {
         }
     }
 
-    /**
-     * Ensure a host exists; if current host is inactive for longer than limits, promote someone else.
-     * softMs: advisory (no action), hardMs: demote & reassign.
-     */
+    /** Ensure a host exists; may reassign if inactive beyond hardMs. */
     public void ensureHost(String roomCode, long softMs, long hardMs) {
         Room room = getRoom(roomCode);
         if (room == null) return;
-
-        String oldHost = null;
-        String newHost = null;
+        String oldHost = null, newHost = null;
 
         synchronized (room) {
             Participant host = room.getHost();
             long now = System.currentTimeMillis();
-
             if (host == null) {
                 newHost = room.assignNewHostIfNecessary(null);
             } else {
@@ -275,7 +233,6 @@ public class GameService {
                 }
             }
         }
-
         if (newHost != null) {
             broadcastHostChange(room, oldHost, newHost);
             broadcastRoomState(room);
@@ -293,10 +250,47 @@ public class GameService {
         Room room = getOrCreateRoom(roomCode);
         String seq = SEQUENCE_IDS.contains(id) ? id : "fib.scrum";
         synchronized (room) {
-            room.setSequenceId(seq); // Room should compute cards from id (getCurrentCards)
-            room.reset();            // clear votes & reveal state on sequence change
+            room.setSequenceId(seq);
+            room.reset();
         }
         broadcastRoomState(room);
+    }
+
+    // --- host assignment / leave handling ------------------------------------------------------
+
+    /** Explicit host handover to targetName; broadcasts hostChanged + full state. */
+    public void assignHost(String roomCode, String targetName) {
+        Room room = getOrCreateRoom(roomCode);
+        String oldHostName = null;
+        synchronized (room) {
+            Participant target = room.getParticipant(targetName);
+            if (target == null) return;
+            Participant current = room.getHost();
+            if (current != null) { current.setHost(false); oldHostName = current.getName(); }
+            target.setHost(true);
+            target.bumpLastSeen();
+        }
+        broadcastHostChange(room, oldHostName, targetName);
+        broadcastRoomState(room);
+    }
+
+    /** Schedule an intentional leave with a short grace (e.g., 2s for browser close). */
+    public void scheduleIntentionalLeave(Room room, String participantName, long graceMs) {
+        if (room == null || participantName == null) return;
+        String k = key(room, participantName);
+        cancelPendingDisconnect(room, participantName);
+        ScheduledFuture<?> f = scheduler.schedule(() -> {
+            try {
+                Participant participant = room.getParticipant(participantName);
+                if (participant != null) participant.setActive(false);
+                String newHostName = room.assignNewHostIfNecessary(participantName);
+                if (newHostName != null) broadcastHostChange(room, participantName, newHostName);
+                broadcastRoomState(room);
+            } finally {
+                pendingDisconnects.remove(k);
+            }
+        }, Math.max(0L, graceMs), TimeUnit.MILLISECONDS);
+        pendingDisconnects.put(k, f);
     }
 
     // --- calculations / helpers ---------------------------------------------------------------
@@ -336,26 +330,21 @@ public class GameService {
         double min = nv.values().stream().mapToDouble(Double::doubleValue).min().orElse(Double.NaN);
         double max = nv.values().stream().mapToDouble(Double::doubleValue).max().orElse(Double.NaN);
         if (Double.isNaN(min) || Double.isNaN(max)) return null;
-
         String minS = CardSequences.formatAverage(OptionalDouble.of(min), locale);
         String maxS = CardSequences.formatAverage(OptionalDouble.of(max), locale);
-
-        // use a real en-dash; keep it simple
         return minS + "–" + maxS;
     }
 
-    /** True if all numeric votes (after filtering) are identical AND >= 1 present. */
+    /** True if all numeric votes are identical and present. */
     public boolean isConsensus(Room room) {
         Map<String, Double> nv = collectNumericVotes(room);
         if (nv.isEmpty()) return false;
         double first = nv.values().iterator().next();
-        for (double v : nv.values()) {
-            if (Double.compare(v, first) != 0) return false;
-        }
+        for (double v : nv.values()) if (Double.compare(v, first) != 0) return false;
         return true;
     }
 
-    /** Names furthest from the average (>=3 numeric votes). */
+    /** Names farthest from average (>=3 numeric votes). */
     public List<String> farthestFromAverageNames(Room room) {
         Map<String, Double> nv = collectNumericVotes(room);
         if (nv.size() < 3) return List.of();
@@ -416,17 +405,11 @@ public class GameService {
         sessionToRoomMap.entrySet().removeIf(entry -> {
             WebSocketSession session = entry.getKey();
             if (!entry.getValue().equals(room)) return false;
-
             try {
-                if (session.isOpen()) {
-                    session.sendMessage(new TextMessage(message));
-                    return false;
-                } else {
-                    return true;
-                }
+                if (session.isOpen()) { session.sendMessage(new TextMessage(message)); return false; }
+                else return true;
             } catch (IOException e) {
-                e.printStackTrace();
-                return true;
+                e.printStackTrace(); return true;
             }
         });
     }
@@ -436,7 +419,6 @@ public class GameService {
             Map<String, Object> payload = new HashMap<>();
             payload.put("type", "voteUpdate");
 
-            // Order with host first; dedupe by name into a single row per logical participant.
             List<Participant> ordered = getOrderedParticipants(room);
             Map<String, Map<String, Object>> byName = new LinkedHashMap<>();
 
@@ -463,27 +445,17 @@ public class GameService {
             payload.put("votesRevealed", revealed);
 
             Locale loc = Locale.getDefault();
-
-            // Average (existing)
             OptionalDouble avg = calculateAverageVote(room);
-            String avgDisplay = avg.isPresent()
-                    ? CardSequences.formatAverage(avg, loc)
-                    : "-";
+            String avgDisplay = avg.isPresent() ? CardSequences.formatAverage(avg, loc) : "-";
             payload.put("averageVote", revealed ? avgDisplay : null);
 
-            // Extended stats when revealed
             if (revealed) {
                 OptionalDouble med = calculateMedian(room);
                 payload.put("medianVote", med.isPresent() ? CardSequences.formatAverage(med, loc) : null);
-
                 String range = calculateRange(room, loc);
                 payload.put("range", range);
-
-                boolean consensus = isConsensus(room);
-                payload.put("consensus", consensus);
-
-                List<String> outliers = farthestFromAverageNames(room);
-                payload.put("outliers", outliers);
+                payload.put("consensus", isConsensus(room));
+                payload.put("outliers", farthestFromAverageNames(room));
             } else {
                 payload.put("medianVote", null);
                 payload.put("range", null);
@@ -494,8 +466,6 @@ public class GameService {
             payload.put("sequenceId", room.getSequenceId());
             payload.put("cards", room.getCurrentCards());
             payload.put("autoRevealEnabled", room.isAutoRevealEnabled());
-
-            // topic
             payload.put("topicLabel", room.getTopicLabel());
             payload.put("topicUrl", room.getTopicUrl());
             payload.put("topicVisible", room.isTopicVisible());
@@ -531,32 +501,23 @@ public class GameService {
                     if (p.isActive()) cur.put("disconnected", false);
                 }
             }
-
             payload.put("participants", new ArrayList<>(byName.values()));
 
             boolean revealed = room.areVotesRevealed();
             payload.put("votesRevealed", revealed);
 
             Locale loc = Locale.getDefault();
-
             OptionalDouble avg = calculateAverageVote(room);
-            String avgDisplay = avg.isPresent()
-                    ? CardSequences.formatAverage(avg, loc)
-                    : "-";
+            String avgDisplay = avg.isPresent() ? CardSequences.formatAverage(avg, loc) : "-";
             payload.put("averageVote", revealed ? avgDisplay : null);
 
             if (revealed) {
                 OptionalDouble med = calculateMedian(room);
                 payload.put("medianVote", med.isPresent() ? CardSequences.formatAverage(med, loc) : null);
-
                 String range = calculateRange(room, loc);
                 payload.put("range", range);
-
-                boolean consensus = isConsensus(room);
-                payload.put("consensus", consensus);
-
-                List<String> outliers = farthestFromAverageNames(room);
-                payload.put("outliers", outliers);
+                payload.put("consensus", isConsensus(room));
+                payload.put("outliers", farthestFromAverageNames(room));
             } else {
                 payload.put("medianVote", null);
                 payload.put("range", null);
@@ -567,7 +528,6 @@ public class GameService {
             payload.put("sequenceId", room.getSequenceId());
             payload.put("cards", room.getCurrentCards());
             payload.put("autoRevealEnabled", room.isAutoRevealEnabled());
-
             payload.put("topicLabel", room.getTopicLabel());
             payload.put("topicUrl", room.getTopicUrl());
             payload.put("topicVisible", room.isTopicVisible());
@@ -641,15 +601,11 @@ public class GameService {
 
     public void markLeftIntentionally(Room room, String participantName) {
         if (room == null || participantName == null) return;
-
         cancelPendingDisconnect(room, participantName);
-
         Participant participant = room.getParticipant(participantName);
         if (participant != null) participant.setActive(false);
-
         String newHost = room.assignNewHostIfNecessary(participantName);
         if (newHost != null) broadcastHostChange(room, participantName, newHost);
-
         broadcastRoomState(room);
     }
 

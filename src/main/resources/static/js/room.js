@@ -1,4 +1,4 @@
-/* room.js v15 — robust connector for /gameSocket (CID-based, host-safe, sequence sync) */
+/* room.js v16 — presence-stable, host controls, consensus/outliers, grouped cards */
 (() => {
   'use strict';
   const TAG = '[ROOM]';
@@ -10,10 +10,14 @@
     const el = typeof elOrSel === 'string' ? $(elOrSel) : elOrSel;
     if (!el) return;
     if (on) el.setAttribute('disabled', 'true'); else el.removeAttribute('disabled');
-    // add/remove .disabled on typical wrappers
-    const row = el.closest('.menu-item, .radio-row');
-    if (row) row.classList.toggle('disabled', !!on);
+    const row = el.closest('.menu-item, .radio-row'); if (row) row.classList.toggle('disabled', !!on);
   };
+  function showToast(msg){
+    try{
+      const t = document.createElement('div'); t.className='toast'; t.textContent=msg||'Done';
+      document.body.appendChild(t); setTimeout(()=>t.remove(), 3200);
+    }catch{}
+  }
 
   // --- state ---
   const scriptEl = document.querySelector('script[src*="/js/room.js"]');
@@ -36,16 +40,13 @@
     medianVote: null,
     rangeText: null,
     consensus: false,
+    outliers: [],
 
-    // Topic from GameService
     topicVisible: true,
     topicLabel: '',
     topicUrl: null,
 
-    // Auto-reveal from GameService
     autoRevealEnabled: false,
-
-    // Sequence
     sequenceId: 'fib.scrum'
   };
 
@@ -59,7 +60,6 @@
     }
   } catch { state.cid = 'cid-' + Date.now(); }
 
-  // init UI labels
   setText('#youName', state.youName);
   setText('#roomCodeVal', state.roomCode);
 
@@ -89,7 +89,6 @@
       state.connected = false;
       console.warn(TAG, 'CLOSE', ev.code, ev.reason || '');
       stopHeartbeat();
-      // Do not reconnect on intentional closes (room closed / kicked) or if we already redirected
       if (state.noReconnect || ev.code === 4000 || ev.code === 4001) return;
       setTimeout(() => { if (!state.connected && !state.noReconnect) connectWS(); }, 2000);
     };
@@ -99,35 +98,21 @@
       catch { console.warn(TAG, 'bad JSON', ev.data); }
     };
   }
-
   function send(line) {
-    if (state.ws && state.ws.readyState === 1) {
-      state.ws.send(line);
-    }
+    if (state.ws && state.ws.readyState === 1) state.ws.send(line);
   }
 
-  // --- heartbeat (keeps lastSeen fresh for host stickiness) ---
+  // --- heartbeat ---
   let hbT = null;
-  function heartbeat() {
-    stopHeartbeat();
-    hbT = setInterval(() => send('ping'), 25000);
-  }
-  function stopHeartbeat() {
-    if (hbT) { clearInterval(hbT); hbT = null; }
-  }
+  function heartbeat() { stopHeartbeat(); hbT = setInterval(() => send('ping'), 25000); }
+  function stopHeartbeat() { if (hbT) { clearInterval(hbT); hbT = null; } }
 
   // --- messages ---
   function handleMessage(m) {
     switch (m.type) {
       case 'you': {
-        if (m.yourName && m.yourName !== state.youName) {
-          state.youName = m.yourName;
-          setText('#youName', state.youName);
-        }
-        if (m.cid && m.cid !== state.cid) {
-          state.cid = m.cid;
-          try { sessionStorage.setItem(CIDKEY, state.cid); } catch {}
-        }
+        if (m.yourName && m.yourName !== state.youName) { state.youName = m.yourName; setText('#youName', state.youName); }
+        if (m.cid && m.cid !== state.cid) { state.cid = m.cid; try { sessionStorage.setItem(CIDKEY, state.cid); } catch {} }
         break;
       }
       case 'voteUpdate': {
@@ -138,6 +123,7 @@
         state.rangeText   = m.range ?? null;
         state.consensus   = !!m.consensus;
         state.sequenceId  = m.sequenceId || state.sequenceId;
+        state.outliers    = Array.isArray(m.outliers) ? m.outliers : [];
 
         const raw = Array.isArray(m.participants) ? m.participants : [];
         state.participants = raw.map(p => ({ ...p, observer: p.participating === false }));
@@ -156,11 +142,10 @@
         renderResultBar();
         renderTopic();
         renderAutoReveal();
-        syncMenuFromState();  // keep overlay labels/toggles/radios in sync
+        syncMenuFromState();
         break;
       }
       case 'roomClosed': {
-        // Server asks us to leave; redirect path provided
         const redirect = m.redirect || '/';
         state.noReconnect = true;
         try { state.ws && state.ws.close(4000, 'Room closed'); } catch {}
@@ -174,18 +159,13 @@
         location.href = redirect;
         break;
       }
-      case 'hostChanged': {
-        // Optional: could toast; we just resync via subsequent voteUpdate
-        break;
-      }
       default: break;
     }
   }
 
   // --- participants UI ---
   function renderParticipants() {
-    const ul = $('#liveParticipantList');
-    if (!ul) return;
+    const ul = $('#liveParticipantList'); if (!ul) return;
     ul.innerHTML = '';
 
     state.participants.forEach(p => {
@@ -195,10 +175,9 @@
 
       const left = document.createElement('span');
       left.className = 'participant-icon';
-      if (p.isHost) { left.classList.add('host'); left.textContent = '👑'; }
-      else if (p.disconnected) { left.classList.add('inactive'); left.textContent = '💤'; }
-      else if (p.observer) { left.textContent = '👁'; }
-      else { left.textContent = ''; }
+      if (p.isHost)      { left.classList.add('host');      left.textContent = '👑'; }
+      else if (p.disconnected){ left.classList.add('inactive');   left.textContent = '💤'; }
+      else               { left.textContent = '👤'; } // default silhouette
       li.appendChild(left);
 
       const name = document.createElement('span');
@@ -211,23 +190,50 @@
 
       if (!state.votesRevealed) {
         if (!p.disconnected && !p.observer && p.vote != null) {
-          const done = document.createElement('span');
-          done.className = 'status-icon done';
-          done.textContent = '✓';
-          right.appendChild(done);
-        } else if (p.observer) {
-          const eye = document.createElement('span');
-          eye.className = 'status-icon observer';
-          eye.textContent = '👁';
-          right.appendChild(eye);
+          const done = document.createElement('span'); done.className = 'status-icon done'; done.textContent = '✓'; right.appendChild(done);
+        } else if (!p.disconnected && p.observer) {
+          const eye = document.createElement('span'); eye.className = 'status-icon observer'; eye.textContent = '👁'; right.appendChild(eye);
+        } else if (!p.disconnected && !p.observer && (p.vote == null)) {
+          const wait = document.createElement('span'); wait.className = 'status-icon pending'; wait.textContent = '⏳'; right.appendChild(wait);
         }
       } else {
         const chip = document.createElement('span');
         chip.className = 'vote-chip';
         let display = (p.vote == null || p.vote === '') ? '–' : String(p.vote);
         chip.textContent = display;
-        if (display === '☕' || display === '∞') chip.classList.add('special');
+        if (display === '☕' || display === '∞' || display === '?') chip.classList.add('special');
+        if (state.outliers && state.outliers.includes(p.name)) chip.classList.add('outlier');
         right.appendChild(chip);
+      }
+
+      // Host-only actions: make host / kick
+      if (state.isHost && p.name !== state.youName) {
+        const actionsWrap = document.createElement('span');
+        actionsWrap.className = 'row-actions';
+
+        const makeHostBtn = document.createElement('button');
+        makeHostBtn.type = 'button';
+        makeHostBtn.className = 'row-action host';
+        makeHostBtn.innerHTML = '<span class="ra-icon">👑</span><span class="ra-label">Make host</span>';
+        makeHostBtn.addEventListener('click', () => {
+          const de  = (document.documentElement.lang||'en').toLowerCase().startsWith('de');
+          const msg = de ? `Host-Rolle an ${p.name} übergeben?` : `Give host role to ${p.name}?`;
+          if (confirm(msg)) send('makeHost:' + encodeURIComponent(p.name));
+        });
+        actionsWrap.appendChild(makeHostBtn);
+
+        const kickBtn = document.createElement('button');
+        kickBtn.type = 'button';
+        kickBtn.className = 'row-action kick';
+        kickBtn.innerHTML = '<span class="ra-icon">🦶</span><span class="ra-label">Kick</span>';
+        kickBtn.addEventListener('click', () => {
+          const de  = (document.documentElement.lang||'en').toLowerCase().startsWith('de');
+          const msg = de ? `${p.name} wirklich entfernen?` : `Remove ${p.name}?`;
+          if (confirm(msg)) send('kick:' + encodeURIComponent(p.name));
+        });
+        actionsWrap.appendChild(kickBtn);
+
+        right.appendChild(actionsWrap);
       }
 
       li.appendChild(right);
@@ -235,24 +241,44 @@
     });
   }
 
-  // --- cards UI ---
+  // --- cards UI (group numeric vs specials) ---
+  function isSpecialCard(val) {
+    if (val == null) return false;
+    const s = String(val).trim();
+    if (state.sequenceId === 'fib.enh') {
+      return (s === '☕' || s === '?'); // ∞ shows like a number in this one
+    }
+    return (s === '☕' || s === '?' || s === '∞');
+  }
+
   function renderCards() {
-    const grid = $('#cardGrid');
-    if (!grid) return;
+    const grid = $('#cardGrid'); if (!grid) return;
     grid.innerHTML = '';
 
     const me = state.participants.find(pp => pp.name === state.youName);
     const isObserver = !!(me && me.observer);
     const disabled = state.votesRevealed || isObserver;
 
-    state.cards.forEach(val => {
+    const numeric = [], special = [];
+    state.cards.forEach(val => (isSpecialCard(val) ? special : numeric).push(val));
+
+    function addBtn(val){
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.textContent = String(val);
       if (disabled) btn.disabled = true;
-      btn.addEventListener('click', () => send(`vote:${state.youName}:${val}`)); // name is stable mapping on server
+      btn.addEventListener('click', () => send(`vote:${state.youName}:${val}`));
       grid.appendChild(btn);
-    });
+    }
+
+    numeric.forEach(addBtn);
+
+    if (special.length) {
+      const br = document.createElement('div');
+      br.className = 'grid-break';
+      grid.appendChild(br);
+      special.forEach(addBtn);
+    }
 
     const revealBtn = $('#revealButton');
     const resetBtn  = $('#resetButton');
@@ -275,6 +301,8 @@
     const medianEl   = $('#medianVote');
     const rangeWrap  = $('#rangeWrap');
     const rangeSep   = $('#rangeSep');
+    const resRow     = $('#resultRow');
+    const resLabel   = $('#resultLabel');
 
     const pre  = document.querySelector('.pre-vote');
     const post = document.querySelector('.post-vote');
@@ -285,27 +313,28 @@
 
     if (state.votesRevealed) {
       if (medianWrap && medianEl) {
-        if (state.medianVote) {
-          medianEl.textContent = state.medianVote;
-          medianWrap.hidden = false;
-        } else {
-          medianWrap.hidden = true;
-        }
+        if (state.medianVote) { medianEl.textContent = state.medianVote; medianWrap.hidden = false; }
+        else { medianWrap.hidden = true; }
       }
       if (rangeWrap) {
-        if (state.rangeText) {
-          setText('#rangeVote', state.rangeText);
-          rangeWrap.hidden = false;
-          if (rangeSep) rangeSep.hidden = false;
+        if (state.rangeText) { setText('#rangeVote', state.rangeText); rangeWrap.hidden = false; if (rangeSep) rangeSep.hidden = false; }
+        else { rangeWrap.hidden = true; if (rangeSep) rangeSep.hidden = true; }
+      }
+      if (resRow && resLabel) {
+        resRow.classList.toggle('is-consensus', !!state.consensus);
+        if (state.consensus) {
+          resLabel.textContent = (document.documentElement.lang === 'de' ? 'Konsens 🎉' : 'Consensus 🎉');
+          resRow.classList.add('consensus');
         } else {
-          rangeWrap.hidden = true;
-          if (rangeSep) rangeSep.hidden = true;
+          resLabel.textContent = (document.documentElement.lang === 'de' ? 'Ø' : 'Avg:');
+          resRow.classList.remove('consensus');
         }
       }
     } else {
       if (medianWrap) medianWrap.hidden = true;
       if (rangeWrap)  rangeWrap.hidden  = true;
       if (rangeSep)   rangeSep.hidden   = true;
+      if (resRow) resRow.classList.remove('is-consensus','consensus');
     }
   }
 
@@ -325,7 +354,6 @@
       }
     }
 
-    // Visibility + host-only actions
     const shouldShow = !!state.topicVisible;
     if (row) {
       row.style.display = shouldShow ? '' : 'none';
@@ -335,7 +363,6 @@
     if (edit) {
       if (!shouldShow) edit.style.display = 'none';
       if (!state.isHost && edit.style.display !== 'none') {
-        // If we lost host while editing, close editor
         edit.style.display = 'none';
         if (row) row.style.display = shouldShow ? '' : 'none';
       }
@@ -344,65 +371,39 @@
 
   // --- auto-reveal UI ---
   function renderAutoReveal() {
-    // Status text (overlay + keep any pre-vote mirrors if later reintroduced)
     const menuSt = $('#menuArStatus');
     const statusText = state.autoRevealEnabled ? 'On' : 'Off';
     if (menuSt) menuSt.textContent = statusText;
   }
 
-  // --- keep overlay/menu in sync with latest state ---
+  // --- keep overlay/menu in sync ---
   function syncMenuFromState() {
     const isDe = (document.documentElement.lang||'en').toLowerCase().startsWith('de');
 
-    // Topic toggle (overlay)
     const mTgl = $('#menuTopicToggle');
     const mSt  = $('#menuTopicStatus');
-    if (mTgl) {
-      mTgl.checked = !!state.topicVisible;
-      mTgl.setAttribute('aria-checked', String(!!state.topicVisible));
-    }
+    if (mTgl) { mTgl.checked = !!state.topicVisible; mTgl.setAttribute('aria-checked', String(!!state.topicVisible)); }
     if (mSt) mSt.textContent = state.topicVisible ? (isDe ? 'An' : 'On') : (isDe ? 'Aus' : 'Off');
 
-    // Participation status text in overlay
     const me = state.participants.find(p => p.name === state.youName);
     const isObserver = !!(me && me.observer);
     const mPTgl = $('#menuParticipationToggle');
     const mPSt  = $('#menuPartStatus');
-    if (mPTgl) {
-      mPTgl.checked = !isObserver;
-      mPTgl.setAttribute('aria-checked', String(!isObserver));
-    }
-    if (mPSt) mPSt.textContent = !isObserver ? (isDe ? 'Ich schätze mit' : "I'm estimating")
-                                            : (isDe ? 'Beobachter:in' : 'Observer');
+    if (mPTgl) { mPTgl.checked = !isObserver; mPTgl.setAttribute('aria-checked', String(!isObserver)); }
+    if (mPSt) mPSt.textContent = !isObserver ? (isDe ? 'Ich schätze mit' : "I'm estimating") : (isDe ? 'Beobachter:in' : 'Observer');
 
-    // Auto-reveal (menu toggle)
     const mARTgl = $('#menuAutoRevealToggle');
-    if (mARTgl) {
-      mARTgl.checked = !!state.autoRevealEnabled;
-      mARTgl.setAttribute('aria-checked', String(!!state.autoRevealEnabled));
-    }
+    if (mARTgl) { mARTgl.checked = !!state.autoRevealEnabled; mARTgl.setAttribute('aria-checked', String(!!state.autoRevealEnabled)); }
 
-    // Sequence radios (overlay)
     const seqRoot = $('#menuSeqChoice');
-    if (seqRoot) {
-      const all = seqRoot.querySelectorAll('input[type="radio"][name="menu-seq"]');
-      all.forEach(r => { r.checked = (r.value === state.sequenceId); });
-    }
+    if (seqRoot) seqRoot.querySelectorAll('input[type="radio"][name="menu-seq"]').forEach(r => { r.checked = (r.value === state.sequenceId); });
 
-    // Host locks (disable host-only controls for non-host)
     const hostOnly = !state.isHost;
-    // Auto-reveal & topic visibility are host-only
     setDisabled('#menuAutoRevealToggle', hostOnly);
     setDisabled('#menuTopicToggle',      hostOnly);
-    // Sequence radios host-only
-    if (seqRoot) {
-      seqRoot.querySelectorAll('input[type="radio"]').forEach(r => setDisabled(r, hostOnly));
-    }
+    if (seqRoot) seqRoot.querySelectorAll('input[type="radio"]').forEach(r => setDisabled(r, hostOnly));
 
-    // Host-only hints visibility
-    const seqHint = $('#menuSeqHint');
-    const arHint  = $('#menuArHint');
-    const topicHint = $('#menuTopicToggleHint');
+    const seqHint = $('#menuSeqHint'); const arHint  = $('#menuArHint'); const topicHint = $('#menuTopicToggleHint');
     if (seqHint)  seqHint.style.display  = hostOnly ? '' : 'none';
     if (arHint)   arHint.style.display   = hostOnly ? '' : 'none';
     if (topicHint)topicHint.style.display= hostOnly ? '' : 'none';
@@ -416,19 +417,24 @@
 
   // --- menu / toggles wiring (once) ---
   function wireOnce() {
+    // Hide any legacy in-page menu rows if still present
+    const arRow = $('#autoRevealRow'); if (arRow) arRow.style.display = 'none';
+    const topicRow = $('#topicToggleRow'); if (topicRow) topicRow.style.display = 'none';
+
     // copy link
     const copyBtn = $('#copyRoomLink');
     if (copyBtn) copyBtn.addEventListener('click', async () => {
       try {
-        const link = `${location.origin}/room?participantName=${encodeURIComponent(state.youName)}&roomCode=${encodeURIComponent(state.roomCode)}`;
+        const link = `${location.origin}/invite?roomCode=${encodeURIComponent(state.roomCode)}`;
         await navigator.clipboard.writeText(link);
-        copyBtn.setAttribute('data-tooltip', document.documentElement.lang === 'de' ? 'Link kopiert' : 'Link copied');
+        const msg = (document.documentElement.lang === 'de') ? 'Link in die Zwischenablage kopiert' : 'Link copied to clipboard';
+        showToast(msg);
       } catch {
-        copyBtn.setAttribute('data-tooltip', document.documentElement.lang === 'de' ? 'Kopieren nicht möglich' : 'Copy failed');
+        const msg = (document.documentElement.lang === 'de') ? 'Kopieren nicht möglich' : 'Copy failed';
+        showToast(msg);
       }
     });
 
-    // participation switch (pre-vote row)
     const partToggle = $('#participationToggle');
     if (partToggle) {
       partToggle.addEventListener('change', (e) => {
@@ -476,32 +482,15 @@
       });
     }
 
-    // --- MENU toggles (namespaced) ---
+    // MENU toggles (guarded for non-host)
     const mPart = $('#menuParticipationToggle');
-    if (mPart) {
-      mPart.addEventListener('change', (e) => {
-        const estimating = !!e.target.checked;
-        send(`participation:${estimating}`);
-      });
-    }
+    if (mPart) mPart.addEventListener('change', (e) => { const estimating = !!e.target.checked; send(`participation:${estimating}`); });
 
     const mTopic = $('#menuTopicToggle');
-    if (mTopic) {
-      mTopic.addEventListener('change', (e) => {
-        if (!state.isHost) { syncMenuFromState(); return; } // guard + reset UI
-        const on = !!e.target.checked;
-        send(`topicToggle:${on}`);
-      });
-    }
+    if (mTopic) mTopic.addEventListener('change', (e) => { if (!state.isHost) { syncMenuFromState(); return; } const on = !!e.target.checked; send(`topicToggle:${on}`); });
 
     const mAR = $('#menuAutoRevealToggle');
-    if (mAR) {
-      mAR.addEventListener('change', (e) => {
-        if (!state.isHost) { syncMenuFromState(); return; } // guard + reset UI
-        const on = !!e.target.checked;
-        send(`autoReveal:${on}`);
-      });
-    }
+    if (mAR) mAR.addEventListener('change', (e) => { if (!state.isHost) { syncMenuFromState(); return; } const on = !!e.target.checked; send(`autoReveal:${on}`); });
 
     // menu: close room event (from menu.js)
     document.addEventListener('ep:close-room', () => {
@@ -511,30 +500,24 @@
       if (confirm(msg)) send('closeRoom');
     });
 
-    // menu: sequence change bridge (from menu.js)
+    // menu: sequence change bridge
     document.addEventListener('ep:sequence-change', (e) => {
-      const id = e && e.detail && e.detail.id;
-      if (!id) return;
+      const id = e && e.detail && e.detail.id; if (!id) return;
       if (!state.isHost) { syncMenuFromState(); return; }
       send('sequence:' + id);
     });
+
+    // graceful leave (explicit)
+    const leave = () => { try { send('leave'); } catch {} };
+    window.addEventListener('pagehide', leave);
+    window.addEventListener('beforeunload', leave);
   }
 
   // --- utils ---
-  function escapeHtml(s) {
-    return String(s).replace(/[&<>"']/g, c => (
-      { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]
-    ));
-  }
+  function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
   // --- boot ---
-  function boot() {
-    wireOnce();
-    connectWS();
-  }
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', boot);
-  } else {
-    boot();
-  }
+  function boot() { wireOnce(); connectWS(); }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+  else boot();
 })();

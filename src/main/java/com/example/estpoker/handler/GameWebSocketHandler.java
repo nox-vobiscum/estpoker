@@ -25,10 +25,8 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
 
     private final GameService gameService;
 
-    // per-session index (room, cid, name); Concurrent for safety
     private final Map<String, Conn> bySession = new ConcurrentHashMap<>();
 
-    // host inactivity threshold (ms) after which we reassign
     private static final long HOST_INACTIVE_MS = 120_000L;
 
     public GameWebSocketHandler(GameService gameService) {
@@ -44,20 +42,14 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
 
         log.info("WS OPEN room={} name={} cid={}", roomCode, name, cid);
 
-        // FIX: join with (roomCode, cid, name) to be CID-sticky
         Room room = gameService.join(roomCode, cid, name);
 
-        // Track session so GameService can broadcast to it.
         gameService.addSession(session, room);
         gameService.trackParticipant(session, name);
 
-        // Store lightweight connection info locally.
         bySession.put(session.getId(), new Conn(roomCode, cid, name));
 
-        // Inform client about canonical name (if normalized).
         gameService.sendIdentity(session, name, cid);
-
-        // NOTE: GameService.join() already broadcasts room state.
     }
 
     @Override
@@ -67,60 +59,55 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         if (c == null) return;
 
         final String roomCode = c.room;
-        final String name     = c.name; // logical name for this session; CID is c.cid
+        final String name     = c.name;
         final String cid      = c.cid;
         final String payload  = message.getPayload();
 
-        // Simple line protocol
         if (payload.startsWith("vote:")) {
-            // vote:<ignoredNameFromClient>:<val> – we use tracked CID for stability
             String[] parts = payload.split(":", 3);
             if (parts.length >= 3) {
-                gameService.setVote(roomCode, cid, parts[2]); // use cid mapping server-side
+                gameService.setVote(roomCode, cid, parts[2]); // use CID mapping
             }
             return;
         }
 
         switch (payload) {
-            case "revealCards" -> gameService.reveal(roomCode);          // broadcasts
-            case "resetRoom"   -> gameService.reset(roomCode);           // broadcasts
-            case "ping"        -> gameService.touch(roomCode, cid);      // heartbeat by CID
+            case "revealCards" -> gameService.reveal(roomCode);
+            case "resetRoom"   -> gameService.reset(roomCode);
+            case "ping"        -> gameService.touch(roomCode, cid);
+            case "leave"       -> {
+                Room room = gameService.getRoom(roomCode);
+                if (room != null) gameService.scheduleIntentionalLeave(room, name, 2000L); // short grace
+            }
             case "closeRoom"   -> {
                 Room room = gameService.getRoom(roomCode);
                 if (room != null) {
                     Participant host = room.getHost();
                     boolean isHost = (host != null && Objects.equals(host.getName(), name));
                     if (isHost) {
-                        gameService.closeRoom(room); // broadcasts 'roomClosed' and closes
+                        gameService.closeRoom(room);
                     } else {
                         log.warn("closeRoom ignored: {} is not host of {}", name, roomCode);
                     }
                 }
             }
             default -> {
-                // Toggles & topic & sequence
                 if (payload.startsWith("topicSave:")) {
                     String text = payload.substring("topicSave:".length());
                     Room room = gameService.getRoom(roomCode);
                     if (room != null) {
                         Participant host = room.getHost();
                         boolean isHost = (host != null && Objects.equals(host.getName(), name));
-                        if (isHost) {
-                            gameService.saveTopic(roomCode, decode(text));     // broadcasts
-                        } else {
-                            log.warn("topicSave ignored: {} is not host of {}", name, roomCode);
-                        }
+                        if (isHost) gameService.saveTopic(roomCode, decode(text));
+                        else log.warn("topicSave ignored: {} is not host of {}", name, roomCode);
                     }
                 } else if ("topicClear".equals(payload)) {
                     Room room = gameService.getRoom(roomCode);
                     if (room != null) {
                         Participant host = room.getHost();
                         boolean isHost = (host != null && Objects.equals(host.getName(), name));
-                        if (isHost) {
-                            gameService.clearTopic(roomCode);                  // broadcasts
-                        } else {
-                            log.warn("topicClear ignored: {} is not host of {}", name, roomCode);
-                        }
+                        if (isHost) gameService.clearTopic(roomCode);
+                        else log.warn("topicClear ignored: {} is not host of {}", name, roomCode);
                     }
                 } else if (payload.startsWith("topicToggle:")) {
                     boolean on = Boolean.parseBoolean(payload.substring("topicToggle:".length()));
@@ -128,15 +115,12 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                     if (room != null) {
                         Participant host = room.getHost();
                         boolean isHost = (host != null && Objects.equals(host.getName(), name));
-                        if (isHost) {
-                            gameService.setTopicEnabled(roomCode, on);         // broadcasts
-                        } else {
-                            log.warn("topicToggle ignored: {} is not host of {}", name, roomCode);
-                        }
+                        if (isHost) gameService.setTopicEnabled(roomCode, on);
+                        else log.warn("topicToggle ignored: {} is not host of {}", name, roomCode);
                     }
                 } else if (payload.startsWith("participation:")) {
                     boolean estimating = Boolean.parseBoolean(payload.substring("participation:".length()));
-                    gameService.setObserver(roomCode, cid, !estimating); // cid based; broadcasts
+                    gameService.setObserver(roomCode, cid, !estimating);
                 } else if (payload.startsWith("autoReveal:")) {
                     boolean on = Boolean.parseBoolean(payload.substring("autoReveal:".length()));
                     Room room = gameService.getRoom(roomCode);
@@ -146,25 +130,37 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                         if (isHost) {
                             synchronized (room) { room.setAutoRevealEnabled(on); }
                             gameService.broadcastRoomState(room);
-                            if (on && gameService.shouldAutoReveal(roomCode)) {
-                                gameService.reveal(roomCode);
-                            }
+                            if (on && gameService.shouldAutoReveal(roomCode)) gameService.reveal(roomCode);
                         } else {
                             log.warn("autoReveal ignored: {} is not host of {}", name, roomCode);
                         }
                     }
                 } else if (payload.startsWith("sequence:")) {
-                    // Host-only: change card sequence by id (e.g., fib.scrum, pow2, tshirt)
                     String id = payload.substring("sequence:".length());
                     Room room = gameService.getRoom(roomCode);
                     if (room != null) {
                         Participant host = room.getHost();
                         boolean isHost = (host != null && Objects.equals(host.getName(), name));
-                        if (isHost) {
-                            gameService.setSequence(roomCode, id); // broadcasts & resets round
-                        } else {
-                            log.warn("sequence change ignored: {} is not host of {}", name, roomCode);
-                        }
+                        if (isHost) gameService.setSequence(roomCode, id);
+                        else log.warn("sequence change ignored: {} is not host of {}", name, roomCode);
+                    }
+                } else if (payload.startsWith("makeHost:")) {
+                    String target = payload.substring("makeHost:".length());
+                    Room room = gameService.getRoom(roomCode);
+                    if (room != null) {
+                        Participant host = room.getHost();
+                        boolean isHost = (host != null && Objects.equals(host.getName(), name));
+                        if (isHost) gameService.assignHost(roomCode, target);
+                        else log.warn("makeHost ignored: {} is not host of {}", name, roomCode);
+                    }
+                } else if (payload.startsWith("kick:")) {
+                    String target = payload.substring("kick:".length());
+                    Room room = gameService.getRoom(roomCode);
+                    if (room != null) {
+                        Participant host = room.getHost();
+                        boolean isHost = (host != null && Objects.equals(host.getName(), name));
+                        if (isHost) gameService.kickParticipant(room, target);
+                        else log.warn("kick ignored: {} is not host of {}", name, roomCode);
                     }
                 } else {
                     log.debug("Ignored message: {}", payload);
@@ -195,7 +191,6 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         if (room != null) gameService.scheduleDisconnect(room, name);
 
         gameService.ensureHost(roomCode, 0L, HOST_INACTIVE_MS);
-        // no immediate broadcast; scheduleDisconnect() takes care of it
     }
 
     /* ---------------- helpers ---------------- */
