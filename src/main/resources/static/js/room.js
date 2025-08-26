@@ -1,11 +1,11 @@
-/* room.js v21 — WS connector, participants, host controls, deck layout (participation only via menu) */
+/* room.js v19 — connector for /gameSocket (CID-based, topic, host-safe) */
+// Keep this file in sync with server message schema.
 (() => {
   'use strict';
   const TAG = '[ROOM]';
 
   // --- DOM helpers ---
-  const $  = (s) => document.querySelector(s);
-  const $$ = (s) => Array.from(document.querySelectorAll(s));
+  const $ = (s) => document.querySelector(s);
   const setText = (sel, v) => { const el = typeof sel === 'string' ? $(sel) : sel; if (el) el.textContent = v ?? ''; };
 
   // --- state ---
@@ -19,28 +19,21 @@
     cid: null,
     ws: null,
     connected: false,
-    suppressReconnect: false,
 
     isHost: false,
     votesRevealed: false,
     cards: [],
+    sequenceId: null,     // <— NEW: keep current server sequence
     participants: [],
     averageVote: null,
-    medianVote: null,
-    range: null,
-    consensus: false,
-    outliers: [],
 
-    // Topic from server
+    // Topic from GameService
     topicVisible: true,
     topicLabel: '',
     topicUrl: null,
 
-    // Auto-reveal from server
-    autoRevealEnabled: false,
-
-    // Sequence
-    sequenceId: 'fib.scrum',
+    // Auto-reveal from GameService
+    autoRevealEnabled: false
   };
 
   // stable per-tab client id
@@ -80,10 +73,11 @@
       heartbeat();
     };
     s.onclose = (ev) => {
-      stopHeartbeat();
       state.connected = false;
       console.warn(TAG, 'CLOSE', ev.code, ev.reason || '');
-      if (state.suppressReconnect || ev.code === 4000 || ev.code === 4001) return; // controlled close → no reconnect
+      stopHeartbeat();
+      // Do not auto-reconnect on server-driven closures
+      if (ev.code === 4000 || ev.code === 4001) return;
       setTimeout(() => { if (!state.connected) connectWS(); }, 2000);
     };
     s.onerror = (e) => console.warn(TAG, 'ERROR', e);
@@ -91,6 +85,10 @@
       try { handleMessage(JSON.parse(ev.data)); }
       catch { console.warn(TAG, 'bad JSON', ev.data); }
     };
+
+    // Intentional leave hint (2s grace server-side)
+    const beforeUnload = () => { try { s.readyState === 1 && s.send('intentionalLeave'); } catch {} };
+    window.addEventListener('beforeunload', beforeUnload, { once:true });
   }
 
   function send(line) {
@@ -99,49 +97,69 @@
     }
   }
 
-  // --- heartbeat (CID-based) ---
+  // --- heartbeat (keeps lastSeen fresh for host stickiness) ---
   let hbT = null;
-  function heartbeat() { stopHeartbeat(); hbT = setInterval(() => send('ping'), 25000); }
-  function stopHeartbeat(){ if (hbT) { clearInterval(hbT); hbT = null; } }
+  function heartbeat() {
+    stopHeartbeat();
+    hbT = setInterval(() => send('ping'), 25000);
+  }
+  function stopHeartbeat() {
+    if (hbT) { clearInterval(hbT); hbT = null; }
+  }
 
   // --- messages ---
   function handleMessage(m) {
     switch (m.type) {
       case 'you': {
-        if (m.yourName && m.yourName !== state.youName) { state.youName = m.yourName; setText('#youName', state.youName); }
-        if (m.cid && m.cid !== state.cid) { state.cid = m.cid; try { sessionStorage.setItem(CIDKEY, state.cid); } catch {} }
+        if (m.yourName && m.yourName !== state.youName) {
+          state.youName = m.yourName;
+          setText('#youName', state.youName);
+        }
+        if (m.cid && m.cid !== state.cid) {
+          state.cid = m.cid;
+          try { sessionStorage.setItem(CIDKEY, state.cid); } catch {}
+        }
         break;
       }
-      case 'hostChanged': { toast( (isDe() ? 'Host gewechselt zu ' : 'Host changed to ') + (m.newHost || '—') ); break; }
-      case 'kicked':     { state.suppressReconnect = true; location.replace(m.redirect || '/'); break; }
-      case 'roomClosed': { state.suppressReconnect = true; location.replace(m.redirect || '/'); break; }
+      case 'hostChanged': {
+        // optional toast could go here
+        break;
+      }
+      case 'kicked': {
+        try { state.ws && state.ws.close(4001, 'Kicked'); } catch {}
+        location.assign(m.redirect || '/');
+        break;
+      }
+      case 'roomClosed': {
+        try { state.ws && state.ws.close(4000, 'Room closed'); } catch {}
+        location.assign(m.redirect || '/');
+        break;
+      }
       case 'voteUpdate': {
-        state.cards         = Array.isArray(m.cards) ? m.cards : state.cards;
+        state.cards = Array.isArray(m.cards) ? m.cards : state.cards;
+        state.sequenceId = m.sequenceId || state.sequenceId;          // <— keep sequence id
         state.votesRevealed = !!m.votesRevealed;
-        state.averageVote   = m.averageVote ?? null;
-        state.medianVote    = m.medianVote ?? null;
-        state.range         = m.range ?? null;
-        state.consensus     = !!m.consensus;
-        state.outliers      = Array.isArray(m.outliers) ? m.outliers : [];
+        state.averageVote = m.averageVote ?? null;
 
         const raw = Array.isArray(m.participants) ? m.participants : [];
         state.participants = raw.map(p => ({ ...p, observer: p.participating === false }));
 
-        state.topicVisible      = !!m.topicVisible;
-        state.topicLabel        = m.topicLabel || '';
-        state.topicUrl          = m.topicUrl || null;
+        state.topicVisible = !!m.topicVisible;
+        state.topicLabel   = m.topicLabel || '';
+        state.topicUrl     = m.topicUrl || null;
+
         state.autoRevealEnabled = !!m.autoRevealEnabled;
-        state.sequenceId        = m.sequenceId || state.sequenceId;
 
         const me = state.participants.find(p => p && p.name === state.youName);
         state.isHost = !!(me && me.isHost);
 
         renderParticipants();
         renderCards();
-        renderResultBar();
+        renderResultBar(m); // pass raw for extras if needed
         renderTopic();
         renderAutoReveal();
-        syncMenuFromState();
+        syncMenuFromState();  // keep overlay labels/toggles in sync
+
         break;
       }
       default: break;
@@ -150,79 +168,85 @@
 
   // --- participants UI ---
   function renderParticipants() {
-    const ul = $('#liveParticipantList'); if (!ul) return;
+    const ul = $('#liveParticipantList');
+    if (!ul) return;
     ul.innerHTML = '';
-
-    const me = state.participants.find(p => p.name === state.youName);
 
     state.participants.forEach(p => {
       const li = document.createElement('li');
       li.className = 'participant-row';
       if (p.disconnected) li.classList.add('disconnected');
-      if (p.isHost) li.classList.add('is-host');
 
-      // Left icon: host crown or silhouette
       const left = document.createElement('span');
       left.className = 'participant-icon';
       left.textContent = p.isHost ? '👑' : '👤';
-      if (p.isHost) left.classList.add('host');
       li.appendChild(left);
 
-      // Name
       const name = document.createElement('span');
       name.className = 'name';
       name.textContent = p.name;
       li.appendChild(name);
 
-      // Right: status + actions
       const right = document.createElement('div');
       right.className = 'row-right';
 
-      // Status
-      const status = document.createElement('span');
-      status.className = 'status-icon';
-
       if (!state.votesRevealed) {
-        if (p.observer) { status.textContent = '👁'; status.classList.add('observer'); }
-        else if (!p.disconnected && p.vote != null) { status.textContent = '✅'; status.classList.add('done'); }
-        else { status.textContent = '⏳'; status.classList.add('pending'); }
-        right.appendChild(status);
+        if (!p.disconnected && !p.observer && p.vote != null) {
+          const done = document.createElement('span');
+          done.className = 'status-icon done';
+          done.textContent = '✓';
+          right.appendChild(done);
+        } else if (!p.disconnected && !p.observer && (p.vote == null)) {
+          const hour = document.createElement('span');
+          hour.className = 'status-icon pending';
+          hour.textContent = '⏳';
+          right.appendChild(hour);
+        } else if (p.observer) {
+          const eye = document.createElement('span');
+          eye.className = 'status-icon observer';
+          eye.textContent = '👁';
+          right.appendChild(eye);
+        }
       } else {
+        // revealed: show vote chip or dash; observers stay with an eye
         if (p.observer) {
-          status.textContent = '👁'; status.classList.add('observer');
-          right.appendChild(status);
+          const eye = document.createElement('span');
+          eye.className = 'status-icon observer';
+          eye.textContent = '👁';
+          right.appendChild(eye);
         } else {
           const chip = document.createElement('span');
           chip.className = 'vote-chip';
           let display = (p.vote == null || p.vote === '') ? '–' : String(p.vote);
           chip.textContent = display;
-          if (display === '☕' || display === '❓' || display === '💬') chip.classList.add('special'); // ∞ stays normal
-          if (Array.isArray(state.outliers) && state.outliers.includes(p.name)) chip.classList.add('outlier');
+          if (display === '☕' || display === '∞') chip.classList.add('special');
           right.appendChild(chip);
         }
       }
 
-      // Host-only actions for others
-      if (state.isHost && !p.isHost && p.name !== (me && me.name)) {
+      // Host-only row actions
+      if (state.isHost && !p.isHost) {
         const makeHost = document.createElement('button');
-        makeHost.type = 'button';
         makeHost.className = 'row-action host';
-        makeHost.title = isDe() ? 'Zum Host machen' : 'Make host';
-        makeHost.innerHTML = '<span class="ra-icon">👑</span><span class="ra-label">Host</span>';
+        makeHost.type = 'button';
+        makeHost.innerHTML = '<span class="ra-icon">👑</span><span class="ra-label">Make host</span>';
         makeHost.addEventListener('click', () => {
-          const msg = isDe() ? `Host-Rolle an ${p.name} übergeben?` : `Make ${p.name} the host?`;
-          if (confirm(msg)) send('makeHost:' + encodeURIComponent(p.name));
+          const confirmMsg = (document.documentElement.lang || 'en').startsWith('de')
+            ? `Host-Rolle an ${p.name} übergeben?`
+            : `Make ${p.name} the host?`;
+          if (confirm(confirmMsg)) send('makeHost:' + encodeURIComponent(p.name));
         });
         right.appendChild(makeHost);
 
         const kick = document.createElement('button');
-        kick.type = 'button';
         kick.className = 'row-action kick';
-        kick.title = isDe() ? 'Teilnehmer entfernen' : 'Kick participant';
+        kick.type = 'button';
         kick.innerHTML = '<span class="ra-icon">❌</span><span class="ra-label">Kick</span>';
         kick.addEventListener('click', () => {
-          const msg = isDe() ? `Teilnehmer ${p.name} entfernen?` : `Remove ${p.name}?`;
-          if (confirm(msg)) send('kick:' + encodeURIComponent(p.name));
+          const confirmMsg = (document.documentElement.lang || 'en').startsWith('de')
+            ? `${p.name} wirklich entfernen?`
+            : `Really remove ${p.name}?`;
+          if (confirm(confirmMsg)) send('kick:' + encodeURIComponent(p.name));
         });
         right.appendChild(kick);
       }
@@ -234,67 +258,78 @@
 
   // --- cards UI ---
   function renderCards() {
-    const gridWrap = $('#cardGrid'); if (!gridWrap) return;
+    const grid = $('#cardGrid');
+    if (!grid) return;
+    grid.innerHTML = '';
 
-    // Remove legacy grid class on wrapper to support our two-row layout.
-    gridWrap.classList.remove('card-grid', 'fixed4');
-    gridWrap.innerHTML = '';
+    // Split into numeric-like & specials. Infinity is a special that we *show* with numbers
+    // only for sequence "fib.enh".
+    const SHOW_INFINITY = (state.sequenceId === 'fib.enh');
+
+    const specialsSet = new Set(['?', '💬', '☕']); // ∞ intentionally not here
+    const numeric = [];
+    const specials = [];
+
+    for (const v of state.cards || []) {
+      if (v === '∞') {
+        if (SHOW_INFINITY) numeric.push(v);  // show with numbers in enhanced
+        // else: completely skip ∞ in other sequences
+        continue;
+      }
+      if (specialsSet.has(v)) specials.push(v);
+      else numeric.push(v);
+    }
 
     const me = state.participants.find(pp => pp.name === state.youName);
     const isObserver = !!(me && me.observer);
     const disabled = state.votesRevealed || isObserver;
 
-    // Split into primary (numbers + "∞") and specials (❓ 💬 ☕)
-    const specialsSet = new Set(['❓','💬','☕']);
-    const all = Array.isArray(state.cards) ? state.cards.map(v => String(v)) : [];
-    const primary = [];
-    const specials = new Set(['❓','💬','☕']); // ensure always present
-
-    for (const v of all) {
-      if (specialsSet.has(v)) specials.add(v);
-      else primary.push(v); // includes "∞" -> treated like number for layout
-    }
-
-    // Primary row
-    const grid1 = document.createElement('div');
-    grid1.className = 'card-grid';
-    primary.forEach(val => {
+    function addBtn(val) {
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.textContent = String(val);
       if (disabled) btn.disabled = true;
       btn.addEventListener('click', () => send(`vote:${state.youName}:${val}`));
-      grid1.appendChild(btn);
-    });
-    gridWrap.appendChild(grid1);
+      grid.appendChild(btn);
+    }
 
-    // Specials row (fixed order)
-    const order = ['❓','💬','☕'];
-    const grid2 = document.createElement('div');
-    grid2.className = 'card-grid fixed4';
-    order.forEach(val => {
-      if (!specials.has(val)) return;
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.textContent = val;
-      if (disabled) btn.disabled = true;
-      btn.addEventListener('click', () => send(`vote:${state.youName}:${val}`));
-      grid2.appendChild(btn);
-    });
-    gridWrap.appendChild(grid2);
+    numeric.forEach(addBtn);
+    if (specials.length) {
+      // visual break row
+      const br = document.createElement('div');
+      br.style.gridColumn = '1 / -1';
+      br.style.height = '6px';
+      grid.appendChild(br);
+      specials.forEach(addBtn);
+    }
 
-    // Reveal / Reset visibility
     const revealBtn = $('#revealButton');
     const resetBtn  = $('#resetButton');
     if (revealBtn) revealBtn.style.display = (!state.votesRevealed && state.isHost) ? '' : 'none';
     if (resetBtn)  resetBtn.style.display  = ( state.votesRevealed && state.isHost) ? '' : 'none';
+
+    const partStatus = $('#partStatus');
+    if (partStatus && me) {
+      partStatus.textContent = !isObserver
+        ? (document.documentElement.lang === 'de' ? 'Ich schätze mit' : "I'm estimating")
+        : (document.documentElement.lang === 'de' ? 'Beobachter:in' : 'Observer');
+    }
   }
 
-  function renderResultBar() {
+  function renderResultBar(m) {
     const avgEl = $('#averageVote');
-    const medWrap = $('#medianWrap');
-    const rangeWrap = $('#rangeWrap');
-    const rangeSep = $('#rangeSep');
+    if (avgEl) avgEl.textContent = (state.averageVote != null ? String(state.averageVote) : 'N/A');
+
+    // server already decides when median/range/outliers appear; we just reflect visibility
+    const medianWrap = $('#medianWrap');
+    const rangeWrap  = $('#rangeWrap');
+    const rangeSep   = $('#rangeSep');
+
+    if (m && m.medianVote) { setText('#medianVote', m.medianVote); medianWrap?.removeAttribute('hidden'); }
+    else { medianWrap?.setAttribute('hidden',''); }
+
+    if (m && m.range) { setText('#rangeVote', m.range); rangeWrap?.removeAttribute('hidden'); rangeSep?.removeAttribute('hidden'); }
+    else { rangeWrap?.setAttribute('hidden',''); rangeSep?.setAttribute('hidden',''); }
 
     const pre  = document.querySelector('.pre-vote');
     const post = document.querySelector('.post-vote');
@@ -303,47 +338,15 @@
       post.style.display = state.votesRevealed ? '' : 'none';
     }
 
-    const row = $('#resultRow');
-    if (!row) return;
-
-    // Consensus-only display
-    if (state.votesRevealed && state.consensus && state.averageVote) {
-      row.classList.add('consensus');
-      setText('#resultLabel', isDe() ? 'Consensus' : 'Consensus');
-      setText(avgEl, String(state.averageVote));
-      if (medWrap)   medWrap.hidden = true;
-      if (rangeWrap) rangeWrap.hidden = true;
-      if (rangeSep)  rangeSep.hidden = true;
-    } else {
-      row.classList.toggle('consensus', false);
-      setText('#resultLabel', isDe() ? 'Avg:' : 'Avg:');
-      if (avgEl) avgEl.textContent = (state.votesRevealed && state.averageVote != null) ? String(state.averageVote) : '–';
-
-      if (medWrap) {
-        const showMed = state.votesRevealed && !!state.medianVote && !state.consensus;
-        medWrap.hidden = !showMed;
-        setText('#medianVote', showMed ? String(state.medianVote) : '–');
-      }
-      if (rangeWrap) {
-        const showRange = state.votesRevealed && !!state.range && !state.consensus;
-        rangeWrap.hidden = !showRange;
-        if (rangeSep) rangeSep.hidden = !showRange;
-        setText('#rangeVote', showRange ? String(state.range) : '–');
-      }
-    }
+    // Consensus-only line rendering stays on the server decision (average text kept)
   }
 
   // --- topic UI ---
   function renderTopic() {
-    const row  = $('#topicRow');
+    const row = $('#topicRow');
     const edit = $('#topicEdit');
     const disp = $('#topicDisplay');
 
-    // visibility from server-controlled toggle (menu)
-    const shouldShow = !!state.topicVisible;
-    if (row) row.style.display = shouldShow ? '' : 'none';
-
-    // content
     if (disp) {
       if (state.topicLabel && state.topicUrl) {
         disp.innerHTML = `<a href="${encodeURI(state.topicUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(state.topicLabel)}</a>`;
@@ -354,74 +357,78 @@
       }
     }
 
+    const shouldShow = !!state.topicVisible;
+    if (row) row.style.display = shouldShow ? '' : 'none';
     if (edit && !shouldShow) edit.style.display = 'none';
   }
 
   // --- auto-reveal UI ---
   function renderAutoReveal() {
-    // Only update the overlay label now (no content label)
-    const menuSt = document.querySelector('#appMenuOverlay #menuArStatus');
-    const statusText = state.autoRevealEnabled ? (isDe() ? 'An' : 'On') : (isDe() ? 'Aus' : 'Off');
-    if (menuSt) menuSt.textContent = statusText;
+    const preSt  = document.querySelector('.pre-vote #arStatus'); // may not exist anymore
+    if (preSt) preSt.textContent = state.autoRevealEnabled ? 'On' : 'Off';
   }
 
-  // --- keep overlay/menu in sync ---
+  // --- keep overlay/menu in sync with latest state ---
   function syncMenuFromState() {
-    // Topic (menu)
+    const isDe = (document.documentElement.lang||'en').toLowerCase().startsWith('de');
+
+    // Topic
     const mTgl = $('#menuTopicToggle');
     const mSt  = $('#menuTopicStatus');
-    if (mTgl) { mTgl.checked = !!state.topicVisible; mTgl.setAttribute('aria-checked', String(!!state.topicVisible)); }
-    if (mSt) mSt.textContent = state.topicVisible ? (isDe() ? 'An' : 'On') : (isDe() ? 'Aus' : 'Off');
+    if (mTgl) {
+      mTgl.checked = !!state.topicVisible;
+      mTgl.setAttribute('aria-checked', String(!!state.topicVisible));
+    }
+    if (mSt) mSt.textContent = state.topicVisible ? (isDe ? 'An' : 'On') : (isDe ? 'Aus' : 'Off');
 
-    // Participation (menu only)
+    // Participation
     const me = state.participants.find(p => p.name === state.youName);
     const isObserver = !!(me && me.observer);
     const mPTgl = $('#menuParticipationToggle');
     const mPSt  = $('#menuPartStatus');
-    if (mPTgl) { mPTgl.checked = !isObserver; mPTgl.setAttribute('aria-checked', String(!isObserver)); }
-    if (mPSt)  mPSt.textContent = !isObserver ? (isDe() ? 'Ich schätze mit' : "I'm estimating")
-                                              : (isDe() ? 'Beobachter:in' : 'Observer');
+    if (mPTgl) {
+      mPTgl.checked = !isObserver;
+      mPTgl.setAttribute('aria-checked', String(!isObserver));
+    }
+    if (mPSt) mPSt.textContent = !isObserver ? (isDe ? 'Ich schätze mit' : "I'm estimating")
+                                            : (isDe ? 'Beobachter:in' : 'Observer');
 
-    // Auto-reveal (menu)
+    // Auto-reveal (menu toggle)
     const mARTgl = $('#menuAutoRevealToggle');
-    if (mARTgl) { mARTgl.checked = !!state.autoRevealEnabled; mARTgl.setAttribute('aria-checked', String(!!state.autoRevealEnabled)); }
-
-    // Sequence radios
-    const seqId = state.sequenceId;
-    $$('#menuSeqChoice input[type="radio"][name="menu-seq"]').forEach(r => {
-      r.checked = (r.value === seqId);
-      r.closest('.radio-row')?.classList.toggle('disabled', !state.isHost);
-      r.disabled = !state.isHost;
-    });
-
-    // Host-only hints
-    const isHost = state.isHost;
-    ['menuAutoRevealToggle','menuTopicToggle'].forEach(id => {
-      const el = $('#'+id);
-      el && (el.disabled = !isHost);
-      const row = el?.closest('.menu-item') || el?.closest('.menu-group');
-      row && row.classList.toggle('disabled', !isHost);
-    });
-    $('#menuSeqHint')?.classList.toggle('hidden', isHost);
-    $('#menuArHint')?.classList.toggle('hidden', isHost);
-    $('#menuTopicToggleHint')?.classList.toggle('hidden', isHost);
+    if (mARTgl) {
+      mARTgl.checked = !!state.autoRevealEnabled;
+      mARTgl.setAttribute('aria-checked', String(!!state.autoRevealEnabled));
+    }
   }
 
-  // --- actions for HTML buttons ---
+  // --- actions exposed for HTML buttons ---
   function revealCards() { send('revealCards'); }
   function resetRoom()   { send('resetRoom'); }
   window.revealCards = revealCards;
   window.resetRoom   = resetRoom;
 
-  // --- wiring ---
+  // --- menu / toggles wiring (once) ---
   function wireOnce() {
-    // Copy link to /invite
+    // copy link
     const copyBtn = $('#copyRoomLink');
     if (copyBtn) copyBtn.addEventListener('click', async () => {
-      const link = `${location.origin}/invite?roomCode=${encodeURIComponent(state.roomCode)}`;
-      try { await navigator.clipboard.writeText(link); toast(isDe() ? 'Link in die Zwischenablage kopiert' : 'Link copied to clipboard'); copyBtn.setAttribute('data-tooltip', isDe() ? 'Link kopiert' : 'Link copied'); }
-      catch { copyBtn.setAttribute('data-tooltip', isDe() ? 'Kopieren nicht möglich' : 'Copy failed'); }
+      try {
+        const link = `${location.origin}/invite?roomCode=${encodeURIComponent(state.roomCode)}`;
+        await navigator.clipboard.writeText(link);
+        copyBtn.setAttribute('data-tooltip', (document.documentElement.lang || 'en').startsWith('de') ? 'Link kopiert' : 'Link copied');
+      } catch {
+        copyBtn.setAttribute('data-tooltip', (document.documentElement.lang || 'en').startsWith('de') ? 'Kopieren nicht möglich' : 'Copy failed');
+      }
     });
+
+    // participation switch (pre-vote row)
+    const partToggle = $('#participationToggle');
+    if (partToggle) {
+      partToggle.addEventListener('change', (e) => {
+        const estimating = !!e.target.checked;
+        send(`participation:${estimating}`);
+      });
+    }
 
     // topic edit/save/clear
     const editBtn = $('#topicEditBtn');
@@ -432,64 +439,85 @@
     const saveBtn = $('#topicSaveBtn');
     const cancelBtn = $('#topicCancelBtn');
 
-    editBtn && editBtn.addEventListener('click', () => {
-      if (!state.isHost) return;
-      editBox.style.display = '';
-      row.style.display = 'none';
-      if (input) { input.value = state.topicLabel || ''; input.focus(); }
-    });
-    cancelBtn && cancelBtn.addEventListener('click', () => {
-      editBox.style.display = 'none';
-      row.style.display = state.topicVisible ? '' : 'none';
-    });
-    saveBtn && saveBtn.addEventListener('click', () => {
-      if (!state.isHost) return;
-      const val = input.value || '';
-      send('topicSave:' + encodeURIComponent(val));
-      editBox.style.display = 'none';
-      row.style.display = state.topicVisible ? '' : 'none';
-    });
-    clearBtn && clearBtn.addEventListener('click', () => {
-      if (!state.isHost) return;
-      send('topicClear');
-    });
+    if (editBtn && editBox && row) {
+      editBtn.addEventListener('click', () => {
+        if (!state.isHost) return;
+        editBox.style.display = '';
+        row.style.display = 'none';
+        if (input) { input.value = state.topicLabel || ''; input.focus(); }
+      });
+    }
+    if (cancelBtn && editBox) {
+      cancelBtn.addEventListener('click', () => {
+        editBox.style.display = 'none';
+        $('#topicRow').style.display = '';
+      });
+    }
+    if (saveBtn && input) {
+      saveBtn.addEventListener('click', () => {
+        if (!state.isHost) return;
+        const val = input.value || '';
+        send('topicSave:' + encodeURIComponent(val));
+        editBox.style.display = 'none';
+        $('#topicRow').style.display = '';
+      });
+    }
+    if (clearBtn) {
+      clearBtn.addEventListener('click', () => {
+        if (!state.isHost) return;
+        send('topicClear');
+      });
+    }
 
-    // MENU toggles
-    $('#menuParticipationToggle')?.addEventListener('change', (e) => {
-      const estimating = !!e.target.checked; send(`participation:${estimating}`);
-    });
-    $('#menuTopicToggle')?.addEventListener('change', (e) => {
-      const on = !!e.target.checked; send(`topicToggle:${on}`);
-    });
-    $('#menuAutoRevealToggle')?.addEventListener('change', (e) => {
-      const on = !!e.target.checked; send(`autoReveal:${on}`);
-    });
+    // --- MENU toggles (namespaced) ---
+    const mPart = $('#menuParticipationToggle');
+    if (mPart) {
+      mPart.addEventListener('change', (e) => {
+        const estimating = !!e.target.checked;
+        send(`participation:${estimating}`);
+      });
+    }
 
-    // Overlay → sequence
-    document.addEventListener('ep:sequence-change', (ev) => {
-      const id = ev?.detail?.id; if (!id || !state.isHost) return;
-      send('sequence:' + encodeURIComponent(id));
-    });
+    const mTopic = $('#menuTopicToggle');
+    if (mTopic) {
+      mTopic.addEventListener('change', (e) => {
+        const on = !!e.target.checked;
+        send(`topicToggle:${on}`);
+      });
+    }
 
-    // menu: close room
+    const mAR = $('#menuAutoRevealToggle');
+    if (mAR) {
+      mAR.addEventListener('change', (e) => {
+        const on = !!e.target.checked;
+        send(`autoReveal:${on}`);
+      });
+    }
+
+    // menu: close room event (from menu.js)
     document.addEventListener('ep:close-room', () => {
       if (!state.isHost) return;
-      const msg = isDe() ? 'Diesen Raum für alle schließen?' : 'Close this room for everyone?';
+      const de  = (document.documentElement.lang||'en').toLowerCase().startsWith('de');
+      const msg = de ? 'Diesen Raum für alle schließen?' : 'Close this room for everyone?';
       if (confirm(msg)) send('closeRoom');
     });
-
-    // best-effort leave
-    window.addEventListener('pagehide', () => { try { send('intentionalLeave'); } catch {} }, { capture: true });
-    window.addEventListener('beforeunload', () => { try { send('intentionalLeave'); } catch {} });
   }
 
   // --- utils ---
-  function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-  function isDe(){ return (document.documentElement.lang||'en').toLowerCase().startsWith('de'); }
-  function toast(text){ try{ const el=document.createElement('div'); el.className='toast'; el.textContent=String(text||''); document.body.appendChild(el); setTimeout(()=>el.remove(),3000);}catch{} }
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => (
+      { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]
+    ));
+  }
 
   // --- boot ---
-  function boot(){ wireOnce(); connectWS(); }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
-  else boot();
+  function boot() {
+    wireOnce();
+    connectWS();
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot);
+  } else {
+    boot();
+  }
 })();
