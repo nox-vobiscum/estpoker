@@ -1,7 +1,7 @@
 # Page snapshot
 
 ```yaml
-- generic [active] [ref=e1]:
+- generic [ref=e1]:
   - button "Open menu" [ref=e2] [cursor=pointer]: ☰
   - generic [ref=e3]:
     - heading "RBS' Estimation Poker" [level=1] [ref=e4]:
@@ -17,7 +17,7 @@
         - generic [ref=e14]: "Raum:"
       - definition [ref=e15]:
         - generic [ref=e16]:
-          - strong [ref=e17]: E2E-u5hqj6
+          - strong [ref=e17]: E2E-u5on8j
           - button "Link zu diesem Raum kopieren" [ref=e18]: 🔗
     - heading "Teilnehmende" [level=2] [ref=e19]
     - list [ref=e20]:
@@ -29,7 +29,7 @@
         - generic [ref=e27]: 👤
         - generic [ref=e28]: Julia
         - generic [ref=e29]:
-          - generic [ref=e30]: ⏳
+          - generic [ref=e30]: ✓
           - button "Make host" [ref=e31] [cursor=pointer]:
             - generic [ref=e32] [cursor=pointer]: 👑
             - generic [ref=e33] [cursor=pointer]: Make host
@@ -40,7 +40,7 @@
         - generic [ref=e38]: 👤
         - generic [ref=e39]: Max
         - generic [ref=e40]:
-          - generic [ref=e41]: ⏳
+          - generic [ref=e41]: ✓
           - button "Make host" [ref=e42] [cursor=pointer]:
             - generic [ref=e43] [cursor=pointer]: 👑
             - generic [ref=e44] [cursor=pointer]: Make host
@@ -60,7 +60,7 @@
         - button "100" [ref=e58] [cursor=pointer]
         - button "∞" [ref=e59] [cursor=pointer]
         - button "☕" [ref=e60] [cursor=pointer]
-      - button "Karten aufdecken" [ref=e62] [cursor=pointer]
+      - button "Karten aufdecken" [active] [ref=e62] [cursor=pointer]
   - contentinfo [ref=e63]:
     - generic [ref=e64]:
       - text: Crafted with 🩶 by

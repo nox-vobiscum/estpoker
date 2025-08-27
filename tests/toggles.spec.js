@@ -1,26 +1,25 @@
 // Minimal E2E for Menu → Room toggle event contracts (CommonJS, runtime recorder)
 // Env:
-//   EP_ROOM_URL  = full URL to a room page (overrides base)
-//   EP_BASE_URL  = base URL like http://localhost:8080  (default)
-// Default when EP_ROOM_URL not set:
+//   EP_ROOM_URL  = full room URL (overrides base)
+//   EP_BASE_URL  = base like http://localhost:8080 (default if EP_ROOM_URL is not set)
+// Default when EP_ROOM_URL is not provided:
 //   <EP_BASE_URL>/room?participantName=E2E&roomCode=E2E-0001
 
 const { test, expect } = require('@playwright/test');
 
 function resolveRoomUrl() {
   const base = process.env.EP_BASE_URL || 'http://localhost:8080';
-  const room = process.env.EP_ROOM_URL || `${base}/room?participantName=E2E&roomCode=E2E-0001`;
+  const room = process.env.EP_ROOM_URL || `${base.replace(/\/$/, '')}/room?participantName=E2E&roomCode=E2E-0001`;
   return room;
 }
 
+// Attach event listeners inside the already-loaded document
 async function attachEventRecorder(page) {
-  // Attach listeners in the already-loaded document context
   await page.evaluate(() => {
     window.__epE2EEvents = [];
     const capture = (name) => {
       document.addEventListener(name, (ev) => {
         try {
-          // store shallow-clone to avoid structured-clone errors
           const detail = ev && ev.detail ? { ...ev.detail } : null;
           window.__epE2EEvents.push({ name, detail });
         } catch {
@@ -32,6 +31,7 @@ async function attachEventRecorder(page) {
   });
 }
 
+// Wait until a specific custom event is recorded and return it
 async function waitForCaptured(page, name) {
   await page.waitForFunction((evName) => {
     return Array.isArray(window.__epE2EEvents) &&
@@ -57,14 +57,14 @@ test.describe('Menu → Room toggle event contracts', () => {
   test('auto-reveal / topic / participation dispatch correct CustomEvents', async ({ page }) => {
     await page.goto(resolveRoomUrl(), { waitUntil: 'domcontentloaded' });
 
-    // Recorder MUST be attached before we click anything
+    // Recorder MUST be attached before interacting with the UI
     await attachEventRecorder(page);
 
-    // Open menu overlay
+    // Open the menu overlay
     await page.locator('#menuButton').click();
     await expect(page.locator('#appMenuOverlay')).toBeVisible();
 
-    // Helper: robust toggle for checkbox-like control
+    // Robust toggle helper for checkbox-like controls
     async function toggle(selector) {
       const el = page.locator(selector);
       await expect(el, `Missing element ${selector}`).toHaveCount(1);
@@ -74,7 +74,7 @@ test.describe('Menu → Room toggle event contracts', () => {
       await page.waitForTimeout(80);
       const after = await el.isChecked().catch(() => before);
       if (before !== undefined && after === before) {
-        // Retry once if custom UI swallowed the first click
+        // Retry once if a custom UI ate the first click
         await el.click({ force: true });
         await page.waitForTimeout(80);
       }
