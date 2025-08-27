@@ -1,0 +1,71 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - button "Open menu" [ref=e2] [cursor=pointer]: ☰
+  - generic [ref=e3]:
+    - heading "RBS' Estimation Poker" [level=1] [ref=e4]:
+      - generic [ref=e5]: RBS' Estimation Poker
+    - generic [ref=e6]:
+      - term [ref=e7]:
+        - generic [ref=e8]: 👤
+        - generic [ref=e9]: "Du bist:"
+      - definition [ref=e10]:
+        - strong [ref=e11]: Roland
+      - term [ref=e12]:
+        - generic [ref=e13]: 🆔
+        - generic [ref=e14]: "Raum:"
+      - definition [ref=e15]:
+        - generic [ref=e16]:
+          - strong [ref=e17]: E2E-u5hqj6
+          - button "Link zu diesem Raum kopieren" [ref=e18]: 🔗
+    - heading "Teilnehmende" [level=2] [ref=e19]
+    - list [ref=e20]:
+      - listitem [ref=e21]:
+        - generic [ref=e22]: 👑
+        - generic [ref=e23]: Roland
+        - generic [ref=e25]: ⏳
+      - listitem [ref=e26]:
+        - generic [ref=e27]: 👤
+        - generic [ref=e28]: Julia
+        - generic [ref=e29]:
+          - generic [ref=e30]: ⏳
+          - button "Make host" [ref=e31] [cursor=pointer]:
+            - generic [ref=e32] [cursor=pointer]: 👑
+            - generic [ref=e33] [cursor=pointer]: Make host
+          - button "Kick" [ref=e34] [cursor=pointer]:
+            - generic [ref=e35] [cursor=pointer]: ❌
+            - generic [ref=e36] [cursor=pointer]: Kick
+      - listitem [ref=e37]:
+        - generic [ref=e38]: 👤
+        - generic [ref=e39]: Max
+        - generic [ref=e40]:
+          - generic [ref=e41]: ⏳
+          - button "Make host" [ref=e42] [cursor=pointer]:
+            - generic [ref=e43] [cursor=pointer]: 👑
+            - generic [ref=e44] [cursor=pointer]: Make host
+          - button "Kick" [ref=e45] [cursor=pointer]:
+            - generic [ref=e46] [cursor=pointer]: ❌
+            - generic [ref=e47] [cursor=pointer]: Kick
+    - generic [ref=e48]:
+      - generic [ref=e49]:
+        - button "1" [ref=e50] [cursor=pointer]
+        - button "2" [ref=e51] [cursor=pointer]
+        - button "3" [ref=e52] [cursor=pointer]
+        - button "5" [ref=e53] [cursor=pointer]
+        - button "8" [ref=e54] [cursor=pointer]
+        - button "13" [ref=e55] [cursor=pointer]
+        - button "20" [ref=e56] [cursor=pointer]
+        - button "40" [ref=e57] [cursor=pointer]
+        - button "100" [ref=e58] [cursor=pointer]
+        - button "∞" [ref=e59] [cursor=pointer]
+        - button "☕" [ref=e60] [cursor=pointer]
+      - button "Karten aufdecken" [ref=e62] [cursor=pointer]
+  - contentinfo [ref=e63]:
+    - generic [ref=e64]:
+      - text: Crafted with 🩶 by
+      - link "Roland B. SEPER" [ref=e65] [cursor=pointer]:
+        - /url: https://rolandseper.at
+      - text: ©
+      - generic [ref=e66]: "2025"
+```

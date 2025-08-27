@@ -2,7 +2,8 @@
 // Env:
 //   EP_BASE_URL  (e.g. http://localhost:8080 or https://ep.noxvobiscum.at)
 //   EP_ROOM_URL  (optional full URL; if set, we append &participantName=... per user)
-// Usage:
+//
+// Run:
 //   npx playwright test tests/cards-reveal.spec.js
 const { test, expect } = require('@playwright/test');
 
@@ -15,7 +16,6 @@ function newRoomCode() {
 function roomUrlFor(name, roomCode) {
   const full = process.env.EP_ROOM_URL;
   if (full) {
-    // If a full room URL is provided, we just append/replace participantName
     const u = new URL(full);
     u.searchParams.set('participantName', name);
     u.searchParams.set('roomCode', roomCode);
@@ -31,20 +31,37 @@ async function waitVisible(page, selector) {
   await expect(page.locator(selector)).toBeVisible();
 }
 
+// Click a card by its label exactly ("3" must not match "13")
+async function clickCardExact(page, label) {
+  // Try by accessible name (exact)
+  const byRole = page.getByRole('button', { name: label, exact: true });
+  if (await byRole.count()) {
+    await byRole.first().click();
+    return true;
+  }
+  // Fallback: strict text match
+  const byText = page.locator('button', { hasText: new RegExp(`^\\s*${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$`) });
+  if (await byText.count()) {
+    await byText.first().click();
+    return true;
+  }
+  return false;
+}
+
 test.describe('Critical path: vote → reveal → average', () => {
   test('3 participants can vote, host reveals, average is shown', async ({ browser }) => {
     const roomCode = newRoomCode();
 
-    // Create 3 isolated contexts (simulate 3 browsers)
+    // 3 isolated contexts (simulate 3 browsers)
     const ctxHost = await browser.newContext();
     const ctxJ    = await browser.newContext();
     const ctxM    = await browser.newContext();
 
-    const host = await ctxHost.newPage();
+    const host  = await ctxHost.newPage();
     const julia = await ctxJ.newPage();
     const max   = await ctxM.newPage();
 
-    // 1) Open pages (host first so they become host)
+    // 1) Open pages (host first)
     await host.goto(roomUrlFor('Roland', roomCode), { waitUntil: 'domcontentloaded' });
     await waitVisible(host, '#cardGrid');
 
@@ -54,23 +71,22 @@ test.describe('Critical path: vote → reveal → average', () => {
     await max.goto(roomUrlFor('Max', roomCode), { waitUntil: 'domcontentloaded' });
     await waitVisible(max, '#cardGrid');
 
-    // 2) Two participants choose numeric cards (assumes default deck contains 3 & 5)
-    //    Click buttons by exact text.
-    await julia.getByRole('button', { name: '3' }).click();
-    await max.getByRole('button', { name: '5' }).click();
+    // 2) Two participants choose numeric cards (expects default deck with 3 & 5)
+    const okJ = await clickCardExact(julia, '3');
+    const okM = await clickCardExact(max, '5');
+    expect(okJ, 'Card "3" not found/clickable').toBeTruthy();
+    expect(okM, 'Card "5" not found/clickable').toBeTruthy();
 
-    // 3) Host reveals (button should be visible for host)
+    // 3) Host reveals
     const revealBtn = host.locator('#revealButton');
     await expect(revealBtn).toBeVisible();
     await revealBtn.click();
 
-    // 4) After reveal, expect vote chips to be rendered and average numeric (not N/A)
-    //    Check on host page (could also check on others).
+    // 4) After reveal: chips visible, should contain 3 and 5; average numeric (not N/A)
     const chips = host.locator('.vote-chip');
     await expect(chips).toHaveCountGreaterThan(0);
 
-    // Contains at least '3' and '5' somewhere
-    const chipTexts = await chips.allTextContents();
+    const chipTexts = (await chips.allTextContents()).map(t => (t || '').trim());
     expect(chipTexts.join(' ')).toContain('3');
     expect(chipTexts.join(' ')).toContain('5');
 
@@ -78,15 +94,12 @@ test.describe('Critical path: vote → reveal → average', () => {
     await expect(avgEl).toBeVisible();
     const avgText = (await avgEl.textContent() || '').trim();
     expect(avgText).not.toBe('N/A');
-    // Should be a number (allow integers or decimals)
     expect(/^\d+([.,]\d+)?$/.test(avgText)).toBeTruthy();
 
-    // 5) Reset should now be visible for host
+    // 5) Reset visible for host
     await expect(host.locator('#resetButton')).toBeVisible();
 
     // Cleanup
-    await ctxHost.close();
-    await ctxJ.close();
-    await ctxM.close();
+    await ctxHost.close(); await ctxJ.close(); await ctxM.close();
   });
 });
