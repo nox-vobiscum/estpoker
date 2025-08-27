@@ -3,110 +3,54 @@
 <head th:replace="~{fragments/head :: head}"></head>
 <body>
 
-<!-- Global app menu (on index we hide seq/room-specific parts) -->
-<div th:replace="~{fragments/menu :: appMenu(showSeq=${false}, showAuto=${false}, showRoom=${false})}"></div>
+  <!-- App menu (index: no seq/room controls) -->
+  <div th:replace="~{fragments/menu :: appMenu(showSeq=${false}, showAuto=${false}, showRoom=${false})}"></div>
 
-<div class="container">
-  <h1 class="app-title">
-    <img src="/favicon.svg" alt="" width="24" height="24" class="logo">
-    <span th:text="#{ui.heading}">RBS' Estimation Poker</span>
-  </h1>
+  <div class="container">
+    <h1 class="app-title">
+      <img src="/favicon.svg" alt="" width="24" height="24" class="logo">
+      <span th:text="#{ui.heading}">RBS' Estimation Poker</span>
+    </h1>
 
-  <!-- Simple join form (no persistence settings here) -->
-  <form id="joinForm" class="join-form" action="/room" method="get" novalidate>
-    <div class="form-row">
-      <label for="nameInput">
-        <span class="mi-icon" aria-hidden="true">👤</span>
-        <span th:text="#{label.yourName}">Your name</span>
-      </label>
-      <input id="nameInput" name="participantName" type="text" maxlength="40"
-             autocomplete="name" required placeholder="Jane Doe">
-    </div>
+    <!-- Join form -->
+    <form id="joinForm" class="join-form" action="/room" method="get" novalidate>
+      <div class="form-row">
+        <label for="nameInput"><span class="mi-icon" aria-hidden="true">👤</span><span th:text="#{label.yourName}">Your name</span></label>
+        <input id="nameInput" name="participantName" type="text" maxlength="40" autocomplete="name" required placeholder="Jane Doe">
+      </div>
+      <div class="form-row">
+        <label for="roomInput"><span class="mi-icon" aria-hidden="true">🆔</span><span th:text="#{label.roomCode}">Room code / name</span></label>
+        <input id="roomInput" name="roomCode" type="text" maxlength="40" autocapitalize="none" spellcheck="false" required placeholder="team-alpha">
+      </div>
+      <div class="form-actions">
+        <button class="button" type="submit" th:text="#{button.join}">Join</button>
+      </div>
+    </form>
+  </div>
 
-    <div class="form-row">
-      <label for="roomInput">
-        <span class="mi-icon" aria-hidden="true">🆔</span>
-        <span th:text="#{label.roomCode}">Room code / name</span>
-      </label>
-      <input id="roomInput" name="roomCode" type="text" maxlength="40"
-             autocapitalize="none" spellcheck="false" required placeholder="team-alpha">
-    </div>
+  <!-- central scripts -->
+  <th:block th:replace="~{fragments/scripts :: scripts}"></th:block>
 
-    <div class="form-actions">
-      <button class="button" type="submit" th:text="#{button.join}">Join</button>
-    </div>
-  </form>
-</div>
+  <script>
+  (function(){
+    const form  = document.getElementById('joinForm');
+    const nameI = document.getElementById('nameInput');
+    const roomI = document.getElementById('roomInput');
+    document.addEventListener('DOMContentLoaded', () => {
+      try {
+        const n = localStorage.getItem('ep-name'); const r = localStorage.getItem('ep-room');
+        if (n && !nameI.value) nameI.value = n; if (r && !roomI.value) roomI.value = r;
+        if (!nameI.value) nameI.focus(); else if (!roomI.value) roomI.focus(); else document.querySelector('.button')?.focus();
+      } catch {}
+    });
+    form.addEventListener('submit', (e) => {
+      const n = nameI.value.trim(); const r = roomI.value.trim();
+      if (!n || !r) { e.preventDefault(); alert('Please enter your name and a room code.'); (!n ? nameI : roomI).focus(); return; }
+      try { localStorage.setItem('ep-name', n); localStorage.setItem('ep-room', r); } catch {}
+    });
+  })();
+  </script>
 
-<!-- Central scripts (menu + tooltip) -->
-<th:block th:replace="~{fragments/scripts :: scripts}"></th:block>
-
-<script>
-/* index.js (inline) — minimal join flow
- * - remember last used name/room in localStorage
- * - simple client-side validation + keyboard niceties
- */
-(function(){
-  const form  = document.getElementById('joinForm');
-  const nameI = document.getElementById('nameInput');
-  const roomI = document.getElementById('roomInput');
-
-  document.addEventListener('DOMContentLoaded', () => {
-    try {
-      const lastName = localStorage.getItem('ep-name');
-      const lastRoom = localStorage.getItem('ep-room');
-      if (lastName && !nameI.value) nameI.value = lastName;
-      if (lastRoom && !roomI.value) roomI.value = lastRoom;
-
-      if (!nameI.value) nameI.focus();
-      else if (!roomI.value) roomI.focus();
-      else document.querySelector('.button')?.focus();
-    } catch(e){}
-  });
-
-  form.addEventListener('submit', (e) => {
-    const name = nameI.value.trim();
-    const room = roomI.value.trim();
-
-    if (!name || !room) {
-      e.preventDefault();
-      showToast('Please enter your name and a room code.');
-      (!name ? nameI : roomI).focus();
-      return;
-    }
-    try {
-      localStorage.setItem('ep-name', name);
-      localStorage.setItem('ep-room', room);
-    } catch(e){}
-  });
-
-  function showToast(message) {
-    const toast = document.createElement("div");
-    toast.className = "toast";
-    toast.textContent = message;
-    document.body.appendChild(toast);
-    setTimeout(() => toast.remove(), 2400);
-  }
-})();
-</script>
-
-<!-- Inline toast CSS (kept as-is) -->
-<style>
-.toast{position:fixed;top:20px;right:20px;background-color:rgba(51,51,51,.95);color:#fff;padding:12px 20px;border-radius:10px;z-index:9999;font-size:14px;box-shadow:0 6px 16px rgba(0,0,0,.25);transform:translateY(-10px);opacity:0;animation:fadein .22s ease forwards,fadeout .4s ease 2.0s forwards}
-@keyframes fadein{to{opacity:.95;transform:translateY(0)}}
-@keyframes fadeout{to{opacity:0}}
-.join-form{max-width:540px;margin:22px 0 0}
-.form-row{display:flex;flex-direction:column;gap:6px;margin:0 0 14px}
-.form-row label{font-weight:600;display:flex;gap:8px;align-items:center}
-.form-row input{padding:10px 12px;border-radius:10px;background:var(--c-surface-2,#1f2630);color:inherit;border:1px solid rgba(255,255,255,.08)}
-.form-row input:focus{outline:none;border-color:rgba(88,151,255,.7);box-shadow:0 0 0 3px rgba(88,151,255,.2)}
-.form-actions{margin-top:8px}
-.button{padding:10px 16px;border-radius:12px;border:none;background:#2b79ff;color:#fff;font-weight:700;cursor:pointer}
-.button:hover{filter:brightness(1.05)}
-</style>
-
-<!-- Footer include (centralized) -->
-<div th:replace="~{fragments/footer :: footer}"></div>
-
+  <div th:replace="~{fragments/footer :: footer}"></div>
 </body>
 </html>

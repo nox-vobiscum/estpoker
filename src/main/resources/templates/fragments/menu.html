@@ -1,195 +1,104 @@
-<!-- templates/fragments/menu.html -->
-<!-- Reusable app menu (hamburger → overlay) -->
-<!-- Parameter:
-     - showSeq  : show card sequence picker (room context, host-only hint)
-     - showAuto : show auto-reveal toggle (room context, host-only hint)
-     - showRoom : show room-specific actions/controls
+<!-- fragments/menu.html -->
+<!-- Use with:
+     <div th:replace="~{fragments/menu :: appMenu(showSeq=${true}, showAuto=${true}, showRoom=${true})}"></div>
 -->
-<div th:fragment="appMenu (showSeq, showAuto, showRoom)"
-     th:with="showSeq=${showSeq}?:false,
-              showAuto=${showAuto}?:false,
-              showRoom=${showRoom}?:false">
+<th:block th:fragment="appMenu (showSeq, showAuto, showRoom)">
 
-  <!-- Hamburger trigger -->
-  <button id="menuButton" class="menu-button"
-          aria-expanded="false"
-          aria-controls="appMenuOverlay"
-          th:attr="aria-label=#{menu.open}"
-          data-i18n-attr="aria-label:menu.open"
-          aria-label="Open menu">☰</button>
+  <!-- Floating menu button -->
+  <button id="menuButton"
+          class="menu-button"
+          type="button"
+          aria-label="Open menu"
+          aria-haspopup="dialog"
+          aria-expanded="false">☰</button>
 
   <!-- Overlay root -->
   <div id="appMenuOverlay"
        class="menu-overlay hidden"
-       role="dialog"
-       aria-modal="true"
-       aria-labelledby="menuTitle"
-       th:attr="
-         data-tip-theme-light=${#messages.msg('title.theme.light')},
-         data-tip-theme-dark=${#messages.msg('title.theme.dark')},
-         data-tip-theme-system=${#messages.msg('title.theme.system')},
-         data-tip-lang-to=${#messages.msg('title.lang.to')}
-       ">
+       aria-hidden="true"
+       data-tipThemeLight="Theme: Light"
+       data-tipThemeDark="Theme: Dark"
+       data-tipThemeSystem="Theme: System"
+       data-tipLangTo="Switch language → {0}">
     <div class="menu-backdrop" data-close></div>
 
-    <div class="menu-panel no-horizontal-scroll">
-      <!-- Sticky header -->
-      <div class="menu-header">
-        <h3 id="menuTitle" th:text="#{menu.title}" data-i18n="menu.title">Settings</h3>
+    <div class="menu-panel" role="dialog" aria-modal="true" aria-label="Settings">
+
+      <!-- Language row -->
+      <div id="langRow" class="menu-row lang-row" tabindex="0" role="button" aria-label="Language">
+        <img class="flag-a" src="/flags/us.svg" width="20" height="14" alt="">
+        <span id="langCurrent">English</span>
+        <img class="flag-b" src="/flags/gb.svg" width="20" height="14" alt="">
       </div>
 
-      <!-- Scrollable body -->
+      <!-- Theme -->
       <div class="menu-section">
-
-        <!-- Language switch (handled in menu.js) -->
-        <button id="langRow" class="menu-item" type="button"
-                th:attr="aria-label=#{title.lang}"
-                data-i18n-attr="aria-label:title.lang">
-          <span class="mi-icon" aria-hidden="true">
-            <span class="flag-split">
-              <img class="flag flag-a" src="/flags/us.svg" alt="">
-              <img class="flag flag-b" src="/flags/gb.svg" alt="">
-            </span>
-          </span>
-          <span>
-            <span th:text="#{menu.language}" data-i18n="menu.language">Language</span>:
-            <strong id="langCurrent">English</strong>
-          </span>
-        </button>
-
-        <!-- Theme -->
-        <div class="menu-group">
-          <div class="group-title" th:text="#{menu.theme}" data-i18n="menu.theme">Theme</div>
-          <div class="menu-choice">
-            <button id="themeLight"  class="choice-btn" type="button" aria-pressed="false">
-              <span class="mi-icon" aria-hidden="true">🌞</span>
-              <span th:text="#{theme.light}" data-i18n="theme.light">Light</span>
-            </button>
-            <button id="themeDark"   class="choice-btn" type="button" aria-pressed="false">
-              <span class="mi-icon" aria-hidden="true">🌙</span>
-              <span th:text="#{theme.dark}" data-i18n="theme.dark">Dark</span>
-            </button>
-            <button id="themeSystem" class="choice-btn" type="button" aria-pressed="false">
-              <span class="mi-icon" aria-hidden="true">🖥️</span>
-              <span th:text="#{theme.system}" data-i18n="theme.system">System</span>
-            </button>
-          </div>
-        </div>
-
-        <!-- Card sequence (room context; read-only hint for non-host; events via room.js) -->
-        <div class="menu-group" th:if="${showSeq}">
-          <div class="group-title" th:text="#{menu.sequence}" data-i18n="menu.sequence">Card sequence</div>
-
-          <!-- Eigene ID, damit kein Konflikt mit In-Page #seqChoice -->
-          <div id="menuSeqChoice" class="menu-choice vertical">
-            <label class="radio-row">
-              <input type="radio" name="menu-seq" value="fib.scrum" checked>
-              <span th:text="#{sequence.fib.scrum}" data-i18n="sequence.fib.scrum">Fibonacci (Scrum)</span>
-            </label>
-            <label class="radio-row">
-              <input type="radio" name="menu-seq" value="fib.enh">
-              <span th:text="#{sequence.fib.enh}" data-i18n="sequence.fib.enh">Fibonacci (Scrum enhanced)</span>
-            </label>
-            <label class="radio-row">
-              <input type="radio" name="menu-seq" value="fib.math">
-              <span th:text="#{sequence.fib.math}" data-i18n="sequence.fib.math">Fibonacci (mathematical)</span>
-            </label>
-            <label class="radio-row">
-              <input type="radio" name="menu-seq" value="pow2">
-              <span th:text="#{sequence.pow2}" data-i18n="sequence.pow2">Powers of 2</span>
-            </label>
-            <label class="radio-row">
-              <input type="radio" name="menu-seq" value="tshirt">
-              <span th:text="#{sequence.tshirt}" data-i18n="sequence.tshirt">T-Shirt sizes</span>
-            </label>
-          </div>
-
-          <p id="menuSeqHint" class="hint"
-             th:text="#{sequence.onlyHost}"
-             data-i18n="sequence.onlyHost">
-            Only the host can change the sequence
-          </p>
-        </div>
-
-        <!-- Auto-reveal + Topic visibility (Overlay-IDs mit Prefix, damit keine Duplikate) -->
-        <div class="menu-group" th:if="${showAuto}">
-          <div class="group-title" th:text="#{menu.autoreveal}" data-i18n="menu.autoreveal">Auto-reveal</div>
-
-          <label id="menuAutoRevealRow" class="menu-item switch" for="menuAutoRevealToggle">
-            <span class="mi-icon" aria-hidden="true">⚡</span>
-            <span class="switch-text">
-              <span th:text="#{menu.autoreveal}" data-i18n="menu.autoreveal">Auto-reveal</span>:
-              <strong id="menuArStatus">Off</strong>
-            </span>
-            <input id="menuAutoRevealToggle"
-                   class="switch-control"
-                   type="checkbox"
-                   role="switch"
-                   aria-checked="false">
-          </label>
-          <p id="menuArHint" class="hint"
-             th:text="#{autoreveal.onlyHost}"
-             data-i18n="autoreveal.onlyHost">
-            Only the host can change this setting
-          </p>
-
-          <label id="menuTopicToggleRow" class="menu-item switch" for="menuTopicToggle">
-            <span class="mi-icon" aria-hidden="true">📝</span>
-            <span class="switch-text">
-              <strong th:text="#{label.topic}" data-i18n="label.topic">Ticket/Story</strong>:
-              <span id="menuTopicStatus">Off</span>
-            </span>
-            <input id="menuTopicToggle"
-                   class="switch-control"
-                   type="checkbox"
-                   role="switch"
-                   aria-checked="false">
-          </label>
-          <p id="menuTopicToggleHint" class="hint" style="display:none;"
-             th:text="#{autoreveal.onlyHost}"
-             data-i18n="autoreveal.onlyHost">
-            Only the host can change this setting
-          </p>
-        </div>
-
-        <!-- Participation (Overlay only) -->
-        <div class="menu-group" th:if="${showRoom}">
-          <div class="group-title" th:text="#{menu.participation}" data-i18n="menu.participation">Participation</div>
-
-          <label id="menuParticipationRow" class="menu-item switch" for="menuParticipationToggle">
-            <span class="mi-icon" aria-hidden="true">🧑‍🤝‍🧑</span>
-            <span class="switch-text">
-              <span th:text="#{menu.participation}" data-i18n="menu.participation">Participation</span>:
-              <strong id="menuPartStatus" data-i18n="participation.imIn">I'm estimating</strong>
-            </span>
-            <input id="menuParticipationToggle"
-                   class="switch-control"
-                   type="checkbox"
-                   role="switch"
-                   aria-checked="true">
-          </label>
-        </div>
-
-        <!-- Room actions -->
-        <div class="menu-group" th:if="${showRoom}">
-          <div class="group-title" th:text="#{menu.room}" data-i18n="menu.room">Room</div>
-
-          <button id="closeRoomBtn" class="menu-item danger" type="button"
-                  data-i18n-attr="aria-label:room.close">
-            <span class="mi-icon" aria-hidden="true">❌</span>
-            <span th:text="#{room.close}" data-i18n="room.close">Close room for everyone</span>
-          </button>
-
-          <p id="closeHint" class="hint" style="display:none;"
-             th:text="#{room.close.hint}"
-             data-i18n="room.close.hint">
-            Closes this room for all participants and returns to the start page.
-          </p>
+        <div class="section-title" data-i18n="menu.theme">Theme</div>
+        <div class="btn-row">
+          <button id="themeLight"  type="button" class="pill" aria-pressed="false">🌞 <span data-i18n="theme.light">Light</span></button>
+          <button id="themeDark"   type="button" class="pill" aria-pressed="false">🌙 <span data-i18n="theme.dark">Dark</span></button>
+          <button id="themeSystem" type="button" class="pill" aria-pressed="false">🖥️ <span data-i18n="theme.system">System</span></button>
         </div>
       </div>
+
+      <!-- Card sequence (visible by default) -->
+      <div class="menu-section" th:if="${showSeq ?: true}">
+        <div class="section-title" data-i18n="menu.sequence">Card sequence</div>
+        <fieldset id="menuSeqChoice" class="radio-list">
+          <label class="radio-item"><input type="radio" name="menu-seq" value="fib.scrum" checked><span>Fibonacci (Scrum)</span></label>
+          <label class="radio-item"><input type="radio" name="menu-seq" value="fib.enh"><span>Fibonacci (Scrum enhanced)</span></label>
+          <label class="radio-item"><input type="radio" name="menu-seq" value="fib.math"><span>Fibonacci (mathematical)</span></label>
+          <label class="radio-item"><input type="radio" name="menu-seq" value="pow2"><span>Powers of 2</span></label>
+          <label class="radio-item"><input type="radio" name="menu-seq" value="tshirt"><span>T-Shirt sizes</span></label>
+        </fieldset>
+      </div>
+
+      <!-- Auto-reveal (visible by default) -->
+      <div class="menu-section" th:if="${showAuto ?: true}">
+        <div class="section-title">Auto-reveal</div>
+        <div class="switch-row">
+          <label class="switch">
+            <input id="menuAutoRevealToggle" type="checkbox" role="switch" aria-checked="false">
+            <span class="slider"></span>
+          </label>
+          <span id="menuArStatus">Off</span>
+        </div>
+      </div>
+
+      <!-- Ticket/Story toggle -->
+      <div class="menu-section">
+        <div class="section-title">Ticket/Story</div>
+        <div class="switch-row">
+          <label class="switch">
+            <input id="menuTopicToggle" type="checkbox" role="switch" aria-checked="false">
+            <span class="slider"></span>
+          </label>
+          <span id="menuTopicStatus">Off</span>
+        </div>
+      </div>
+
+      <!-- Personal settings -->
+      <div class="menu-section">
+        <div class="section-title">Participation</div>
+        <div class="switch-row">
+          <label class="switch">
+            <input id="menuParticipationToggle" type="checkbox" role="switch" aria-checked="true" checked>
+            <span class="slider"></span>
+          </label>
+          <span id="menuPartStatus">I'm estimating</span>
+        </div>
+      </div>
+
+      <!-- Room actions (visible by default) -->
+      <div class="menu-section" th:if="${showRoom ?: true}">
+        <button id="closeRoomBtn" type="button" class="button danger" data-i18n="button.closeRoom">
+          Close room for everyone
+        </button>
+      </div>
+
     </div>
   </div>
 
-  <!-- menu behavior script (loaded by the fragment to avoid double-binding elsewhere) -->
-  <script defer th:src="@{/js/menu.js}"></script>
-</div>
+  <!-- Main wiring (defer) -->
+  <script defer src="/js/menu.js?v=16"></script>
+</th:block>

@@ -831,3 +831,70 @@ body{ padding-bottom: 68px; }
 
 /* Ensure no horizontal scroll in panels */
 .no-horizontal-scroll { overflow-x: hidden !important; }
+
+/* === Menu compat layer (match current fragment markup) ================== */
+/* Buttons: .pill  (alias für .choice-btn) */
+.menu-section .btn-row { display:flex; flex-wrap:wrap; gap:8px; }
+.pill{
+  display:flex; align-items:center; gap:8px; justify-content:center;
+  padding:10px 12px; height:34px;
+  border-radius:10px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  cursor:pointer; font-size:.9rem; color: var(--text);
+  transition: background 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+}
+.pill:hover{ background: var(--panel-2-hover); border-color: var(--accent); box-shadow: 0 0 0 2px rgba(0,122,204,.12); }
+.pill.active, .pill[aria-pressed="true"]{
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(0,122,204,.20);
+}
+
+/* Sequence: .radio-list > label.radio-item  (alias für .radio-row) */
+.radio-list{ display:flex; flex-direction:column; gap:6px; }
+.radio-list .radio-item{
+  display:flex; align-items:center; gap:10px;
+  padding:8px 10px; min-height:36px;
+  border-radius:10px; background: var(--panel-2); border:1px solid var(--border);
+  user-select:none; transition: background 180ms, border-color 180ms, box-shadow 180ms;
+  font-size:.9rem; white-space:nowrap; overflow:hidden;
+}
+.radio-list .radio-item input[type="radio"]{ width:16px; height:16px; accent-color: var(--accent); margin:0; flex:0 0 auto; }
+.radio-list .radio-item span{ min-width:0; overflow:hidden; text-overflow:ellipsis; }
+.radio-list .radio-item:hover{ background: var(--panel-2-hover); border-color: var(--accent); box-shadow: 0 0 0 2px rgba(0,122,204,.12); }
+.radio-list .radio-item:has(input[type="radio"]:checked){
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(0,122,204,.20);
+  background: color-mix(in srgb, var(--panel-2) 84%, var(--accent) 16%);
+}
+
+/* Switches: .switch-row + .switch/.slider  (alias für .switch-control) */
+.switch-row{ display:flex; align-items:center; gap:10px; }
+.switch{ position:relative; width:42px; height:24px; display:inline-block; }
+.switch input{ opacity:0; width:0; height:0; }
+.slider{
+  position:absolute; inset:0;
+  background: var(--panel-2); border:1px solid var(--border);
+  border-radius:999px; cursor:pointer;
+  transition: background 160ms, border-color 160ms, box-shadow 160ms;
+}
+.slider::before{
+  content:""; position:absolute; top:2px; left:2px;
+  width:18px; height:18px; border-radius:50%; background:#fff;
+  box-shadow:0 1px 2px rgba(0,0,0,.35); transition: transform 160ms ease;
+}
+.switch input:checked + .slider{
+  background: var(--accent); border-color: var(--accent-strong);
+  box-shadow: 0 0 0 2px rgba(0,122,204,.20);
+}
+.switch input:checked + .slider::before{ transform: translateX(18px); }
+
+/* Language row quick style */
+#langRow{
+  display:flex; align-items:center; gap:10px; padding:8px 10px;
+  border:1px solid var(--border); border-radius:10px;
+  background: var(--panel-2); cursor:pointer;
+  transition: background 180ms, border-color 180ms, box-shadow 180ms;
+}
+#langRow:hover{ background: var(--panel-2-hover); border-color: var(--accent); box-shadow: 0 0 0 2px rgba(0,122,204,.12); }
+#langRow .flag-a, #langRow .flag-b{ border-radius:3px; border:1px solid var(--border); }
