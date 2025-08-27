@@ -23,7 +23,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
+      - run: node -v && npm -v
       - run: npm i
       - run: npm run check
 
@@ -31,7 +31,7 @@ jobs:
     needs: guardrails
     runs-on: ubuntu-latest
     env:
-      # Nur Secrets hier referenzieren (linter-safe). Können leer sein.
+      # linter-sicher: nur Secrets hier referenzieren
       EP_BASE_URL: ${{ secrets.EP_BASE_URL || '' }}
       EP_ROOM_URL: ${{ secrets.EP_ROOM_URL || '' }}
     steps:
@@ -39,29 +39,34 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
+      - run: node -v && npm -v
 
-      # Playwright installieren
-      - run: npm i -D @playwright/test
-      - run: npx playwright install --with-deps
-
-      # Optional: workflow_dispatch-Inputs auf ENV mappen (überschreiben Secrets, wenn gesetzt)
+      # Inputs aus workflow_dispatch (falls gesetzt) höher priorisieren als Secrets
       - name: Resolve workflow inputs → env
         if: ${{ github.event_name == 'workflow_dispatch' }}
         run: |
           if [ -n "${{ inputs.base_url }}" ]; then echo "EP_BASE_URL=${{ inputs.base_url }}" >> $GITHUB_ENV; fi
           if [ -n "${{ inputs.room_url }}" ]; then echo "EP_ROOM_URL=${{ inputs.room_url }}" >> $GITHUB_ENV; fi
-          echo "Resolved EP_BASE_URL=$EP_BASE_URL"
-          echo "Resolved EP_ROOM_URL=$EP_ROOM_URL"
 
-      # Skip, wenn weder Base- noch Room-URL vorhanden
+      # Skip, wenn keine Ziel-URL vorhanden
       - name: Skip E2E (no URL provided)
         if: ${{ env.EP_BASE_URL == '' && env.EP_ROOM_URL == '' }}
         run: |
           echo "No EP_BASE_URL / EP_ROOM_URL provided. Skipping E2E."
           echo "→ Set a repo secret EP_BASE_URL or EP_ROOM_URL, or pass inputs via workflow_dispatch."
 
-      # Tests laufen lassen (mindestens eine URL vorhanden)
+      # Playwright (Runner + Browser) ohne lokale Abhängigkeiten ausführen
+      - name: Install Playwright browsers
+        if: ${{ env.EP_BASE_URL != '' || env.EP_ROOM_URL != '' }}
+        run: npx -y @playwright/test@latest install --with-deps
+
+      - name: Sanity check (runner available)
+        if: ${{ env.EP_BASE_URL != '' || env.EP_ROOM_URL != '' }}
+        run: npx -y @playwright/test@latest --version
+
       - name: Run Playwright E2E
         if: ${{ env.EP_BASE_URL != '' || env.EP_ROOM_URL != '' }}
-        run: npx playwright test tests/toggles.spec.js --reporter=line
+        env:
+          EP_BASE_URL: ${{ env.EP_BASE_URL }}
+          EP_ROOM_URL: ${{ env.EP_ROOM_URL }}
+        run: npx -y @playwright/test@latest test tests/toggles.spec.js --reporter=line
