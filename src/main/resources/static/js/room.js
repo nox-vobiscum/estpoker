@@ -1,4 +1,4 @@
-/* room.js v19 — two-row card grid with specials; ∞ shown like a number (stats-excluded) */
+/* room.js v22 — two-row card grid with specials; ∞ shown like a number (stats-excluded) */
 (() => {
   'use strict';
   const TAG = '[ROOM]';
@@ -28,6 +28,7 @@
     participants: [],
     averageVote: null,
 
+    sequenceId: null,       // <- keep last from server
     topicVisible: true,
     topicLabel: '',
     topicUrl: null,
@@ -146,6 +147,7 @@
         state.topicUrl     = m.topicUrl || null;
 
         state.autoRevealEnabled = !!m.autoRevealEnabled;
+        state.sequenceId = m.sequenceId || state.sequenceId;
 
         const me = state.participants.find(p => p && p.name === state.youName);
         state.isHost = !!(me && me.isHost);
@@ -156,6 +158,7 @@
         renderTopic();
         renderAutoReveal();
         syncMenuFromState();
+        syncSequenceInMenu();           // <- keep overlay radios in sync
 
         break;
       }
@@ -310,13 +313,6 @@
     const resetBtn  = $('#resetButton');
     if (revealBtn) revealBtn.style.display = (!state.votesRevealed && state.isHost) ? '' : 'none';
     if (resetBtn)  resetBtn.style.display  = ( state.votesRevealed && state.isHost) ? '' : 'none';
-
-    const partStatus = $('#partStatus');
-    if (partStatus && me) {
-      partStatus.textContent = !isObserver
-        ? (document.documentElement.lang === 'de' ? 'Ich schätze mit' : "I'm estimating")
-        : (document.documentElement.lang === 'de' ? 'Beobachter:in' : 'Observer');
-    }
   }
 
   function renderResultBar(m) {
@@ -410,7 +406,7 @@
     }
     if (mSt) mSt.textContent = state.topicVisible ? (isDe ? 'An' : 'On') : (isDe ? 'Aus' : 'Off');
 
-    // Participation
+    // Participation (observer)
     const me = state.participants.find(p => p.name === state.youName);
     const isObserver = !!(me && me.observer);
     const mPTgl = $('#menuParticipationToggle');
@@ -427,6 +423,28 @@
     if (mARTgl) {
       mARTgl.checked = !!state.autoRevealEnabled;
       mARTgl.setAttribute('aria-checked', String(!!state.autoRevealEnabled));
+    }
+  }
+
+  // Keep sequence radio state and disabled flag in sync with server/host
+  function syncSequenceInMenu() {
+    const root = $('#menuSeqChoice');
+    if (!root) return;
+
+    // disable radios for non-hosts
+    root.querySelectorAll('input[type="radio"][name="menu-seq"]').forEach(r => {
+      r.disabled = !state.isHost;
+      if (r.disabled) r.closest('label')?.classList.add('disabled');
+      else r.closest('label')?.classList.remove('disabled');
+    });
+
+    const id = state.sequenceId || '';
+    // support dot & dash variants
+    const sel = root.querySelector(`input[type="radio"][name="menu-seq"][value="${CSS.escape(id)}"]`)
+             || root.querySelector(`input[type="radio"][name="menu-seq"][value="${CSS.escape(id.replace('.', '-'))}"]`);
+    if (sel) {
+      sel.checked = true;
+      sel.setAttribute('aria-checked','true');
     }
   }
 
@@ -452,7 +470,7 @@
       }
     });
 
-    // participation switch (in content area) — still wired; overlay uses the same message
+    // participation switch (legacy content area) — overlay uses the same message
     const partToggle = $('#participationToggle');
     if (partToggle) {
       partToggle.addEventListener('change', (e) => {
@@ -500,7 +518,7 @@
       });
     }
 
-    // auto-reveal toggle (pre-vote row; same msg used by menu toggle)
+    // auto-reveal toggle (legacy pre-vote row; same msg used by menu toggle)
     const arToggle = $('#autoRevealToggle');
     if (arToggle) {
       arToggle.addEventListener('change', (e) => {
@@ -515,6 +533,19 @@
       const de  = (document.documentElement.lang||'en').toLowerCase().startsWith('de');
       const msg = de ? 'Diesen Raum für alle schließen?' : 'Close this room for everyone?';
       if (confirm(msg)) send('closeRoom');
+    });
+
+    // menu: sequence change event → WS roundtrip (host only)
+    document.addEventListener('ep:sequence-change', (ev) => {
+      const id = ev?.detail?.id;
+      if (!id) return;
+      if (!state.isHost) return; // guard: only host is allowed to change sequence
+      send('sequence:' + encodeURIComponent(id));
+    });
+
+    // best-effort short-grace leave on refresh/navigation
+    window.addEventListener('beforeunload', () => {
+      try { send('intentionalLeave'); } catch {}
     });
   }
 
