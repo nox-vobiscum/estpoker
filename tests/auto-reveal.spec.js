@@ -39,6 +39,15 @@ async function ensureMenuOpen(page) {
   }
 }
 
+async function ensureMenuClosed(page) {
+  const overlay = page.locator('#appMenuOverlay');
+  if (await overlay.isVisible().catch(()=>false)) {
+    // Prefer the explicit close button to avoid clicking the backdrop in front of the grid
+    await page.locator('#menuButton').click();
+    await expect(overlay).toBeHidden();
+  }
+}
+
 async function ensureChecked(page, selector) {
   const el = page.locator(selector);
   await expect(el, `Missing element ${selector}`).toHaveCount(1);
@@ -87,6 +96,9 @@ test.describe('Auto-Reveal: all votes → auto reveal', () => {
     await ensureMenuOpen(host);
     await ensureChecked(host, '#menuAutoRevealToggle');
 
+    // IMPORTANT: close the overlay before clicking cards (backdrop intercepts pointer events)
+    await ensureMenuClosed(host);
+
     // All three cast a vote (default Fibonacci deck assumed: 3, 5, 8)
     const okJ = await clickCardExact(julia, '3');
     const okM = await clickCardExact(max, '5');
@@ -95,7 +107,7 @@ test.describe('Auto-Reveal: all votes → auto reveal', () => {
     expect(okM, 'Card "5" not found/clickable').toBeTruthy();
     expect(okH, 'Card "8" not found/clickable').toBeTruthy();
 
-    // Expect: without any host click, reveal state is reached (reset button visible),
+    // Expect: Without any host click, reveal state is reached (reset button visible),
     // and average is visible and numeric (not "N/A")
     await expect(host.locator('#resetButton')).toBeVisible();
 

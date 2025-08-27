@@ -72,21 +72,25 @@ test.describe('Critical path: vote → reveal → average', () => {
     await max.goto(roomUrlFor('Max', roomCode), { waitUntil: 'domcontentloaded' });
     await waitVisible(max, '#cardGrid');
 
-    // 2) Two participants choose numeric cards (assumes default deck includes 3 & 5)
+    // 2) All three cast votes to make the round deterministic before reveal
     const okJ = await clickCardExact(julia, '3');
-    const okM = await clickCardExact(max, '5');
+    const okM = await clickCardExact(max,   '5');
+    const okH = await clickCardExact(host,  '8');
     expect(okJ, 'Card "3" not found/clickable').toBeTruthy();
     expect(okM, 'Card "5" not found/clickable').toBeTruthy();
+    expect(okH, 'Card "8" not found/clickable').toBeTruthy();
 
     // 3) Host reveals
     const revealBtn = host.locator('#revealButton');
     await expect(revealBtn).toBeVisible();
     await revealBtn.click();
 
+    // Wait explicitly for "revealed" state from server (reset button appears)
+    await expect(host.locator('#resetButton')).toBeVisible();
+
     // 4) After reveal: chips visible, should include 3 and 5; average is numeric (not "N/A")
     const chips = host.locator('.vote-chip');
-    const chipCount = await chips.count();
-    expect(chipCount).toBeGreaterThan(0);
+    await expect(chips).toHaveCountGreaterThan(0);
 
     const chipTexts = (await chips.allTextContents()).map(t => (t || '').trim());
     expect(chipTexts.join(' ')).toContain('3');
@@ -97,9 +101,6 @@ test.describe('Critical path: vote → reveal → average', () => {
     const avgText = (await avgEl.textContent() || '').trim();
     expect(avgText).not.toBe('N/A');
     expect(/^\d+([.,]\d+)?$/.test(avgText)).toBeTruthy();
-
-    // 5) Reset must be visible for the host
-    await expect(host.locator('#resetButton')).toBeVisible();
 
     // Cleanup
     await ctxHost.close(); await ctxJ.close(); await ctxM.close();
