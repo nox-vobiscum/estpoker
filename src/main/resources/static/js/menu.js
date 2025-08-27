@@ -1,21 +1,25 @@
-// /static/js/menu.js — central menu + theme + language + i18n runtime + sequence dispatch
+// /static/js/menu.js  (v12)
+// central menu + theme + language + i18n runtime + sequence + toggle dispatch
 (function () {
-  // Avoid double-binding if script is injected more than once.
   if (window.__epMenuInit) return;
   window.__epMenuInit = true;
 
   const doc = document;
-  let btn, overlay, panel, backdrop;
+  const DEBUG = (function () {
+    try {
+      return localStorage.getItem('ep.debug') === '1' || location.search.includes('ep.debug=1');
+    } catch { return false; }
+  })();
 
-  /* ---------------- lightweight i18n runtime ---------------- */
+  // ---------------- i18n runtime ----------------
   window.__epI18n = window.__epI18n || (function () {
     const cache = new Map();
     let lang = (document.documentElement.lang || "en").toLowerCase();
     let catalog = null;
 
-    function norm(l){ return (l || "en").toLowerCase().split("-")[0]; }
+    const norm = l => (String(l || "en").toLowerCase().split("-")[0]);
 
-    async function load(nextLang){
+    async function load(nextLang) {
       const target = norm(nextLang);
       if (catalog && lang === target) return catalog;
       if (cache.has(target)) { lang = target; catalog = cache.get(target); return catalog; }
@@ -23,7 +27,6 @@
       const json = await res.json();
       cache.set(target, json);
       lang = target; catalog = json;
-      // also set session locale (ignore redirect)
       try { fetch(`/i18n?lang=${encodeURIComponent(target)}`, { credentials: "same-origin", redirect: "manual" }); } catch {}
       return catalog;
     }
@@ -51,19 +54,18 @@
       try { document.dispatchEvent(new CustomEvent("ep:lang-changed", { detail: { lang, catalog } })); } catch {}
     }
 
-    return { load, apply, t, get lang(){ return lang; }, get catalog(){ return catalog; } };
+    return { load, apply, t,
+      get lang(){ return lang; },
+      get catalog(){ return catalog; }
+    };
   })();
 
-  /* ---------------- tooltip helper ---------------- */
-  function setNiceTooltip(el, text){
-    if (!el) return;
-    if (text) el.setAttribute("data-tooltip", text);
-    else el.removeAttribute("data-tooltip");
-    el.removeAttribute("title");
-  }
+  // ---------------- helpers ----------------
+  const isDe = () => (window.__epI18n?.lang || document.documentElement.lang || "en").toLowerCase().startsWith("de");
+  function setNiceTooltip(el, text){ if (!el) return; if (text) el.setAttribute("data-tooltip", text); else el.removeAttribute("data-tooltip"); el.removeAttribute("title"); }
 
-  /* ---------------- menu open/close + focus trap ---------------- */
-  let lastFocus = null;
+  // ---------------- menu open/close ----------------
+  let btn, overlay, panel, backdrop, lastFocus = null;
 
   function focusables(){
     return panel?.querySelectorAll('button,[href],input,select,textarea,[tabindex]:not([tabindex="-1"])') || [];
@@ -75,13 +77,12 @@
     if (e.shiftKey && document.activeElement === first) { last.focus(); e.preventDefault(); }
     else if (!e.shiftKey && document.activeElement === last) { first.focus(); e.preventDefault(); }
   }
-  function isOpen(){ return overlay && !overlay.classList.contains("hidden"); }
-
   function openMenu(){
     if (!overlay || !btn) return;
     document.body.classList.add("menu-open");
     window.__epTooltipHide && window.__epTooltipHide();
     overlay.classList.remove("hidden");
+    overlay.setAttribute("aria-hidden","false");
     btn.classList.add("open");
     btn.setAttribute("aria-expanded","true");
     btn.setAttribute("aria-label","Close menu");
@@ -95,6 +96,7 @@
     document.body.classList.remove("menu-open");
     window.__epTooltipHide && window.__epTooltipHide();
     overlay.classList.add("hidden");
+    overlay.setAttribute("aria-hidden","true");
     btn.classList.remove("open");
     btn.setAttribute("aria-expanded","false");
     btn.setAttribute("aria-label","Open menu");
@@ -102,9 +104,9 @@
     window.removeEventListener("keydown", trapTab);
     lastFocus?.focus();
   }
-  function toggleMenu(){ isOpen() ? closeMenu() : openMenu(); }
+  function toggleMenu(){ overlay && (overlay.classList.contains("hidden") ? openMenu() : closeMenu()); }
 
-  /* ---------------- theme ---------------- */
+  // ---------------- theme ----------------
   let bLight, bDark, bSystem;
   function applyTheme(t){
     if (t === "system") document.documentElement.removeAttribute("data-theme");
@@ -116,17 +118,16 @@
     ({light:bLight, dark:bDark, system:bSystem}[t||"dark"])?.setAttribute("aria-pressed","true");
   }
 
-  /* ---------------- language switch ---------------- */
+  // ---------------- language switch ----------------
   let langRow, langLbl, flagA, flagB;
-  const isDe = l => String(l||"").toLowerCase().startsWith("de");
-  const labelFor = l => isDe(l) ? "Deutsch" : "English";
   function setSplit(l){
     if (!flagA || !flagB) return;
-    if (isDe(l)) { flagA.src="/flags/de.svg"; flagB.src="/flags/at.svg"; if (langLbl) langLbl.textContent="Deutsch"; }
-    else { flagA.src="/flags/us.svg"; flagB.src="/flags/gb.svg"; if (langLbl) langLbl.textContent="English"; }
+    if (String(l).toLowerCase().startsWith("de")) {
+      flagA.src="/flags/de.svg"; flagB.src="/flags/at.svg"; if (langLbl) langLbl.textContent = "Deutsch";
+    } else {
+      flagA.src="/flags/us.svg"; flagB.src="/flags/gb.svg"; if (langLbl) langLbl.textContent = "English";
+    }
   }
-  function nextLang(cur){ return isDe(cur) ? "en" : "de"; }
-
   async function switchLangDynamic(to){
     try{
       await window.__epI18n.load(to);
@@ -135,28 +136,17 @@
       const tipLight  = window.__epI18n.t("title.theme.light",  overlay?.dataset.tipThemeLight  || "Theme: Light");
       const tipDark   = window.__epI18n.t("title.theme.dark",   overlay?.dataset.tipThemeDark   || "Theme: Dark");
       const tipSystem = window.__epI18n.t("title.theme.system", overlay?.dataset.tipThemeSystem || "Theme: System");
-      setNiceTooltip(bLight, tipLight);
-      setNiceTooltip(bDark,  tipDark);
-      setNiceTooltip(bSystem, tipSystem);
-      const toLabel = labelFor(to);
+      setNiceTooltip(bLight, tipLight); setNiceTooltip(bDark, tipDark); setNiceTooltip(bSystem, tipSystem);
+
+      const toLabel = String(to).toLowerCase().startsWith("de") ? "Deutsch" : "English";
       const tpl = window.__epI18n.t("title.lang.to", overlay?.dataset.tipLangTo || "Switch language → {0}");
       setNiceTooltip(langRow, tpl.replace("{0}", toLabel));
-    }catch {}
+    }catch(e){ console.warn("[MENU] lang switch failed", e); }
   }
 
-  function wireSequencePicker(){
-    const root = doc.getElementById("menuSeqChoice");
-    if (!root) return;
-    root.addEventListener("change", (e) => {
-      const r = e.target;
-      if (!r || r.type !== "radio" || r.name !== "menu-seq") return;
-      const id = r.value;
-      try { document.dispatchEvent(new CustomEvent("ep:sequence-change", { detail: { id } })); } catch {}
-    });
-  }
-
-  /* ---------------- one-time binder ---------------- */
+  // ---------------- one-time binder ----------------
   let bound = false;
+
   function bindMenu(){
     if (bound) return true;
 
@@ -164,32 +154,23 @@
     overlay  = doc.getElementById("appMenuOverlay");
     panel    = overlay?.querySelector(".menu-panel");
     backdrop = overlay?.querySelector("[data-close]");
-
     if (!btn || !overlay) return false;
 
-    // Bind click safely (avoid duplicates).
-    if (!btn.__epWired) {
-      btn.addEventListener("click", toggleMenu, { passive: true });
-      btn.__epWired = true;
-    }
+    if (!btn.__epWired) { btn.addEventListener("click", toggleMenu, { passive:true }); btn.__epWired = true; }
     backdrop?.addEventListener("click", closeMenu);
     window.addEventListener("keydown", (e)=>{ if (e.key === "Escape") closeMenu(); });
 
-    // Theme wiring + initial visuals
+    // Theme
     bLight  = doc.getElementById("themeLight");
     bDark   = doc.getElementById("themeDark");
     bSystem = doc.getElementById("themeSystem");
     const saved = localStorage.getItem("estpoker-theme") || "dark";
     ({light:bLight, dark:bDark, system:bSystem}[saved])?.classList.add("active");
     ({light:bLight, dark:bDark, system:bSystem}[saved])?.setAttribute("aria-pressed","true");
-
     const tipLight  = overlay?.dataset.tipThemeLight  || "Theme: Light";
     const tipDark   = overlay?.dataset.tipThemeDark   || "Theme: Dark";
     const tipSystem = overlay?.dataset.tipThemeSystem || "Theme: System";
-    setNiceTooltip(bLight,  tipLight);
-    setNiceTooltip(bDark,   tipDark);
-    setNiceTooltip(bSystem, tipSystem);
-
+    setNiceTooltip(bLight, tipLight); setNiceTooltip(bDark, tipDark); setNiceTooltip(bSystem, tipSystem);
     bLight?.addEventListener("click",  ()=>applyTheme("light"));
     bDark?.addEventListener("click",   ()=>applyTheme("dark"));
     bSystem?.addEventListener("click", ()=>applyTheme("system"));
@@ -200,22 +181,68 @@
     flagA = langRow?.querySelector(".flag-a");
     flagB = langRow?.querySelector(".flag-b");
     if (langRow) {
-      const cur = (document.documentElement.lang || "en");
-      setSplit(cur);
-      const to  = nextLang(cur);
-      const tip = (overlay?.dataset.tipLangTo || "Switch language → {0}").replace("{0}", labelFor(to));
+      setSplit(window.__epI18n?.lang || document.documentElement.lang || "en");
+      const to  = (isDe() ? "en" : "de");
+      const tip = (overlay?.dataset.tipLangTo || "Switch language → {0}").replace("{0}", to === "de" ? "Deutsch" : "English");
       setNiceTooltip(langRow, tip);
-      langRow.addEventListener("click", ()=>switchLangDynamic(nextLang(document.documentElement.lang || "en")));
+      langRow.addEventListener("click", () => {
+        const target = isDe() ? "en" : "de";
+        switchLangDynamic(target);
+      });
     }
 
-    // Sequence radios
-    wireSequencePicker();
+    // Sequence radios -> event to app
+    const seqRoot = doc.getElementById("menuSeqChoice");
+    if (seqRoot) {
+      seqRoot.addEventListener("change", (e) => {
+        const r = e.target;
+        if (!r || r.type !== "radio" || r.name !== "menu-seq") return;
+        const id = r.value;
+        if (DEBUG) console.debug('[menu] ep:sequence-change', { id });
+        try { document.dispatchEvent(new CustomEvent("ep:sequence-change", { detail: { id } })); } catch {}
+      });
+    }
 
-    // Close-room relay
+    // ----- three switches -> dispatch to app -----
+    const ar   = doc.getElementById("menuAutoRevealToggle");
+    const top  = doc.getElementById("menuTopicToggle");
+    const part = doc.getElementById("menuParticipationToggle");
+    const arLabel   = doc.getElementById("menuArStatus");
+    const topicLbl  = doc.getElementById("menuTopicStatus");
+    const partLbl   = doc.getElementById("menuPartStatus");
+
+    function onAR(e){
+      const on = !!e.target.checked;
+      e.target.setAttribute("aria-checked", String(on));
+      if (arLabel) arLabel.textContent = on ? (isDe() ? "An" : "On") : (isDe() ? "Aus" : "Off");
+      if (DEBUG) console.debug('[menu] ep:auto-reveal-toggle', { on });
+      try { document.dispatchEvent(new CustomEvent("ep:auto-reveal-toggle", { detail: { on } })); } catch {}
+    }
+    function onTopic(e){
+      const on = !!e.target.checked; // <- contract: 'on' boolean
+      e.target.setAttribute("aria-checked", String(on));
+      if (topicLbl) topicLbl.textContent = on ? (isDe() ? "An" : "On") : (isDe() ? "Aus" : "Off");
+      if (DEBUG) console.debug('[menu] ep:topic-toggle', { on });
+      try { document.dispatchEvent(new CustomEvent("ep:topic-toggle", { detail: { on } })); } catch {}
+    }
+    function onPart(e){
+      const estimating = !!e.target.checked;
+      e.target.setAttribute("aria-checked", String(estimating));
+      if (partLbl) partLbl.textContent = estimating ? (isDe() ? "Ich schätze mit" : "I'm estimating")
+                                                    : (isDe() ? "Beobachter:in" : "Observer");
+      if (DEBUG) console.debug('[menu] ep:participation-toggle', { estimating });
+      try { document.dispatchEvent(new CustomEvent("ep:participation-toggle", { detail: { estimating } })); } catch {}
+    }
+    ar?.addEventListener("change", onAR);
+    top?.addEventListener("change", onTopic);
+    part?.addEventListener("change", onPart);
+
+    // Close room relay
     const closeBtn = doc.getElementById("closeRoomBtn");
     if (closeBtn) {
-      closeBtn.addEventListener("click", ()=>{
-        document.dispatchEvent(new CustomEvent("ep:close-room"));
+      closeBtn.addEventListener("click", () => {
+        if (DEBUG) console.debug('[menu] ep:close-room');
+        try { document.dispatchEvent(new CustomEvent("ep:close-room")); } catch {}
         closeMenu();
       });
     }
@@ -225,10 +252,9 @@
   }
 
   if (!bindMenu()) {
-    // Bind once DOM is fully parsed (safe when placed in <head> or <body>).
-    document.addEventListener("DOMContentLoaded", bindMenu, { once: true });
+    document.addEventListener("DOMContentLoaded", bindMenu, { once:true });
   }
 
-  // Expose helper (optional external reuse)
+  // expose
   window.__setNiceTooltip = setNiceTooltip;
 })();

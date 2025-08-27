@@ -6,7 +6,6 @@
   <!-- App menu (fragment) -->
   <div th:replace="~{fragments/menu :: appMenu(showSeq=${true}, showAuto=${true}, showRoom=${true})}"></div>
 
-
   <div class="container">
     <h1 class="app-title">
       <img src="/favicon.svg" alt="" width="24" height="24" class="logo">
@@ -116,8 +115,8 @@
 
   <th:block th:replace="~{fragments/scripts :: scripts}"></th:block>
 
-  <!-- room connector (bumped to v21) -->
-  <script defer th:src="@{/js/room.js?v=21}"
+  <!-- room connector (bumped to v22) -->
+  <script defer th:src="@{/js/room.js?v=24}"
           th:attr="data-participant=${participantName},data-room=${roomCode}"></script>
   <script defer src="/js/ws-probe.js"></script>
 

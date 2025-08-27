@@ -1,4 +1,4 @@
-/* room.js v22 — two-row card grid with specials; ∞ shown like a number (stats-excluded) */
+/* room.js v24 — two-row card grid with specials; ∞ shown like a number (stats-excluded) */
 (() => {
   'use strict';
   const TAG = '[ROOM]';
@@ -541,6 +541,25 @@
       if (!id) return;
       if (!state.isHost) return; // guard: only host is allowed to change sequence
       send('sequence:' + encodeURIComponent(id));
+    });
+
+    // NEW — menu overlay toggles → WS commands
+    document.addEventListener('ep:auto-reveal-toggle', (ev) => {
+      const on = !!(ev && ev.detail && ev.detail.on);
+      console.debug(TAG, 'menu:autoReveal →', on);
+      send(`autoReveal:${on}`);
+    });
+
+    document.addEventListener('ep:topic-toggle', (ev) => {
+      const on = !!(ev && ev.detail && ev.detail.on);
+      console.debug(TAG, 'menu:topicVisible →', on);
+      send(`topicVisible:${on}`);
+    });
+
+    document.addEventListener('ep:participation-toggle', (ev) => {
+      const estimating = !!(ev && ev.detail && ev.detail.estimating);
+      console.debug(TAG, 'menu:participation → estimating=', estimating);
+      send(`participation:${estimating}`);
     });
 
     // best-effort short-grace leave on refresh/navigation
