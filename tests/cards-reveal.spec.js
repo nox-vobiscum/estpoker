@@ -90,7 +90,8 @@ test.describe('Critical path: vote → reveal → average', () => {
 
     // 4) After reveal: chips visible, should include 3 and 5; average is numeric (not "N/A")
     const chips = host.locator('.vote-chip');
-    await expect(chips).toHaveCountGreaterThan(0);
+    const chipCount = await chips.count();
+    expect(chipCount).toBeGreaterThan(0);
 
     const chipTexts = (await chips.allTextContents()).map(t => (t || '').trim());
     expect(chipTexts.join(' ')).toContain('3');
