@@ -33,6 +33,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
+      # Defaults aus Secrets (linter-sicher). Können leer sein.
       EP_BASE_URL: ${{ secrets.EP_BASE_URL || '' }}
       EP_ROOM_URL: ${{ secrets.EP_ROOM_URL || '' }}
     steps:
@@ -49,35 +50,41 @@ jobs:
           if [ -n "${{ inputs.room_url }}" ]; then echo "EP_ROOM_URL=${{ inputs.room_url }}" >> $GITHUB_ENV; fi
 
       - name: 'Preflight: build target URL'
+        id: target
         run: |
           TARGET="$EP_ROOM_URL"
           if [ -z "$TARGET" ] && [ -n "$EP_BASE_URL" ]; then
             TARGET="${EP_BASE_URL%/}/room?participantName=E2E&roomCode=E2E-0001"
           fi
           echo "EP_TARGET_URL=$TARGET" >> $GITHUB_ENV
+          echo "target=$TARGET" >> $GITHUB_OUTPUT
+          if [ -z "$TARGET" ]; then echo "no_url=true"  >> $GITHUB_OUTPUT; else echo "no_url=false" >> $GITHUB_OUTPUT; fi
           echo "Resolved EP_BASE_URL=${EP_BASE_URL:-<empty>}"
           echo "Resolved EP_ROOM_URL=${EP_ROOM_URL:-<empty>}"
           echo "Resolved EP_TARGET_URL=${TARGET:-<empty>}"
 
       - name: 'Skip E2E (no URL provided)'
-        if: ${{ env.EP_TARGET_URL == '' }}
+        if: ${{ steps.target.outputs.no_url == 'true' }}
         run: |
           echo "No EP_BASE_URL / EP_ROOM_URL provided → skipping E2E."
-          exit 0
 
       - name: 'Preflight: probe EP_TARGET_URL'
+        if: ${{ steps.target.outputs.no_url != 'true' }}
         run: |
           echo "Probing $EP_TARGET_URL ..."
           curl -fsSLI --max-time 15 "$EP_TARGET_URL" -o /dev/null
           echo "Probe OK."
 
       - name: Install Playwright browsers
+        if: ${{ steps.target.outputs.no_url != 'true' }}
         run: npx -y @playwright/test@latest install --with-deps
 
       - name: 'Sanity check (runner available)'
+        if: ${{ steps.target.outputs.no_url != 'true' }}
         run: npx -y @playwright/test@latest --version
 
       - name: Run Playwright E2E
+        if: ${{ steps.target.outputs.no_url != 'true' }}
         env:
           EP_BASE_URL: ${{ env.EP_BASE_URL }}
           EP_ROOM_URL: ${{ env.EP_ROOM_URL }}
