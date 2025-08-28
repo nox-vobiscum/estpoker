@@ -34,3 +34,7 @@ build/
 
 ### spring boot local config ###
 /src/main/resources/application-local.properties
+
+# Playwright artifacts
+/playwright-report/
+/test-results/
