@@ -4,6 +4,8 @@ import com.example.estpoker.model.Participant;
 import com.example.estpoker.model.Room;
 import com.example.estpoker.model.CardSequences;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
@@ -18,6 +20,8 @@ import java.util.regex.Pattern;
 /** Game service: room state, participants, voting, topic, auto-reveal, host rotation. */
 @Service
 public class GameService {
+
+    private static final Logger log = LoggerFactory.getLogger(GameService.class);
 
     // --- in-memory state ---
     private final Map<String, Room> rooms = new ConcurrentHashMap<>();
@@ -186,10 +190,23 @@ public class GameService {
         broadcastRoomState(room);
     }
 
-    /** Toggle auto-reveal flag and broadcast. */
+    /**
+     * Toggle auto-reveal flag and broadcast.
+     * If enabling and all votes are already present, reveal immediately.
+     */
     public void setAutoRevealEnabled(String roomCode, boolean enabled) {
         Room room = getOrCreateRoom(roomCode);
-        synchronized (room) { room.setAutoRevealEnabled(enabled); }
+        boolean flippedToRevealed = false;
+        synchronized (room) {
+            room.setAutoRevealEnabled(enabled);
+            if (enabled && !room.areVotesRevealed() && allActiveParticipantsHaveValidVotes(room)) {
+                room.setCardsRevealed(true);
+                flippedToRevealed = true;
+            }
+        }
+        if (flippedToRevealed && log.isDebugEnabled()) {
+            log.debug("Auto-reveal: immediately revealing room={} (all votes present)", roomCode);
+        }
         broadcastRoomState(room);
     }
 
@@ -271,38 +288,37 @@ public class GameService {
         }
     }
 
-    /**
-     * Ensure a host exists; if current host is inactive for longer than limits, promote someone else.
-     * softMs: advisory (no action), hardMs: demote & reassign.
-     */
-    public void ensureHost(String roomCode, long softMs, long hardMs) {
-        Room room = getRoom(roomCode);
-        if (room == null) return;
+    /** Ensure a host exists; if current host is inactive for longer than limits, promote someone else.
+ *  softMs: advisory (no action), hardMs: demote & reassign.
+ */
+public void ensureHost(String roomCode, long softMs, long hardMs) {
+    Room room = getRoom(roomCode);
+    if (room == null) return;
 
-        String oldHost = null;
-        String newHost = null;
+    String oldHost = null;
+    String newHost = null;
 
-        synchronized (room) {
-            Participant host = room.getHost();
-            long now = System.currentTimeMillis();
+    synchronized (room) {
+        Participant host = room.getHost();
+        long now = System.currentTimeMillis();
 
-            if (host == null) {
-                newHost = room.assignNewHostIfNecessary(null);
-            } else {
-                long idle = now - host.getLastSeenAt();
-                if (!host.isActive() || idle >= hardMs) {
-                    oldHost = host.getName();
-                    host.setHost(false);
-                    newHost = room.assignNewHostIfNecessary(oldHost);
-                }
+        if (host == null) {
+            newHost = room.assignNewHostIfNecessary(null);
+        } else {
+            long idle = now - host.getLastSeenAt();
+            if (!host.isActive() || idle >= hardMs) {
+                oldHost = host.getName();
+                host.setHost(false);
+                newHost = room.assignNewHostIfNecessary(oldHost);
             }
         }
-
-        if (newHost != null) {
-            broadcastHostChange(room, oldHost, newHost);
-            broadcastRoomState(room);
-        }
     }
+
+    if (newHost != null) {
+        broadcastHostChange(room, oldHost, newHost);
+        broadcastRoomState(room);
+    }
+}
 
     // --- calculations / helpers ---------------------------------------------------------------
 

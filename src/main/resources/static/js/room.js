@@ -1,4 +1,4 @@
-/* room.js v24 — two-row card grid with specials; ∞ shown like a number (stats-excluded) */
+/* room.js v27 — uses server-provided specials when available; otherwise falls back to ❓💬☕ */
 (() => {
   'use strict';
   const TAG = '[ROOM]';
@@ -7,8 +7,8 @@
   const $ = (s) => document.querySelector(s);
   const setText = (sel, v) => { const el = typeof sel === 'string' ? $(sel) : sel; if (el) el.textContent = v ?? ''; };
 
-  // --- constants (frontend knowledge) ---
-  const SPECIALS = ['❓','💬','☕']; // UI specials (always appended); ∞ is sequence-specific
+  // --- constants ---
+  const DEFAULT_SPECIALS = ['❓','💬','☕']; // fallback if server doesn't send specials
 
   // --- state ---
   const scriptEl = document.querySelector('script[src*="/js/room.js"]');
@@ -25,21 +25,19 @@
     isHost: false,
     votesRevealed: false,
     cards: [],
+    specials: null,          // <- optional from server; else DEFAULT_SPECIALS
     participants: [],
     averageVote: null,
 
-    sequenceId: null,       // <- keep last from server
+    sequenceId: null,
     topicVisible: true,
     topicLabel: '',
     topicUrl: null,
 
     autoRevealEnabled: false,
-
-    // prevent auto-reconnect after server-issued close/kick
     hardRedirect: null
   };
 
-  // stable per-tab client id
   const CIDKEY = 'ep-cid';
   try {
     state.cid = sessionStorage.getItem(CIDKEY);
@@ -49,11 +47,9 @@
     }
   } catch { state.cid = 'cid-' + Date.now(); }
 
-  // init UI labels
   setText('#youName', state.youName);
   setText('#roomCodeVal', state.roomCode);
 
-  // --- ws url ---
   const wsUrl = () => {
     const proto = location.protocol === 'https:' ? 'wss://' : 'ws://';
     return `${proto}${location.host}/gameSocket` +
@@ -62,7 +58,6 @@
       `&cid=${encodeURIComponent(state.cid)}`;
   };
 
-  // --- connect ---
   function connectWS() {
     const u = wsUrl();
     console.info(TAG, 'connect →', u);
@@ -70,20 +65,12 @@
     try { s = new WebSocket(u); } catch (e) { console.error(TAG, e); return; }
     state.ws = s;
 
-    s.onopen = () => {
-      state.connected = true;
-      console.info(TAG, 'OPEN');
-      heartbeat();
-    };
+    s.onopen = () => { state.connected = true; console.info(TAG, 'OPEN'); heartbeat(); };
     s.onclose = (ev) => {
       state.connected = false;
       console.warn(TAG, 'CLOSE', ev.code, ev.reason || '');
       stopHeartbeat();
-      if (state.hardRedirect) {
-        location.href = state.hardRedirect;
-        return;
-      }
-      // do not attempt to reconnect on server-close reasons
+      if (state.hardRedirect) { location.href = state.hardRedirect; return; }
       if (ev.code === 4000 || ev.code === 4001) return;
       setTimeout(() => { if (!state.connected) connectWS(); }, 2000);
     };
@@ -94,48 +81,26 @@
     };
   }
 
-  function send(line) {
-    if (state.ws && state.ws.readyState === 1) {
-      state.ws.send(line);
-    }
-  }
+  function send(line) { if (state.ws && state.ws.readyState === 1) state.ws.send(line); }
 
-  // --- heartbeat (keeps lastSeen fresh for host stickiness) ---
   let hbT = null;
-  function heartbeat() {
-    stopHeartbeat();
-    hbT = setInterval(() => send('ping'), 25000);
-  }
-  function stopHeartbeat() {
-    if (hbT) { clearInterval(hbT); hbT = null; }
-  }
+  function heartbeat() { stopHeartbeat(); hbT = setInterval(() => send('ping'), 25000); }
+  function stopHeartbeat() { if (hbT) { clearInterval(hbT); hbT = null; } }
 
-  // --- messages ---
   function handleMessage(m) {
     switch (m.type) {
       case 'you': {
-        if (m.yourName && m.yourName !== state.youName) {
-          state.youName = m.yourName;
-          setText('#youName', state.youName);
-        }
-        if (m.cid && m.cid !== state.cid) {
-          state.cid = m.cid;
-          try { sessionStorage.setItem(CIDKEY, state.cid); } catch {}
-        }
+        if (m.yourName && m.yourName !== state.youName) { state.youName = m.yourName; setText('#youName', state.youName); }
+        if (m.cid && m.cid !== state.cid) { state.cid = m.cid; try { sessionStorage.setItem(CIDKEY, state.cid); } catch {} }
         break;
       }
-      case 'roomClosed': {
-        state.hardRedirect = m.redirect || '/';
-        try { state.ws && state.ws.close(4000, 'Room closed'); } catch {}
-        break;
-      }
-      case 'kicked': {
-        state.hardRedirect = m.redirect || '/';
-        try { state.ws && state.ws.close(4001, 'Kicked'); } catch {}
-        break;
-      }
+      case 'roomClosed': { state.hardRedirect = m.redirect || '/'; try { state.ws && state.ws.close(4000, 'Room closed'); } catch {} break; }
+      case 'kicked':     { state.hardRedirect = m.redirect || '/'; try { state.ws && state.ws.close(4001, 'Kicked'); } catch {} break; }
       case 'voteUpdate': {
         state.cards = Array.isArray(m.cards) ? m.cards : state.cards;
+        // NEW: take specials from server if available
+        if (Array.isArray(m.specials)) state.specials = m.specials.slice();
+
         state.votesRevealed = !!m.votesRevealed;
         state.averageVote = m.averageVote ?? null;
 
@@ -158,19 +123,14 @@
         renderTopic();
         renderAutoReveal();
         syncMenuFromState();
-        syncSequenceInMenu();           // <- keep overlay radios in sync
-
+        syncSequenceInMenu();
         break;
       }
-      case 'hostChanged': {
-        // Could toast, but state refresh will follow anyway
-        break;
-      }
+      case 'hostChanged': { break; }
       default: break;
     }
   }
 
-  // --- participants UI ---
   function renderParticipants() {
     const ul = $('#liveParticipantList');
     if (!ul) return;
@@ -181,7 +141,6 @@
       li.className = 'participant-row';
       if (p.disconnected) li.classList.add('disconnected');
 
-      // Left icon: host 👑 or default 👤
       const left = document.createElement('span');
       left.className = 'participant-icon';
       if (p.isHost) { left.classList.add('host'); left.textContent = '👑'; }
@@ -214,7 +173,6 @@
           right.appendChild(wait);
         }
       } else {
-        // After reveal: observers keep 👁 (no chip), others show chip
         if (p.observer) {
           const eye = document.createElement('span');
           eye.className = 'status-icon observer';
@@ -225,20 +183,16 @@
           chip.className = 'vote-chip';
           let display = (p.vote == null || p.vote === '') ? '–' : String(p.vote);
           chip.textContent = display;
-
-          // Treat ∞ and coffee as special-looking chips; gray also for non-participants / disconnected
           const isSpecialChip = (display === '☕' || display === '∞' || p.disconnected || p.participating === false);
           if (isSpecialChip) chip.classList.add('special');
-
           right.appendChild(chip);
         }
       }
 
-      // Host controls (only visible to current host, and not for self)
       if (state.isHost && !p.isHost) {
         const makeHostBtn = document.createElement('button');
         makeHostBtn.className = 'row-action host';
-        makeHostBtn.setAttribute('type', 'button');
+        makeHostBtn.type = 'button';
         makeHostBtn.setAttribute('aria-label', 'Make host');
         makeHostBtn.innerHTML = '<span class="ra-icon">👑</span><span class="ra-label">Make host</span>';
         makeHostBtn.addEventListener('click', () => {
@@ -250,7 +204,7 @@
 
         const kickBtn = document.createElement('button');
         kickBtn.className = 'row-action kick';
-        kickBtn.setAttribute('type', 'button');
+        kickBtn.type = 'button';
         kickBtn.setAttribute('aria-label', 'Kick');
         kickBtn.innerHTML = '<span class="ra-icon">❌</span><span class="ra-label">Kick</span>';
         kickBtn.addEventListener('click', () => {
@@ -266,7 +220,7 @@
     });
   }
 
-  // --- cards UI (two rows: numbers first, then specials) ---
+  // --- cards UI (numbers first, then specials) ---
   function renderCards() {
     const grid = $('#cardGrid');
     if (!grid) return;
@@ -276,11 +230,12 @@
     const isObserver = !!(me && me.observer);
     const disabled = state.votesRevealed || isObserver;
 
-    // Split into numerics and specials (∞ stays with numbers if present)
-    const specials = state.cards.filter(v => SPECIALS.includes(v));
-    const numbers  = state.cards.filter(v => !SPECIALS.includes(v));
+    const base = Array.isArray(state.cards) ? state.cards : [];
+    const uiSpecials = (Array.isArray(state.specials) && state.specials.length) ? state.specials : DEFAULT_SPECIALS;
 
-    // numeric row
+    // numeric row = everything except UI specials (∞ stays with numbers if present)
+    const numbers = base.filter(v => !uiSpecials.includes(v));
+
     numbers.forEach(val => {
       const btn = document.createElement('button');
       btn.type = 'button';
@@ -290,16 +245,14 @@
       grid.appendChild(btn);
     });
 
-    // break to next line (spans all columns)
-    if (specials.length) {
+    if (uiSpecials.length) {
       const br = document.createElement('div');
       br.style.gridColumn = '1 / -1';
       br.style.height = '0';
       br.style.margin = '4px 0';
       grid.appendChild(br);
 
-      // specials row
-      specials.forEach(val => {
+      uiSpecials.forEach(val => {
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.textContent = String(val);
@@ -326,7 +279,6 @@
       post.style.display = state.votesRevealed ? '' : 'none';
     }
 
-    // Toggle visibility according to server-provided stats presence
     const medianWrap = $('#medianWrap');
     const rangeWrap  = $('#rangeWrap');
     const rangeSep   = $('#rangeSep');
@@ -344,15 +296,12 @@
       if (show) setText('#rangeVote', m.range);
     }
 
-    // Consensus line behavior controlled server-side by `consensus` boolean.
     const row = $('#resultRow');
     if (row) {
       if (m && m.consensus) {
         row.classList.add('consensus');
         setText('#resultLabel', (document.documentElement.lang === 'de') ? 'Consensus' : 'Consensus');
-        // When consensus, we only want the single value visible; hide others
-        const sep1 = document.querySelector('#resultRow .sep');
-        if (sep1) sep1.hidden = true;
+        const sep1 = document.querySelector('#resultRow .sep'); if (sep1) sep1.hidden = true;
         const mid = $('#medianWrap'); if (mid) mid.hidden = true;
         const rsep = $('#rangeSep'); if (rsep) rsep.hidden = true;
         const rng = $('#rangeWrap'); if (rng) rng.hidden = true;
@@ -363,7 +312,6 @@
     }
   }
 
-  // --- topic UI ---
   function renderTopic() {
     const row = $('#topicRow');
     const edit = $('#topicEdit');
@@ -384,7 +332,6 @@
     if (edit && !shouldShow) edit.style.display = 'none';
   }
 
-  // --- auto-reveal UI ---
   function renderAutoReveal() {
     const preSt  = document.querySelector('.pre-vote #arStatus');
     const menuSt = document.querySelector('#appMenuOverlay #menuArStatus');
@@ -393,11 +340,9 @@
     if (menuSt) menuSt.textContent = statusText;
   }
 
-  // --- keep overlay/menu in sync with latest state ---
   function syncMenuFromState() {
     const isDe = (document.documentElement.lang||'en').toLowerCase().startsWith('de');
 
-    // Topic
     const mTgl = $('#menuTopicToggle');
     const mSt  = $('#menuTopicStatus');
     if (mTgl) {
@@ -406,7 +351,6 @@
     }
     if (mSt) mSt.textContent = state.topicVisible ? (isDe ? 'An' : 'On') : (isDe ? 'Aus' : 'Off');
 
-    // Participation (observer)
     const me = state.participants.find(p => p.name === state.youName);
     const isObserver = !!(me && me.observer);
     const mPTgl = $('#menuParticipationToggle');
@@ -418,7 +362,6 @@
     if (mPSt) mPSt.textContent = !isObserver ? (isDe ? 'Ich schätze mit' : "I'm estimating")
                                             : (isDe ? 'Beobachter:in' : 'Observer');
 
-    // Auto-reveal (menu toggle)
     const mARTgl = $('#menuAutoRevealToggle');
     if (mARTgl) {
       mARTgl.checked = !!state.autoRevealEnabled;
@@ -426,12 +369,10 @@
     }
   }
 
-  // Keep sequence radio state and disabled flag in sync with server/host
   function syncSequenceInMenu() {
     const root = $('#menuSeqChoice');
     if (!root) return;
 
-    // disable radios for non-hosts
     root.querySelectorAll('input[type="radio"][name="menu-seq"]').forEach(r => {
       r.disabled = !state.isHost;
       if (r.disabled) r.closest('label')?.classList.add('disabled');
@@ -439,24 +380,17 @@
     });
 
     const id = state.sequenceId || '';
-    // support dot & dash variants
     const sel = root.querySelector(`input[type="radio"][name="menu-seq"][value="${CSS.escape(id)}"]`)
              || root.querySelector(`input[type="radio"][name="menu-seq"][value="${CSS.escape(id.replace('.', '-'))}"]`);
-    if (sel) {
-      sel.checked = true;
-      sel.setAttribute('aria-checked','true');
-    }
+    if (sel) { sel.checked = true; sel.setAttribute('aria-checked','true'); }
   }
 
-  // --- actions exposed for HTML buttons ---
   function revealCards() { send('revealCards'); }
   function resetRoom()   { send('resetRoom'); }
   window.revealCards = revealCards;
   window.resetRoom   = resetRoom;
 
-  // --- menu / toggles wiring (once) ---
   function wireOnce() {
-    // copy link -> invite page with only roomCode
     const copyBtn = $('#copyRoomLink');
     if (copyBtn) copyBtn.addEventListener('click', async () => {
       try {
@@ -470,7 +404,6 @@
       }
     });
 
-    // participation switch (legacy content area) — overlay uses the same message
     const partToggle = $('#participationToggle');
     if (partToggle) {
       partToggle.addEventListener('change', (e) => {
@@ -479,7 +412,6 @@
       });
     }
 
-    // topic edit/save/clear
     const editBtn = $('#topicEditBtn');
     const clearBtn = $('#topicClearBtn');
     const editBox = $('#topicEdit');
@@ -518,7 +450,6 @@
       });
     }
 
-    // auto-reveal toggle (legacy pre-vote row; same msg used by menu toggle)
     const arToggle = $('#autoRevealToggle');
     if (arToggle) {
       arToggle.addEventListener('change', (e) => {
@@ -527,7 +458,6 @@
       });
     }
 
-    // menu: close room event (from menu.js)
     document.addEventListener('ep:close-room', () => {
       if (!state.isHost) return;
       const de  = (document.documentElement.lang||'en').toLowerCase().startsWith('de');
@@ -535,15 +465,13 @@
       if (confirm(msg)) send('closeRoom');
     });
 
-    // menu: sequence change event → WS roundtrip (host only)
     document.addEventListener('ep:sequence-change', (ev) => {
       const id = ev?.detail?.id;
       if (!id) return;
-      if (!state.isHost) return; // guard: only host is allowed to change sequence
+      if (!state.isHost) return;
       send('sequence:' + encodeURIComponent(id));
     });
 
-    // NEW — menu overlay toggles → WS commands
     document.addEventListener('ep:auto-reveal-toggle', (ev) => {
       const on = !!(ev && ev.detail && ev.detail.on);
       console.debug(TAG, 'menu:autoReveal →', on);
@@ -562,20 +490,17 @@
       send(`participation:${estimating}`);
     });
 
-    // best-effort short-grace leave on refresh/navigation
     window.addEventListener('beforeunload', () => {
       try { send('intentionalLeave'); } catch {}
     });
   }
 
-  // --- utils ---
   function escapeHtml(s) {
     return String(s).replace(/[&<>"']/g, c => (
       { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]
     ));
   }
 
-  // --- boot ---
   function boot() {
     wireOnce();
     connectWS();
