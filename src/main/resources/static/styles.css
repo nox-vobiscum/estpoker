@@ -491,6 +491,13 @@ button.selected{
   transform: scale(1.03);
 }
 
+/* Force a new row between number cards and specials (no visual artifact) */
+.card-grid .grid-break {
+  grid-column: 1 / -1;   /* span across all columns */
+  height: 0;             /* don't consume extra space */
+  pointer-events: none;  /* inert */
+}
+
 /* Hide any inline checkmark badge on cards */
 .card-grid .checkmark{ display:none !important; }
 
