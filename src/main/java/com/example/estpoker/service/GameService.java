@@ -500,6 +500,7 @@ public void ensureHost(String roomCode, long softMs, long hardMs) {
 
             payload.put("sequenceId", room.getSequenceId());
             payload.put("cards", room.getCurrentCards());
+            payload.put("specials", CardSequences.SPECIALS);
             payload.put("autoRevealEnabled", room.isAutoRevealEnabled());
 
             // topic

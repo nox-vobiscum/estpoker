@@ -9,6 +9,7 @@
 
   // --- constants (frontend knowledge) ---
   const SPECIALS = ['❓','💬','☕']; // UI specials (always appended); ∞ is sequence-specific
+  const INFINITY = '∞';
 
   // --- state ---
   const scriptEl = document.querySelector('script[src*="/js/room.js"]');
@@ -135,7 +136,18 @@
         break;
       }
       case 'voteUpdate': {
-        state.cards = Array.isArray(m.cards) ? m.cards : state.cards;
+        // generate UI-Deck from server data: Base + Specials; ∞ only in fib.enh
+        const seqId = m.sequenceId || state.sequenceId || 'fib.scrum';
+        const specials = (Array.isArray(m.specials) && m.specials.length) ? m.specials.slice() : SPECIALS.slice();
+
+        let base = Array.isArray(m.cards) ? m.cards.slice() : [];
+        // Dedupe: remove specials if needed
+        base = base.filter(c => !specials.includes(c));
+        // ∞ only allowed if seq fib.enh
+        if (seqId !== 'fib.enh') base = base.filter(c => c !== INFINITY);
+
+        // final card sequence: base + specials
+        state.cards = base.concat(specials);
         state.votesRevealed = !!m.votesRevealed;
         state.averageVote = m.averageVote ?? null;
 
