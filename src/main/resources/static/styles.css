@@ -263,6 +263,14 @@ strong { color: var(--text-strong); }
   opacity: .85;
   color: var(--text-strong);
 }
+/* NEW: section-title for menu blocks */
+.section-title{
+  margin: 6px 8px 6px;
+  font-weight: 600;
+  font-size: .9rem;
+  opacity: .85;
+  color: var(--text-strong);
+}
 
 /* Generic row/button */
 .menu-item{
@@ -344,7 +352,7 @@ strong { color: var(--text-strong); }
 .radio-row.disabled{ opacity:.55; cursor:not-allowed; }
 .radio-row:has(input[type="radio"]:checked){
   border-color: var(--accent);
-  box-shadow: 0 0 0 2px rgba(0,122,204,0.20);
+  box-shadow: 0 0 0 2px rgba(0,122,204,.20);
   background: color-mix(in srgb, var(--panel-2) 84%, var(--accent) 16%);
 }
 
@@ -493,9 +501,9 @@ button.selected{
 
 /* Force a new row between number cards and specials (no visual artifact) */
 .card-grid .grid-break {
-  grid-column: 1 / -1;   /* span across all columns */
-  height: 0;             /* don't consume extra space */
-  pointer-events: none;  /* inert */
+  grid-column: 1 / -1;
+  height: 0;
+  pointer-events: none;
 }
 
 /* Hide any inline checkmark badge on cards */
@@ -905,3 +913,7 @@ body{ padding-bottom: 68px; }
 }
 #langRow:hover{ background: var(--panel-2-hover); border-color: var(--accent); box-shadow: 0 0 0 2px rgba(0,122,204,.12); }
 #langRow .flag-a, #langRow .flag-b{ border-radius:3px; border:1px solid var(--border); }
+
+/* ---------- Host-only utility ---------- */
+.host-only { display: none !important; }
+.is-host .host-only { display: inline-flex !important; }

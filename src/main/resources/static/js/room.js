@@ -1,4 +1,4 @@
-/* room.js v25 — two-row card grid with specials; ∞ shown like a number (stats-excluded) */
+/* room.js v26 — host-only topic buttons; two-row card grid with specials; ∞ shown like a number (stats-excluded) */
 (() => {
   'use strict';
   const TAG = '[ROOM]';
@@ -111,6 +111,11 @@
     if (hbT) { clearInterval(hbT); hbT = null; }
   }
 
+  // --- host UI toggle (adds/removes body class; used by CSS .host-only) ---
+  function syncHostClass() {
+    document.body.classList.toggle('is-host', !!state.isHost);
+  }
+
   // --- messages ---
   function handleMessage(m) {
     switch (m.type) {
@@ -163,6 +168,8 @@
 
         const me = state.participants.find(p => p && p.name === state.youName);
         state.isHost = !!(me && me.isHost);
+
+        syncHostClass();                 // ← set body.is-host for CSS host-only UI
 
         renderParticipants();
         renderCards();
@@ -490,7 +497,7 @@
       });
     }
 
-    // topic edit/save/clear
+    // topic edit/save/clear (buttons are host-only via CSS; JS still guards)
     const editBtn = $('#topicEditBtn');
     const clearBtn = $('#topicClearBtn');
     const editBox = $('#topicEdit');
@@ -589,6 +596,7 @@
   // --- boot ---
   function boot() {
     wireOnce();
+    syncHostClass(); // initial (false) to ensure correct default CSS
     connectWS();
   }
   if (document.readyState === 'loading') {

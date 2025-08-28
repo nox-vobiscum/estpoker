@@ -38,12 +38,13 @@
       <span class="topic-label" aria-hidden="true">📝</span>
       <span id="topicDisplay" class="topic-text">—</span>
       <div class="topic-actions">
-        <button id="topicEditBtn" class="row-action" type="button"
+        <!-- Host-only controls -->
+        <button id="topicEditBtn" class="row-action host-only" type="button"
                 data-i18n-attr="data-tooltip:button.edit;aria-label:button.edit"
                 data-tooltip="Edit" aria-label="Edit">
           <span class="ra-icon">✏️</span><span class="ra-label" data-i18n="button.edit">Edit</span>
         </button>
-        <button id="topicClearBtn" class="row-action kick" type="button"
+        <button id="topicClearBtn" class="row-action kick host-only" type="button"
                 th:attr="data-tooltip=#{button.clearTopic},aria-label=#{button.clearTopic}"
                 data-i18n-attr="data-tooltip:button.clearTopic;aria-label:button.clearTopic">
           <span class="ra-icon">🧹</span><span class="ra-label" th:text="#{button.clearTopic}" data-i18n="button.clearTopic">Clear</span>
@@ -60,12 +61,12 @@
              data-i18n-attr="placeholder:topic.placeholder"
              placeholder="Paste JIRA link or type key (e.g., RBSEP-123)…">
       <div class="topic-actions">
-        <button id="topicSaveBtn" class="row-action host" type="button"
+        <button id="topicSaveBtn" class="row-action host host-only" type="button"
                 th:attr="data-tooltip=#{button.saveTopic},aria-label=#{button.saveTopic}"
                 data-i18n-attr="data-tooltip:button.saveTopic;aria-label:button.saveTopic">
           <span class="ra-icon">💾</span><span class="ra-label" th:text="#{button.saveTopic}" data-i18n="button.saveTopic">Save</span>
         </button>
-        <button id="topicCancelBtn" class="row-action" type="button"
+        <button id="topicCancelBtn" class="row-action host-only" type="button"
                 data-i18n-attr="data-tooltip:button.cancel;aria-label:button.cancel"
                 data-tooltip="Cancel" aria-label="Cancel">
           <span class="ra-icon">✖</span><span class="ra-label" data-i18n="button.cancel">Cancel</span>
@@ -115,8 +116,8 @@
 
   <th:block th:replace="~{fragments/scripts :: scripts}"></th:block>
 
-  <!-- room connector (bumped to v22) -->
-  <script defer th:src="@{/js/room.js?v=24}"
+  <!-- room connector (bumped to v26) -->
+  <script defer th:src="@{/js/room.js?v=26}"
           th:attr="data-participant=${participantName},data-room=${roomCode}"></script>
   <script defer src="/js/ws-probe.js"></script>
 
