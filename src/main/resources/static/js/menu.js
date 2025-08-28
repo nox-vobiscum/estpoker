@@ -1,4 +1,4 @@
-// /static/js/menu.js  (v12)
+// /static/js/menu.js  (v13)
 // central menu + theme + language + i18n runtime + sequence + toggle dispatch
 (function () {
   if (window.__epMenuInit) return;
@@ -189,6 +189,11 @@
         const target = isDe() ? "en" : "de";
         switchLangDynamic(target);
       });
+      // Keyboard access for lang toggle
+      if (!langRow.hasAttribute('tabindex')) langRow.setAttribute('tabindex','0');
+      langRow.addEventListener('keydown', (e) => {
+        if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); langRow.click(); }
+      });
     }
 
     // Sequence radios -> event to app
@@ -222,9 +227,9 @@
       const on = !!e.target.checked;
       e.target.setAttribute("aria-checked", String(on));
       if (topicLbl) topicLbl.textContent = on ? (isDe() ? "An" : "On") : (isDe() ? "Aus" : "Off");
+      if (DEBUG) console.debug('[menu] ep:topic-toggle', { on });
       try { document.dispatchEvent(new CustomEvent("ep:topic-toggle", { detail: { on } })); } catch {}
     }
-
     function onPart(e){
       const estimating = !!e.target.checked;
       e.target.setAttribute("aria-checked", String(estimating));
@@ -236,6 +241,33 @@
     ar?.addEventListener("change", onAR);
     top?.addEventListener("change", onTopic);
     part?.addEventListener("change", onPart);
+
+    // NEW: make entire switch rows interactive (click + keyboard)
+    function bindRowToggleFor(inputEl, changeHandler){
+      if (!inputEl) return;
+      const row = inputEl.closest('.menu-item.switch');
+      if (!row) return;
+      if (!row.hasAttribute('tabindex')) row.setAttribute('tabindex','0'); // keyboard focus
+      // Click anywhere on row except on explicit interactive elements
+      row.addEventListener('click', (ev) => {
+        if (ev.target === inputEl) return;
+        if (ev.target && ev.target.closest('input,button,a,label')) return;
+        inputEl.checked = !inputEl.checked;
+        // fire native change for handler
+        inputEl.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      // Keyboard: Space/Enter toggles
+      row.addEventListener('keydown', (ev) => {
+        if (ev.key === ' ' || ev.key === 'Enter') {
+          ev.preventDefault();
+          inputEl.checked = !inputEl.checked;
+          inputEl.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+      });
+    }
+    bindRowToggleFor(ar, onAR);
+    bindRowToggleFor(top, onTopic);
+    bindRowToggleFor(part, onPart);
 
     // Close room relay
     const closeBtn = doc.getElementById("closeRoomBtn");

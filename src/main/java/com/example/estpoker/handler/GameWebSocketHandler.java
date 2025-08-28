@@ -11,6 +11,7 @@ import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
+import java.lang.reflect.Method;
 import java.net.URI;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
@@ -57,7 +58,16 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
 
             // Tell client the canonical identity
             gameService.sendIdentity(session, name, cid);
-            // Note: join() already broadcasts the room state.
+
+            // NEW: Make sure the just-joined session receives a full state snapshot.
+            // join() broadcasts, but that can race with addSession(); this targets the new session explicitly.
+            try {
+                sendInitialStateSnapshot(session, room, roomCode);
+            } catch (Throwable t) {
+                log.warn("WS INIT snapshot failed (room={}, name={}): {}", roomCode, name, t.toString());
+            }
+
+            // Note: join() already broadcasts the room state (kept for other clients).
         } catch (Throwable t) {
             log.error("WS afterConnectionEstablished failed (sid={}, uri={})", session.getId(), safeUri(session), t);
             // 1011 will be sent by Spring when we throw; be explicit to close.
@@ -254,6 +264,39 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         if (room == null) return false;
         Participant host = room.getHost();
         return host != null && Objects.equals(host.getName(), name);
+    }
+
+    /** Try to send an initial state snapshot to the just-joined session (reflection-based, dev-safe). */
+    private void sendInitialStateSnapshot(WebSocketSession session, Room room, String roomCode) {
+        // Prefer targeted send(Session, Room/String)
+        if (tryInvoke(gameService, "sendRoomState", new Class<?>[]{WebSocketSession.class, Room.class}, new Object[]{session, room})) return;
+        if (tryInvoke(gameService, "sendRoomState", new Class<?>[]{Room.class, WebSocketSession.class}, new Object[]{room, session})) return;
+        if (tryInvoke(gameService, "sendRoomSnapshot", new Class<?>[]{WebSocketSession.class, Room.class}, new Object[]{session, room})) return;
+        if (tryInvoke(gameService, "sendRoomSnapshot", new Class<?>[]{Room.class, WebSocketSession.class}, new Object[]{room, session})) return;
+        if (tryInvoke(gameService, "sendStateTo", new Class<?>[]{WebSocketSession.class, Room.class}, new Object[]{session, room})) return;
+        if (tryInvoke(gameService, "sendStateTo", new Class<?>[]{WebSocketSession.class, String.class}, new Object[]{session, roomCode})) return;
+
+        // Fallback: broadcast room state (new session is now registered and will receive it)
+        if (tryInvoke(gameService, "broadcastRoom", new Class<?>[]{Room.class}, new Object[]{room})) return;
+        if (tryInvoke(gameService, "broadcastRoomState", new Class<?>[]{Room.class}, new Object[]{room})) return;
+        if (tryInvoke(gameService, "broadcast", new Class<?>[]{Room.class}, new Object[]{room})) return;
+
+        log.debug("WS INIT snapshot: no suitable GameService method found; skipping explicit snapshot");
+    }
+
+    private boolean tryInvoke(Object target, String name, Class<?>[] sig, Object[] args) {
+        try {
+            Method m = target.getClass().getMethod(name, sig);
+            m.setAccessible(true);
+            m.invoke(target, args);
+            log.debug("WS INIT snapshot via {}({}) ok", name, sig.length == 2 ? (sig[0].getSimpleName() + "," + sig[1].getSimpleName()) : sig[0].getSimpleName());
+            return true;
+        } catch (NoSuchMethodException ignored) {
+            return false;
+        } catch (Throwable t) {
+            log.warn("WS INIT snapshot: {} invocation failed: {}", name, t.toString());
+            return false;
+        }
     }
 
     /** Small immutable connection record. */
