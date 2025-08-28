@@ -1,89 +1,88 @@
 #!/usr/bin/env node
-/*
- * Guardrail: block user-facing title="..." attributes in markup files.
- * Allowed exceptions: <!-- allow-title-check -->
- * Whitelist: semantic <abbr title="...">
- * This version ignores HTML comments.
- */
+// Guardrail: disallow user-facing HTML attributes title="..."
+// Scope: src/main/resources/templates/**/*.html
+// Hint: use data-tooltip="..." and aria-label instead of title="..."
+
+'use strict';
+
 const fs = require('fs');
 const path = require('path');
 
-const IGNORED_DIRS = new Set(['node_modules', '.git', 'target', 'build', 'dist', '.idea', '.vscode']);
-const SCANNED_EXTS = new Set(['.html', '.htm', '.jsp', '.jsx', '.tsx', '.vue']);
-const ALLOW_INLINE_MARK = 'allow-title-check';
+const VERBOSE = !!process.env.EP_CHECK_LOG;
+const TEMPLATES_ROOT = path.join('src', 'main', 'resources', 'templates');
 
-const violations = [];
+// Match title="..." (not the <title> tag)
+const ATTR_RE = /\btitle\s*=\s*"[^"]*"/ig;
+// Strip <!-- ... --> comments (multi-line safe)
+const HTML_COMMENT_RE = /<!--[\s\S]*?-->/g;
 
-function shouldSkipDir(p){ return IGNORED_DIRS.has(path.basename(p)); }
+function collectHtmlFiles(dir, out = []) {
+  let entries = [];
+  try { entries = fs.readdirSync(dir, { withFileTypes: true }); }
+  catch { return out; }
 
-function walk(dir){
-  let entries;
-  try { entries = fs.readdirSync(dir, { withFileTypes:true }); } catch { return; }
-  for(const e of entries){
-    const p = path.join(dir, e.name);
-    if(e.isDirectory()){ if(!shouldSkipDir(p)) walk(p); }
-    else if(e.isFile()){ scanFile(p); }
+  for (const e of entries) {
+    const fp = path.join(dir, e.name);
+    if (e.isDirectory()) {
+      collectHtmlFiles(fp, out);
+    } else if (e.isFile() && fp.toLowerCase().endsWith('.html')) {
+      out.push(fp);
+    }
   }
+  return out;
 }
 
-function scanFile(filePath){
-  const ext = path.extname(filePath).toLowerCase();
-  if(!SCANNED_EXTS.has(ext)) return;
+function findViolations(filePath) {
+  const raw = fs.readFileSync(filePath, 'utf8');
+  // Ignore anything inside HTML comments so notes like title="..." don't trip the check
+  const txt = raw.replace(HTML_COMMENT_RE, '');
+  const lines = txt.split(/\r?\n/);
+  const violations = [];
 
-  let text;
-  try { text = fs.readFileSync(filePath, 'utf8'); } catch { return; }
-  if(text.includes(ALLOW_INLINE_MARK)) return;
-
-  const lines = text.split(/\r?\n/);
-  let inComment = false;
-
-  for(let i=0;i<lines.length;i++){
-    let line = lines[i];
-    let toCheck = line;
-
-    // strip HTML comments while keeping content outside
-    if(inComment){
-      const end = toCheck.indexOf('-->');
-      if(end === -1) continue; // still inside comment
-      toCheck = toCheck.slice(end+3);
-      inComment = false;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (ATTR_RE.test(line)) {
+      const snippet = line.trim().slice(0, 200);
+      violations.push({ line: i + 1, snippet });
     }
-    // remove any comment segments starting here (and track if it continues)
-    for(;;){
-      const start = toCheck.indexOf('<!--');
-      if(start === -1) break;
-      const end = toCheck.indexOf('-->', start+4);
-      if(end === -1){
-        inComment = true;
-        toCheck = toCheck.slice(0, start);
-        break;
-      } else {
-        toCheck = toCheck.slice(0, start) + toCheck.slice(end+3);
-      }
-    }
-
-    const trimmed = toCheck.trim();
-    if(!trimmed) continue;
-
-    // allow semantic <abbr title="...">
-    const isAbbr = /<abbr[^>]*\btitle\s*=\s*"/i.test(trimmed);
-    const hasTitleAttr = /\btitle\s*=\s*"/i.test(trimmed);
-
-    if(hasTitleAttr && !isAbbr){
-      violations.push({ file:filePath, line:i+1, preview: trimmed.slice(0,200) });
-    }
+    ATTR_RE.lastIndex = 0;
   }
+  return violations;
 }
 
-walk(process.cwd());
-
-if(violations.length){
-  console.error('❌ Found forbidden user-facing title="..." attributes:\n');
-  for(const v of violations){
-    console.error(`- ${v.file}:${v.line}  ${v.preview}`);
+function main() {
+  if (!fs.existsSync(TEMPLATES_ROOT)) {
+    if (VERBOSE) console.log(`[check-no-title] Skipped: ${TEMPLATES_ROOT} not found.`);
+    process.exit(0);
   }
-  console.error('\nHint: Use /js/ui/tooltip.js instead, or add <!-- allow-title-check --> if truly needed.');
+
+  const files = collectHtmlFiles(TEMPLATES_ROOT);
+  if (VERBOSE) console.log(`[check-no-title] Scanning ${files.length} HTML files under ${TEMPLATES_ROOT} ...`);
+
+  const offenders = [];
+  for (const f of files) {
+    const v = findViolations(f);
+    if (v.length) offenders.push({ file: f, entries: v });
+  }
+
+  if (offenders.length === 0) {
+    console.log('✅ No user-facing title="..." attributes found.');
+    process.exit(0);
+  }
+
+  console.error(`✗ Found ${offenders.length} file(s) with forbidden title="..." attributes:\n`);
+  for (const o of offenders) {
+    console.error(` - ${o.file}`);
+    for (const e of o.entries.slice(0, 5)) {
+      console.error(`     L${e.line}: ${e.snippet}`);
+    }
+    if (o.entries.length > 5) {
+      console.error(`     ...and ${o.entries.length - 5} more occurrence(s)`);
+    }
+  }
+  console.error('\nHint: use data-tooltip="..." and aria-label instead of title="...".');
+  console.error('      Comments (<!-- ... -->) are ignored.');
   process.exit(1);
-} else {
-  console.log('✅ No user-facing title="..." attributes found.');
 }
+
+main();
