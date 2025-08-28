@@ -1,0 +1,267 @@
+<!DOCTYPE html><html lang="en" data-theme="dark"><head><meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+
+  <!-- Title from i18n -->
+  <title data-i18n="app.title">RBS' Estimation Poker</title>
+
+  <!-- Favicons -->
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="alternate icon" href="/favicon.ico" sizes="any">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+
+  <!-- Early theme apply (prevents flash) -->
+  <script>
+    (function(){try{
+      var t=localStorage.getItem('estpoker-theme')||'dark';
+      if(t==='system')document.documentElement.removeAttribute('data-theme');
+      else document.documentElement.setAttribute('data-theme',t);
+    }catch(e){}})();
+  </script>
+
+  <!-- Base styles -->
+  <link rel="stylesheet" href="/styles.css">
+  <!-- Tooltip CSS removed (consolidated into styles.css) -->
+
+</head><body>
+
+  <!-- App menu (fragment) -->
+  
+
+  <!-- Floating menu button -->
+  <button id="menuButton" class="menu-button" type="button" aria-haspopup="dialog" aria-expanded="false" data-i18n-attr="aria-label:ui.menu.open" aria-label="Open menu">☰</button>
+
+  <!-- Overlay root -->
+  <div id="appMenuOverlay" class="menu-overlay hidden" aria-hidden="true" data-tipthemelight="Theme: Light" data-tipthemedark="Theme: Dark" data-tipthemesystem="Theme: System" data-tiplangto="Switch language → {0}">
+
+    <!-- backdrop click closes -->
+    <div class="menu-backdrop" data-close=""></div>
+
+    <!-- Dialog panel -->
+    <div class="menu-panel" role="dialog" aria-modal="true" data-i18n-attr="aria-label:menu.settings" aria-label="Settings">
+
+      <!-- Language row (toggle de/en without reload) -->
+      <div id="langRow" class="menu-item" tabindex="0" role="button" data-i18n-attr="aria-label:menu.language" aria-label="Language" data-tooltip="Switch language → Deutsch">
+        <span class="mi-icon" aria-hidden="true">🌐</span>
+        <div>
+          <div class="group-title" data-i18n="menu.language">Language</div>
+          <div>
+            <span class="flag-split" aria-hidden="true">
+              <img class="flag flag-a" src="/flags/us.svg" width="24" height="16" alt="">
+              <img class="flag flag-b" src="/flags/gb.svg" width="24" height="16" alt="">
+            </span>
+            <span id="langCurrent">English</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Theme -->
+      <div class="menu-section">
+        <div class="section-title" data-i18n="menu.theme">Theme</div>
+        <div class="menu-choice">
+          <button id="themeLight" type="button" class="choice-btn" aria-pressed="false" data-i18n-attr="aria-label:theme.light" data-tooltip="Theme: Light">
+            <span class="mi-icon" aria-hidden="true">🌞</span>
+            <span data-i18n="theme.light">Light</span>
+          </button>
+          <button id="themeDark" type="button" class="choice-btn active" aria-pressed="true" data-i18n-attr="aria-label:theme.dark" data-tooltip="Theme: Dark">
+            <span class="mi-icon" aria-hidden="true">🌙</span>
+            <span data-i18n="theme.dark">Dark</span>
+          </button>
+          <button id="themeSystem" type="button" class="choice-btn" aria-pressed="false" data-i18n-attr="aria-label:theme.system" data-tooltip="Theme: System">
+            <span class="mi-icon" aria-hidden="true">🖥️</span>
+            <span data-i18n="theme.system">System</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Card sequence (host-only is enforced elsewhere; radios always render) -->
+      <div class="menu-section">
+        <div class="section-title" data-i18n="menu.sequence">Card sequence</div>
+        <fieldset id="menuSeqChoice" class="menu-choice vertical">
+          <label class="radio-row">
+            <input type="radio" name="menu-seq" value="fib.scrum" checked="" style="">
+            <span data-i18n="sequence.fib.scrum">Fibonacci (Scrum)</span>
+          </label>
+          <label class="radio-row">
+            <input type="radio" name="menu-seq" value="fib.enh" style="">
+            <span data-i18n="sequence.fib.enh">Fibonacci (Scrum enhanced)</span>
+          </label>
+          <label class="radio-row">
+            <input type="radio" name="menu-seq" value="fib.math" style="">
+            <span data-i18n="sequence.fib.math">Fibonacci (mathematical)</span>
+          </label>
+          <label class="radio-row">
+            <input type="radio" name="menu-seq" value="pow2" style="">
+            <span data-i18n="sequence.pow2">Powers of 2</span>
+          </label>
+          <label class="radio-row">
+            <input type="radio" name="menu-seq" value="tshirt" style="">
+            <span data-i18n="sequence.tshirt">T-Shirt sizes</span>
+          </label>
+        </fieldset>
+        <p class="hint" data-i18n="menu.sequence.hint">
+          Special cards (❓ 💬 ☕) are added automatically.
+        </p>
+      </div>
+
+      <!-- Auto-reveal -->
+      <div class="menu-section">
+        <div class="section-title" data-i18n="menu.autoreveal">Auto-reveal</div>
+        <div class="menu-item switch" role="group" data-i18n-attr="aria-label:menu.autoreveal" aria-label="Auto reveal" tabindex="0">
+          <span class="mi-icon" aria-hidden="true">⚡</span>
+          <div class="switch-text">
+            <strong data-i18n="menu.autoreveal">Auto-reveal</strong>
+            <span id="menuArStatus">Off</span>
+          </div>
+          <input id="menuAutoRevealToggle" class="switch-control" type="checkbox" role="switch" aria-checked="false" style="">
+        </div>
+      </div>
+
+      <!-- Ticket/Story toggle -->
+      <div class="menu-section">
+        <div class="section-title" data-i18n="menu.topic">Ticket/Story</div>
+        <div class="menu-item switch" role="group" data-i18n-attr="aria-label:menu.topic" aria-label="Ticket/Story" tabindex="0">
+          <span class="mi-icon" aria-hidden="true">🎫</span>
+          <div class="switch-text">
+            <strong data-i18n="menu.topic">Ticket/Story</strong>
+            <span id="menuTopicStatus">Off</span>
+          </div>
+          <input id="menuTopicToggle" class="switch-control" type="checkbox" role="switch" aria-checked="false" style="">
+        </div>
+      </div>
+
+      <!-- Participation -->
+      <div class="menu-section">
+        <div class="section-title" data-i18n="menu.participation">Participation</div>
+        <div class="menu-item switch" role="group" data-i18n-attr="aria-label:menu.participation" aria-label="Participation" tabindex="0">
+          <span class="mi-icon" aria-hidden="true">🧑‍💻</span>
+          <div class="switch-text">
+            <strong data-i18n="menu.participation">Participation</strong>
+            <span id="menuPartStatus">I'm estimating</span>
+          </div>
+          <input id="menuParticipationToggle" class="switch-control" type="checkbox" role="switch" aria-checked="true" checked="" style="">
+        </div>
+      </div>
+
+      <!-- Room actions -->
+      <div class="menu-section">
+        <button id="closeRoomBtn" type="button" class="button danger" data-i18n="button.closeRoom" data-i18n-attr="aria-label:button.closeRoom">
+          Close room for everyone
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Load menu wiring (ensure cache-bust to latest JS) -->
+  <script defer="" src="/js/menu.js?v=12"></script>
+
+
+  <div class="container">
+    <h1 class="app-title">
+      <img src="/favicon.svg" alt="" width="24" height="24" class="logo">
+      <span data-i18n="ui.heading">RBS' Estimation Poker</span>
+    </h1>
+
+    <dl class="main-info">
+      <dt><span class="mi-icon" aria-hidden="true">👤</span><span class="mi-label" data-i18n="label.you">You are:</span></dt>
+      <dd><strong id="youName">Sanity</strong></dd>
+
+      <dt><span class="mi-icon" aria-hidden="true">🆔</span><span class="mi-label" data-i18n="label.room">Room:</span></dt>
+      <dd>
+        <div class="room-with-actions">
+          <strong id="roomCodeVal">E2E-XLHPD</strong>
+          <button id="copyRoomLink" class="icon-button" type="button" data-i18n-attr="aria-label:invite.copyLink;data-tooltip:invite.copyLink" aria-live="polite" aria-label="Copy link to this room" data-tooltip="Copy link to this room">🔗</button>
+        </div>
+      </dd>
+    </dl>
+
+    <h2 data-i18n="label.participants">Participants</h2>
+    <ul id="liveParticipantList"></ul>
+
+    <!-- Topic compact row (view) -->
+    <div id="topicRow" class="topic-row" style="display:none;">
+      <span class="topic-label" aria-hidden="true">📝</span>
+      <span id="topicDisplay" class="topic-text">—</span>
+      <div class="topic-actions">
+        <button id="topicEditBtn" class="row-action" type="button" data-i18n-attr="data-tooltip:button.edit;aria-label:button.edit" data-tooltip="Edit" aria-label="Edit">
+          <span class="ra-icon">✏️</span><span class="ra-label" data-i18n="button.edit">Edit</span>
+        </button>
+        <button id="topicClearBtn" class="row-action kick" type="button" data-i18n-attr="data-tooltip:button.clearTopic;aria-label:button.clearTopic" data-tooltip="Clear" aria-label="Clear">
+          <span class="ra-icon">🧹</span><span class="ra-label" data-i18n="button.clearTopic">Clear</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Topic editor (host-only; JS toggles visibility) -->
+    <div id="topicEdit" class="topic-edit" style="display:none;">
+      <input id="topicInput" class="topic-input" type="text" data-i18n-attr="placeholder:topic.placeholder" placeholder="Paste JIRA link or type key (e.g., RBSEP-123)…" style="">
+      <div class="topic-actions">
+        <button id="topicSaveBtn" class="row-action host" type="button" data-i18n-attr="data-tooltip:button.saveTopic;aria-label:button.saveTopic" data-tooltip="Save" aria-label="Save">
+          <span class="ra-icon">💾</span><span class="ra-label" data-i18n="button.saveTopic">Save</span>
+        </button>
+        <button id="topicCancelBtn" class="row-action" type="button" data-i18n-attr="data-tooltip:button.cancel;aria-label:button.cancel" data-tooltip="Cancel" aria-label="Cancel">
+          <span class="ra-icon">✖</span><span class="ra-label" data-i18n="button.cancel">Cancel</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Pre-Vote: cards + (host) reveal -->
+    <div class="pre-vote">
+      <div class="card-grid" id="cardGrid"></div>
+
+      <div class="vote-actions">
+        <button type="button" id="revealButton" class="button" style="display:none;" data-i18n="button.reveal" onclick="revealCards()">Reveal cards</button>
+      </div>
+    </div>
+
+    <!-- Post-Vote -->
+    <div class="post-vote" style="display:none;">
+      <p id="resultRow" class="average-label consensus-row" role="status" aria-live="polite" aria-atomic="true">
+        <span id="resultLabel" class="label" data-i18n="label.average">Ø Average:</span>
+        <span id="averageVote" class="value">–</span>
+
+        <span class="sep" aria-hidden="true"> • </span>
+
+        <span id="medianWrap" class="stat" hidden="">
+          <span id="medianLabel" class="label" data-i18n="label.median">Median:</span>
+          <span id="medianVote" class="value">–</span>
+        </span>
+
+        <span id="rangeSep" class="sep" hidden="" aria-hidden="true"> • </span>
+
+        <span id="rangeWrap" class="stat" hidden="">
+          <span id="rangeLabel" class="label" data-i18n="label.range">Range:</span>
+          <span id="rangeVote" class="value">–</span>
+        </span>
+      </p>
+
+      <button type="button" id="resetButton" class="button" style="display:none;" data-i18n="button.reset" onclick="resetRoom()">Start new round</button>
+    </div>
+  </div>
+
+  
+  <!-- Tooltip logic (custom bubble; never uses native title="") -->
+  <script src="/js/ui/tooltip.js" defer=""></script>
+
+  <!-- DO NOT include menu.js here.
+       menu.js is loaded by the menu fragment itself to avoid double binding. -->
+
+
+  <!-- room connector (bumped to v22) -->
+  <script defer="" src="/js/room.js?v=24" data-participant="Sanity" data-room="E2E-XLHPD"></script>
+  <script defer="" src="/js/ws-probe.js"></script>
+
+  <footer class="app-footer">
+      <small>
+        Crafted with 🩶 by
+        <a href="https://rolandseper.at" target="_blank" rel="noopener noreferrer" style="text-decoration:none">
+          Roland B. SEPER
+        </a> © <span>2025</span>
+      </small>
+    </footer>
+
+
+</body></html>
