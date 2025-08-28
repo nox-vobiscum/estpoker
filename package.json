@@ -5,7 +5,9 @@
     "check:no-title": "node scripts/check-no-title.js",
     "check:menu-events": "node scripts/check-menu-toggle-events.js",
     "check": "npm run check:no-title && npm run check:menu-events",
-    "ci:verify": "npm run check"
+    "ci:verify": "npm run check",
+    "test:e2e": "playwright test",
+    "test": "npm run test:e2e"
   },
   "devDependencies": {
     "@playwright/test": "^1.55.0"
