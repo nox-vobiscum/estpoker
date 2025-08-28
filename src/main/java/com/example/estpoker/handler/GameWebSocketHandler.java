@@ -98,9 +98,20 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                 return;
             }
 
+            // LEGACY alias kept for backwards compatibility with older clients
             if (payload.startsWith("topicToggle:")) {
                 if (!isHost(roomCode, name)) return;
                 boolean on = Boolean.parseBoolean(payload.substring("topicToggle:".length()));
+                log.debug("WS topicToggle -> room={} on={}", roomCode, on);
+                gameService.setTopicEnabled(roomCode, on);         // broadcasts
+                return;
+            }
+
+            // NEW: current clients send "topicVisible:true|false"
+            if (payload.startsWith("topicVisible:")) {
+                if (!isHost(roomCode, name)) return;
+                boolean on = Boolean.parseBoolean(payload.substring("topicVisible:".length()));
+                log.debug("WS topicVisible -> room={} on={}", roomCode, on);
                 gameService.setTopicEnabled(roomCode, on);         // broadcasts
                 return;
             }

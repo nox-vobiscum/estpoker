@@ -219,12 +219,12 @@
       try { document.dispatchEvent(new CustomEvent("ep:auto-reveal-toggle", { detail: { on } })); } catch {}
     }
     function onTopic(e){
-      const on = !!e.target.checked; // <- contract: 'on' boolean
+      const on = !!e.target.checked;
       e.target.setAttribute("aria-checked", String(on));
       if (topicLbl) topicLbl.textContent = on ? (isDe() ? "An" : "On") : (isDe() ? "Aus" : "Off");
-      if (DEBUG) console.debug('[menu] ep:topic-toggle', { on });
       try { document.dispatchEvent(new CustomEvent("ep:topic-toggle", { detail: { on } })); } catch {}
     }
+
     function onPart(e){
       const estimating = !!e.target.checked;
       e.target.setAttribute("aria-checked", String(estimating));
