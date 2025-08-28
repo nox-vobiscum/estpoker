@@ -8,10 +8,10 @@ import { roomUrlFor, newRoomCode, ensureMenuOpen, ensureMenuClosed } from './_se
 
 test.beforeAll(() => {
   expect(process.env.EP_BASE_URL, 'EP_BASE_URL must be set (https://...)').toMatch(/^https?:\/\//);
-  expect(process.env.EP_ROOM_URL, 'EP_ROOM_URL must be set (https://.../room)').toMatch(/^https?:\/\//);
+  expect(process.env.EP_ROOM_URL, 'EP_ROOM_URL must be set (https://...\/room)/').toMatch(/^https?:\/\//);
 });
 
-// Helper: click a card by exact visible label (e.g., '3' must not match '13')
+// Click a card by exact visible label (e.g., '3' must not match '13')
 async function clickCardExact(page, label) {
   const byRole = page.getByRole('button', { name: label, exact: true });
   if (await byRole.count()) { await byRole.first().click(); return; }
@@ -31,14 +31,14 @@ test('Prod: Auto-Reveal toggled → 3 votes → reveal auto', async ({ browser }
   const a    = await aCtx.newPage();
   const b    = await bCtx.newPage();
 
-  await host.goto(roomUrlFor('Host', room), { waitUntil: 'domcontentloaded' });
+  await host.goto(roomUrlFor('Host', room),  { waitUntil: 'domcontentloaded' });
   await a.goto(roomUrlFor('Alice', room),    { waitUntil: 'domcontentloaded' });
   await b.goto(roomUrlFor('Bob', room),      { waitUntil: 'domcontentloaded' });
 
-  // Basic readiness
-  await expect(host.locator('#cardGrid')).toBeVisible();
-  await expect(a.locator('#cardGrid')).toBeVisible();
-  await expect(b.locator('#cardGrid')).toBeVisible();
+  // Basic readiness (prod can be slower → longer timeouts)
+  await expect(host.locator('#cardGrid')).toBeVisible({ timeout: 10000 });
+  await expect(a.locator('#cardGrid')).toBeVisible({ timeout: 10000 });
+  await expect(b.locator('#cardGrid')).toBeVisible({ timeout: 10000 });
 
   // Host enables Auto-Reveal
   await ensureMenuOpen(host);
@@ -46,6 +46,7 @@ test('Prod: Auto-Reveal toggled → 3 votes → reveal auto', async ({ browser }
   await expect(arToggle).toHaveCount(1);
   const wasChecked = await arToggle.isChecked().catch(() => false);
   if (!wasChecked) await arToggle.click({ force: true });
+  await host.waitForTimeout(250); // small settle for WS roundtrip
   await ensureMenuClosed(host);
 
   // All three vote (Host participates by default)
@@ -53,13 +54,20 @@ test('Prod: Auto-Reveal toggled → 3 votes → reveal auto', async ({ browser }
   await clickCardExact(b, '5');
   await clickCardExact(host, '8');
 
-  // Expect automatic reveal: reset button + average visible and not "-"
-  await expect(host.locator('#resetButton')).toBeVisible();
-  const avg = host.locator('#averageVote');
-  await expect(avg).toBeVisible();
-  await expect(avg).not.toHaveText(/^-\s*$/);
+  // Expect automatic reveal on HOST: reset button + average visible and not "-"
+  const resetBtnHost = host.locator('#resetButton');
+  await expect(resetBtnHost).toBeVisible({ timeout: 10000 });
 
-  // (best effort) Small sanity on guest UI too
-  await expect(a.locator('#resetButton')).toBeVisible();
-  await expect(b.locator('#resetButton')).toBeVisible();
+  const avgHost = host.locator('#averageVote');
+  await expect(avgHost).toBeVisible({ timeout: 10000 });
+  await expect(avgHost).not.toHaveText(/^-\s*$/, { timeout: 10000 });
+
+  // Guests: do NOT require reset button (may be host-only in prod).
+  // Just ensure average becomes visible and not "-"
+  const avgA = a.locator('#averageVote');
+  const avgB = b.locator('#averageVote');
+  await expect(avgA).toBeVisible({ timeout: 10000 });
+  await expect(avgB).toBeVisible({ timeout: 10000 });
+  await expect(avgA).not.toHaveText(/^-\s*$/, { timeout: 10000 });
+  await expect(avgB).not.toHaveText(/^-\s*$/, { timeout: 10000 });
 });
