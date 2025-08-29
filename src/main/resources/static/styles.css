@@ -718,7 +718,7 @@ li{ margin-bottom:.4rem; line-height:1.5; font-size:1rem; }
   .topic-label{ display:none; }
   .topic-actions{ justify-content:flex-end; }
 
-  /* NEW: action buttons icon-only on phones */
+  /* NEW: action buttons become icon-only on phones */
   .row-action .ra-label{ display:none; }
 }
 
@@ -756,7 +756,7 @@ li{ margin-bottom:.4rem; line-height:1.5; font-size:1rem; }
 .row-action.kick:hover{ box-shadow: 0 0 0 2px rgba(239, 68, 68,.18); }
 
 .row-action.host:focus-visible{ outline:none; box-shadow:0 0 0 3px rgba(59,130,246,.35); }
-.row-action.kick:focus-visible{ outline:none; box-shadow:0 0 0 3px rgba(239, 68, 68,.35); }
+.row-action.kick:focus-visible{ outline:none; box-shadow: 0 0 0 3px rgba(239, 68, 68,.35); }
 
 :root[data-theme="light"] .row-action.host{
   background: var(--host-pill-bg); border-color: var(--host-pill-border); color: var(--host-pill-text);
@@ -848,7 +848,7 @@ body{ padding-bottom: 68px; }
 .no-horizontal-scroll { overflow-x: hidden !important; }
 
 /* === Menu compat layer (match current fragment markup) ================== */
-/* Buttons: .pill  (alias für .choice-btn) */
+/* Buttons: .pill  (alias for .choice-btn) */
 .menu-section .btn-row { display:flex; flex-wrap:wrap; gap:8px; }
 .pill{
   display:flex; align-items:center; gap:8px; justify-content:center;
@@ -865,7 +865,7 @@ body{ padding-bottom: 68px; }
   box-shadow: 0 0 0 2px rgba(0,122,204,.20);
 }
 
-/* Sequence: .radio-list > label.radio-item  (alias für .radio-row) */
+/* Sequence: .radio-list > label.radio-item  (alias for .radio-row) */
 .radio-list{ display:flex; flex-direction:column; gap:6px; }
 .radio-list .radio-item{
   display:flex; align-items:center; gap:10px;
@@ -883,7 +883,7 @@ body{ padding-bottom: 68px; }
   background: color-mix(in srgb, var(--panel-2) 84%, var(--accent) 16%);
 }
 
-/* Switches: .switch-row + .switch/.slider  (alias für .switch-control) */
+/* Switches: .switch-row + .switch/.slider  (alias for .switch-control) */
 .switch-row{ display:flex; align-items:center; gap:10px; }
 .switch{ position:relative; width:42px; height:24px; display:inline-block; }
 .switch input{ opacity:0; width:0; height:0; }
