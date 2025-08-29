@@ -116,8 +116,8 @@
 
   <th:block th:replace="~{fragments/scripts :: scripts}"></th:block>
 
-  <!-- room connector (bumped to v32 for cache-bust) -->
-  <script defer th:src="@{/js/room.js?v=32}"
+  <!-- room connector (bumped to v33 for cache-bust) -->
+  <script defer th:src="@{/js/room.js?v=33}"
           th:attr="data-participant=${participantName},data-room=${roomCode}"></script>
   <script defer src="/js/ws-probe.js"></script>
 

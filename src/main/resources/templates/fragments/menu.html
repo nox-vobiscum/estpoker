@@ -55,7 +55,7 @@
         <div class="menu-choice">
           <button id="themeLight"  type="button" class="choice-btn" aria-pressed="false"
                   data-i18n-attr="aria-label:theme.light">
-            <span class="mi-icon" aria-hidden="true">🌞</span>
+            <span class="mi-icon" aria-hidden="true">☀️</span>
             <span data-i18n="theme.light">Light</span>
           </button>
           <button id="themeDark"   type="button" class="choice-btn" aria-pressed="false"
@@ -111,8 +111,7 @@
           <span class="mi-icon" aria-hidden="true">⚡</span>
           <div class="switch-text">
             <strong data-i18n="menu.autoreveal">Auto-reveal</strong>
-            <!-- visually hidden, kept for a11y/live updates -->
-            <span id="menuArStatus" class="sr-only" aria-live="polite">Off</span>
+            <span id="menuArStatus">Off</span>
           </div>
           <input id="menuAutoRevealToggle" class="switch-control" type="checkbox" role="switch" aria-checked="false">
         </div>
@@ -128,8 +127,7 @@
           <span class="mi-icon" aria-hidden="true">🎫</span>
           <div class="switch-text">
             <strong data-i18n="menu.topic">Ticket/Story</strong>
-            <!-- visually hidden, kept for a11y/live updates -->
-            <span id="menuTopicStatus" class="sr-only" aria-live="polite">Off</span>
+            <span id="menuTopicStatus">Off</span>
           </div>
           <input id="menuTopicToggle" class="switch-control" type="checkbox" role="switch" aria-checked="false">
         </div>
@@ -145,8 +143,7 @@
           <span class="mi-icon" aria-hidden="true">🧑‍💻</span>
           <div class="switch-text">
             <strong data-i18n="menu.participation">Participation</strong>
-            <!-- visually hidden, kept for a11y/live updates -->
-            <span id="menuPartStatus" class="sr-only" aria-live="polite">I'm estimating</span>
+            <span id="menuPartStatus">I'm estimating</span>
           </div>
           <input id="menuParticipationToggle" class="switch-control" type="checkbox" role="switch" aria-checked="true" checked>
         </div>
@@ -167,5 +164,5 @@
   </div>
 
   <!-- Load menu wiring (ensure cache-bust to latest JS) -->
-  <script defer src="/js/menu.js?v=12"></script>
+  <script defer src="/js/menu.js?v=14"></script>
 </th:block>

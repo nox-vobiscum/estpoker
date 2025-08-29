@@ -1,4 +1,4 @@
-// /static/js/menu.js  (v13)
+// /static/js/menu.js  (v14)
 // central menu + theme + language + i18n runtime + sequence + toggle dispatch
 (function () {
   if (window.__epMenuInit) return;
@@ -242,23 +242,29 @@
     top?.addEventListener("change", onTopic);
     part?.addEventListener("change", onPart);
 
-    // NEW: make entire switch rows interactive (click + keyboard)
+    // NEW: make entire switch rows interactive (click + keyboard) with disabled guard
     function bindRowToggleFor(inputEl, changeHandler){
       if (!inputEl) return;
       const row = inputEl.closest('.menu-item.switch');
       if (!row) return;
       if (!row.hasAttribute('tabindex')) row.setAttribute('tabindex','0'); // keyboard focus
-      // Click anywhere on row except on explicit interactive elements
+
+      function rowDisabled() {
+        return !!(inputEl.disabled || row.classList.contains('disabled') || row.getAttribute('aria-disabled') === 'true');
+      }
+
+      // Click anywhere on row except explicit interactive elements
       row.addEventListener('click', (ev) => {
         if (ev.target === inputEl) return;
         if (ev.target && ev.target.closest('input,button,a,label')) return;
+        if (rowDisabled()) return;
         inputEl.checked = !inputEl.checked;
-        // fire native change for handler
         inputEl.dispatchEvent(new Event('change', { bubbles: true }));
       });
       // Keyboard: Space/Enter toggles
       row.addEventListener('keydown', (ev) => {
         if (ev.key === ' ' || ev.key === 'Enter') {
+          if (rowDisabled()) { ev.preventDefault(); return; }
           ev.preventDefault();
           inputEl.checked = !inputEl.checked;
           inputEl.dispatchEvent(new Event('change', { bubbles: true }));

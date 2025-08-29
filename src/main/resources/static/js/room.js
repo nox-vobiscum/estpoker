@@ -1,6 +1,4 @@
-/* room.js v32 — WS outbox + robust optimistic state with pending flags:
-   - Prevents race where server sends stale voteUpdate right after a user toggle
-   - Keeps previous fixes: host-only topic buttons, two-row grid, ∞ handling, topic clear keeps row visible */
+/* room.js v33 — Host-gated AR/Topic switches + robust optimistic state (pending flags) */
 (() => {
   'use strict';
   const TAG = '[ROOM]';
@@ -38,10 +36,9 @@
 
     autoRevealEnabled: false,
 
-    // local immediate mirror for my participation (drives disabled buttons instantly)
-    meEstimating: true,
+    meEstimating: true,             // drives disabled buttons instantly
 
-    // NEW: pending flags to shield optimistic UI from stale server updates
+    // pending flags (shield optimistic UI from stale server updates)
     _pendingParticipation: null, // true = estimating, false = observer
     _pendingTopicVisible: null,  // true/false
     _pendingAutoReveal: null,    // true/false
@@ -49,7 +46,7 @@
     hardRedirect: null
   };
 
-  // --- simple per-room storage (reload UX) ---
+  // --- per-room storage helpers ---
   const key = (name) => `ep:${state.roomCode}:${name}`;
   const storage = {
     get(name) { try { return localStorage.getItem(key(name)); } catch { return null; } },
@@ -81,7 +78,7 @@
   };
 
   // --- WS outbox ---
-  const pending = []; // array<string>
+  const pending = []; // queued lines until socket OPEN
   function flushPending() {
     if (!state.ws || state.ws.readyState !== 1) return;
     while (pending.length) {
@@ -105,25 +102,15 @@
     try { s = new WebSocket(u); } catch (e) { console.error(TAG, e); return; }
     state.ws = s;
 
-    s.onopen = () => {
-      state.connected = true;
-      console.info(TAG, 'OPEN');
-      flushPending();
-      heartbeat();
-    };
+    s.onopen = () => { state.connected = true; console.info(TAG, 'OPEN'); flushPending(); heartbeat(); };
     s.onclose = (ev) => {
-      state.connected = false;
-      console.warn(TAG, 'CLOSE', ev.code, ev.reason || '');
-      stopHeartbeat();
+      state.connected = false; console.warn(TAG, 'CLOSE', ev.code, ev.reason || ''); stopHeartbeat();
       if (state.hardRedirect) { location.href = state.hardRedirect; return; }
       if (ev.code === 4000 || ev.code === 4001) return;
       setTimeout(() => { if (!state.connected) connectWS(); }, 2000);
     };
     s.onerror = (e) => console.warn(TAG, 'ERROR', e);
-    s.onmessage = (ev) => {
-      try { handleMessage(JSON.parse(ev.data)); }
-      catch { console.warn(TAG, 'bad JSON', ev.data); }
-    };
+    s.onmessage = (ev) => { try { handleMessage(JSON.parse(ev.data)); } catch { console.warn(TAG, 'bad JSON', ev.data); } };
   }
 
   // --- heartbeat ---
@@ -390,7 +377,7 @@
     if (menuSt) menuSt.textContent = statusText;
   }
 
-  // --- keep overlay/menu in sync ---
+  // --- keep overlay/menu in sync + host gate ---
   function syncMenuFromState() {
     const isDe = (document.documentElement.lang||'en').toLowerCase().startsWith('de');
 
@@ -407,6 +394,31 @@
 
     const mARTgl = $('#menuAutoRevealToggle');
     if (mARTgl) { mARTgl.checked = !!state.autoRevealEnabled; mARTgl.setAttribute('aria-checked', String(!!state.autoRevealEnabled)); }
+
+    // --- Host-Gate for AR + Topic ---
+    function gateByHost(input) {
+      if (!input) return;
+      const row = input.closest('.menu-item.switch');
+      const shouldDisable = !state.isHost && (input.id === 'menuAutoRevealToggle' || input.id === 'menuTopicToggle');
+      input.disabled = !!shouldDisable;
+      input.setAttribute('aria-disabled', String(!!shouldDisable));
+      if (row) {
+        row.classList.toggle('disabled', !!shouldDisable);
+        if (shouldDisable) row.setAttribute('tabindex','-1'); else if (!row.hasAttribute('tabindex')) row.setAttribute('tabindex','0');
+      }
+    }
+    gateByHost(mARTgl);
+    gateByHost(mTgl);
+
+    // Participation stays enabled for everyone
+    if (mPTgl) {
+      mPTgl.disabled = false;
+      const row = mPTgl.closest('.menu-item.switch');
+      if (row) {
+        row.classList.remove('disabled');
+        if (!row.hasAttribute('tabindex')) row.setAttribute('tabindex','0');
+      }
+    }
   }
 
   // --- radios (sequence) sync ---
@@ -423,7 +435,7 @@
     if (sel) { sel.checked = true; sel.setAttribute('aria-checked','true'); }
   }
 
-  // --- actions for HTML buttons ---
+  // --- HTML actions ---
   function revealCards() { send('revealCards'); }
   function resetRoom()   { send('resetRoom'); }
   window.revealCards = revealCards; window.resetRoom = resetRoom;
@@ -545,6 +557,7 @@
     });
 
     document.addEventListener('ep:auto-reveal-toggle', (ev) => {
+      if (!state.isHost) { syncMenuFromState(); return; } // ignore if not host
       const on = !!(ev && ev.detail && ev.detail.on);
       state._pendingAutoReveal = on;
       state.autoRevealEnabled = on; storage.set('ar', on ? '1' : '0');
@@ -553,6 +566,7 @@
     });
 
     document.addEventListener('ep:topic-toggle', (ev) => {
+      if (!state.isHost) { syncMenuFromState(); return; } // ignore if not host
       const on = !!(ev && ev.detail && ev.detail.on);
       state._pendingTopicVisible = on;
       state.topicVisible = on; storage.set('topicVisible', on ? '1' : '0');
