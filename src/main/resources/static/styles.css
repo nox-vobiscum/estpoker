@@ -672,9 +672,7 @@ li{ margin-bottom:.4rem; line-height:1.5; font-size:1rem; }
 .switch-control:disabled{ opacity:.6; cursor:not-allowed; }
 
 /* ---------- Full-row Toggle rows (IDs) ---------- */
-/* These three IDs are turned into full-width rows with a right ON/OFF pill.
-   State reads from aria-pressed="true". Works whether the element is a <button>
-   or any clickable control. */
+/* Case A: the ID itself is the row. */
 #menuAutoRevealToggle,
 #menuTopicToggle,
 #menuParticipationToggle{
@@ -707,7 +705,7 @@ li{ margin-bottom:.4rem; line-height:1.5; font-size:1rem; }
   border-color: var(--accent);
   box-shadow: 0 0 0 2px rgba(0,122,204,.20);
 }
-/* Right ON/OFF pill (track) */
+/* Right ON/OFF pill (when ID is the row) */
 #menuAutoRevealToggle::before,
 #menuTopicToggle::before,
 #menuParticipationToggle::before{
@@ -725,23 +723,81 @@ li{ margin-bottom:.4rem; line-height:1.5; font-size:1rem; }
   color: var(--text-dim);
   transition: background 160ms ease, border-color 160ms ease, color 160ms ease, box-shadow 160ms ease;
 }
-/* ON state via aria-pressed */
 #menuAutoRevealToggle[aria-pressed="true"]::before,
+#menuAutoRevealToggle.active::before,
+#menuAutoRevealToggle[data-state="on"]::before,
 #menuTopicToggle[aria-pressed="true"]::before,
-#menuParticipationToggle[aria-pressed="true"]::before{
+#menuTopicToggle.active::before,
+#menuTopicToggle[data-state="on"]::before,
+#menuParticipationToggle[aria-pressed="true"]::before,
+#menuParticipationToggle.active::before,
+#menuParticipationToggle[data-state="on"]::before{
   content: "ON";
   background: var(--accent);
   border-color: var(--accent-strong);
   color: #fff;
   box-shadow: 0 0 0 2px rgba(0,122,204,.20);
 }
-/* Disabled */
-#menuAutoRevealToggle[aria-disabled="true"],
-#menuTopicToggle[aria-disabled="true"],
-#menuParticipationToggle[aria-disabled="true"],
-#menuAutoRevealToggle:disabled,
-#menuTopicToggle:disabled,
-#menuParticipationToggle:disabled{
+/* If the ID lives inside a .menu-item, suppress this ID-level pill to avoid duplicates. */
+.menu-item #menuAutoRevealToggle::before,
+.menu-item #menuTopicToggle::before,
+.menu-item #menuParticipationToggle::before{ content: none; }
+
+/* Case B: the ID is a child inside a .menu-item → style the CONTAINER row. */
+.menu-item:has(#menuAutoRevealToggle),
+.menu-item:has(#menuTopicToggle),
+.menu-item:has(#menuParticipationToggle){
+  position: relative;
+  padding-right: 86px; /* space for the pill */
+}
+.menu-item:has(#menuAutoRevealToggle)::after,
+.menu-item:has(#menuTopicToggle)::after,
+.menu-item:has(#menuParticipationToggle)::after{
+  content: "OFF";
+  position:absolute;
+  right:12px;
+  top:50%;
+  transform: translateY(-50%);
+  width:56px; height:26px;
+  line-height:26px; text-align:center;
+  font-size:.75rem; font-weight:600;
+  border-radius:999px;
+  background: var(--panel-2);
+  border:1px solid var(--border);
+  color: var(--text-dim);
+  transition: background 160ms ease, border-color 160ms ease, color 160ms ease, box-shadow 160ms ease;
+}
+.menu-item:has(#menuAutoRevealToggle[aria-pressed="true"]),
+.menu-item:has(#menuAutoRevealToggle.active),
+.menu-item:has(#menuAutoRevealToggle[data-state="on"]),
+.menu-item:has(#menuTopicToggle[aria-pressed="true"]),
+.menu-item:has(#menuTopicToggle.active),
+.menu-item:has(#menuTopicToggle[data-state="on"]),
+.menu-item:has(#menuParticipationToggle[aria-pressed="true"]),
+.menu-item:has(#menuParticipationToggle.active),
+.menu-item:has(#menuParticipationToggle[data-state="on"]){
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(0,122,204,.16);
+}
+.menu-item:has(#menuAutoRevealToggle[aria-pressed="true"])::after,
+.menu-item:has(#menuAutoRevealToggle.active)::after,
+.menu-item:has(#menuAutoRevealToggle[data-state="on"])::after,
+.menu-item:has(#menuTopicToggle[aria-pressed="true"])::after,
+.menu-item:has(#menuTopicToggle.active)::after,
+.menu-item:has(#menuTopicToggle[data-state="on"])::after,
+.menu-item:has(#menuParticipationToggle[aria-pressed="true"])::after,
+.menu-item:has(#menuParticipationToggle.active)::after,
+.menu-item:has(#menuParticipationToggle[data-state="on"])::after{
+  content: "ON";
+  background: var(--accent);
+  border-color: var(--accent-strong);
+  color: #fff;
+  box-shadow: 0 0 0 2px rgba(0,122,204,.20);
+}
+/* Disabled container */
+.menu-item:has(#menuAutoRevealToggle[aria-disabled="true"]),
+.menu-item:has(#menuTopicToggle[aria-disabled="true"]),
+.menu-item:has(#menuParticipationToggle[aria-disabled="true"]){
   opacity:.55; cursor:not-allowed;
 }
 
@@ -905,7 +961,6 @@ body{ padding-bottom: 68px; }
 }
 
 /* ---------- A11y helpers ---------- */
-/* NEW: screenreader-only utility for invisible labels */
 .sr-only{
   position:absolute !important;
   width:1px !important;
@@ -917,23 +972,11 @@ body{ padding-bottom: 68px; }
   white-space:nowrap !important;
   border:0 !important;
 }
-
-/* JS-driven tooltip bubble created by js/ui/tooltip.js (class="tooltip") */
 [data-tooltip] { cursor: help; }
-
-/* One-line truncation helper for labels/text cells */
-.truncate-1 {
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* Ensure no horizontal scroll in panels */
+.truncate-1 { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .no-horizontal-scroll { overflow-x: hidden !important; }
 
 /* === Menu compat layer (match current fragment markup) ================== */
-/* Buttons: .pill  (alias for .choice-btn) */
 .menu-section .btn-row { display:flex; flex-wrap:wrap; gap:8px; }
 .pill{
   display:flex; align-items:center; gap:8px; justify-content:center;
@@ -950,8 +993,6 @@ body{ padding-bottom: 68px; }
   border-color: var(--accent);
   box-shadow: 0 0 0 2px rgba(0,122,204,.20);
 }
-
-/* Sequence: .radio-list > label.radio-item  (alias for .radio-row) */
 .radio-list{ display:flex; flex-direction:column; gap:6px; }
 .radio-list .radio-item{
   display:flex; align-items:center; gap:10px;
@@ -969,8 +1010,6 @@ body{ padding-bottom: 68px; }
   box-shadow: 0 0 0 2px rgba(0,122,204,.20);
   background: color-mix(in srgb, var(--panel-2) 84%, var(--accent) 16%);
 }
-
-/* Switches: .switch-row + .switch/.slider  (alias for .switch-control) */
 .switch-row{ display:flex; align-items:center; gap:10px; }
 .switch{ position:relative; width:42px; height:24px; display:inline-block; }
 .switch input{ opacity:0; width:0; height:0; }
@@ -1006,7 +1045,6 @@ body{ padding-bottom: 68px; }
 .is-host .host-only { display: inline-flex !important; }
 
 /* STRICT HOST-ONLY GUARD (defensive, no markup changes needed) */
-/* Hide topic controls for non-hosts entirely */
 :not(.is-host) #topicEditBtn,
 :not(.is-host) #topicClearBtn,
 :not(.is-host) #topicEdit,
