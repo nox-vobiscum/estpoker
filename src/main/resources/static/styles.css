@@ -400,9 +400,9 @@ strong { color: var(--text-strong); }
   z-index: 2000;
   background: var(--panel);
   color: var(--text-strong);
-  border: 1px solid var(--border);
+  border:  1px solid var(--border);
   padding: 6px 8px;
-  border-radius:  6px;
+  border-radius: 6px;
   box-shadow: var(--shadow);
   font-size: .85rem;
   white-space: nowrap;pointer-events: none;
@@ -637,6 +637,19 @@ li{ margin-bottom:.4rem; line-height:1.5; font-size:1rem; }
 .menu-item.switch{ grid-template-columns: 28px 1fr max-content; align-items:center; }
 .switch-text{ display:flex; gap:6px; align-items:baseline; min-width:0; white-space:nowrap; }
 .switch-text strong{ max-width:60%; overflow:hidden; text-overflow:ellipsis; }
+
+/* Visually hide switch state labels (keep in DOM for tests / a11y) */
+#menuArStatus, #menuTopicStatus, #menuPartStatus{
+  position:absolute !important;
+  width:1px !important;
+  height:1px !important;
+  padding:0 !important;
+  margin:-1px !important;
+  overflow:hidden !important;
+  clip:rect(0,0,0,0) !important;
+  white-space:nowrap !important;
+  border:0 !important;
+}
 
 .switch-control{
   -webkit-appearance:none; appearance:none;
