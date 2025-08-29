@@ -111,7 +111,8 @@
           <span class="mi-icon" aria-hidden="true">⚡</span>
           <div class="switch-text">
             <strong data-i18n="menu.autoreveal">Auto-reveal</strong>
-            <span id="menuArStatus">Off</span>
+            <!-- visually hidden, kept for a11y/live updates -->
+            <span id="menuArStatus" class="sr-only" aria-live="polite">Off</span>
           </div>
           <input id="menuAutoRevealToggle" class="switch-control" type="checkbox" role="switch" aria-checked="false">
         </div>
@@ -127,7 +128,8 @@
           <span class="mi-icon" aria-hidden="true">🎫</span>
           <div class="switch-text">
             <strong data-i18n="menu.topic">Ticket/Story</strong>
-            <span id="menuTopicStatus">Off</span>
+            <!-- visually hidden, kept for a11y/live updates -->
+            <span id="menuTopicStatus" class="sr-only" aria-live="polite">Off</span>
           </div>
           <input id="menuTopicToggle" class="switch-control" type="checkbox" role="switch" aria-checked="false">
         </div>
@@ -143,7 +145,8 @@
           <span class="mi-icon" aria-hidden="true">🧑‍💻</span>
           <div class="switch-text">
             <strong data-i18n="menu.participation">Participation</strong>
-            <span id="menuPartStatus">I'm estimating</span>
+            <!-- visually hidden, kept for a11y/live updates -->
+            <span id="menuPartStatus" class="sr-only" aria-live="polite">I'm estimating</span>
           </div>
           <input id="menuParticipationToggle" class="switch-control" type="checkbox" role="switch" aria-checked="true" checked>
         </div>
