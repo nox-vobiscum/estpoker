@@ -490,27 +490,18 @@ li{ margin-bottom:.4rem; line-height:1.5; font-size:1rem; }
   position:relative; cursor:pointer;
   transition: background 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
 }
-/* ON/OFF text inside the track */
-.switch-control::before{
-  content:"OFF"; position:absolute; top:50%; left:8px; transform:translateY(-50%);
-  font-size:.72rem; font-weight:700; color: var(--text-dim); letter-spacing:.5px;
-}
-/* The knob */
+/* Knob */
 .switch-control::after{
   content:""; position:absolute; top:3px; left:3px;
   width:22px; height:22px; border-radius:50%; background:#fff;
   box-shadow:0 1px 2px rgba(0,0,0,.35);
   transition: transform 160ms ease;
 }
-/* Checked state */
+/* Checked state (no ON/OFF label) */
 .switch-control:checked,
 .switch-control[aria-checked="true"]{
   background: var(--accent); border-color: var(--accent-strong);
   box-shadow: 0 0 0 2px rgba(0,122,204,.20);
-}
-.switch-control:checked::before,
-.switch-control[aria-checked="true"]::before{
-  content:"ON"; left:auto; right:8px; color:#fff;
 }
 .switch-control:checked::after,
 .switch-control[aria-checked="true"]::after{ transform: translateX(28px); }
