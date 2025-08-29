@@ -1,4 +1,4 @@
-/* room.js v27 — bugfix: clear keeps topic visible; host-only topic buttons; two-row card grid with specials; ∞ as numeric (stats-excluded) */
+/* room.js v28 — optimistic topic save; optimistic participation toggle; keep topic visible on clear; host-only topic buttons; two-row card grid with specials; ∞ as numeric (stats-excluded) */
 (() => {
   'use strict';
   const TAG = '[ROOM]';
@@ -153,7 +153,7 @@
         const raw = Array.isArray(m.participants) ? m.participants : [];
         state.participants = raw.map(p => ({ ...p, observer: p.participating === false }));
 
-        // --- BUGFIX: only update topicVisible if server actually sends it
+        // --- only update topicVisible if server actually sends it
         if (Object.prototype.hasOwnProperty.call(m, 'topicVisible')) {
           state.topicVisible = !!m.topicVisible;
         }
@@ -448,6 +448,29 @@
   window.revealCards = revealCards;
   window.resetRoom   = resetRoom;
 
+  // --- helpers (optimistic updates) ---
+  function optimisticSetMyParticipation(estimating) {
+    // Update my row locally so UI reacts instantly
+    const me = state.participants.find(p => p.name === state.youName);
+    if (me) {
+      me.participating = !!estimating;
+      me.observer = !estimating;
+    } else {
+      // If participants not yet populated, create a minimal self entry
+      state.participants.push({
+        name: state.youName,
+        isHost: state.isHost,
+        participating: !!estimating,
+        observer: !estimating,
+        vote: null,
+        disconnected: false
+      });
+    }
+    renderCards();
+    renderParticipants();
+    syncMenuFromState();
+  }
+
   // --- menu / toggles wiring (once) ---
   function wireOnce() {
     const copyBtn = $('#copyRoomLink');
@@ -467,6 +490,7 @@
     if (partToggle) {
       partToggle.addEventListener('change', (e) => {
         const estimating = !!e.target.checked;
+        optimisticSetMyParticipation(estimating); // immediate UX
         send(`participation:${estimating}`);
       });
     }
@@ -498,6 +522,13 @@
       saveBtn.addEventListener('click', () => {
         if (!state.isHost) return;
         const val = input.value || '';
+        // optimistic UI: keep visible, update label immediately
+        state.topicLabel = val;
+        state.topicUrl = null; // do not guess URL; server may enrich later
+        state.topicVisible = true;
+        renderTopic();
+        syncMenuFromState();
+
         send('topicSave:' + encodeURIComponent(val));
         editBox.style.display = 'none';
         $('#topicRow').style.display = '';
@@ -521,6 +552,9 @@
     if (arToggle) {
       arToggle.addEventListener('change', (e) => {
         const on = !!e.target.checked;
+        state.autoRevealEnabled = on;   // optimistic mirror
+        renderAutoReveal();
+        syncMenuFromState();
         send(`autoReveal:${on}`);
       });
     }
@@ -541,19 +575,26 @@
 
     document.addEventListener('ep:auto-reveal-toggle', (ev) => {
       const on = !!(ev && ev.detail && ev.detail.on);
-      console.debug(TAG, 'menu:autoReveal →', on);
+      // optimistic update for local UX
+      state.autoRevealEnabled = on;
+      renderAutoReveal();
+      syncMenuFromState();
       send(`autoReveal:${on}`);
     });
 
     document.addEventListener('ep:topic-toggle', (ev) => {
       const on = !!(ev && ev.detail && ev.detail.on);
-      console.debug(TAG, 'menu:topicVisible →', on);
+      // optimistic update for local UX
+      state.topicVisible = on;
+      renderTopic();
+      syncMenuFromState();
       send(`topicVisible:${on}`);
     });
 
     document.addEventListener('ep:participation-toggle', (ev) => {
       const estimating = !!(ev && ev.detail && ev.detail.estimating);
-      console.debug(TAG, 'menu:participation → estimating=', estimating);
+      // optimistic update for local UX
+      optimisticSetMyParticipation(estimating);
       send(`participation:${estimating}`);
     });
 
