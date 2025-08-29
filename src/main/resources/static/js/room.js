@@ -1,4 +1,4 @@
-/* room.js v28 — optimistic topic save; optimistic participation toggle; keep topic visible on clear; host-only topic buttons; two-row card grid with specials; ∞ as numeric (stats-excluded) */
+/* room.js v29 — local persistence for auto-reveal/topic; optimistic topic; keep topic visible on clear; host-only topic buttons; two-row card grid with specials; ∞ as numeric (stats-excluded) */
 (() => {
   'use strict';
   const TAG = '[ROOM]';
@@ -37,6 +37,14 @@
     autoRevealEnabled: false,
 
     hardRedirect: null
+  };
+
+  // --- storage (per-room) ---------------------------------------------------
+  const k = (name) => `ep:${state.roomCode}:${name}`;
+  const storage = {
+    get(name) { try { return localStorage.getItem(k(name)); } catch { return null; } },
+    set(name, val) { try { localStorage.setItem(k(name), String(val)); } catch {} },
+    del(name) { try { localStorage.removeItem(k(name)); } catch {} },
   };
 
   // stable per-tab client id
@@ -153,14 +161,23 @@
         const raw = Array.isArray(m.participants) ? m.participants : [];
         state.participants = raw.map(p => ({ ...p, observer: p.participating === false }));
 
-        // --- only update topicVisible if server actually sends it
+        // topicVisible only if explicitly present
         if (Object.prototype.hasOwnProperty.call(m, 'topicVisible')) {
           state.topicVisible = !!m.topicVisible;
+          storage.set('topicVisible', state.topicVisible ? '1' : '0');
         }
-        state.topicLabel = (Object.prototype.hasOwnProperty.call(m, 'topicLabel')) ? (m.topicLabel || '') : state.topicLabel;
-        state.topicUrl   = (Object.prototype.hasOwnProperty.call(m, 'topicUrl'))   ? (m.topicUrl || null) : state.topicUrl;
+        if (Object.prototype.hasOwnProperty.call(m, 'topicLabel')) {
+          state.topicLabel = m.topicLabel || '';
+          storage.set('topicLabel', state.topicLabel);
+        }
+        if (Object.prototype.hasOwnProperty.call(m, 'topicUrl')) {
+          state.topicUrl = m.topicUrl || null;
+          // do not persist URL for now; label is enough for UX/tests
+        }
 
         state.autoRevealEnabled = !!m.autoRevealEnabled;
+        storage.set('ar', state.autoRevealEnabled ? '1' : '0');
+
         state.sequenceId = m.sequenceId || state.sequenceId;
 
         const me = state.participants.find(p => p && p.name === state.youName);
@@ -526,10 +543,16 @@
         state.topicLabel = val;
         state.topicUrl = null; // do not guess URL; server may enrich later
         state.topicVisible = true;
+        // persist locally for reload UX
+        storage.set('topicLabel', state.topicLabel);
+        storage.set('topicVisible', '1');
         renderTopic();
         syncMenuFromState();
 
+        // send to server (defensive: ensure visible)
         send('topicSave:' + encodeURIComponent(val));
+        send('topicVisible:true');
+
         editBox.style.display = 'none';
         $('#topicRow').style.display = '';
       });
@@ -539,10 +562,14 @@
         if (!state.isHost) return;
         // BUGFIX: don't toggle off topicVisible — just clear the label/url and keep visible
         send('topicSave:' + encodeURIComponent(''));
-        // optimistic UI
+        send('topicVisible:true'); // defensive ensure "ON"
+
+        // optimistic UI + persist
         state.topicLabel = '';
         state.topicUrl = null;
         state.topicVisible = true;
+        storage.set('topicLabel', '');
+        storage.set('topicVisible', '1');
         renderTopic();
         syncMenuFromState();
       });
@@ -553,6 +580,7 @@
       arToggle.addEventListener('change', (e) => {
         const on = !!e.target.checked;
         state.autoRevealEnabled = on;   // optimistic mirror
+        storage.set('ar', on ? '1' : '0');
         renderAutoReveal();
         syncMenuFromState();
         send(`autoReveal:${on}`);
@@ -575,8 +603,9 @@
 
     document.addEventListener('ep:auto-reveal-toggle', (ev) => {
       const on = !!(ev && ev.detail && ev.detail.on);
-      // optimistic update for local UX
+      // optimistic update + persist
       state.autoRevealEnabled = on;
+      storage.set('ar', on ? '1' : '0');
       renderAutoReveal();
       syncMenuFromState();
       send(`autoReveal:${on}`);
@@ -584,8 +613,9 @@
 
     document.addEventListener('ep:topic-toggle', (ev) => {
       const on = !!(ev && ev.detail && ev.detail.on);
-      // optimistic update for local UX
+      // optimistic update + persist
       state.topicVisible = on;
+      storage.set('topicVisible', on ? '1' : '0');
       renderTopic();
       syncMenuFromState();
       send(`topicVisible:${on}`);
@@ -610,8 +640,29 @@
     ));
   }
 
+  // --- preseed UI from localStorage (for fast reload UX) --------------------
+  function preseedFromStorage() {
+    const ar = storage.get('ar');
+    if (ar === '1' || ar === '0') {
+      state.autoRevealEnabled = (ar === '1');
+    }
+    const tv = storage.get('topicVisible');
+    if (tv === '1' || tv === '0') {
+      state.topicVisible = (tv === '1');
+    }
+    const tl = storage.get('topicLabel');
+    if (typeof tl === 'string') {
+      state.topicLabel = tl;
+    }
+    // Early paint so menu/test sees current values even before first WS update
+    renderTopic();
+    renderAutoReveal();
+    syncMenuFromState();
+  }
+
   // --- boot ---
   function boot() {
+    preseedFromStorage();
     wireOnce();
     syncHostClass();
     connectWS();
