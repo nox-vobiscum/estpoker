@@ -1,4 +1,4 @@
-/* room.js v29 — local persistence for auto-reveal/topic; optimistic topic; keep topic visible on clear; host-only topic buttons; two-row card grid with specials; ∞ as numeric (stats-excluded) */
+/* room.js v30 — immediate observer disable via local flag; local persistence for auto-reveal/topic; optimistic topic; keep topic visible on clear; host-only topic buttons; two-row card grid with specials; ∞ as numeric (stats-excluded) */
 (() => {
   'use strict';
   const TAG = '[ROOM]';
@@ -35,6 +35,9 @@
     topicUrl: null,
 
     autoRevealEnabled: false,
+
+    // NEW: local immediate mirror for my participation (drives button disabled instantly)
+    meEstimating: true,
 
     hardRedirect: null
   };
@@ -161,6 +164,12 @@
         const raw = Array.isArray(m.participants) ? m.participants : [];
         state.participants = raw.map(p => ({ ...p, observer: p.participating === false }));
 
+        // derive my host flag + estimating from participants
+        const me = state.participants.find(p => p && p.name === state.youName);
+        state.isHost = !!(me && me.isHost);
+        // NEW: set local mirror from server (participating !== false)
+        if (me) state.meEstimating = (me.participating !== false);
+
         // topicVisible only if explicitly present
         if (Object.prototype.hasOwnProperty.call(m, 'topicVisible')) {
           state.topicVisible = !!m.topicVisible;
@@ -172,16 +181,12 @@
         }
         if (Object.prototype.hasOwnProperty.call(m, 'topicUrl')) {
           state.topicUrl = m.topicUrl || null;
-          // do not persist URL for now; label is enough for UX/tests
         }
 
         state.autoRevealEnabled = !!m.autoRevealEnabled;
         storage.set('ar', state.autoRevealEnabled ? '1' : '0');
 
         state.sequenceId = m.sequenceId || state.sequenceId;
-
-        const me = state.participants.find(p => p && p.name === state.youName);
-        state.isHost = !!(me && me.isHost);
 
         syncHostClass();
 
@@ -298,9 +303,8 @@
     if (!grid) return;
     grid.innerHTML = '';
 
-    const me = state.participants.find(pp => pp.name === state.youName);
-    const isObserver = !!(me && me.observer);
-    const disabled = state.votesRevealed || isObserver;
+    // NEW: decide disabled from local mirror (instant) + votesRevealed
+    const disabled = state.votesRevealed || !state.meEstimating;
 
     const specials = state.cards.filter(v => SPECIALS.includes(v));
     const numbers  = state.cards.filter(v => !SPECIALS.includes(v));
@@ -421,16 +425,15 @@
     }
     if (mSt) mSt.textContent = state.topicVisible ? (isDe ? 'An' : 'On') : (isDe ? 'Aus' : 'Off');
 
-    const me = state.participants.find(p => p.name === state.youName);
-    const isObserver = !!(me && me.observer);
+    // NEW: use local mirror for immediate sync
     const mPTgl = $('#menuParticipationToggle');
     const mPSt  = $('#menuPartStatus');
     if (mPTgl) {
-      mPTgl.checked = !isObserver;
-      mPTgl.setAttribute('aria-checked', String(!isObserver));
+      mPTgl.checked = !!state.meEstimating;
+      mPTgl.setAttribute('aria-checked', String(!!state.meEstimating));
     }
-    if (mPSt) mPSt.textContent = !isObserver ? (isDe ? 'Ich schätze mit' : "I'm estimating")
-                                            : (isDe ? 'Beobachter:in' : 'Observer');
+    if (mPSt) mPSt.textContent = state.meEstimating ? (isDe ? 'Ich schätze mit' : "I'm estimating")
+                                                   : (isDe ? 'Beobachter:in' : 'Observer');
 
     const mARTgl = $('#menuAutoRevealToggle');
     if (mARTgl) {
@@ -467,7 +470,9 @@
 
   // --- helpers (optimistic updates) ---
   function optimisticSetMyParticipation(estimating) {
-    // Update my row locally so UI reacts instantly
+    // Update my local mirror and my row so UI reacts instantly
+    state.meEstimating = !!estimating;
+
     const me = state.participants.find(p => p.name === state.youName);
     if (me) {
       me.participating = !!estimating;
@@ -560,9 +565,9 @@
     if (clearBtn) {
       clearBtn.addEventListener('click', () => {
         if (!state.isHost) return;
-        // BUGFIX: don't toggle off topicVisible — just clear the label/url and keep visible
+        // only clear label/url, keep visible
         send('topicSave:' + encodeURIComponent(''));
-        send('topicVisible:true'); // defensive ensure "ON"
+        send('topicVisible:true'); // ensure "ON"
 
         // optimistic UI + persist
         state.topicLabel = '';
@@ -623,7 +628,7 @@
 
     document.addEventListener('ep:participation-toggle', (ev) => {
       const estimating = !!(ev && ev.detail && ev.detail.estimating);
-      // optimistic update for local UX
+      // optimistic update for local UX + immediate disable
       optimisticSetMyParticipation(estimating);
       send(`participation:${estimating}`);
     });
