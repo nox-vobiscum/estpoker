@@ -252,12 +252,13 @@ strong { color: var(--text-strong); }
 }
 .menu-header h3{ margin:0; font-size: 1rem; color: var(--text-strong); }
 
-.menu-section{ display:flex; flex-direction:column; gap:10px; padding: 8px 4px 10px; }
+/* Slightly more compact section spacing */
+.menu-section{ display:flex; flex-direction:column; gap:8px; padding: 6px 4px 8px; }
 
 /* Blocks */
 .menu-group{ display:flex; flex-direction:column; gap:8px; }
 .group-title{
-  margin: 6px 8px 6px;
+  margin: 4px 8px 4px;
   font-weight: 600;
   font-size: .9rem;
   opacity: .85;
@@ -265,7 +266,7 @@ strong { color: var(--text-strong); }
 }
 /* NEW: section-title for menu blocks */
 .section-title{
-  margin: 6px 8px 6px;
+  margin: 4px 8px 4px;
   font-weight: 600;
   font-size: .9rem;
   opacity: .85;
@@ -287,7 +288,7 @@ strong { color: var(--text-strong); }
   font-size: .9rem;
   color: var(--text);
   transition: background 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
-  min-height: 42px; /* larger touch target */
+  min-height: 42px; /* larger touch target, still compact */
 }
 .menu-item:hover{ background: var(--panel-2-hover); border-color: var(--accent); box-shadow: 0 0 0 2px rgba(0,122,204,0.12); }
 .menu-item:focus-within{ border-color: var(--accent); box-shadow: 0 0 0 2px rgba(0,122,204,0.20); }
@@ -328,7 +329,7 @@ strong { color: var(--text-strong); }
   border: 1px solid var(--border);
   cursor:pointer; font-size:.9rem; color: var(--text);
   transition: background 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
-  min-height: 40px; /* larger touch target */
+  min-height: 40px; /* larger tap target */
 }
 .choice-btn .mi-icon{ font-size:18px; line-height:1; }
 .choice-btn:hover{ background: var(--panel-2-hover); border-color: var(--accent); box-shadow: 0 0 0 2px rgba(0,122,204,0.12); }
@@ -348,7 +349,7 @@ strong { color: var(--text-strong); }
   transition: background 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
   font-size:.9rem;
   white-space: nowrap; overflow: hidden;
-  min-height: 42px; /* larger touch target */
+  min-height: 42px; /* compact but tappable */
 }
 .radio-row input[type="radio"]{ width:16px; height:16px; accent-color: var(--accent); margin:0; flex:0 0 auto; }
 .radio-row span{ min-width:0; overflow:hidden; text-overflow:ellipsis; }
@@ -638,11 +639,12 @@ li{ margin-bottom:.4rem; line-height:1.5; font-size:1rem; }
 @keyframes fadein{ to{ opacity:.95; transform: translateY(0);} }
 @keyframes fadeout{ to{ opacity:0; } }
 
-/* ---------- Menu switch control ---------- */
+/* ---------- Menu switch control (generic) ---------- */
 .menu-item.switch{ grid-template-columns: 28px 1fr max-content; align-items:center; }
 .switch-text{ display:flex; gap:6px; align-items:baseline; min-width:0; white-space:nowrap; }
 .switch-text strong{ max-width:60%; overflow:hidden; text-overflow:ellipsis; }
 
+/* Legacy generic switch (kept for compat if used) */
 .switch-control{
   -webkit-appearance:none; appearance:none;
   width:42px; height:24px; border-radius:999px;
@@ -668,6 +670,80 @@ li{ margin-bottom:.4rem; line-height:1.5; font-size:1rem; }
   transform: translateX(18px);
 }
 .switch-control:disabled{ opacity:.6; cursor:not-allowed; }
+
+/* ---------- Full-row Toggle rows (IDs) ---------- */
+/* These three IDs are turned into full-width rows with a right ON/OFF pill.
+   State reads from aria-pressed="true". Works whether the element is a <button>
+   or any clickable control. */
+#menuAutoRevealToggle,
+#menuTopicToggle,
+#menuParticipationToggle{
+  display:grid !important;
+  grid-template-columns: 28px 1fr;
+  align-items:center;
+  gap:12px;
+  padding:10px 12px;
+  border-radius:12px;
+  background: var(--panel-2);
+  border:1px solid var(--border);
+  cursor:pointer;
+  width:100%;
+  position:relative;
+  min-height: 42px;
+  text-align:left;
+  transition: background 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+}
+#menuAutoRevealToggle:hover,
+#menuTopicToggle:hover,
+#menuParticipationToggle:hover{
+  background: var(--panel-2-hover);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(0,122,204,.12);
+}
+#menuAutoRevealToggle:focus-visible,
+#menuTopicToggle:focus-visible,
+#menuParticipationToggle:focus-visible{
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(0,122,204,.20);
+}
+/* Right ON/OFF pill (track) */
+#menuAutoRevealToggle::before,
+#menuTopicToggle::before,
+#menuParticipationToggle::before{
+  content: "OFF";
+  position:absolute;
+  right:12px;
+  top:50%;
+  transform: translateY(-50%);
+  width:56px; height:26px;
+  line-height:26px; text-align:center;
+  font-size:.75rem; font-weight:600;
+  border-radius:999px;
+  background: var(--panel-2);
+  border:1px solid var(--border);
+  color: var(--text-dim);
+  transition: background 160ms ease, border-color 160ms ease, color 160ms ease, box-shadow 160ms ease;
+}
+/* ON state via aria-pressed */
+#menuAutoRevealToggle[aria-pressed="true"]::before,
+#menuTopicToggle[aria-pressed="true"]::before,
+#menuParticipationToggle[aria-pressed="true"]::before{
+  content: "ON";
+  background: var(--accent);
+  border-color: var(--accent-strong);
+  color: #fff;
+  box-shadow: 0 0 0 2px rgba(0,122,204,.20);
+}
+/* Disabled */
+#menuAutoRevealToggle[aria-disabled="true"],
+#menuTopicToggle[aria-disabled="true"],
+#menuParticipationToggle[aria-disabled="true"],
+#menuAutoRevealToggle:disabled,
+#menuTopicToggle:disabled,
+#menuParticipationToggle:disabled{
+  opacity:.55; cursor:not-allowed;
+}
 
 /* ---------- QR Overlay (if used) ---------- */
 .qr-overlay{ position:fixed; inset:0; z-index:1200; }
@@ -727,7 +803,8 @@ li{ margin-bottom:.4rem; line-height:1.5; font-size:1rem; }
   .row-action .ra-label{ display:none; }
 
   /* Larger tap targets in menu on phones */
-  .menu-item, .radio-row, .choice-btn { min-height: 44px; }
+  .menu-item, .radio-row, .choice-btn,
+  #menuAutoRevealToggle, #menuTopicToggle, #menuParticipationToggle { min-height: 44px; }
 }
 
 /* Labels appear on wider screens */
