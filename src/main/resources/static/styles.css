@@ -690,7 +690,13 @@ li{ margin-bottom:.4rem; line-height:1.5; font-size:1rem; }
   min-height: 42px;
   text-align:left;
   transition: background 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+  padding-right: 86px; /* reserve space for pill */
+  font-size: 0;       /* hide inner text like "Off" / "I'm estimating" */
 }
+#menuAutoRevealToggle .mi-icon,
+#menuTopicToggle .mi-icon,
+#menuParticipationToggle .mi-icon{ font-size:18px; } /* restore icon size */
+
 #menuAutoRevealToggle:hover,
 #menuTopicToggle:hover,
 #menuParticipationToggle:hover{
@@ -749,6 +755,16 @@ li{ margin-bottom:.4rem; line-height:1.5; font-size:1rem; }
 .menu-item:has(#menuParticipationToggle){
   position: relative;
   padding-right: 86px; /* space for the pill */
+}
+.menu-item:has(#menuAutoRevealToggle) #menuAutoRevealToggle,
+.menu-item:has(#menuTopicToggle) #menuTopicToggle,
+.menu-item:has(#menuParticipationToggle) #menuParticipationToggle{
+  font-size: 0; /* hide inner text, keep icon */
+}
+.menu-item:has(#menuAutoRevealToggle) #menuAutoRevealToggle .mi-icon,
+.menu-item:has(#menuTopicToggle) #menuTopicToggle .mi-icon,
+.menu-item:has(#menuParticipationToggle) #menuParticipationToggle .mi-icon{
+  font-size: 18px;
 }
 .menu-item:has(#menuAutoRevealToggle)::after,
 .menu-item:has(#menuTopicToggle)::after,
