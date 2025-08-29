@@ -287,8 +287,10 @@ strong { color: var(--text-strong); }
   font-size: .9rem;
   color: var(--text);
   transition: background 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+  min-height: 42px; /* larger touch target */
 }
 .menu-item:hover{ background: var(--panel-2-hover); border-color: var(--accent); box-shadow: 0 0 0 2px rgba(0,122,204,0.12); }
+.menu-item:focus-within{ border-color: var(--accent); box-shadow: 0 0 0 2px rgba(0,122,204,0.20); }
 .menu-item.disabled { opacity: .55; cursor: not-allowed; }
 .menu-item .mi-icon{
   font-size: 18px;
@@ -326,6 +328,7 @@ strong { color: var(--text-strong); }
   border: 1px solid var(--border);
   cursor:pointer; font-size:.9rem; color: var(--text);
   transition: background 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+  min-height: 40px; /* larger touch target */
 }
 .choice-btn .mi-icon{ font-size:18px; line-height:1; }
 .choice-btn:hover{ background: var(--panel-2-hover); border-color: var(--accent); box-shadow: 0 0 0 2px rgba(0,122,204,0.12); }
@@ -345,10 +348,12 @@ strong { color: var(--text-strong); }
   transition: background 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
   font-size:.9rem;
   white-space: nowrap; overflow: hidden;
+  min-height: 42px; /* larger touch target */
 }
 .radio-row input[type="radio"]{ width:16px; height:16px; accent-color: var(--accent); margin:0; flex:0 0 auto; }
 .radio-row span{ min-width:0; overflow:hidden; text-overflow:ellipsis; }
 .radio-row:hover{ background: var(--panel-2-hover); border-color: var(--accent); box-shadow: 0 0 0 2px rgba(0,122,204,0.12); }
+.radio-row:focus-within{ border-color: var(--accent); box-shadow: 0 0 0 2px rgba(0,122,204,.20); }
 .radio-row.disabled{ opacity:.55; cursor:not-allowed; }
 .radio-row:has(input[type="radio"]:checked){
   border-color: var(--accent);
@@ -720,6 +725,9 @@ li{ margin-bottom:.4rem; line-height:1.5; font-size:1rem; }
 
   /* NEW: action buttons become icon-only on phones */
   .row-action .ra-label{ display:none; }
+
+  /* Larger tap targets in menu on phones */
+  .menu-item, .radio-row, .choice-btn { min-height: 44px; }
 }
 
 /* Labels appear on wider screens */
@@ -858,6 +866,7 @@ body{ padding-bottom: 68px; }
   border: 1px solid var(--border);
   cursor:pointer; font-size:.9rem; color: var(--text);
   transition: background 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+  min-height: 40px;
 }
 .pill:hover{ background: var(--panel-2-hover); border-color: var(--accent); box-shadow: 0 0 0 2px rgba(0,122,204,.12); }
 .pill.active, .pill[aria-pressed="true"]{
@@ -873,6 +882,7 @@ body{ padding-bottom: 68px; }
   border-radius:10px; background: var(--panel-2); border:1px solid var(--border);
   user-select:none; transition: background 180ms, border-color 180ms, box-shadow 180ms;
   font-size:.9rem; white-space:nowrap; overflow:hidden;
+  min-height: 42px;
 }
 .radio-list .radio-item input[type="radio"]{ width:16px; height:16px; accent-color: var(--accent); margin:0; flex:0 0 auto; }
 .radio-list .radio-item span{ min-width:0; overflow:hidden; text-overflow:ellipsis; }
@@ -917,3 +927,11 @@ body{ padding-bottom: 68px; }
 /* ---------- Host-only utility ---------- */
 .host-only { display: none !important; }
 .is-host .host-only { display: inline-flex !important; }
+
+/* STRICT HOST-ONLY GUARD (defensive, no markup changes needed) */
+/* Hide topic controls for non-hosts entirely */
+:not(.is-host) #topicEditBtn,
+:not(.is-host) #topicClearBtn,
+:not(.is-host) #topicEdit,
+:not(.is-host) #topicSaveBtn,
+:not(.is-host) #topicCancelBtn { display: none !important; }
