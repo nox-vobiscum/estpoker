@@ -1,4 +1,6 @@
-/* room.js v31 — add WS outbox (queue) so early menu toggles are delivered once WS opens; keeps previous v30 fixes (optimistic participation/topic/AR, host-only topic buttons, two-row grid, ∞ handling) */
+/* room.js v32 — WS outbox + robust optimistic state with pending flags:
+   - Prevents race where server sends stale voteUpdate right after a user toggle
+   - Keeps previous fixes: host-only topic buttons, two-row grid, ∞ handling, topic clear keeps row visible */
 (() => {
   'use strict';
   const TAG = '[ROOM]';
@@ -39,6 +41,11 @@
     // local immediate mirror for my participation (drives disabled buttons instantly)
     meEstimating: true,
 
+    // NEW: pending flags to shield optimistic UI from stale server updates
+    _pendingParticipation: null, // true = estimating, false = observer
+    _pendingTopicVisible: null,  // true/false
+    _pendingAutoReveal: null,    // true/false
+
     hardRedirect: null
   };
 
@@ -73,8 +80,8 @@
       `&cid=${encodeURIComponent(state.cid)}`;
   };
 
-  // --- WS outbox (NEW) ---
-  const pending = []; // array<string> lines to send when ready
+  // --- WS outbox ---
+  const pending = []; // array<string>
   function flushPending() {
     if (!state.ws || state.ws.readyState !== 1) return;
     while (pending.length) {
@@ -83,7 +90,6 @@
     }
   }
   function send(line) {
-    // When socket is not ready, queue the message instead of dropping it.
     if (state.ws && state.ws.readyState === 1) {
       try { state.ws.send(line); } catch (e) { console.warn(TAG, 'send failed', e); pending.push(line); }
     } else {
@@ -102,7 +108,6 @@
     s.onopen = () => {
       state.connected = true;
       console.info(TAG, 'OPEN');
-      // flush any early toggles (participation/topic/AR/sequence)
       flushPending();
       heartbeat();
     };
@@ -154,16 +159,14 @@
         const raw = Array.isArray(m.participants) ? m.participants : [];
         state.participants = raw.map(p => ({ ...p, observer: p.participating === false }));
 
-        // derive my host + estimating
+        // derive server view for me (may be stale)
         const me = state.participants.find(p => p && p.name === state.youName);
         state.isHost = !!(me && me.isHost);
-        if (me) state.meEstimating = (me.participating !== false);
+        const serverEstimating = !!(me && me.participating !== false);
 
-        // topic fields
-        if (Object.prototype.hasOwnProperty.call(m, 'topicVisible')) {
-          state.topicVisible = !!m.topicVisible;
-          storage.set('topicVisible', state.topicVisible ? '1' : '0');
-        }
+        // topic fields from server (may be partial / stale)
+        const gotTV = Object.prototype.hasOwnProperty.call(m, 'topicVisible');
+        const serverTopicVisible = gotTV ? !!m.topicVisible : state.topicVisible;
         if (Object.prototype.hasOwnProperty.call(m, 'topicLabel')) {
           state.topicLabel = m.topicLabel || '';
           storage.set('topicLabel', state.topicLabel);
@@ -172,10 +175,37 @@
           state.topicUrl = m.topicUrl || null;
         }
 
-        state.autoRevealEnabled = !!m.autoRevealEnabled;
-        storage.set('ar', state.autoRevealEnabled ? '1' : '0');
-
+        const serverAR = !!m.autoRevealEnabled;
         state.sequenceId = m.sequenceId || state.sequenceId;
+
+        // ---- reconcile with pending flags (shield optimistic UI) ----
+        // participation
+        if (state._pendingParticipation !== null) {
+          state.meEstimating = state._pendingParticipation;
+          if (serverEstimating === state._pendingParticipation) state._pendingParticipation = null;
+        } else {
+          state.meEstimating = serverEstimating;
+        }
+
+        // topic visible
+        if (state._pendingTopicVisible !== null) {
+          state.topicVisible = state._pendingTopicVisible;
+          if (gotTV && serverTopicVisible === state._pendingTopicVisible) state._pendingTopicVisible = null;
+        } else if (gotTV) {
+          state.topicVisible = serverTopicVisible;
+        }
+
+        // auto reveal
+        if (state._pendingAutoReveal !== null) {
+          state.autoRevealEnabled = state._pendingAutoReveal;
+          if (serverAR === state._pendingAutoReveal) state._pendingAutoReveal = null;
+        } else {
+          state.autoRevealEnabled = serverAR;
+        }
+
+        // persist small bits
+        storage.set('ar', state.autoRevealEnabled ? '1' : '0');
+        storage.set('topicVisible', state.topicVisible ? '1' : '0');
 
         syncHostClass();
         renderParticipants();
@@ -400,6 +430,7 @@
 
   // --- optimistic helpers ---
   function optimisticSetMyParticipation(estimating) {
+    state._pendingParticipation = !!estimating;
     state.meEstimating = !!estimating;
     const me = state.participants.find(p => p.name === state.youName);
     if (me) { me.participating = !!estimating; me.observer = !estimating; }
@@ -462,7 +493,9 @@
         if (!state.isHost) return;
         const val = input.value || '';
         // optimistic UI + persist
-        state.topicLabel = val; state.topicUrl = null; state.topicVisible = true;
+        state._pendingTopicVisible = true;
+        state.topicVisible = true;
+        state.topicLabel = val; state.topicUrl = null;
         storage.set('topicLabel', state.topicLabel); storage.set('topicVisible', '1');
         renderTopic(); syncMenuFromState();
         // tell server
@@ -474,11 +507,13 @@
     if (clearBtn) {
       clearBtn.addEventListener('click', () => {
         if (!state.isHost) return;
-        // optimistic clear + persist
-        state.topicLabel = ''; state.topicUrl = null; state.topicVisible = true;
+        // optimistic clear + persist (keep row visible)
+        state._pendingTopicVisible = true;
+        state.topicVisible = true;
+        state.topicLabel = ''; state.topicUrl = null;
         storage.set('topicLabel', ''); storage.set('topicVisible', '1');
         renderTopic(); syncMenuFromState();
-        // tell server (ensure visible)
+        // tell server
         send('topicSave:' + encodeURIComponent(''));
         send('topicVisible:true');
       });
@@ -489,6 +524,7 @@
     if (arToggle) {
       arToggle.addEventListener('change', (e) => {
         const on = !!e.target.checked;
+        state._pendingAutoReveal = on;
         state.autoRevealEnabled = on; storage.set('ar', on ? '1' : '0');
         renderAutoReveal(); syncMenuFromState();
         send(`autoReveal:${on}`);
@@ -510,6 +546,7 @@
 
     document.addEventListener('ep:auto-reveal-toggle', (ev) => {
       const on = !!(ev && ev.detail && ev.detail.on);
+      state._pendingAutoReveal = on;
       state.autoRevealEnabled = on; storage.set('ar', on ? '1' : '0');
       renderAutoReveal(); syncMenuFromState();
       send(`autoReveal:${on}`);
@@ -517,6 +554,7 @@
 
     document.addEventListener('ep:topic-toggle', (ev) => {
       const on = !!(ev && ev.detail && ev.detail.on);
+      state._pendingTopicVisible = on;
       state.topicVisible = on; storage.set('topicVisible', on ? '1' : '0');
       renderTopic(); syncMenuFromState();
       send(`topicVisible:${on}`);
