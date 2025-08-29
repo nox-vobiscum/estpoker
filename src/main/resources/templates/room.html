@@ -1,170 +1,126 @@
-<!-- templates/fragments/menu.html -->
-<th:block th:fragment="appMenu (showSeq, showAuto, showRoom)">
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" th:lang="${#locale}" lang="en">
+<head th:replace="~{fragments/head :: head}"></head>
+<body>
 
-  <!-- Floating menu button -->
-  <button id="menuButton"
-          class="menu-button"
-          type="button"
-          aria-haspopup="dialog"
-          aria-expanded="false"
-          data-i18n-attr="aria-label:ui.menu.open"
-          aria-label="Open menu">☰</button>
+  <!-- App menu (fragment) -->
+  <div th:replace="~{fragments/menu :: appMenu(showSeq=${true}, showAuto=${true}, showRoom=${true})}"></div>
 
-  <!-- Overlay root -->
-  <div id="appMenuOverlay"
-       class="menu-overlay hidden"
-       aria-hidden="true"
-       data-tipThemeLight="Theme: Light"
-       data-tipThemeDark="Theme: Dark"
-       data-tipThemeSystem="Theme: System"
-       data-tipLangTo="Switch language → {0}">
+  <div class="container">
+    <h1 class="app-title">
+      <img src="/favicon.svg" alt="" width="24" height="24" class="logo">
+      <span th:text="#{ui.heading}" data-i18n="ui.heading">RBS' Estimation Poker</span>
+    </h1>
 
-    <!-- backdrop click closes -->
-    <div class="menu-backdrop" data-close></div>
+    <dl class="main-info">
+      <dt><span class="mi-icon" aria-hidden="true">👤</span><span class="mi-label" th:text="#{label.you}" data-i18n="label.you">You are:</span></dt>
+      <dd><strong id="youName" th:text="${participantName}">Guest</strong></dd>
 
-    <!-- Dialog panel -->
-    <div class="menu-panel"
-         role="dialog"
-         aria-modal="true"
-         data-i18n-attr="aria-label:menu.settings"
-         aria-label="Settings">
-
-      <!-- Language row (single line: globe + split-flag + text) -->
-      <div id="langRow"
-           class="menu-item"
-           tabindex="0"
-           role="button"
-           data-i18n-attr="aria-label:menu.language"
-           aria-label="Language">
-        <span class="mi-icon" aria-hidden="true">🌐</span>
-        <div class="mi-line">
-          <span class="flag-split" aria-hidden="true" style="vertical-align:-2px">
-            <img class="flag flag-a" src="/flags/us.svg" width="24" height="16" alt="">
-            <img class="flag flag-b" src="/flags/gb.svg" width="24" height="16" alt="">
-          </span>
-          <span id="langCurrent" style="margin-left:.5rem">English</span>
+      <dt><span class="mi-icon" aria-hidden="true">🆔</span><span class="mi-label" th:text="#{label.room}" data-i18n="label.room">Room:</span></dt>
+      <dd>
+        <div class="room-with-actions">
+          <strong id="roomCodeVal" th:text="${roomCode}">demo</strong>
+          <button id="copyRoomLink"
+                  class="icon-button"
+                  type="button"
+                  th:attr="aria-label=#{invite.copyLink},data-tooltip=#{invite.copyLink}"
+                  data-i18n-attr="aria-label:invite.copyLink;data-tooltip:invite.copyLink"
+                  aria-live="polite">🔗</button>
         </div>
+      </dd>
+    </dl>
+
+    <h2 th:text="#{label.participants}" data-i18n="label.participants">Participants</h2>
+    <ul id="liveParticipantList"></ul>
+
+    <!-- Topic compact row (view) -->
+    <div id="topicRow" class="topic-row" style="display:none;">
+      <span class="topic-label" aria-hidden="true">📝</span>
+      <span id="topicDisplay" class="topic-text">—</span>
+      <div class="topic-actions">
+        <!-- Host-only controls -->
+        <button id="topicEditBtn" class="row-action host-only" type="button"
+                data-i18n-attr="data-tooltip:button.edit;aria-label:button.edit"
+                data-tooltip="Edit" aria-label="Edit">
+          <span class="ra-icon">✏️</span><span class="ra-label" data-i18n="button.edit">Edit</span>
+        </button>
+        <button id="topicClearBtn" class="row-action kick host-only" type="button"
+                th:attr="data-tooltip=#{button.clearTopic},aria-label=#{button.clearTopic}"
+                data-i18n-attr="data-tooltip:button.clearTopic;aria-label:button.clearTopic">
+          <span class="ra-icon">🧹</span><span class="ra-label" th:text="#{button.clearTopic}" data-i18n="button.clearTopic">Clear</span>
+        </button>
       </div>
+    </div>
 
-      <!-- Theme -->
-      <div class="menu-section">
-        <div class="section-title" data-i18n="menu.theme">Theme</div>
-        <div class="menu-choice">
-          <button id="themeLight"  type="button" class="choice-btn" aria-pressed="false"
-                  data-i18n-attr="aria-label:theme.light">
-            <span class="mi-icon" aria-hidden="true">☀️</span>
-            <span data-i18n="theme.light">Light</span>
-          </button>
-          <button id="themeDark"   type="button" class="choice-btn" aria-pressed="false"
-                  data-i18n-attr="aria-label:theme.dark">
-            <span class="mi-icon" aria-hidden="true">🌙</span>
-            <span data-i18n="theme.dark">Dark</span>
-          </button>
-          <button id="themeSystem" type="button" class="choice-btn" aria-pressed="false"
-                  data-i18n-attr="aria-label:theme.system">
-            <span class="mi-icon" aria-hidden="true">🖥️</span>
-            <span data-i18n="theme.system">System</span>
-          </button>
-        </div>
+    <!-- Topic editor (host-only; JS toggles visibility) -->
+    <div id="topicEdit" class="topic-edit" style="display:none;">
+      <input id="topicInput"
+             class="topic-input"
+             type="text"
+             th:attr="placeholder=#{topic.placeholder}"
+             data-i18n-attr="placeholder:topic.placeholder"
+             placeholder="Paste JIRA link or type key (e.g., RBSEP-123)…">
+      <div class="topic-actions">
+        <button id="topicSaveBtn" class="row-action host host-only" type="button"
+                th:attr="data-tooltip=#{button.saveTopic},aria-label=#{button.saveTopic}"
+                data-i18n-attr="data-tooltip:button.saveTopic;aria-label:button.saveTopic">
+          <span class="ra-icon">💾</span><span class="ra-label" th:text="#{button.saveTopic}" data-i18n="button.saveTopic">Save</span>
+        </button>
+        <button id="topicCancelBtn" class="row-action host-only" type="button"
+                data-i18n-attr="data-tooltip:button.cancel;aria-label:button.cancel"
+                data-tooltip="Cancel" aria-label="Cancel">
+          <span class="ra-icon">✖</span><span class="ra-label" data-i18n="button.cancel">Cancel</span>
+        </button>
       </div>
+    </div>
 
-      <!-- Card sequence (host-only is enforced elsewhere; radios always render) -->
-      <div class="menu-section" th:if="${showSeq}">
-        <div class="section-title" data-i18n="menu.sequence">Card sequence</div>
-        <fieldset id="menuSeqChoice" class="menu-choice vertical">
-          <label class="radio-row">
-            <input type="radio" name="menu-seq" value="fib.scrum" checked>
-            <span data-i18n="sequence.fib.scrum">Fibonacci (Scrum)</span>
-          </label>
-          <label class="radio-row">
-            <input type="radio" name="menu-seq" value="fib.enh">
-            <span data-i18n="sequence.fib.enh">Fibonacci (Scrum enhanced)</span>
-          </label>
-          <label class="radio-row">
-            <input type="radio" name="menu-seq" value="fib.math">
-            <span data-i18n="sequence.fib.math">Fibonacci (mathematical)</span>
-          </label>
-          <label class="radio-row">
-            <input type="radio" name="menu-seq" value="pow2">
-            <span data-i18n="sequence.pow2">Powers of 2</span>
-          </label>
-          <label class="radio-row">
-            <input type="radio" name="menu-seq" value="tshirt">
-            <span data-i18n="sequence.tshirt">T-Shirt sizes</span>
-          </label>
-        </fieldset>
-        <!-- Hint intentionally removed (compact UI) -->
+    <!-- Pre-Vote: cards + (host) reveal -->
+    <div class="pre-vote">
+      <div class="card-grid" id="cardGrid"></div>
+
+      <div class="vote-actions">
+        <button type="button" id="revealButton" class="button" style="display:none;"
+                th:text="#{button.reveal}" data-i18n="button.reveal"
+                onclick="revealCards()"></button>
       </div>
+    </div>
 
-      <!-- Room functions -->
-      <div class="menu-section">
-        <div class="section-title" data-i18n="menu.roomFunctions">Room functions</div>
+    <!-- Post-Vote -->
+    <div class="post-vote" style="display:none;">
+      <p id="resultRow"
+         class="average-label consensus-row"
+         role="status" aria-live="polite" aria-atomic="true">
+        <span id="resultLabel" class="label" th:text="#{label.average}" data-i18n="label.average">Avg:</span>
+        <span id="averageVote" class="value">–</span>
 
-        <!-- Auto-reveal -->
-        <div class="menu-item switch"
-             role="group"
-             data-i18n-attr="aria-label:menu.autoreveal"
-             aria-label="Auto reveal">
-          <span class="mi-icon" aria-hidden="true">⚡</span>
-          <div class="switch-text">
-            <strong data-i18n="menu.autoreveal">Auto-reveal</strong>
-            <span id="menuArStatus">Off</span>
-          </div>
-          <input id="menuAutoRevealToggle" class="switch-control" type="checkbox" role="switch" aria-checked="false">
-        </div>
+        <span class="sep" aria-hidden="true"> • </span>
 
-        <!-- Ticket/Story toggle -->
-        <div class="menu-item switch"
-             role="group"
-             data-i18n-attr="aria-label:menu.topic"
-             aria-label="Ticket/Story">
-          <span class="mi-icon" aria-hidden="true">🎫</span>
-          <div class="switch-text">
-            <strong data-i18n="menu.topic">Ticket/Story</strong>
-            <span id="menuTopicStatus">Off</span>
-          </div>
-          <input id="menuTopicToggle" class="switch-control" type="checkbox" role="switch" aria-checked="false">
-        </div>
-      </div>
+        <span id="medianWrap" class="stat" hidden>
+          <span id="medianLabel" class="label" th:text="#{label.median}" data-i18n="label.median">Median:</span>
+          <span id="medianVote" class="value">–</span>
+        </span>
 
-      <!-- Personal functions -->
-      <div class="menu-section">
-        <div class="section-title" data-i18n="menu.personalFunctions">Personal functions</div>
-        <div class="menu-item switch"
-             role="group"
-             data-i18n-attr="aria-label:menu.participation"
-             aria-label="Participation">
-          <span class="mi-icon" aria-hidden="true">🧑‍💻</span>
-          <div class="switch-text">
-            <strong data-i18n="menu.participation">Participation</strong>
-            <span id="menuPartStatus">I'm estimating</span>
-          </div>
-          <input id="menuParticipationToggle" class="switch-control" type="checkbox" role="switch" aria-checked="true" checked>
-        </div>
-      </div>
+        <span id="rangeSep" class="sep" hidden aria-hidden="true"> • </span>
 
-      <!-- Room actions -->
-      <div class="menu-section" th:if="${showRoom}">
-        <div id="closeRoomBtn"
-             role="button"
-             tabindex="0"
-             class="menu-item danger"
-             data-i18n="button.closeRoom"
-             data-i18n-attr="aria-label:button.closeRoom"
-             aria-label="Close room for everyone">
-          <span class="mi-icon" aria-hidden="true">❌</span>
-          <div>
-            <div class="mi-title" data-i18n="button.closeRoom">Close room for everyone</div>
-            <div class="mi-subtext" data-i18n="button.closeRoom.desc">
-              Closes this room for all participants and returns to the start page.
-            </div>
-          </div>
-        </div>
-      </div>
+        <span id="rangeWrap" class="stat" hidden>
+          <span id="rangeLabel" class="label" th:text="#{label.range}" data-i18n="label.range">Range:</span>
+          <span id="rangeVote" class="value">–</span>
+        </span>
+      </p>
 
+      <button type="button" id="resetButton" class="button" style="display:none;"
+              th:text="#{button.reset}" data-i18n="button.reset"
+              onclick="resetRoom()"></button>
     </div>
   </div>
 
-  <!-- Load menu wiring (ensure cache-bust to latest JS) -->
-  <script defer src="/js/menu.js?v=12"></script>
-</th:block>
+  <th:block th:replace="~{fragments/scripts :: scripts}"></th:block>
+
+  <!-- room connector (bumped to v28) -->
+  <script defer th:src="@{/js/room.js?v=28}"
+          th:attr="data-participant=${participantName},data-room=${roomCode}"></script>
+  <script defer src="/js/ws-probe.js"></script>
+
+  <div th:replace="~{fragments/footer :: footer}"></div>
+</body>
+</html>
