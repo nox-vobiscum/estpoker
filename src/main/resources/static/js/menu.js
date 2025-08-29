@@ -68,7 +68,7 @@
   let btn, overlay, panel, backdrop, lastFocus = null;
 
   function focusables(){
-    return panel?.querySelectorAll('button,[href],input,select,textarea,[tabindex]:not([tabindex="-1"])') || [];
+    return panel?.querySelectorAll('button,[href],input,select,textarea,[role="button"],[tabindex]:not([tabindex="-1"])') || [];
   }
   function trapTab(e){
     if (e.key !== "Tab" || overlay.classList.contains("hidden")) return;
@@ -189,7 +189,6 @@
         const target = isDe() ? "en" : "de";
         switchLangDynamic(target);
       });
-      // Keyboard access for lang toggle
       if (!langRow.hasAttribute('tabindex')) langRow.setAttribute('tabindex','0');
       langRow.addEventListener('keydown', (e) => {
         if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); langRow.click(); }
@@ -235,36 +234,27 @@
       e.target.setAttribute("aria-checked", String(estimating));
       if (partLbl) partLbl.textContent = estimating ? (isDe() ? "Ich schätze mit" : "I'm estimating")
                                                     : (isDe() ? "Beobachter:in" : "Observer");
-      if (DEBUG) console.debug('[menu] ep:participation-toggle', { estimating });
+      if (DEBUG) console.debug('[menu] ep:participation-toggle', { detail: { estimating } });
       try { document.dispatchEvent(new CustomEvent("ep:participation-toggle", { detail: { estimating } })); } catch {}
     }
     ar?.addEventListener("change", onAR);
     top?.addEventListener("change", onTopic);
     part?.addEventListener("change", onPart);
 
-    // NEW: make entire switch rows interactive (click + keyboard) with disabled guard
+    // Click anywhere on row toggles (except controls)
     function bindRowToggleFor(inputEl, changeHandler){
       if (!inputEl) return;
       const row = inputEl.closest('.menu-item.switch');
       if (!row) return;
-      if (!row.hasAttribute('tabindex')) row.setAttribute('tabindex','0'); // keyboard focus
-
-      function rowDisabled() {
-        return !!(inputEl.disabled || row.classList.contains('disabled') || row.getAttribute('aria-disabled') === 'true');
-      }
-
-      // Click anywhere on row except explicit interactive elements
+      if (!row.hasAttribute('tabindex')) row.setAttribute('tabindex','0');
       row.addEventListener('click', (ev) => {
         if (ev.target === inputEl) return;
         if (ev.target && ev.target.closest('input,button,a,label')) return;
-        if (rowDisabled()) return;
         inputEl.checked = !inputEl.checked;
         inputEl.dispatchEvent(new Event('change', { bubbles: true }));
       });
-      // Keyboard: Space/Enter toggles
       row.addEventListener('keydown', (ev) => {
         if (ev.key === ' ' || ev.key === 'Enter') {
-          if (rowDisabled()) { ev.preventDefault(); return; }
           ev.preventDefault();
           inputEl.checked = !inputEl.checked;
           inputEl.dispatchEvent(new Event('change', { bubbles: true }));
@@ -275,13 +265,18 @@
     bindRowToggleFor(top, onTopic);
     bindRowToggleFor(part, onPart);
 
-    // Close room relay
+    // Close room relay (works for both <button> or <div role="button">)
     const closeBtn = doc.getElementById("closeRoomBtn");
     if (closeBtn) {
       closeBtn.addEventListener("click", () => {
         if (DEBUG) console.debug('[menu] ep:close-room');
         try { document.dispatchEvent(new CustomEvent("ep:close-room")); } catch {}
         closeMenu();
+      });
+      // keyboard
+      if (!closeBtn.hasAttribute('tabindex')) closeBtn.setAttribute('tabindex','0');
+      closeBtn.addEventListener('keydown', (e) => {
+        if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); closeBtn.click(); }
       });
     }
 
