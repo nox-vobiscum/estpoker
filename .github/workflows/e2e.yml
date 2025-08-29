@@ -25,23 +25,29 @@ jobs:
         with:
           node-version: '20'
       - run: node -v && npm -v
-      - run: npm i
+      # Install exactly what's in package-lock.json
+      - run: npm ci
       - run: npm run check
 
   e2e:
     needs: guardrails
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     env:
-      # Defaults aus Secrets (linter-sicher). Können leer sein.
+      # Defaults aus Secrets (können leer sein)
       EP_BASE_URL: ${{ secrets.EP_BASE_URL || '' }}
       EP_ROOM_URL: ${{ secrets.EP_ROOM_URL || '' }}
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-      - run: node -v && npm -v
+
+      - name: Install dependencies
+        run: |
+          node -v && npm -v
+          npm ci
 
       - name: 'Resolve inputs → env'
         if: ${{ github.event_name == 'workflow_dispatch' }}
@@ -65,31 +71,42 @@ jobs:
 
       - name: 'Skip E2E (no URL provided)'
         if: ${{ steps.target.outputs.no_url == 'true' }}
-        run: |
-          echo "No EP_BASE_URL / EP_ROOM_URL provided → skipping E2E."
+        run: echo "No EP_BASE_URL / EP_ROOM_URL provided → skipping E2E."
 
-      - name: 'Preflight: probe EP_TARGET_URL'
+      - name: Install Playwright browsers (repo version)
+        if: ${{ steps.target.outputs.no_url != 'true' }}
+        run: npx playwright install --with-deps
+
+      - name: 'Preflight: probe EP_TARGET_URL (GET)'
         if: ${{ steps.target.outputs.no_url != 'true' }}
         run: |
           echo "Probing $EP_TARGET_URL ..."
-          curl -fsSLI --max-time 15 "$EP_TARGET_URL" -o /dev/null
+          curl -fsSL --max-time 25 -A "ci-probe" -o /dev/null -L "$EP_TARGET_URL"
           echo "Probe OK."
 
-      - name: Install Playwright browsers
-        if: ${{ steps.target.outputs.no_url != 'true' }}
-        run: npx -y @playwright/test@latest install --with-deps
-
-      - name: 'Sanity check (runner available)'
-        if: ${{ steps.target.outputs.no_url != 'true' }}
-        run: npx -y @playwright/test@latest --version
-
-      - name: Run Playwright E2E
+      - name: Run Playwright E2E (all tests)
         if: ${{ steps.target.outputs.no_url != 'true' }}
         env:
           EP_BASE_URL: ${{ env.EP_BASE_URL }}
           EP_ROOM_URL: ${{ env.EP_ROOM_URL }}
         run: |
-          npx -y @playwright/test@latest test tests/toggles.spec.js \
-            --reporter=line \
-            --workers=1 \
-            --timeout=20000
+          npx playwright test -c playwright.config.ts --reporter=line,html
+
+      # ---- Artefakte (immer hochladen) ----
+      - name: Upload HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Upload traces & screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: test-results
+          if-no-files-found: ignore
+          retention-days: 7
