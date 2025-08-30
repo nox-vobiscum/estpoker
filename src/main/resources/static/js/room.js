@@ -1,4 +1,4 @@
-/* room.js v28 — menu gating + disabled state for host-only; topic edit row fixed */
+/* room.js v29 — menu gating + disabled state for host-only; topic edit row fixed */
 (() => {
   'use strict';
   const TAG = '[ROOM]';

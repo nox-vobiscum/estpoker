@@ -1,341 +1,457 @@
-// /static/js/menu.js  (v14)
-// central menu + theme + language + i18n runtime + sequence + guarded toggles
-(function () {
-  if (window.__epMenuInit) return;
-  window.__epMenuInit = true;
+/* room.js v28 — switches full-row; host-only switches disabled for participants; topic edit block aligned */
+(() => {
+  'use strict';
+  const TAG = '[ROOM]';
 
-  const doc = document;
-  const DEBUG = (function () {
-    try {
-      return localStorage.getItem('ep.debug') === '1' || location.search.includes('ep.debug=1');
-    } catch { return false; }
-  })();
+  // --- DOM helpers ---
+  const $ = (s) => document.querySelector(s);
+  const setText = (sel, v) => { const el = typeof sel === 'string' ? $(sel) : sel; if (el) el.textContent = v ?? ''; };
 
-  // ---------------- i18n runtime ----------------
-  window.__epI18n = window.__epI18n || (function () {
-    const cache = new Map();
-    let lang = (document.documentElement.lang || "en").toLowerCase();
-    let catalog = null;
+  const SPECIALS = ['❓','💬','☕'];
+  const INFINITY = '∞';
 
-    const norm = l => (String(l || "en").toLowerCase().split("-")[0]);
+  const scriptEl = document.querySelector('script[src*="/js/room.js"]');
+  const ds = (scriptEl && scriptEl.dataset) || {};
+  const url = new URL(location.href);
 
-    async function load(nextLang) {
-      const target = norm(nextLang);
-      if (catalog && lang === target) return catalog;
-      if (cache.has(target)) { lang = target; catalog = cache.get(target); return catalog; }
-      const res = await fetch(`/i18n/messages?lang=${encodeURIComponent(target)}`, { credentials: "same-origin" });
-      const json = await res.json();
-      cache.set(target, json);
-      lang = target; catalog = json;
-      try { fetch(`/i18n?lang=${encodeURIComponent(target)}`, { credentials: "same-origin", redirect: "manual" }); } catch {}
-      return catalog;
+  const state = {
+    roomCode: ds.room || url.searchParams.get('roomCode') || 'demo',
+    youName:  ds.participant || url.searchParams.get('participantName') || 'Guest',
+    cid: null,
+    ws: null,
+    connected: false,
+
+    isHost: false,
+    votesRevealed: false,
+    cards: [],
+    participants: [],
+    averageVote: null,
+
+    sequenceId: null,
+    topicVisible: true,
+    topicLabel: '',
+    topicUrl: null,
+
+    autoRevealEnabled: false,
+
+    hardRedirect: null
+  };
+
+  // stable per-tab client id
+  const CIDKEY = 'ep-cid';
+  try {
+    state.cid = sessionStorage.getItem(CIDKEY);
+    if (!state.cid) {
+      state.cid = Math.random().toString(36).slice(2) + '-' + Date.now();
+      sessionStorage.setItem(CIDKEY, state.cid);
     }
+  } catch { state.cid = 'cid-' + Date.now(); }
 
-    function t(key, fallback){
-      if (catalog && Object.prototype.hasOwnProperty.call(catalog, key)) return String(catalog[key]);
-      return fallback != null ? String(fallback) : key;
-    }
+  setText('#youName', state.youName);
+  setText('#roomCodeVal', state.roomCode);
 
-    function apply(root){
-      const r = root || document;
-      r.querySelectorAll("[data-i18n]").forEach(el => {
-        const key = el.getAttribute("data-i18n"); if (!key) return;
-        el.textContent = t(key, el.textContent);
-      });
-      r.querySelectorAll("[data-i18n-attr]").forEach(el => {
-        const spec = el.getAttribute("data-i18n-attr"); if (!spec) return;
-        spec.split(";").forEach(pair => {
-          const [attr,k] = pair.split(":").map(s => s && s.trim());
-          if (!attr || !k) return;
-          el.setAttribute(attr, t(k, el.getAttribute(attr)));
-        });
-      });
-      // allow a second attr-batch (used above)
-      r.querySelectorAll("[data-i18n-attr-2]").forEach(el => {
-        const spec = el.getAttribute("data-i18n-attr-2"); if (!spec) return;
-        spec.split(";").forEach(pair => {
-          const [attr,k] = pair.split(":").map(s => s && s.trim());
-          if (!attr || !k) return;
-          el.setAttribute(attr, t(k, el.getAttribute(attr)));
-        });
-      });
+  const wsUrl = () => {
+    const proto = location.protocol === 'https:' ? 'wss://' : 'ws://';
+    return `${proto}${location.host}/gameSocket` +
+      `?roomCode=${encodeURIComponent(state.roomCode)}` +
+      `&participantName=${encodeURIComponent(state.youName)}` +
+      `&cid=${encodeURIComponent(state.cid)}`;
+  };
 
-      document.documentElement.setAttribute("lang", lang);
-      try { document.dispatchEvent(new CustomEvent("ep:lang-changed", { detail: { lang, catalog } })); } catch {}
-    }
+  function connectWS() {
+    const u = wsUrl();
+    let s;
+    try { s = new WebSocket(u); } catch (e) { console.error(TAG, e); return; }
+    state.ws = s;
 
-    return { load, apply, t,
-      get lang(){ return lang; },
-      get catalog(){ return catalog; }
+    s.onopen = () => { state.connected = true; heartbeat(); };
+    s.onclose = (ev) => {
+      state.connected = false;
+      stopHeartbeat();
+      if (state.hardRedirect) { location.href = state.hardRedirect; return; }
+      if (ev.code === 4000 || ev.code === 4001) return;
+      setTimeout(() => { if (!state.connected) connectWS(); }, 2000);
     };
-  })();
-
-  // ---------------- helpers ----------------
-  const isDe = () => (window.__epI18n?.lang || document.documentElement.lang || "en").toLowerCase().startsWith("de");
-  function setNiceTooltip(el, text){ if (!el) return; if (text) el.setAttribute("data-tooltip", text); else el.removeAttribute("data-tooltip"); el.removeAttribute("title"); }
-  function qs(id){ return document.getElementById(id); }
-
-  // ---------------- menu open/close ----------------
-  let btn, overlay, panel, backdrop, lastFocus = null;
-
-  function focusables(){
-    return panel?.querySelectorAll('button,[href],input,select,textarea,[tabindex]:not([tabindex="-1"])') || [];
+    s.onerror = (e) => console.warn(TAG, 'ERROR', e);
+    s.onmessage = (ev) => { try { handleMessage(JSON.parse(ev.data)); } catch {} };
   }
-  function trapTab(e){
-    if (e.key !== "Tab" || overlay.classList.contains("hidden")) return;
-    const f = focusables(); if (!f.length) return;
-    const first = f[0], last = f[f.length-1];
-    if (e.shiftKey && document.activeElement === first) { last.focus(); e.preventDefault(); }
-    else if (!e.shiftKey && document.activeElement === last) { first.focus(); e.preventDefault(); }
-  }
-  function openMenu(){
-    if (!overlay || !btn) return;
-    document.body.classList.add("menu-open");
-    window.__epTooltipHide && window.__epTooltipHide();
-    overlay.classList.remove("hidden");
-    overlay.setAttribute("aria-hidden","false");
-    btn.classList.add("open");
-    btn.setAttribute("aria-expanded","true");
-    btn.setAttribute("aria-label", window.__epI18n?.t("menu.close","Close menu"));
-    btn.textContent = "✕";
-    lastFocus = document.activeElement;
-    setTimeout(() => focusables()[0]?.focus(), 0);
-    window.addEventListener("keydown", trapTab);
-  }
-  function closeMenu(){
-    if (!overlay || !btn) return;
-    document.body.classList.remove("menu-open");
-    window.__epTooltipHide && window.__epTooltipHide();
-    overlay.classList.add("hidden");
-    overlay.setAttribute("aria-hidden","true");
-    btn.classList.remove("open");
-    btn.setAttribute("aria-expanded","false");
-    btn.setAttribute("aria-label", window.__epI18n?.t("menu.open","Open menu"));
-    btn.textContent = "☰";
-    window.removeEventListener("keydown", trapTab);
-    lastFocus?.focus();
-  }
-  function toggleMenu(){ overlay && (overlay.classList.contains("hidden") ? openMenu() : closeMenu()); }
+  function send(line){ if (state.ws && state.ws.readyState === 1) state.ws.send(line); }
 
-  // ---------------- theme ----------------
-  let bLight, bDark, bSystem;
-  function applyTheme(t){
-    if (t === "system") document.documentElement.removeAttribute("data-theme");
-    else document.documentElement.setAttribute("data-theme", t);
-    try { localStorage.setItem("estpoker-theme", t); } catch {}
-    [bLight,bDark,bSystem].forEach(x=>x&&x.classList.remove("active"));
-    ({light:bLight, dark:bDark, system:bSystem}[t||"dark"])?.classList.add("active");
-    [bLight,bDark,bSystem].forEach(x=>x&&x.setAttribute("aria-pressed","false"));
-    ({light:bLight, dark:bDark, system:bSystem}[t||"dark"])?.setAttribute("aria-pressed","true");
-  }
+  // heartbeat
+  let hbT = null;
+  const heartbeat = () => { stopHeartbeat(); hbT = setInterval(() => send('ping'), 25000); };
+  const stopHeartbeat = () => { if (hbT) { clearInterval(hbT); hbT = null; } };
 
-  // ---------------- language switch ----------------
-  let langRow, langLbl, flagA, flagB;
-  function setSplit(l){
-    if (!flagA || !flagB) return;
-    if (String(l).toLowerCase().startsWith("de")) {
-      flagA.src="/flags/de.svg"; flagB.src="/flags/at.svg"; if (langLbl) langLbl.textContent = "Deutsch";
-    } else {
-      flagA.src="/flags/us.svg"; flagB.src="/flags/gb.svg"; if (langLbl) langLbl.textContent = "English";
+  function syncHostClass(){ document.body.classList.toggle('is-host', !!state.isHost); }
+
+  function handleMessage(m) {
+    switch (m.type) {
+      case 'you': {
+        if (m.yourName && m.yourName !== state.youName) { state.youName = m.yourName; setText('#youName', state.youName); }
+        if (m.cid && m.cid !== state.cid) { state.cid = m.cid; try { sessionStorage.setItem(CIDKEY, state.cid); } catch {} }
+        break;
+      }
+      case 'roomClosed': {
+        state.hardRedirect = m.redirect || '/'; try { state.ws && state.ws.close(4000, 'Room closed'); } catch {}
+        break;
+      }
+      case 'kicked': {
+        state.hardRedirect = m.redirect || '/'; try { state.ws && state.ws.close(4001, 'Kicked'); } catch {}
+        break;
+      }
+      case 'voteUpdate': {
+        const seqId = m.sequenceId || state.sequenceId || 'fib.scrum';
+        const specials = (Array.isArray(m.specials) && m.specials.length) ? m.specials.slice() : SPECIALS.slice();
+        let base = Array.isArray(m.cards) ? m.cards.slice() : [];
+        base = base.filter(c => !specials.includes(c));
+        if (seqId !== 'fib.enh') base = base.filter(c => c !== INFINITY);
+        state.cards = base.concat(specials);
+
+        state.votesRevealed = !!m.votesRevealed;
+        state.averageVote   = m.averageVote ?? null;
+
+        const raw = Array.isArray(m.participants) ? m.participants : [];
+        state.participants = raw.map(p => ({ ...p, observer: p.participating === false }));
+
+        if (Object.prototype.hasOwnProperty.call(m, 'topicVisible')) state.topicVisible = !!m.topicVisible;
+        state.topicLabel = (Object.prototype.hasOwnProperty.call(m, 'topicLabel')) ? (m.topicLabel || '') : state.topicLabel;
+        state.topicUrl   = (Object.prototype.hasOwnProperty.call(m, 'topicUrl'))   ? (m.topicUrl || null) : state.topicUrl;
+
+        state.autoRevealEnabled = !!m.autoRevealEnabled;
+        state.sequenceId = m.sequenceId || state.sequenceId;
+
+        const me = state.participants.find(p => p && p.name === state.youName);
+        state.isHost = !!(me && me.isHost);
+
+        syncHostClass();
+        renderParticipants();
+        renderCards();
+        renderResultBar(m);
+        renderTopic();
+        renderAutoReveal();
+        syncMenuFromState();
+        syncSequenceInMenu();
+        break;
+      }
+      default: break;
     }
   }
-  async function switchLangDynamic(to){
-    try{
-      await window.__epI18n.load(to);
-      window.__epI18n.apply(document);
-      setSplit(to);
-      const tipLight  = window.__epI18n.t("title.theme.light",  overlay?.dataset.tipThemeLight  || "Theme: Light");
-      const tipDark   = window.__epI18n.t("title.theme.dark",   overlay?.dataset.tipThemeDark   || "Theme: Dark");
-      const tipSystem = window.__epI18n.t("title.theme.system", overlay?.dataset.tipThemeSystem || "Theme: System");
-      setNiceTooltip(bLight, tipLight); setNiceTooltip(bDark, tipDark); setNiceTooltip(bSystem, tipSystem);
 
-      const toLabel = String(to).toLowerCase().startsWith("de") ? "Deutsch" : "English";
-      const tpl = window.__epI18n.t("title.lang.to", overlay?.dataset.tipLangTo || "Switch language → {0}");
-      setNiceTooltip(langRow, tpl.replace("{0}", toLabel));
+  // participants
+  function renderParticipants() {
+    const ul = $('#liveParticipantList'); if (!ul) return;
+    ul.innerHTML = '';
+    state.participants.forEach(p => {
+      const li = document.createElement('li');
+      li.className = 'participant-row';
+      if (p.disconnected) li.classList.add('disconnected');
+      if (p.isHost) li.classList.add('is-host');
 
-      // refresh sequence tooltips after language switch
-      applySeqTooltips();
-    }catch(e){ console.warn("[MENU] lang switch failed", e); }
-  }
+      const left = document.createElement('span');
+      left.className = 'participant-icon';
+      left.textContent = p.isHost ? '👑' : '👤';
+      li.appendChild(left);
 
-  // ---------------- one-time binder ----------------
-  let bound = false;
+      const name = document.createElement('span');
+      name.className = 'name';
+      name.textContent = p.name;
+      li.appendChild(name);
 
-  function applySeqTooltips(){
-    const root = doc.getElementById("menuSeqChoice");
-    if (!root) return;
-    root.querySelectorAll("label.radio-row").forEach(label => {
-      const key = label.getAttribute("data-seq");
-      if (!key) return;
-      const txt = window.__epI18n.t(`seq.tooltip.${key}`, label.getAttribute("data-tooltip") || "");
-      setNiceTooltip(label, txt);
+      const right = document.createElement('div');
+      right.className = 'row-right';
+
+      if (!state.votesRevealed) {
+        if (p.observer)      right.innerHTML += '<span class="status-icon observer">👁</span>';
+        else if (!p.disconnected && p.vote != null) right.innerHTML += '<span class="status-icon done">✓</span>';
+        else if (!p.disconnected)                   right.innerHTML += '<span class="status-icon pending">⏳</span>';
+      } else {
+        if (p.observer) right.innerHTML += '<span class="status-icon observer">👁</span>';
+        else {
+          const display = (p.vote == null || p.vote === '') ? '–' : String(p.vote);
+          const chip = document.createElement('span');
+          chip.className = 'vote-chip';
+          chip.textContent = display;
+          const special = (display === '☕' || display === '∞' || p.disconnected || p.participating === false);
+          if (special) chip.classList.add('special');
+          right.appendChild(chip);
+        }
+      }
+
+      if (state.isHost && !p.isHost) {
+        const makeHostBtn = document.createElement('button');
+        makeHostBtn.className = 'row-action host';
+        makeHostBtn.type = 'button';
+        makeHostBtn.setAttribute('aria-label', 'Make host');
+        makeHostBtn.innerHTML = '<span class="ra-icon">👑</span><span class="ra-label">Make host</span>';
+        makeHostBtn.addEventListener('click', () => {
+          const de  = (document.documentElement.lang||'en').toLowerCase().startsWith('de');
+          const q = de ? `Host-Rolle an ${p.name} übergeben?` : `Make ${p.name} the host?`;
+          if (confirm(q)) send('makeHost:' + encodeURIComponent(p.name));
+        });
+        right.appendChild(makeHostBtn);
+
+        const kickBtn = document.createElement('button');
+        kickBtn.className = 'row-action kick';
+        kickBtn.type = 'button';
+        kickBtn.setAttribute('aria-label', 'Kick');
+        kickBtn.innerHTML = '<span class="ra-icon">❌</span><span class="ra-label">Kick</span>';
+        kickBtn.addEventListener('click', () => {
+          const de  = (document.documentElement.lang||'en').toLowerCase().startsWith('de');
+          const q = de ? `${p.name} wirklich entfernen?` : `Remove ${p.name}?`;
+          if (confirm(q)) send('kick:' + encodeURIComponent(p.name));
+        });
+        right.appendChild(kickBtn);
+      }
+
+      li.appendChild(right);
+      ul.appendChild(li);
     });
   }
 
-  function setRowDisabled(inputEl, disabled, tooltipKey){
-    if (!inputEl) return;
-    inputEl.disabled = !!disabled;
-    const row = inputEl.closest('.menu-item.switch');
-    if (row){
-      row.classList.toggle('disabled', !!disabled);
-      const txt = disabled ? window.__epI18n.t(tooltipKey, "Only the host can change this setting") : "";
-      if (disabled) setNiceTooltip(row, txt); else { row.removeAttribute("data-tooltip"); }
-      row.setAttribute("aria-disabled", String(!!disabled));
+  // cards
+  function renderCards() {
+    const grid = $('#cardGrid'); if (!grid) return;
+    grid.innerHTML = '';
+
+    const me = state.participants.find(pp => pp.name === state.youName);
+    const isObserver = !!(me && me.observer);
+    const disabled = state.votesRevealed || isObserver;
+
+    const specials = state.cards.filter(v => SPECIALS.includes(v));
+    const numbers  = state.cards.filter(v => !SPECIALS.includes(v));
+
+    numbers.forEach(val => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.textContent = String(val);
+      if (disabled) btn.disabled = true;
+      btn.addEventListener('click', () => send(`vote:${state.youName}:${val}`));
+      grid.appendChild(btn);
+    });
+
+    if (specials.length) {
+      const br = document.createElement('div');
+      br.className = 'grid-break';
+      br.setAttribute('aria-hidden', 'true');
+      grid.appendChild(br);
+      specials.forEach(val => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.textContent = String(val);
+        if (disabled) btn.disabled = true;
+        btn.addEventListener('click', () => send(`vote:${state.youName}:${val}`));
+        grid.appendChild(btn);
+      });
+    }
+
+    const revealBtn = $('#revealButton');
+    const resetBtn  = $('#resetButton');
+    if (revealBtn) revealBtn.style.display = (!state.votesRevealed && state.isHost) ? '' : 'none';
+    if (resetBtn)  resetBtn.style.display  = ( state.votesRevealed && state.isHost) ? '' : 'none';
+  }
+
+  function renderResultBar(m) {
+    const avgEl = $('#averageVote'); if (avgEl) avgEl.textContent = (state.averageVote != null ? String(state.averageVote) : 'N/A');
+
+    const pre  = document.querySelector('.pre-vote');
+    const post = document.querySelector('.post-vote');
+    if (pre && post) { pre.style.display  = state.votesRevealed ? 'none' : ''; post.style.display = state.votesRevealed ? '' : 'none'; }
+
+    const medianWrap = $('#medianWrap');
+    const rangeWrap  = $('#rangeWrap');
+    const rangeSep   = $('#rangeSep');
+
+    if (medianWrap) {
+      const show = m && m.medianVote != null;
+      medianWrap.hidden = !show;
+      if (show) setText('#medianVote', m.medianVote);
+    }
+    if (rangeWrap && rangeSep) {
+      const show = m && m.range != null;
+      rangeWrap.hidden = !show;
+      rangeSep.hidden  = !show;
+      if (show) setText('#rangeVote', m.range);
     }
   }
 
-  function bindMenu(){
-    if (bound) return true;
+  // topic row
+  function renderTopic() {
+    const row = $('#topicRow');
+    const edit = $('#topicEdit');
+    const disp = $('#topicDisplay');
 
-    const savedTheme = (function(){ try { return localStorage.getItem("estpoker-theme") || "dark"; } catch { return "dark"; } })();
-
-    btn      = qs("menuButton");
-    overlay  = qs("appMenuOverlay");
-    panel    = overlay?.querySelector(".menu-panel");
-    backdrop = overlay?.querySelector("[data-close]");
-    if (!btn || !overlay) return false;
-
-    if (!btn.__epWired) { btn.addEventListener("click", toggleMenu, { passive:true }); btn.__epWired = true; }
-    backdrop?.addEventListener("click", closeMenu);
-    window.addEventListener("keydown", (e)=>{ if (e.key === "Escape") closeMenu(); });
-
-    // Theme
-    bLight  = qs("themeLight");
-    bDark   = qs("themeDark");
-    bSystem = qs("themeSystem");
-    ({light:bLight, dark:bDark, system:bSystem}[savedTheme])?.classList.add("active");
-    ({light:bLight, dark:bDark, system:bSystem}[savedTheme])?.setAttribute("aria-pressed","true");
-    const tipLight  = overlay?.dataset.tipThemeLight  || "Theme: Light";
-    const tipDark   = overlay?.dataset.tipThemeDark   || "Theme: Dark";
-    const tipSystem = overlay?.dataset.tipThemeSystem || "Theme: System";
-    setNiceTooltip(bLight, tipLight); setNiceTooltip(bDark, tipDark); setNiceTooltip(bSystem, tipSystem);
-    bLight?.addEventListener("click",  ()=>applyTheme("light"));
-    bDark?.addEventListener("click",   ()=>applyTheme("dark"));
-    bSystem?.addEventListener("click", ()=>applyTheme("system"));
-
-    // Language row
-    langRow = qs("langRow");
-    langLbl = qs("langCurrent");
-    flagA = langRow?.querySelector(".flag-a");
-    flagB = langRow?.querySelector(".flag-b");
-    if (langRow) {
-      setSplit(window.__epI18n?.lang || document.documentElement.lang || "en");
-      const to  = (isDe() ? "en" : "de");
-      const tip = (overlay?.dataset.tipLangTo || "Switch language → {0}").replace("{0}", to === "de" ? "Deutsch" : "English");
-      setNiceTooltip(langRow, tip);
-      langRow.addEventListener("click", () => {
-        const target = isDe() ? "en" : "de";
-        switchLangDynamic(target);
-      });
-      if (!langRow.hasAttribute('tabindex')) langRow.setAttribute('tabindex','0');
-      langRow.addEventListener('keydown', (e) => {
-        if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); langRow.click(); }
-      });
+    if (disp) {
+      if (state.topicLabel && state.topicUrl) {
+        disp.innerHTML = `<a href="${encodeURI(state.topicUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(state.topicLabel)}</a>`;
+      } else if (state.topicLabel) {
+        disp.textContent = state.topicLabel;
+      } else {
+        disp.textContent = '—';
+      }
     }
 
-    // Sequence radios -> event to app
-    const seqRoot = qs("menuSeqChoice");
-    if (seqRoot) {
-      seqRoot.addEventListener("change", (e) => {
-        const r = e.target;
-        if (!r || r.type !== "radio" || r.name !== "menu-seq") return;
-        const id = r.value;
-        if (DEBUG) console.debug('[menu] ep:sequence-change', { id });
-        try { document.dispatchEvent(new CustomEvent("ep:sequence-change", { detail: { id } })); } catch {}
-      });
-      applySeqTooltips();
-    }
-
-    // ----- the three switches -----
-    const ar   = qs("menuAutoRevealToggle");
-    const top  = qs("menuTopicToggle");
-    const part = qs("menuParticipationToggle");
-    const arLabel   = qs("menuArStatus");
-    const topicLbl  = qs("menuTopicStatus");
-    const partLbl   = qs("menuPartStatus");
-
-    function onAR(e){
-      if (ar.disabled) return;
-      const on = !!e.target.checked;
-      e.target.setAttribute("aria-checked", String(on));
-      if (arLabel) arLabel.textContent = on ? (isDe() ? "An" : "On") : (isDe() ? "Aus" : "Off");
-      if (DEBUG) console.debug('[menu] ep:auto-reveal-toggle', { on });
-      try { document.dispatchEvent(new CustomEvent("ep:auto-reveal-toggle", { detail: { on } })); } catch {}
-    }
-    function onTopic(e){
-      if (top.disabled) return;
-      const on = !!e.target.checked;
-      e.target.setAttribute("aria-checked", String(on));
-      if (topicLbl) topicLbl.textContent = on ? (isDe() ? "An" : "On") : (isDe() ? "Aus" : "Off");
-      if (DEBUG) console.debug('[menu] ep:topic-toggle', { on });
-      try { document.dispatchEvent(new CustomEvent("ep:topic-toggle", { detail: { on } })); } catch {}
-    }
-    function onPart(e){
-      const estimating = !!e.target.checked;
-      e.target.setAttribute("aria-checked", String(estimating));
-      if (partLbl) partLbl.textContent = estimating ? (isDe() ? "Ich schätze mit" : "I'm estimating")
-                                                    : (isDe() ? "Beobachter:in" : "Observer");
-      if (DEBUG) console.debug('[menu] ep:participation-toggle', { estimating });
-      try { document.dispatchEvent(new CustomEvent("ep:participation-toggle", { detail: { estimating } })); } catch {}
-    }
-    ar?.addEventListener("change", onAR);
-    top?.addEventListener("change", onTopic);
-    part?.addEventListener("change", onPart);
-
-    // NEW: whole-row interaction (but not when disabled)
-    function bindRowToggleFor(inputEl, changeHandler){
-      if (!inputEl) return;
-      const row = inputEl.closest('.menu-item.switch');
-      if (!row) return;
-      if (!row.hasAttribute('tabindex')) row.setAttribute('tabindex','0');
-      row.addEventListener('click', (ev) => {
-        if (inputEl.disabled) return;
-        if (ev.target === inputEl) return;
-        if (ev.target && ev.target.closest('input,button,a,label')) return;
-        inputEl.checked = !inputEl.checked;
-        inputEl.dispatchEvent(new Event('change', { bubbles: true }));
-      });
-      row.addEventListener('keydown', (ev) => {
-        if (inputEl.disabled) return;
-        if (ev.key === ' ' || ev.key === 'Enter') {
-          ev.preventDefault();
-          inputEl.checked = !inputEl.checked;
-          inputEl.dispatchEvent(new Event('change', { bubbles: true }));
-        }
-      });
-    }
-    bindRowToggleFor(ar, onAR);
-    bindRowToggleFor(top, onTopic);
-    bindRowToggleFor(part, onPart);
-
-    // Close room
-    const closeBtn = qs("closeRoomBtn");
-    if (closeBtn) {
-      setNiceTooltip(closeBtn, window.__epI18n?.t("room.close.hint","Closes this room for all participants and returns to the start page."));
-      closeBtn.addEventListener("click", () => {
-        if (DEBUG) console.debug('[menu] ep:close-room');
-        try { document.dispatchEvent(new CustomEvent("ep:close-room")); } catch {}
-        closeMenu();
-      });
-    }
-
-    bound = true;
-    return true;
+    const shouldShow = !!state.topicVisible;
+    if (row) row.style.display = shouldShow ? '' : 'none';
+    if (edit && !shouldShow) edit.style.display = 'none';
   }
 
-  if (!bindMenu()) {
-    document.addEventListener("DOMContentLoaded", bindMenu, { once:true });
+  function renderAutoReveal() {
+    const preSt  = document.querySelector('.pre-vote #arStatus');
+    const menuSt = document.querySelector('#appMenuOverlay #menuArStatus');
+    const statusText = state.autoRevealEnabled ? 'On' : 'Off';
+    if (preSt)  preSt.textContent = statusText;
+    if (menuSt) menuSt.textContent = statusText;
   }
 
-  // -------- public API for room.js to sync host/guest disable state --------
-  function syncTogglesHostState(isHost){
-    const ar  = document.getElementById("menuAutoRevealToggle");
-    const top = document.getElementById("menuTopicToggle");
-    setRowDisabled(ar,  !isHost, "autoreveal.onlyHost");
-    setRowDisabled(top, !isHost, "autoreveal.onlyHost");
-  }
-  window.__epMenuSyncHost = syncTogglesHostState;
+  // keep overlay/menu in sync
+  function syncMenuFromState() {
+    const isDe = (document.documentElement.lang||'en').toLowerCase().startsWith('de');
 
-  // expose nice-tooltip util as before
-  window.__setNiceTooltip = setNiceTooltip;
+    // host-only switch enable/disable
+    const hostOnly = [
+      { row: '#rowAutoReveal', input: '#menuAutoRevealToggle' },
+      { row: '#rowTopic',      input: '#menuTopicToggle' },
+    ];
+    hostOnly.forEach(({row,input}) => {
+      const r = $(row), i = $(input);
+      if (r) r.classList.toggle('disabled', !state.isHost);
+      if (i) i.disabled = !state.isHost;
+    });
+
+    const mTgl = $('#menuTopicToggle');
+    const mSt  = $('#menuTopicStatus');
+    if (mTgl) {
+      mTgl.checked = !!state.topicVisible;
+      mTgl.setAttribute("aria-checked", String(!!state.topicVisible));
+    }
+    if (mSt) mSt.textContent = state.topicVisible ? (isDe ? 'An' : 'On') : (isDe ? 'Aus' : 'Off');
+
+    const me = state.participants.find(p => p.name === state.youName);
+    const isObserver = !!(me && me.observer);
+    const mPTgl = $('#menuParticipationToggle');
+    const mPSt  = $('#menuPartStatus');
+    if (mPTgl) {
+      mPTgl.checked = !isObserver;
+      mPTgl.setAttribute("aria-checked", String(!isObserver));
+    }
+    if (mPSt) mPSt.textContent = !isObserver ? (isDe ? 'Ich schätze mit' : "I'm estimating")
+                                            : (isDe ? 'Beobachter:in' : 'Observer');
+
+    const mARTgl = $('#menuAutoRevealToggle');
+    if (mARTgl) {
+      mARTgl.checked = !!state.autoRevealEnabled;
+      mARTgl.setAttribute("aria-checked", String(!!state.autoRevealEnabled));
+    }
+  }
+
+  function syncSequenceInMenu() {
+    const root = $('#menuSeqChoice'); if (!root) return;
+    root.querySelectorAll('input[type="radio"][name="menu-seq"]').forEach(r => {
+      r.disabled = !state.isHost;
+      if (r.disabled) r.closest('label')?.classList.add('disabled');
+      else r.closest('label')?.classList.remove('disabled');
+    });
+
+    const id = state.sequenceId || '';
+    const sel = root.querySelector(`input[type="radio"][name="menu-seq"][value="${CSS.escape(id)}"]`)
+             || root.querySelector(`input[type="radio"][name="menu-seq"][value="${CSS.escape(id.replace('.', '-'))}"]`);
+    if (sel) { sel.checked = true; sel.setAttribute('aria-checked','true'); }
+  }
+
+  function revealCards(){ send('revealCards'); }
+  function resetRoom(){ send('resetRoom'); }
+  window.revealCards = revealCards;
+  window.resetRoom   = resetRoom;
+
+  function wireOnce() {
+    const copyBtn = $('#copyRoomLink');
+    if (copyBtn) copyBtn.addEventListener('click', async () => {
+      try {
+        const link = `${location.origin}/invite?roomCode=${encodeURIComponent(state.roomCode)}`;
+        await navigator.clipboard.writeText(link);
+        const de = (document.documentElement.lang||'en').toLowerCase().startsWith('de');
+        copyBtn.setAttribute('data-tooltip', de ? 'Link kopiert' : 'Link copied');
+      } catch {
+        const de = (document.documentElement.lang||'en').toLowerCase().startsWith('de');
+        copyBtn.setAttribute('data-tooltip', de ? 'Kopieren nicht möglich' : 'Copy failed');
+      }
+    });
+
+    // Topic editor
+    const editBtn = $('#topicEditBtn');
+    const clearBtn = $('#topicClearBtn');
+    const editBox = $('#topicEdit');
+    const row = $('#topicRow');
+    const input = $('#topicInput');
+    const saveBtn = $('#topicSaveBtn');
+    const cancelBtn = $('#topicCancelBtn');
+
+    if (editBtn && editBox && row) {
+      editBtn.addEventListener('click', () => {
+        if (!state.isHost) return;
+        editBox.style.display = '';
+        row.style.display = 'none';
+        if (input) { input.value = state.topicLabel || ''; input.focus(); }
+      });
+    }
+    if (cancelBtn && editBox) {
+      cancelBtn.addEventListener('click', () => {
+        editBox.style.display = 'none';
+        $('#topicRow').style.display = '';
+      });
+    }
+    if (saveBtn && input) {
+      saveBtn.addEventListener('click', () => {
+        if (!state.isHost) return;
+        const val = input.value || '';
+        send('topicSave:' + encodeURIComponent(val));
+        editBox.style.display = 'none';
+        $('#topicRow').style.display = '';
+      });
+    }
+    if (clearBtn) {
+      clearBtn.addEventListener('click', () => {
+        if (!state.isHost) return;
+        send('topicSave:' + encodeURIComponent(''));
+        state.topicLabel = ''; state.topicUrl = null; state.topicVisible = true;
+        renderTopic(); syncMenuFromState();
+      });
+    }
+
+    const arToggle = $('#autoRevealToggle');
+    if (arToggle) arToggle.addEventListener('change', (e) => send(`autoReveal:${!!e.target.checked}`));
+
+    document.addEventListener('ep:close-room', () => {
+      if (!state.isHost) return;
+      const de  = (document.documentElement.lang||'en').toLowerCase().startsWith('de');
+      const msg = de ? 'Diesen Raum für alle schließen?' : 'Close this room for everyone?';
+      if (confirm(msg)) send('closeRoom');
+    });
+
+    document.addEventListener('ep:sequence-change', (ev) => {
+      const id = ev?.detail?.id; if (!id || !state.isHost) return;
+      send('sequence:' + encodeURIComponent(id));
+    });
+
+    document.addEventListener('ep:auto-reveal-toggle', (ev) => {
+      const on = !!(ev && ev.detail && ev.detail.on);
+      send(`autoReveal:${on}`);
+    });
+    document.addEventListener('ep:topic-toggle', (ev) => {
+      const on = !!(ev && ev.detail && ev.detail.on);
+      send(`topicVisible:${on}`);
+    });
+    document.addEventListener('ep:participation-toggle', (ev) => {
+      const estimating = !!(ev && ev.detail && ev.detail.estimating);
+      send(`participation:${estimating}`);
+    });
+
+    window.addEventListener('beforeunload', () => { try { send('intentionalLeave'); } catch {} });
+  }
+
+  function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+  function boot(){ wireOnce(); syncHostClass(); connectWS(); }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+  else boot();
 })();
