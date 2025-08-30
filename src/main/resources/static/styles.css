@@ -799,3 +799,8 @@ body{ padding-bottom: 68px; }
 /* ---------- Host-only utility ---------- */
 .host-only { display: none !important; }
 .is-host .host-only { display: inline-flex !important; }
+
+
+.menu-item.switch { width: 100%; }
+#closeRoomBtn.menu-item.danger { width: 100%; }
+

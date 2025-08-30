@@ -16,7 +16,6 @@
     const cache = new Map();
     let lang = (document.documentElement.lang || "en").toLowerCase();
     let catalog = null;
-
     const norm = l => (String(l || "en").toLowerCase().split("-")[0]);
 
     async function load(nextLang) {
@@ -30,12 +29,10 @@
       try { fetch(`/i18n?lang=${encodeURIComponent(target)}`, { credentials: "same-origin", redirect: "manual" }); } catch {}
       return catalog;
     }
-
     function t(key, fallback){
       if (catalog && Object.prototype.hasOwnProperty.call(catalog, key)) return String(catalog[key]);
       return fallback != null ? String(fallback) : key;
     }
-
     function apply(root){
       const r = root || document;
       r.querySelectorAll("[data-i18n]").forEach(el => {
@@ -53,23 +50,19 @@
       document.documentElement.setAttribute("lang", lang);
       try { document.dispatchEvent(new CustomEvent("ep:lang-changed", { detail: { lang, catalog } })); } catch {}
     }
-
     return { load, apply, t,
       get lang(){ return lang; },
       get catalog(){ return catalog; }
     };
   })();
 
-  // ---------------- helpers ----------------
+  // helpers
   const isDe = () => (window.__epI18n?.lang || document.documentElement.lang || "en").toLowerCase().startsWith("de");
   function setNiceTooltip(el, text){ if (!el) return; if (text) el.setAttribute("data-tooltip", text); else el.removeAttribute("data-tooltip"); el.removeAttribute("title"); }
 
-  // ---------------- menu open/close ----------------
+  // menu open/close
   let btn, overlay, panel, backdrop, lastFocus = null;
-
-  function focusables(){
-    return panel?.querySelectorAll('button,[href],input,select,textarea,[tabindex]:not([tabindex="-1"])') || [];
-  }
+  function focusables(){ return panel?.querySelectorAll('button,[href],input,select,textarea,[tabindex]:not([tabindex="-1"])') || []; }
   function trapTab(e){
     if (e.key !== "Tab" || overlay.classList.contains("hidden")) return;
     const f = focusables(); if (!f.length) return;
@@ -106,7 +99,7 @@
   }
   function toggleMenu(){ overlay && (overlay.classList.contains("hidden") ? openMenu() : closeMenu()); }
 
-  // ---------------- theme ----------------
+  // theme
   let bLight, bDark, bSystem;
   function applyTheme(t){
     if (t === "system") document.documentElement.removeAttribute("data-theme");
@@ -118,7 +111,7 @@
     ({light:bLight, dark:bDark, system:bSystem}[t||"dark"])?.setAttribute("aria-pressed","true");
   }
 
-  // ---------------- language switch ----------------
+  // language split
   let langRow, langLbl, flagA, flagB;
   function setSplit(l){
     if (!flagA || !flagB) return;
@@ -141,16 +134,36 @@
       const toLabel = String(to).toLowerCase().startsWith("de") ? "Deutsch" : "English";
       const tpl = window.__epI18n.t("title.lang.to", overlay?.dataset.tipLangTo || "Switch language → {0}");
       setNiceTooltip(langRow, tpl.replace("{0}", toLabel));
+
+      // refresh sequence tooltips after language change
+      setSequenceTooltips();
     }catch(e){ console.warn("[MENU] lang switch failed", e); }
   }
 
-  // ---------------- one-time binder ----------------
+  // one-time binder
   let bound = false;
+  function setSequenceTooltips(){
+    try{
+      const root = doc.getElementById("menuSeqChoice");
+      if (!root) return;
+      root.querySelectorAll("label.radio-row").forEach(lab => {
+        const input = lab.querySelector('input[type="radio"]');
+        const id = input?.value || "";
+        const tipKey = id ? ("seq.tooltip." + id) : null;
+        const tip = tipKey ? window.__epI18n.t(tipKey, "") : "";
+        if (tip) setNiceTooltip(lab, tip);
+      });
+    }catch(_){}
+  }
 
   function bindMenu(){
     if (bound) return true;
 
-    btn      = doc.getElementById("menuButton");
+    const docElLang = (document.documentElement.lang || "en").toLowerCase();
+
+    // roots
+    const btnSel = doc.getElementById("menuButton");
+    btn = btnSel;
     overlay  = doc.getElementById("appMenuOverlay");
     panel    = overlay?.querySelector(".menu-panel");
     backdrop = overlay?.querySelector("[data-close]");
@@ -181,7 +194,7 @@
     flagA = langRow?.querySelector(".flag-a");
     flagB = langRow?.querySelector(".flag-b");
     if (langRow) {
-      setSplit(window.__epI18n?.lang || document.documentElement.lang || "en");
+      setSplit(window.__epI18n?.lang || docElLang || "en");
       const to  = (isDe() ? "en" : "de");
       const tip = (overlay?.dataset.tipLangTo || "Switch language → {0}").replace("{0}", to === "de" ? "Deutsch" : "English");
       setNiceTooltip(langRow, tip);
@@ -189,7 +202,7 @@
         const target = isDe() ? "en" : "de";
         switchLangDynamic(target);
       });
-      // Keyboard access
+      // keyboard access
       if (!langRow.hasAttribute('tabindex')) langRow.setAttribute('tabindex','0');
       langRow.addEventListener('keydown', (e) => {
         if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); langRow.click(); }
@@ -199,6 +212,7 @@
     // Sequence radios -> event to app
     const seqRoot = doc.getElementById("menuSeqChoice");
     if (seqRoot) {
+      setSequenceTooltips();
       seqRoot.addEventListener("change", (e) => {
         const r = e.target;
         if (!r || r.type !== "radio" || r.name !== "menu-seq") return;
@@ -208,7 +222,7 @@
       });
     }
 
-    // ----- three switches -> dispatch to app -----
+    // three switches -> dispatch to app
     const ar   = doc.getElementById("menuAutoRevealToggle");
     const top  = doc.getElementById("menuTopicToggle");
     const part = doc.getElementById("menuParticipationToggle");
@@ -217,6 +231,7 @@
     const partLbl   = doc.getElementById("menuPartStatus");
 
     function onAR(e){
+      if (e.target.disabled) return;
       const on = !!e.target.checked;
       e.target.setAttribute("aria-checked", String(on));
       if (arLabel) arLabel.textContent = on ? (isDe() ? "An" : "On") : (isDe() ? "Aus" : "Off");
@@ -224,6 +239,7 @@
       try { document.dispatchEvent(new CustomEvent("ep:auto-reveal-toggle", { detail: { on } })); } catch {}
     }
     function onTopic(e){
+      if (e.target.disabled) return;
       const on = !!e.target.checked;
       e.target.setAttribute("aria-checked", String(on));
       if (topicLbl) topicLbl.textContent = on ? (isDe() ? "An" : "On") : (isDe() ? "Aus" : "Off");
@@ -242,7 +258,7 @@
     top?.addEventListener("change", onTopic);
     part?.addEventListener("change", onPart);
 
-    // Make entire switch rows interactive (click + keyboard)
+    // Row click/keyboard support — respect disabled!
     function bindRowToggleFor(inputEl, changeHandler){
       if (!inputEl) return;
       const row = inputEl.closest('.menu-item.switch');
@@ -251,12 +267,14 @@
       row.addEventListener('click', (ev) => {
         if (ev.target === inputEl) return;
         if (ev.target && ev.target.closest('input,button,a,label')) return;
+        if (inputEl.disabled || row.classList.contains('disabled')) return;
         inputEl.checked = !inputEl.checked;
         inputEl.dispatchEvent(new Event('change', { bubbles: true }));
       });
       row.addEventListener('keydown', (ev) => {
         if (ev.key === ' ' || ev.key === 'Enter') {
           ev.preventDefault();
+          if (inputEl.disabled || row.classList.contains('disabled')) return;
           inputEl.checked = !inputEl.checked;
           inputEl.dispatchEvent(new Event('change', { bubbles: true }));
         }
@@ -272,7 +290,6 @@
       closeBtn.addEventListener("click", () => {
         if (DEBUG) console.debug('[menu] ep:close-room');
         try { document.dispatchEvent(new CustomEvent("ep:close-room")); } catch {}
-        closeMenu();
       });
     }
 
@@ -284,6 +301,6 @@
     document.addEventListener("DOMContentLoaded", bindMenu, { once:true });
   }
 
-  // expose small helper for other scripts
+  // expose for other modules
   window.__setNiceTooltip = setNiceTooltip;
 })();

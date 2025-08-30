@@ -1,17 +1,13 @@
-/* room.js v28 — consensus label via i18n; bugfix kept: clear keeps topic visible; host-only topic buttons; two-row card grid with specials; ∞ as numeric (stats-excluded) */
+/* room.js v28 — menu gating + disabled state for host-only; topic edit row fixed */
 (() => {
   'use strict';
   const TAG = '[ROOM]';
-
-  // --- DOM helpers ---
   const $ = (s) => document.querySelector(s);
   const setText = (sel, v) => { const el = typeof sel === 'string' ? $(sel) : sel; if (el) el.textContent = v ?? ''; };
 
-  // --- constants (frontend knowledge) ---
-  const SPECIALS = ['❓','💬','☕']; // UI specials (always appended); ∞ is sequence-specific
+  const SPECIALS = ['❓','💬','☕'];
   const INFINITY = '∞';
 
-  // --- state ---
   const scriptEl = document.querySelector('script[src*="/js/room.js"]');
   const ds = (scriptEl && scriptEl.dataset) || {};
   const url = new URL(location.href);
@@ -22,24 +18,19 @@
     cid: null,
     ws: null,
     connected: false,
-
     isHost: false,
     votesRevealed: false,
     cards: [],
     participants: [],
     averageVote: null,
-
     sequenceId: null,
     topicVisible: true,
     topicLabel: '',
     topicUrl: null,
-
     autoRevealEnabled: false,
-
     hardRedirect: null
   };
 
-  // stable per-tab client id
   const CIDKEY = 'ep-cid';
   try {
     state.cid = sessionStorage.getItem(CIDKEY);
@@ -49,11 +40,9 @@
     }
   } catch { state.cid = 'cid-' + Date.now(); }
 
-  // init UI labels
   setText('#youName', state.youName);
   setText('#roomCodeVal', state.roomCode);
 
-  // --- ws url ---
   const wsUrl = () => {
     const proto = location.protocol === 'https:' ? 'wss://' : 'ws://';
     return `${proto}${location.host}/gameSocket` +
@@ -62,7 +51,6 @@
       `&cid=${encodeURIComponent(state.cid)}`;
   };
 
-  // --- connect ---
   function connectWS() {
     const u = wsUrl();
     console.info(TAG, 'connect →', u);
@@ -70,76 +58,34 @@
     try { s = new WebSocket(u); } catch (e) { console.error(TAG, e); return; }
     state.ws = s;
 
-    s.onopen = () => {
-      state.connected = true;
-      console.info(TAG, 'OPEN');
-      heartbeat();
-    };
+    s.onopen = () => { state.connected = true; heartbeat(); };
     s.onclose = (ev) => {
-      state.connected = false;
-      console.warn(TAG, 'CLOSE', ev.code, ev.reason || '');
-      stopHeartbeat();
-      if (state.hardRedirect) {
-        location.href = state.hardRedirect;
-        return;
-      }
+      state.connected = false; stopHeartbeat();
+      if (state.hardRedirect) { location.href = state.hardRedirect; return; }
       if (ev.code === 4000 || ev.code === 4001) return;
       setTimeout(() => { if (!state.connected) connectWS(); }, 2000);
     };
     s.onerror = (e) => console.warn(TAG, 'ERROR', e);
-    s.onmessage = (ev) => {
-      try { handleMessage(JSON.parse(ev.data)); }
-      catch { console.warn(TAG, 'bad JSON', ev.data); }
-    };
+    s.onmessage = (ev) => { try { handleMessage(JSON.parse(ev.data)); } catch {} };
   }
+  function send(line) { if (state.ws && state.ws.readyState === 1) state.ws.send(line); }
 
-  function send(line) {
-    if (state.ws && state.ws.readyState === 1) {
-      state.ws.send(line);
-    }
-  }
-
-  // --- heartbeat ---
   let hbT = null;
-  function heartbeat() {
-    stopHeartbeat();
-    hbT = setInterval(() => send('ping'), 25000);
-  }
-  function stopHeartbeat() {
-    if (hbT) { clearInterval(hbT); hbT = null; }
-  }
+  function heartbeat(){ stopHeartbeat(); hbT = setInterval(() => send('ping'), 25000); }
+  function stopHeartbeat(){ if (hbT) { clearInterval(hbT); hbT = null; } }
 
-  // --- host badge for CSS ---
-  function syncHostClass() {
-    document.body.classList.toggle('is-host', !!state.isHost);
-  }
+  function syncHostClass(){ document.body.classList.toggle('is-host', !!state.isHost); }
 
-  // --- messages ---
   function handleMessage(m) {
     switch (m.type) {
       case 'you': {
-        if (m.yourName && m.yourName !== state.youName) {
-          state.youName = m.yourName;
-          setText('#youName', state.youName);
-        }
-        if (m.cid && m.cid !== state.cid) {
-          state.cid = m.cid;
-          try { sessionStorage.setItem(CIDKEY, state.cid); } catch {}
-        }
+        if (m.yourName && m.yourName !== state.youName) { state.youName = m.yourName; setText('#youName', state.youName); }
+        if (m.cid && m.cid !== state.cid) { state.cid = m.cid; try { sessionStorage.setItem(CIDKEY, state.cid); } catch {} }
         break;
       }
-      case 'roomClosed': {
-        state.hardRedirect = m.redirect || '/';
-        try { state.ws && state.ws.close(4000, 'Room closed'); } catch {}
-        break;
-      }
-      case 'kicked': {
-        state.hardRedirect = m.redirect || '/';
-        try { state.ws && state.ws.close(4001, 'Kicked'); } catch {}
-        break;
-      }
+      case 'roomClosed': { state.hardRedirect = m.redirect || '/'; try { state.ws && state.ws.close(4000, 'Room closed'); } catch {} break; }
+      case 'kicked':     { state.hardRedirect = m.redirect || '/'; try { state.ws && state.ws.close(4001, 'Kicked'); }      catch {} break; }
       case 'voteUpdate': {
-        // deck
         const seqId = m.sequenceId || state.sequenceId || 'fib.scrum';
         const specials = (Array.isArray(m.specials) && m.specials.length) ? m.specials.slice() : SPECIALS.slice();
         let base = Array.isArray(m.cards) ? m.cards.slice() : [];
@@ -153,12 +99,9 @@
         const raw = Array.isArray(m.participants) ? m.participants : [];
         state.participants = raw.map(p => ({ ...p, observer: p.participating === false }));
 
-        // --- BUGFIX: only update topicVisible if server actually sends it
-        if (Object.prototype.hasOwnProperty.call(m, 'topicVisible')) {
-          state.topicVisible = !!m.topicVisible;
-        }
-        state.topicLabel = (Object.prototype.hasOwnProperty.call(m, 'topicLabel')) ? (m.topicLabel || '') : state.topicLabel;
-        state.topicUrl   = (Object.prototype.hasOwnProperty.call(m, 'topicUrl'))   ? (m.topicUrl || null) : state.topicUrl;
+        if (Object.prototype.hasOwnProperty.call(m, 'topicVisible')) state.topicVisible = !!m.topicVisible;
+        state.topicLabel = Object.prototype.hasOwnProperty.call(m, 'topicLabel') ? (m.topicLabel || '') : state.topicLabel;
+        state.topicUrl   = Object.prototype.hasOwnProperty.call(m, 'topicUrl')   ? (m.topicUrl || null) : state.topicUrl;
 
         state.autoRevealEnabled = !!m.autoRevealEnabled;
         state.sequenceId = m.sequenceId || state.sequenceId;
@@ -177,28 +120,22 @@
         syncSequenceInMenu();
         break;
       }
-      case 'hostChanged': {
-        break;
-      }
       default: break;
     }
   }
 
-  // --- participants UI ---
   function renderParticipants() {
-    const ul = $('#liveParticipantList');
-    if (!ul) return;
+    const ul = $('#liveParticipantList'); if (!ul) return;
     ul.innerHTML = '';
-
     state.participants.forEach(p => {
       const li = document.createElement('li');
       li.className = 'participant-row';
       if (p.disconnected) li.classList.add('disconnected');
+      if (p.isHost) li.classList.add('is-host');
 
       const left = document.createElement('span');
       left.className = 'participant-icon';
-      if (p.isHost) { left.classList.add('host'); left.textContent = '👑'; }
-      else { left.textContent = '👤'; }
+      left.textContent = p.isHost ? '👑' : '👤';
       li.appendChild(left);
 
       const name = document.createElement('span');
@@ -210,29 +147,12 @@
       right.className = 'row-right';
 
       if (!state.votesRevealed) {
-        if (p.observer) {
-          const eye = document.createElement('span');
-          eye.className = 'status-icon observer';
-          eye.textContent = '👁';
-          right.appendChild(eye);
-        } else if (!p.disconnected && p.vote != null) {
-          const done = document.createElement('span');
-          done.className = 'status-icon done';
-          done.textContent = '✓';
-          right.appendChild(done);
-        } else if (!p.disconnected) {
-          const wait = document.createElement('span');
-          wait.className = 'status-icon pending';
-          wait.textContent = '⏳';
-          right.appendChild(wait);
-        }
+        if (p.observer) { const eye = document.createElement('span'); eye.className = 'status-icon observer'; eye.textContent = '👁'; right.appendChild(eye); }
+        else if (!p.disconnected && p.vote != null) { const done = document.createElement('span'); done.className = 'status-icon done'; done.textContent = '✓'; right.appendChild(done); }
+        else if (!p.disconnected) { const wait = document.createElement('span'); wait.className = 'status-icon pending'; wait.textContent = '⏳'; right.appendChild(wait); }
       } else {
-        if (p.observer) {
-          const eye = document.createElement('span');
-          eye.className = 'status-icon observer';
-          eye.textContent = '👁';
-          right.appendChild(eye);
-        } else {
+        if (p.observer) { const eye = document.createElement('span'); eye.className = 'status-icon observer'; eye.textContent = '👁'; right.appendChild(eye); }
+        else {
           const chip = document.createElement('span');
           chip.className = 'vote-chip';
           let display = (p.vote == null || p.vote === '') ? '–' : String(p.vote);
@@ -243,7 +163,6 @@
         }
       }
 
-      // host row actions (hidden via CSS for non-host body)
       if (state.isHost && !p.isHost) {
         const makeHostBtn = document.createElement('button');
         makeHostBtn.className = 'row-action host';
@@ -275,10 +194,8 @@
     });
   }
 
-  // --- cards UI ---
   function renderCards() {
-    const grid = $('#cardGrid');
-    if (!grid) return;
+    const grid = $('#cardGrid'); if (!grid) return;
     grid.innerHTML = '';
 
     const me = state.participants.find(pp => pp.name === state.youName);
@@ -290,23 +207,16 @@
 
     numbers.forEach(val => {
       const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.textContent = String(val);
+      btn.type = 'button'; btn.textContent = String(val);
       if (disabled) btn.disabled = true;
       btn.addEventListener('click', () => send(`vote:${state.youName}:${val}`));
       grid.appendChild(btn);
     });
 
     if (specials.length) {
-      const br = document.createElement('div');
-      br.className = 'grid-break';
-      br.setAttribute('aria-hidden', 'true');
-      grid.appendChild(br);
-
+      const br = document.createElement('div'); br.className = 'grid-break'; br.setAttribute('aria-hidden','true'); grid.appendChild(br);
       specials.forEach(val => {
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.textContent = String(val);
+        const btn = document.createElement('button'); btn.type = 'button'; btn.textContent = String(val);
         if (disabled) btn.disabled = true;
         btn.addEventListener('click', () => send(`vote:${state.youName}:${val}`));
         grid.appendChild(btn);
@@ -320,77 +230,42 @@
   }
 
   function renderResultBar(m) {
-    const avgEl = $('#averageVote');
-    if (avgEl) avgEl.textContent = (state.averageVote != null ? String(state.averageVote) : 'N/A');
+    const avgEl = $('#averageVote'); if (avgEl) avgEl.textContent = (state.averageVote != null ? String(state.averageVote) : 'N/A');
+    const pre  = document.querySelector('.pre-vote'); const post = document.querySelector('.post-vote');
+    if (pre && post) { pre.style.display = state.votesRevealed ? 'none' : ''; post.style.display = state.votesRevealed ? '' : 'none'; }
 
-    const pre  = document.querySelector('.pre-vote');
-    const post = document.querySelector('.post-vote');
-    if (pre && post) {
-      pre.style.display  = state.votesRevealed ? 'none' : '';
-      post.style.display = state.votesRevealed ? '' : 'none';
-    }
+    const medianWrap = $('#medianWrap'); const rangeWrap = $('#rangeWrap'); const rangeSep = $('#rangeSep');
+    if (medianWrap) { const show = m && m.medianVote != null; medianWrap.hidden = !show; if (show) setText('#medianVote', m.medianVote); }
+    if (rangeWrap && rangeSep) { const show = m && m.range != null; rangeWrap.hidden = !show; rangeSep.hidden = !show; if (show) setText('#rangeVote', m.range); }
 
-    const medianWrap = $('#medianWrap');
-    const rangeWrap  = $('#rangeWrap');
-    const rangeSep   = $('#rangeSep');
-
-    if (medianWrap) {
-      const show = m && m.medianVote != null;
-      medianWrap.hidden = !show;
-      if (show) setText('#medianVote', m.medianVote);
-    }
-    if (rangeWrap && rangeSep) {
-      const show = m && m.range != null;
-      rangeWrap.hidden = !show;
-      rangeSep.hidden  = !show;
-      if (show) setText('#rangeVote', m.range);
-    }
-
-    // --- CONSENSUS / LABEL (i18n) ---
     const row = $('#resultRow');
     if (row) {
-      const t = (window.__epI18n && typeof window.__epI18n.t === 'function')
-        ? window.__epI18n.t.bind(window.__epI18n)
-        : (k, fb) => (fb != null ? fb : k);
-
       if (m && m.consensus) {
         row.classList.add('consensus');
-        // Use messages.properties label with 🎉; fallback keeps emoji
-        setText('#resultLabel', t('label.consensus', '🎉 Consensus:'));
+        setText('#resultLabel', (document.documentElement.lang === 'de') ? 'Consensus' : 'Consensus');
         const sep1 = document.querySelector('#resultRow .sep'); if (sep1) sep1.hidden = true;
         const mid = $('#medianWrap'); if (mid) mid.hidden = true;
         const rsep = $('#rangeSep'); if (rsep) rsep.hidden = true;
         const rng = $('#rangeWrap'); if (rng) rng.hidden = true;
       } else {
         row.classList.remove('consensus');
-        // Proper i18n for average
-        setText('#resultLabel', t('label.average', 'Avg:'));
+        setText('#resultLabel', (document.documentElement.lang === 'de') ? 'Avg:' : 'Avg:');
       }
     }
   }
 
-  // --- topic UI ---
   function renderTopic() {
-    const row = $('#topicRow');
-    const edit = $('#topicEdit');
-    const disp = $('#topicDisplay');
-
+    const row = $('#topicRow'); const edit = $('#topicEdit'); const disp = $('#topicDisplay');
     if (disp) {
       if (state.topicLabel && state.topicUrl) {
         disp.innerHTML = `<a href="${encodeURI(state.topicUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(state.topicLabel)}</a>`;
-      } else if (state.topicLabel) {
-        disp.textContent = state.topicLabel;
-      } else {
-        disp.textContent = '—';
-      }
+      } else if (state.topicLabel) disp.textContent = state.topicLabel; else disp.textContent = '—';
     }
-
     const shouldShow = !!state.topicVisible;
     if (row) row.style.display = shouldShow ? '' : 'none';
     if (edit && !shouldShow) edit.style.display = 'none';
   }
 
-  // --- auto-reveal UI ---
   function renderAutoReveal() {
     const preSt  = document.querySelector('.pre-vote #arStatus');
     const menuSt = document.querySelector('#appMenuOverlay #menuArStatus');
@@ -399,63 +274,52 @@
     if (menuSt) menuSt.textContent = statusText;
   }
 
-  // --- keep overlay/menu in sync with latest state ---
+  function setRowDisabled(inputId, disabled){
+    const input = document.getElementById(inputId);
+    const row = input ? input.closest('.menu-item.switch') : null;
+    if (input) { input.disabled = !!disabled; input.setAttribute('aria-disabled', String(!!disabled)); }
+    if (row) { row.classList.toggle('disabled', !!disabled); }
+  }
+
   function syncMenuFromState() {
     const isDe = (document.documentElement.lang||'en').toLowerCase().startsWith('de');
 
-    const mTgl = $('#menuTopicToggle');
-    const mSt  = $('#menuTopicStatus');
-    if (mTgl) {
-      mTgl.checked = !!state.topicVisible;
-      mTgl.setAttribute('aria-checked', String(!!state.topicVisible));
-    }
+    // Host-only switches visible but disabled for non-host
+    setRowDisabled('menuAutoRevealToggle', !state.isHost);
+    setRowDisabled('menuTopicToggle', !state.isHost);
+
+    const mTgl = $('#menuTopicToggle'); const mSt  = $('#menuTopicStatus');
+    if (mTgl) { mTgl.checked = !!state.topicVisible; mTgl.setAttribute('aria-checked', String(!!state.topicVisible)); }
     if (mSt) mSt.textContent = state.topicVisible ? (isDe ? 'An' : 'On') : (isDe ? 'Aus' : 'Off');
 
     const me = state.participants.find(p => p.name === state.youName);
     const isObserver = !!(me && me.observer);
-    const mPTgl = $('#menuParticipationToggle');
-    const mPSt  = $('#menuPartStatus');
-    if (mPTgl) {
-      mPTgl.checked = !isObserver;
-      mPTgl.setAttribute('aria-checked', String(!isObserver));
-    }
-    if (mPSt) mPSt.textContent = !isObserver ? (isDe ? 'Ich schätze mit' : "I'm estimating")
-                                            : (isDe ? 'Beobachter:in' : 'Observer');
+    const mPTgl = $('#menuParticipationToggle'); const mPSt  = $('#menuPartStatus');
+    if (mPTgl) { mPTgl.checked = !isObserver; mPTgl.setAttribute('aria-checked', String(!isObserver)); }
+    if (mPSt) mPSt.textContent = !isObserver ? (isDe ? 'Ich schätze mit' : "I'm estimating") : (isDe ? 'Beobachter:in' : 'Observer');
 
     const mARTgl = $('#menuAutoRevealToggle');
-    if (mARTgl) {
-      mARTgl.checked = !!state.autoRevealEnabled;
-      mARTgl.setAttribute('aria-checked', String(!!state.autoRevealEnabled));
-    }
+    if (mARTgl) { mARTgl.checked = !!state.autoRevealEnabled; mARTgl.setAttribute('aria-checked', String(!!state.autoRevealEnabled)); }
   }
 
-  // Keep sequence radio state and disabled flag in sync with server/host
   function syncSequenceInMenu() {
-    const root = $('#menuSeqChoice');
-    if (!root) return;
-
+    const root = $('#menuSeqChoice'); if (!root) return;
     root.querySelectorAll('input[type="radio"][name="menu-seq"]').forEach(r => {
       r.disabled = !state.isHost;
       if (r.disabled) r.closest('label')?.classList.add('disabled');
       else r.closest('label')?.classList.remove('disabled');
     });
-
     const id = state.sequenceId || '';
     const sel = root.querySelector(`input[type="radio"][name="menu-seq"][value="${CSS.escape(id)}"]`)
              || root.querySelector(`input[type="radio"][name="menu-seq"][value="${CSS.escape(id.replace('.', '-'))}"]`);
-    if (sel) {
-      sel.checked = true;
-      sel.setAttribute('aria-checked','true');
-    }
+    if (sel) { sel.checked = true; sel.setAttribute('aria-checked','true'); }
   }
 
-  // --- actions exposed for HTML buttons ---
   function revealCards() { send('revealCards'); }
   function resetRoom()   { send('resetRoom'); }
   window.revealCards = revealCards;
   window.resetRoom   = resetRoom;
 
-  // --- menu / toggles wiring (once) ---
   function wireOnce() {
     const copyBtn = $('#copyRoomLink');
     if (copyBtn) copyBtn.addEventListener('click', async () => {
@@ -470,15 +334,7 @@
       }
     });
 
-    const partToggle = $('#participationToggle');
-    if (partToggle) {
-      partToggle.addEventListener('change', (e) => {
-        const estimating = !!e.target.checked;
-        send(`participation:${estimating}`);
-      });
-    }
-
-    // Topic edit/save/clear
+    // Topic edit/save/clear (host-only)
     const editBtn = $('#topicEditBtn');
     const clearBtn = $('#topicClearBtn');
     const editBox = $('#topicEdit');
@@ -496,10 +352,7 @@
       });
     }
     if (cancelBtn && editBox) {
-      cancelBtn.addEventListener('click', () => {
-        editBox.style.display = 'none';
-        $('#topicRow').style.display = '';
-      });
+      cancelBtn.addEventListener('click', () => { editBox.style.display = 'none'; $('#topicRow').style.display = ''; });
     }
     if (saveBtn && input) {
       saveBtn.addEventListener('click', () => {
@@ -513,20 +366,16 @@
     if (clearBtn) {
       clearBtn.addEventListener('click', () => {
         if (!state.isHost) return;
-        // BUGFIX: don't toggle off topicVisible — just clear the label/url and keep visible
         send('topicSave:' + encodeURIComponent(''));
-        // optimistic UI
-        state.topicLabel = '';
-        state.topicUrl = null;
-        state.topicVisible = true;
-        renderTopic();
-        syncMenuFromState();
+        state.topicLabel = ''; state.topicUrl = null; state.topicVisible = true;
+        renderTopic(); syncMenuFromState();
       });
     }
 
     const arToggle = $('#autoRevealToggle');
     if (arToggle) {
       arToggle.addEventListener('change', (e) => {
+        if (!state.isHost) return;
         const on = !!e.target.checked;
         send(`autoReveal:${on}`);
       });
@@ -540,51 +389,36 @@
     });
 
     document.addEventListener('ep:sequence-change', (ev) => {
-      const id = ev?.detail?.id;
-      if (!id) return;
+      const id = ev?.detail?.id; if (!id) return;
       if (!state.isHost) return;
       send('sequence:' + encodeURIComponent(id));
     });
 
     document.addEventListener('ep:auto-reveal-toggle', (ev) => {
+      if (!state.isHost) return;
       const on = !!(ev && ev.detail && ev.detail.on);
-      console.debug(TAG, 'menu:autoReveal →', on);
       send(`autoReveal:${on}`);
     });
 
     document.addEventListener('ep:topic-toggle', (ev) => {
+      if (!state.isHost) return;
       const on = !!(ev && ev.detail && ev.detail.on);
-      console.debug(TAG, 'menu:topicVisible →', on);
       send(`topicVisible:${on}`);
     });
 
     document.addEventListener('ep:participation-toggle', (ev) => {
       const estimating = !!(ev && ev.detail && ev.detail.estimating);
-      console.debug(TAG, 'menu:participation → estimating=', estimating);
       send(`participation:${estimating}`);
     });
 
-    window.addEventListener('beforeunload', () => {
-      try { send('intentionalLeave'); } catch {}
-    });
+    window.addEventListener('beforeunload', () => { try { send('intentionalLeave'); } catch {} });
   }
 
-  // --- utils ---
   function escapeHtml(s) {
-    return String(s).replace(/[&<>"']/g, c => (
-      { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]
-    ));
+    return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
   }
 
-  // --- boot ---
-  function boot() {
-    wireOnce();
-    syncHostClass();
-    connectWS();
-  }
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', boot);
-  } else {
-    boot();
-  }
+  function boot(){ wireOnce(); syncHostClass(); connectWS(); }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+  else boot();
 })();
