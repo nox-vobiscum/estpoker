@@ -23,19 +23,30 @@
          data-i18n-attr="aria-label:menu.settings"
          aria-label="Settings">
 
-      <!-- Language (one-line) -->
-      <div id="langRow"
-           class="menu-item"
-           tabindex="0"
-           role="button"
-           aria-label="Language">
-        <span class="mi-icon" aria-hidden="true">🌐</span>
-        <div class="lang-inline">
-          <span class="flag-split" aria-hidden="true">
-            <img class="flag flag-a" src="/flags/us.svg" width="24" height="16" alt="">
-            <img class="flag flag-b" src="/flags/gb.svg" width="24" height="16" alt="">
-          </span>
-          <span id="langCurrent">English</span>
+      <!-- Header / title -->
+      <div class="menu-header">
+        <h3 data-i18n="menu.settings">Settings</h3>
+      </div>
+
+      <!-- Language section -->
+      <div class="menu-section">
+        <div class="section-title" data-i18n="menu.language">Language</div>
+
+        <!-- One-line language toggler -->
+        <div id="langRow"
+             class="menu-item"
+             tabindex="0"
+             role="button"
+             data-tooltip="Switch interface language"
+             data-i18n-attr="aria-label:menu.language">
+          <span class="mi-icon" aria-hidden="true">🌐</span>
+          <div class="lang-inline">
+            <span class="flag-split" aria-hidden="true">
+              <img class="flag flag-a" src="/flags/us.svg" width="24" height="16" alt="">
+              <img class="flag flag-b" src="/flags/gb.svg" width="24" height="16" alt="">
+            </span>
+            <span id="langCurrent">English</span>
+          </div>
         </div>
       </div>
 
@@ -44,16 +55,19 @@
         <div class="section-title" data-i18n="menu.theme">Theme</div>
         <div class="menu-choice">
           <button id="themeLight"  type="button" class="choice-btn" aria-pressed="false"
+                  data-tooltip="Use light theme"
                   data-i18n-attr="aria-label:theme.light">
             <span class="mi-icon" aria-hidden="true">🌞</span>
             <span data-i18n="theme.light">Light</span>
           </button>
           <button id="themeDark"   type="button" class="choice-btn" aria-pressed="false"
+                  data-tooltip="Use dark theme"
                   data-i18n-attr="aria-label:theme.dark">
             <span class="mi-icon" aria-hidden="true">🌙</span>
             <span data-i18n="theme.dark">Dark</span>
           </button>
           <button id="themeSystem" type="button" class="choice-btn" aria-pressed="false"
+                  data-tooltip="Follow system theme"
                   data-i18n-attr="aria-label:theme.system">
             <span class="mi-icon" aria-hidden="true">🖥️</span>
             <span data-i18n="theme.system">System</span>
@@ -64,35 +78,24 @@
       <!-- Card sequence -->
       <div class="menu-section" th:if="${showSeq}">
         <div class="section-title" data-i18n="menu.sequence">Card sequence</div>
-        <fieldset id="menuSeqChoice"
-                  class="menu-choice vertical"
-                  th:attr="data-tipFibScrum=#{seq.tooltip.fib.scrum},
-                           data-tipFibEnh=#{seq.tooltip.fib.enh},
-                           data-tipFibMath=#{seq.tooltip.fib.math},
-                           data-tipPow2=#{seq.tooltip.pow2},
-                           data-tipTshirt=#{seq.tooltip.tshirt}"
-                  data-i18n-attr="data-tipFibScrum:seq.tooltip.fib.scrum;
-                                  data-tipFibEnh:seq.tooltip.fib.enh;
-                                  data-tipFibMath:seq.tooltip.fib.math;
-                                  data-tipPow2:seq.tooltip.pow2;
-                                  data-tipTshirt:seq.tooltip.tshirt">
-          <label class="radio-row">
+        <fieldset id="menuSeqChoice" class="menu-choice vertical" aria-label="Card sequence">
+          <label class="radio-row" data-tooltip="Use Scrum Fibonacci sequence">
             <input type="radio" name="menu-seq" value="fib.scrum" checked>
             <span data-i18n="sequence.fib.scrum">Fibonacci (Scrum)</span>
           </label>
-          <label class="radio-row">
+          <label class="radio-row" data-tooltip="Scrum Fibonacci with ∞ and coffee break">
             <input type="radio" name="menu-seq" value="fib.enh">
             <span data-i18n="sequence.fib.enh">Fibonacci (Scrum enhanced)</span>
           </label>
-          <label class="radio-row">
+          <label class="radio-row" data-tooltip="Mathematical Fibonacci numbers">
             <input type="radio" name="menu-seq" value="fib.math">
             <span data-i18n="sequence.fib.math">Fibonacci (mathematical)</span>
           </label>
-          <label class="radio-row">
+          <label class="radio-row" data-tooltip="Binary growth: 1, 2, 4, 8, …">
             <input type="radio" name="menu-seq" value="pow2">
             <span data-i18n="sequence.pow2">Powers of 2</span>
           </label>
-          <label class="radio-row">
+          <label class="radio-row" data-tooltip="Shirt sizes: XS…XL">
             <input type="radio" name="menu-seq" value="tshirt">
             <span data-i18n="sequence.tshirt">T-Shirt sizes</span>
           </label>
@@ -105,7 +108,8 @@
              data-i18n="menu.roomFunctions"
              data-tooltip="Host controls for this room">Room functions</div>
 
-        <div class="menu-item switch" role="group" id="rowAutoReveal">
+        <div class="menu-item switch" role="group" id="rowAutoReveal"
+             data-tooltip="Reveal all votes automatically when everyone has voted">
           <span class="mi-icon" aria-hidden="true">⚡</span>
           <div class="switch-text">
             <strong data-i18n="menu.autoreveal">Auto-reveal</strong>
@@ -115,7 +119,8 @@
                  role="switch" aria-checked="false" aria-label="Auto-reveal">
         </div>
 
-        <div class="menu-item switch" role="group" id="rowTopic">
+        <div class="menu-item switch" role="group" id="rowTopic"
+             data-tooltip="Show or hide the current ticket/story row">
           <span class="mi-icon" aria-hidden="true">🧾</span>
           <div class="switch-text">
             <strong data-i18n="label.topic">Ticket/Story</strong>
@@ -132,7 +137,8 @@
              data-i18n="menu.personalFunctions"
              data-tooltip="Your personal settings">Personal functions</div>
 
-        <div class="menu-item switch" role="group" id="rowParticipation">
+        <div class="menu-item switch" role="group" id="rowParticipation"
+             data-tooltip="Switch between estimating and observing">
           <span class="mi-icon" aria-hidden="true">🧑‍💻</span>
           <div class="switch-text">
             <strong data-i18n="menu.participation">Participation</strong>
@@ -148,16 +154,16 @@
         <button id="closeRoomBtn"
                 type="button"
                 class="menu-item danger"
-                data-i18n="room.close"
                 data-i18n-attr="aria-label:room.close"
                 data-tooltip="Closes this room for all participants and returns to the start page.">
           <span class="mi-icon" aria-hidden="true">❌</span>
-          <span class="truncate-1">Close room for everyone</span>
+          <span class="truncate-1" data-i18n="room.close">Close room for everyone</span>
         </button>
       </div>
 
     </div>
   </div>
 
+  <!-- Load JS (cache-bust) -->
   <script defer src="/js/menu.js?v=24"></script>
 </th:block>
