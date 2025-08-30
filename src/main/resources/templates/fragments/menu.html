@@ -32,7 +32,6 @@
         <span class="mi-icon" aria-hidden="true">🌐</span>
         <div class="lang-inline">
           <span class="flag-split" aria-hidden="true">
-            <!-- A = top-left, B = bottom-right -->
             <img class="flag flag-a" src="/flags/us.svg" width="24" height="16" alt="">
             <img class="flag flag-b" src="/flags/gb.svg" width="24" height="16" alt="">
           </span>
@@ -71,7 +70,12 @@
                            data-tipFibEnh=#{seq.tooltip.fib.enh},
                            data-tipFibMath=#{seq.tooltip.fib.math},
                            data-tipPow2=#{seq.tooltip.pow2},
-                           data-tipTshirt=#{seq.tooltip.tshirt}">
+                           data-tipTshirt=#{seq.tooltip.tshirt}"
+                  data-i18n-attr="data-tipFibScrum:seq.tooltip.fib.scrum;
+                                  data-tipFibEnh:seq.tooltip.fib.enh;
+                                  data-tipFibMath:seq.tooltip.fib.math;
+                                  data-tipPow2:seq.tooltip.pow2;
+                                  data-tipTshirt:seq.tooltip.tshirt">
           <label class="radio-row">
             <input type="radio" name="menu-seq" value="fib.scrum" checked>
             <span data-i18n="sequence.fib.scrum">Fibonacci (Scrum)</span>
@@ -155,6 +159,6 @@
     </div>
   </div>
 
-  <!-- Load JS (cache-bust) -->
-  <script defer src="/js/menu.js?v=19"></script>
+  <!-- Nur EIN Script: -->
+  <script defer src="/js/menu.js?v=22"></script>
 </th:block>
