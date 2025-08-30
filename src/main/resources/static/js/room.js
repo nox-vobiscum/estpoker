@@ -284,7 +284,6 @@
   function syncMenuFromState() {
     const isDe = (document.documentElement.lang||'en').toLowerCase().startsWith('de');
 
-    // Host-only switches visible but disabled for non-host
     setRowDisabled('menuAutoRevealToggle', !state.isHost);
     setRowDisabled('menuTopicToggle', !state.isHost);
 
