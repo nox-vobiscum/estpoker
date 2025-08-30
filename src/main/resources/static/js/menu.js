@@ -1,4 +1,4 @@
-// /static/js/menu.js  (v14)
+// /static/js/menu.js  (v13)
 // central menu + theme + language + i18n runtime + sequence + toggle dispatch
 (function () {
   if (window.__epMenuInit) return;
@@ -68,7 +68,7 @@
   let btn, overlay, panel, backdrop, lastFocus = null;
 
   function focusables(){
-    return panel?.querySelectorAll('button,[href],input,select,textarea,[role="button"],[tabindex]:not([tabindex="-1"])') || [];
+    return panel?.querySelectorAll('button,[href],input,select,textarea,[tabindex]:not([tabindex="-1"])') || [];
   }
   function trapTab(e){
     if (e.key !== "Tab" || overlay.classList.contains("hidden")) return;
@@ -118,7 +118,7 @@
     ({light:bLight, dark:bDark, system:bSystem}[t||"dark"])?.setAttribute("aria-pressed","true");
   }
 
-  // ---------------- language switch ----------------
+  // ---------------- language split flags ----------------
   let langRow, langLbl, flagA, flagB;
   function setSplit(l){
     if (!flagA || !flagB) return;
@@ -175,7 +175,7 @@
     bDark?.addEventListener("click",   ()=>applyTheme("dark"));
     bSystem?.addEventListener("click", ()=>applyTheme("system"));
 
-    // Language row
+    // Language row (ONE LINE)
     langRow = doc.getElementById("langRow");
     langLbl = doc.getElementById("langCurrent");
     flagA = langRow?.querySelector(".flag-a");
@@ -189,6 +189,7 @@
         const target = isDe() ? "en" : "de";
         switchLangDynamic(target);
       });
+      // Keyboard access for lang toggle
       if (!langRow.hasAttribute('tabindex')) langRow.setAttribute('tabindex','0');
       langRow.addEventListener('keydown', (e) => {
         if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); langRow.click(); }
@@ -241,8 +242,8 @@
     top?.addEventListener("change", onTopic);
     part?.addEventListener("change", onPart);
 
-    // Click anywhere on row toggles (except controls)
-    function bindRowToggleFor(inputEl, changeHandler){
+    // Make **entire rows** interactive
+    function bindRowToggleFor(inputEl){
       if (!inputEl) return;
       const row = inputEl.closest('.menu-item.switch');
       if (!row) return;
@@ -261,22 +262,17 @@
         }
       });
     }
-    bindRowToggleFor(ar, onAR);
-    bindRowToggleFor(top, onTopic);
-    bindRowToggleFor(part, onPart);
+    bindRowToggleFor(ar);
+    bindRowToggleFor(top);
+    bindRowToggleFor(part);
 
-    // Close room relay (works for both <button> or <div role="button">)
+    // Close room relay
     const closeBtn = doc.getElementById("closeRoomBtn");
     if (closeBtn) {
       closeBtn.addEventListener("click", () => {
         if (DEBUG) console.debug('[menu] ep:close-room');
         try { document.dispatchEvent(new CustomEvent("ep:close-room")); } catch {}
         closeMenu();
-      });
-      // keyboard
-      if (!closeBtn.hasAttribute('tabindex')) closeBtn.setAttribute('tabindex','0');
-      closeBtn.addEventListener('keydown', (e) => {
-        if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); closeBtn.click(); }
       });
     }
 
