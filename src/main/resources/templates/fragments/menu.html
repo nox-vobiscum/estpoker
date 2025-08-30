@@ -1,7 +1,7 @@
 <!-- templates/fragments/menu.html -->
 <th:block th:fragment="appMenu (showSeq, showAuto, showRoom)">
 
-  <!-- Floating menu button -->
+  <!-- Floating menu button (ohne Tooltip) -->
   <button id="menuButton"
           class="menu-button"
           type="button"
@@ -90,51 +90,31 @@
       <!-- Card sequence -->
       <div class="menu-section" th:if="${showSeq}">
         <div class="section-title" data-i18n="menu.sequence">Card sequence</div>
-
-        <!--
-          Hinweis:
-          - data-seq-id dient menu.js zum dynamischen Tooltip („erste 6 Werte, …“)
-          - data-i18n-attr ist Fallback (bestehende seq.tooltip.*)
-        -->
         <fieldset id="menuSeqChoice" class="menu-choice vertical">
-          <label class="radio-row"
-                 data-seq-id="fib.scrum"
-                 data-i18n-attr="data-tooltip:seq.tooltip.fib.scrum">
+          <label class="radio-row" data-seq-id="fib.scrum">
             <input type="radio" name="menu-seq" value="fib.scrum" checked>
             <span data-i18n="sequence.fib.scrum">Fibonacci (Scrum)</span>
           </label>
-
-          <label class="radio-row"
-                 data-seq-id="fib.enh"
-                 data-i18n-attr="data-tooltip:seq.tooltip.fib.enh">
+          <label class="radio-row" data-seq-id="fib.enh">
             <input type="radio" name="menu-seq" value="fib.enh">
             <span data-i18n="sequence.fib.enh">Fibonacci (Scrum enhanced)</span>
           </label>
-
-          <label class="radio-row"
-                 data-seq-id="fib.math"
-                 data-i18n-attr="data-tooltip:seq.tooltip.fib.math">
+          <label class="radio-row" data-seq-id="fib.math">
             <input type="radio" name="menu-seq" value="fib.math">
             <span data-i18n="sequence.fib.math">Fibonacci (mathematical)</span>
           </label>
-
-          <label class="radio-row"
-                 data-seq-id="pow2"
-                 data-i18n-attr="data-tooltip:seq.tooltip.pow2">
+          <label class="radio-row" data-seq-id="pow2">
             <input type="radio" name="menu-seq" value="pow2">
             <span data-i18n="sequence.pow2">Powers of 2</span>
           </label>
-
-          <label class="radio-row"
-                 data-seq-id="tshirt"
-                 data-i18n-attr="data-tooltip:seq.tooltip.tshirt">
+          <label class="radio-row" data-seq-id="tshirt">
             <input type="radio" name="menu-seq" value="tshirt">
             <span data-i18n="sequence.tshirt">T-Shirt sizes</span>
           </label>
         </fieldset>
       </div>
 
-      <!-- Room functions -->
+      <!-- Room functions (kein Tooltip auf dem Bereichstitel) -->
       <div class="menu-section">
         <div class="section-title" data-i18n="menu.roomFunctions">Room functions</div>
 
@@ -175,7 +155,7 @@
         </div>
       </div>
 
-      <!-- Personal functions -->
+      <!-- Personal functions (kein Tooltip auf dem Bereichstitel) -->
       <div class="menu-section">
         <div class="section-title" data-i18n="menu.personalFunctions">Personal functions</div>
 
@@ -216,5 +196,5 @@
   </div>
 
   <!-- Load JS (cache-bust) -->
-  <script defer src="/js/menu.js?v=25"></script>
+  <script defer src="/js/menu.js?v=26"></script>
 </th:block>
