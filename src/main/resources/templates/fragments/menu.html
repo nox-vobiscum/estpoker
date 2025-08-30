@@ -13,7 +13,11 @@
   <!-- Overlay root -->
   <div id="appMenuOverlay"
        class="menu-overlay hidden"
-       aria-hidden="true">
+       aria-hidden="true"
+       data-tipThemeLight="Theme: Light"
+       data-tipThemeDark="Theme: Dark"
+       data-tipThemeSystem="Theme: System"
+       data-tipLangTo="Switch language → {0}">
 
     <div class="menu-backdrop" data-close></div>
 
@@ -28,17 +32,18 @@
         <h3 data-i18n="menu.settings">Settings</h3>
       </div>
 
-      <!-- Language section -->
+      <!-- Language -->
       <div class="menu-section">
         <div class="section-title" data-i18n="menu.language">Language</div>
 
-        <!-- One-line language toggler -->
+        <!-- One-line language switch row -->
         <div id="langRow"
              class="menu-item"
              tabindex="0"
              role="button"
-             data-tooltip="Switch interface language"
-             data-i18n-attr="aria-label:menu.language">
+             data-i18n-attr="aria-label:menu.language"
+             aria-label="Language"
+             data-tooltip="Switch language">
           <span class="mi-icon" aria-hidden="true">🌐</span>
           <div class="lang-inline">
             <span class="flag-split" aria-hidden="true">
@@ -54,21 +59,29 @@
       <div class="menu-section">
         <div class="section-title" data-i18n="menu.theme">Theme</div>
         <div class="menu-choice">
-          <button id="themeLight"  type="button" class="choice-btn" aria-pressed="false"
-                  data-tooltip="Use light theme"
-                  data-i18n-attr="aria-label:theme.light">
+          <button id="themeLight"
+                  type="button"
+                  class="choice-btn"
+                  aria-pressed="false"
+                  data-i18n-attr="aria-label:theme.light;data-tooltip:theme.light">
             <span class="mi-icon" aria-hidden="true">🌞</span>
             <span data-i18n="theme.light">Light</span>
           </button>
-          <button id="themeDark"   type="button" class="choice-btn" aria-pressed="false"
-                  data-tooltip="Use dark theme"
-                  data-i18n-attr="aria-label:theme.dark">
+
+          <button id="themeDark"
+                  type="button"
+                  class="choice-btn"
+                  aria-pressed="false"
+                  data-i18n-attr="aria-label:theme.dark;data-tooltip:theme.dark">
             <span class="mi-icon" aria-hidden="true">🌙</span>
             <span data-i18n="theme.dark">Dark</span>
           </button>
-          <button id="themeSystem" type="button" class="choice-btn" aria-pressed="false"
-                  data-tooltip="Follow system theme"
-                  data-i18n-attr="aria-label:theme.system">
+
+          <button id="themeSystem"
+                  type="button"
+                  class="choice-btn"
+                  aria-pressed="false"
+                  data-i18n-attr="aria-label:theme.system;data-tooltip:theme.system">
             <span class="mi-icon" aria-hidden="true">🖥️</span>
             <span data-i18n="theme.system">System</span>
           </button>
@@ -78,24 +91,24 @@
       <!-- Card sequence -->
       <div class="menu-section" th:if="${showSeq}">
         <div class="section-title" data-i18n="menu.sequence">Card sequence</div>
-        <fieldset id="menuSeqChoice" class="menu-choice vertical" aria-label="Card sequence">
-          <label class="radio-row" data-tooltip="Use Scrum Fibonacci sequence">
+        <fieldset id="menuSeqChoice" class="menu-choice vertical" data-tooltip="Select the sequence used for cards">
+          <label class="radio-row">
             <input type="radio" name="menu-seq" value="fib.scrum" checked>
             <span data-i18n="sequence.fib.scrum">Fibonacci (Scrum)</span>
           </label>
-          <label class="radio-row" data-tooltip="Scrum Fibonacci with ∞ and coffee break">
+          <label class="radio-row">
             <input type="radio" name="menu-seq" value="fib.enh">
             <span data-i18n="sequence.fib.enh">Fibonacci (Scrum enhanced)</span>
           </label>
-          <label class="radio-row" data-tooltip="Mathematical Fibonacci numbers">
+          <label class="radio-row">
             <input type="radio" name="menu-seq" value="fib.math">
             <span data-i18n="sequence.fib.math">Fibonacci (mathematical)</span>
           </label>
-          <label class="radio-row" data-tooltip="Binary growth: 1, 2, 4, 8, …">
+          <label class="radio-row">
             <input type="radio" name="menu-seq" value="pow2">
             <span data-i18n="sequence.pow2">Powers of 2</span>
           </label>
-          <label class="radio-row" data-tooltip="Shirt sizes: XS…XL">
+          <label class="radio-row">
             <input type="radio" name="menu-seq" value="tshirt">
             <span data-i18n="sequence.tshirt">T-Shirt sizes</span>
           </label>
@@ -108,26 +121,40 @@
              data-i18n="menu.roomFunctions"
              data-tooltip="Host controls for this room">Room functions</div>
 
-        <div class="menu-item switch" role="group" id="rowAutoReveal"
-             data-tooltip="Reveal all votes automatically when everyone has voted">
+        <div class="menu-item switch"
+             role="group"
+             id="rowAutoReveal"
+             data-tooltip="Automatically reveal cards once all estimators voted">
           <span class="mi-icon" aria-hidden="true">⚡</span>
           <div class="switch-text">
             <strong data-i18n="menu.autoreveal">Auto-reveal</strong>
             <span id="menuArStatus" data-i18n="toggle.off">Off</span>
           </div>
-          <input id="menuAutoRevealToggle" class="switch-control" type="checkbox"
-                 role="switch" aria-checked="false" aria-label="Auto-reveal">
+          <input id="menuAutoRevealToggle"
+                 class="switch-control"
+                 type="checkbox"
+                 role="switch"
+                 aria-checked="false"
+                 data-i18n-attr="aria-label:menu.autoreveal"
+                 aria-label="Auto-reveal">
         </div>
 
-        <div class="menu-item switch" role="group" id="rowTopic"
-             data-tooltip="Show or hide the current ticket/story row">
+        <div class="menu-item switch"
+             role="group"
+             id="rowTopic"
+             data-tooltip="Show or hide the Ticket/Story row for the current round">
           <span class="mi-icon" aria-hidden="true">🧾</span>
           <div class="switch-text">
             <strong data-i18n="label.topic">Ticket/Story</strong>
             <span id="menuTopicStatus" data-i18n="toggle.off">Off</span>
           </div>
-          <input id="menuTopicToggle" class="switch-control" type="checkbox"
-                 role="switch" aria-checked="false" aria-label="Ticket/Story">
+          <input id="menuTopicToggle"
+                 class="switch-control"
+                 type="checkbox"
+                 role="switch"
+                 aria-checked="false"
+                 data-i18n-attr="aria-label:label.topic"
+                 aria-label="Ticket/Story">
         </div>
       </div>
 
@@ -137,15 +164,23 @@
              data-i18n="menu.personalFunctions"
              data-tooltip="Your personal settings">Personal functions</div>
 
-        <div class="menu-item switch" role="group" id="rowParticipation"
-             data-tooltip="Switch between estimating and observing">
+        <div class="menu-item switch"
+             role="group"
+             id="rowParticipation"
+             data-tooltip="Toggle between estimator and observer mode for yourself">
           <span class="mi-icon" aria-hidden="true">🧑‍💻</span>
           <div class="switch-text">
             <strong data-i18n="menu.participation">Participation</strong>
             <span id="menuPartStatus" data-i18n="participation.imIn">I'm estimating</span>
           </div>
-          <input id="menuParticipationToggle" class="switch-control" type="checkbox"
-                 role="switch" aria-checked="true" checked aria-label="Participation">
+          <input id="menuParticipationToggle"
+                 class="switch-control"
+                 type="checkbox"
+                 role="switch"
+                 aria-checked="true"
+                 checked
+                 data-i18n-attr="aria-label:menu.participation"
+                 aria-label="Participation">
         </div>
       </div>
 
@@ -154,10 +189,11 @@
         <button id="closeRoomBtn"
                 type="button"
                 class="menu-item danger"
+                data-i18n="room.close"
                 data-i18n-attr="aria-label:room.close"
                 data-tooltip="Closes this room for all participants and returns to the start page.">
           <span class="mi-icon" aria-hidden="true">❌</span>
-          <span class="truncate-1" data-i18n="room.close">Close room for everyone</span>
+          <span class="truncate-1">Close room for everyone</span>
         </button>
       </div>
 
@@ -165,5 +201,5 @@
   </div>
 
   <!-- Load JS (cache-bust) -->
-  <script defer src="/js/menu.js?v=24"></script>
+  <script defer src="/js/menu.js?v=25"></script>
 </th:block>

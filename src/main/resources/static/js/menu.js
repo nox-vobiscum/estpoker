@@ -1,51 +1,61 @@
-/* menu.js v25 — full-row switches + seq radios + theme + live i18n (no ?lang=) */
+/* menu.js v25 — full-row switches + live i18n (no ?lang=) + close button toggle */
 (() => {
   'use strict';
-  // Debug/Verify: im Browser "window.__epMenuVer" → v25
+  // Debug/Verify: Im Browser "window.__epMenuVer" tippen → v25
   window.__epMenuVer = 'v25';
   console.info('[menu] v25 loaded');
 
   const $  = (s, r = document) => r.querySelector(s);
   const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
 
-  const overlay  = $('#appMenuOverlay');
-  const btnOpen  = $('#menuButton');
-  const backdrop = overlay ? $('.menu-backdrop', overlay) : null;
+  const overlay   = $('#appMenuOverlay');
+  const panel     = overlay ? $('.menu-panel', overlay) : null;
+  const btnOpen   = $('#menuButton');
+  const backdrop  = overlay ? $('.menu-backdrop', overlay) : null;
 
   const rowLang   = $('#langRow');
   const langLabel = $('#langCurrent');
   const flagA     = rowLang ? $('.flag-a', rowLang) : null;
   const flagB     = rowLang ? $('.flag-b', rowLang) : null;
 
-  const themeBtns = {
-    light:  $('#themeLight'),
-    dark:   $('#themeDark'),
-    system: $('#themeSystem')
-  };
+  const rowAuto   = $('#rowAutoReveal');
+  const swAuto    = $('#menuAutoRevealToggle');
 
-  const seqField = $('#menuSeqChoice');
+  const rowTopic  = $('#rowTopic');
+  const swTopic   = $('#menuTopicToggle');
 
-  const rowAuto = $('#rowAutoReveal');
-  const swAuto  = $('#menuAutoRevealToggle');
+  const rowPart   = $('#rowParticipation');
+  const swPart    = $('#menuParticipationToggle');
 
-  const rowTopic = $('#rowTopic');
-  const swTopic  = $('#menuTopicToggle');
+  const closeBtn  = $('#closeRoomBtn');
 
-  const rowPart = $('#rowParticipation');
-  const swPart  = $('#menuParticipationToggle');
+  // ---------- helpers ----------
+  const isMenuOpen = () => overlay && !overlay.classList.contains('hidden');
 
-  const closeBtn = $('#closeRoomBtn');
+  const getLang = () =>
+    (document.documentElement.lang || 'en').toLowerCase().startsWith('de') ? 'de' : 'en';
 
-  // ---------- Overlay ----------
+  function setMenuButtonState(open) {
+    if (!btnOpen) return;
+    // Icon
+    btnOpen.textContent = open ? '✕' : '☰';
+    // ARIA & Tooltip (ohne neue message-keys; lokalisiert minimal)
+    const de = getLang() === 'de';
+    btnOpen.setAttribute('aria-expanded', open ? 'true' : 'false');
+    btnOpen.setAttribute('aria-label', open ? (de ? 'Menü schließen' : 'Close menu')
+                                            : (de ? 'Menü öffnen'   : 'Open menu'));
+    btnOpen.setAttribute('data-tooltip', open ? (de ? 'Menü schließen' : 'Close menu')
+                                              : (de ? 'Menü öffnen'   : 'Open menu'));
+  }
+
   function forceRowLayout() {
-    // Erzwinge Grid-Layout für Switch-Zeilen (falls altes CSS gecacht)
+    // Erzwinge Grid-Layout für ganze Zeile (falls altes CSS gecacht)
     $$('.menu-item.switch').forEach((row) => {
       row.style.display = 'grid';
       row.style.gridTemplateColumns = '28px 1fr max-content';
       row.style.alignItems = 'center';
       row.style.width = '100%';
     });
-    // Close-Button einzeilig lassen (Kompat)
     if (closeBtn) {
       closeBtn.style.display = 'grid';
       closeBtn.style.gridTemplateColumns = '28px 1fr';
@@ -54,42 +64,36 @@
         text.style.whiteSpace = 'nowrap';
         text.style.overflow = 'hidden';
         text.style.textOverflow = 'ellipsis';
-        text.style.minWidth = '0';
       }
     }
   }
 
+  // ---------- Open/Close ----------
   function openMenu() {
     if (!overlay) return;
     overlay.classList.remove('hidden');
     overlay.setAttribute('aria-hidden', 'false');
-    btnOpen?.setAttribute('aria-expanded', 'true');
+    setMenuButtonState(true);
     forceRowLayout();
   }
   function closeMenu() {
     if (!overlay) return;
     overlay.classList.add('hidden');
     overlay.setAttribute('aria-hidden', 'true');
-    btnOpen?.setAttribute('aria-expanded', 'false');
+    setMenuButtonState(false);
     btnOpen?.focus?.();
   }
 
-  btnOpen?.addEventListener('click', openMenu);
-  backdrop?.addEventListener('click', (e) => {
-    if (e.target.hasAttribute('data-close')) closeMenu();
-  });
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && overlay && !overlay.classList.contains('hidden')) closeMenu();
-  });
+  // Toggle auf dem gleichen Button
+  btnOpen?.addEventListener('click', () => (isMenuOpen() ? closeMenu() : openMenu()));
+  backdrop?.addEventListener('click', (e) => { if (e.target.hasAttribute('data-close')) closeMenu(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && isMenuOpen()) closeMenu(); });
 
   // ---------- Language ----------
-  const getLang = () =>
-    (document.documentElement.lang || 'en').toLowerCase().startsWith('de') ? 'de' : 'en';
-
   function setFlagsFor(code) {
     if (!flagA || !flagB) return;
     if (code === 'de') { flagA.src = '/flags/de.svg'; flagB.src = '/flags/at.svg'; }
-    else               { flagA.src = '/flags/us.svg'; flagB.src = '/flags/gb.svg'; }
+    else { flagA.src = '/flags/us.svg'; flagB.src = '/flags/gb.svg'; }
   }
 
   function stripLangParamFromUrl() {
@@ -101,18 +105,14 @@
         const next = u.pathname + (qs ? '?' + qs : '') + u.hash;
         history.replaceState({}, '', next);
       }
-    } catch (e) {
-      console.warn('[menu] stripLangParam failed', e);
-    }
+    } catch (e) { console.warn('[menu] stripLangParam failed', e); }
   }
 
   function applyMessages(map, root = document) {
-    // Texte
     $$('[data-i18n]', root).forEach((el) => {
       const key = el.getAttribute('data-i18n');
       if (key && map[key] != null) el.textContent = map[key];
     });
-    // Attribute
     $$('[data-i18n-attr]', root).forEach((el) => {
       const spec = el.getAttribute('data-i18n-attr'); if (!spec) return;
       spec.split(';').forEach(pair => {
@@ -138,9 +138,12 @@
       const messages = await fetchMessages(to);
       applyMessages(messages, document);
       stripLangParamFromUrl();
+      // Nach Sprachwechsel Buttonbeschriftung aktualisieren
+      setMenuButtonState(isMenuOpen());
     } catch (err) {
       console.warn('[i18n] switch failed:', err);
       stripLangParamFromUrl();
+      setMenuButtonState(isMenuOpen());
     }
   }
 
@@ -149,13 +152,12 @@
     switchLanguage(next);
   });
 
-  // ---------- Ganze Zeile klickbar für Switches ----------
+  // ---------- Switch rows (ganze Zeile klickbar) ----------
   function wireSwitchRow(rowEl, inputEl, onChange) {
     if (!rowEl || !inputEl) return;
     rowEl.addEventListener('click', (e) => {
-      // Direkter Klick auf Input → Browserdefault
       if (e.target === inputEl || e.target.closest('input') === inputEl) return;
-      if (inputEl.disabled || rowEl.classList.contains('disabled')) return;
+      if (inputEl.disabled) return;
       inputEl.checked = !inputEl.checked;
       inputEl.dispatchEvent(new Event('change', { bubbles: true }));
     });
@@ -170,57 +172,14 @@
     document.dispatchEvent(new CustomEvent('ep:close-room'));
   });
 
-  // ---------- Theme (Light/Dark/System) ----------
-  const THEME_KEY = 'ep-theme';
-
-  function applyTheme(mode) {
-    const root = document.documentElement;
-    if (mode === 'light' || mode === 'dark') {
-      root.setAttribute('data-theme', mode);
-    } else {
-      root.removeAttribute('data-theme'); // folgt System
-    }
-    try { localStorage.setItem(THEME_KEY, mode); } catch {}
-    Object.entries(themeBtns).forEach(([k, btn]) =>
-      btn?.setAttribute('aria-pressed', String(k === mode))
-    );
-  }
-
-  function initTheme() {
-    let saved = 'system';
-    try { saved = localStorage.getItem(THEME_KEY) || 'system'; } catch {}
-    applyTheme(saved);
-    // bei System-Änderung live nachziehen
-    if (window.matchMedia) {
-      const mq = window.matchMedia('(prefers-color-scheme: dark)');
-      mq.addEventListener?.('change', () => {
-        const pref = (localStorage.getItem(THEME_KEY) || 'system');
-        if (pref === 'system') applyTheme('system');
-      });
-    }
-  }
-
-  themeBtns.light?.addEventListener('click',  () => applyTheme('light'));
-  themeBtns.dark?.addEventListener('click',   () => applyTheme('dark'));
-  themeBtns.system?.addEventListener('click', () => applyTheme('system'));
-
-  // ---------- Sequence radios ----------
-  seqField?.addEventListener('change', (e) => {
-    const r = e.target;
-    if (!(r instanceof HTMLInputElement)) return;
-    if (r.name === 'menu-seq' && r.checked) {
-      const id = r.value.replace('-', '.'); // tolerant ggü. alter ID-Notation
-      document.dispatchEvent(new CustomEvent('ep:sequence-change', { detail: { id } }));
-    }
-  });
-
   // ---------- Init ----------
   (function init() {
     const lang = getLang();
     setFlagsFor(lang);
     if (langLabel) langLabel.textContent = (lang === 'de') ? 'Deutsch' : 'English';
     stripLangParamFromUrl();
-    forceRowLayout(); // falls Cache alt ist
-    initTheme();
+    setMenuButtonState(false); // initial geschlossen
+    if (isMenuOpen()) setMenuButtonState(true);
+    forceRowLayout();
   })();
 })();
