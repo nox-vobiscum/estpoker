@@ -1,4 +1,4 @@
-// /static/js/menu.js  (v13)
+// /static/js/menu.js  (v14)
 // central menu + theme + language + i18n runtime + sequence + toggle dispatch
 (function () {
   if (window.__epMenuInit) return;
@@ -85,7 +85,7 @@
     overlay.setAttribute("aria-hidden","false");
     btn.classList.add("open");
     btn.setAttribute("aria-expanded","true");
-    btn.setAttribute("aria-label","Close menu");
+    btn.setAttribute("aria-label", window.__epI18n?.t("menu.close","Close menu"));
     btn.textContent = "✕";
     lastFocus = document.activeElement;
     setTimeout(() => focusables()[0]?.focus(), 0);
@@ -99,7 +99,7 @@
     overlay.setAttribute("aria-hidden","true");
     btn.classList.remove("open");
     btn.setAttribute("aria-expanded","false");
-    btn.setAttribute("aria-label","Open menu");
+    btn.setAttribute("aria-label", window.__epI18n?.t("menu.open","Open menu"));
     btn.textContent = "☰";
     window.removeEventListener("keydown", trapTab);
     lastFocus?.focus();
@@ -118,7 +118,7 @@
     ({light:bLight, dark:bDark, system:bSystem}[t||"dark"])?.setAttribute("aria-pressed","true");
   }
 
-  // ---------------- language split flags ----------------
+  // ---------------- language switch ----------------
   let langRow, langLbl, flagA, flagB;
   function setSplit(l){
     if (!flagA || !flagB) return;
@@ -133,15 +133,40 @@
       await window.__epI18n.load(to);
       window.__epI18n.apply(document);
       setSplit(to);
-      const tipLight  = window.__epI18n.t("title.theme.light",  overlay?.dataset.tipThemeLight  || "Theme: Light");
-      const tipDark   = window.__epI18n.t("title.theme.dark",   overlay?.dataset.tipThemeDark   || "Theme: Dark");
-      const tipSystem = window.__epI18n.t("title.theme.system", overlay?.dataset.tipThemeSystem || "Theme: System");
-      setNiceTooltip(bLight, tipLight); setNiceTooltip(bDark, tipDark); setNiceTooltip(bSystem, tipSystem);
-
-      const toLabel = String(to).toLowerCase().startsWith("de") ? "Deutsch" : "English";
-      const tpl = window.__epI18n.t("title.lang.to", overlay?.dataset.tipLangTo || "Switch language → {0}");
-      setNiceTooltip(langRow, tpl.replace("{0}", toLabel));
+      applyStaticTooltips();      // theme/lang/sections/close
+      applySeqTooltips();         // sequence previews
     }catch(e){ console.warn("[MENU] lang switch failed", e); }
+  }
+
+  // ---------------- tooltips ----------------
+  function applyStaticTooltips(){
+    const tipLight  = window.__epI18n.t("title.theme.light",  overlay?.dataset.tipThemeLight  || "Theme: Light");
+    const tipDark   = window.__epI18n.t("title.theme.dark",   overlay?.dataset.tipThemeDark   || "Theme: Dark");
+    const tipSystem = window.__epI18n.t("title.theme.system", overlay?.dataset.tipThemeSystem || "Theme: System");
+    setNiceTooltip(bLight, tipLight); setNiceTooltip(bDark, tipDark); setNiceTooltip(bSystem, tipSystem);
+
+    // Language row tooltip "Switch language → …"
+    const toLabel = isDe() ? "English" : "Deutsch";
+    const tpl = window.__epI18n.t("title.lang.to", overlay?.dataset.tipLangTo || "Switch language → {0}");
+    setNiceTooltip(langRow, tpl.replace("{0}", toLabel));
+
+    // Section hints & close
+    setNiceTooltip(doc.getElementById("roomFuncsTitle"),     window.__epI18n.t("menu.roomFunctions.hint", "Settings for everyone in this room."));
+    setNiceTooltip(doc.getElementById("personalFuncsTitle"), window.__epI18n.t("menu.personalFunctions.hint", "Settings for your device only."));
+    setNiceTooltip(doc.getElementById("closeRoomBtn"),       window.__epI18n.t("room.close.hint", "Closes this room for all participants and returns to the start page."));
+  }
+
+  function applySeqTooltips(){
+    const seqRoot = doc.getElementById("menuSeqChoice");
+    if (!seqRoot) return;
+    seqRoot.querySelectorAll('label.radio-row').forEach(label => {
+      const id = label.getAttribute('data-seq-id') || label.querySelector('input[name="menu-seq"]')?.value;
+      if (!id) return;
+      const key = `seq.tooltip.${id}`;
+      const fallback = label.textContent?.trim() || "";
+      const txt = window.__epI18n.t(key, fallback);
+      setNiceTooltip(label, txt);
+    });
   }
 
   // ---------------- one-time binder ----------------
@@ -167,34 +192,23 @@
     const saved = localStorage.getItem("estpoker-theme") || "dark";
     ({light:bLight, dark:bDark, system:bSystem}[saved])?.classList.add("active");
     ({light:bLight, dark:bDark, system:bSystem}[saved])?.setAttribute("aria-pressed","true");
-    const tipLight  = overlay?.dataset.tipThemeLight  || "Theme: Light";
-    const tipDark   = overlay?.dataset.tipThemeDark   || "Theme: Dark";
-    const tipSystem = overlay?.dataset.tipThemeSystem || "Theme: System";
-    setNiceTooltip(bLight, tipLight); setNiceTooltip(bDark, tipDark); setNiceTooltip(bSystem, tipSystem);
-    bLight?.addEventListener("click",  ()=>applyTheme("light"));
-    bDark?.addEventListener("click",   ()=>applyTheme("dark"));
-    bSystem?.addEventListener("click", ()=>applyTheme("system"));
 
-    // Language row (ONE LINE)
+    // Language row
     langRow = doc.getElementById("langRow");
     langLbl = doc.getElementById("langCurrent");
     flagA = langRow?.querySelector(".flag-a");
     flagB = langRow?.querySelector(".flag-b");
     if (langRow) {
       setSplit(window.__epI18n?.lang || document.documentElement.lang || "en");
-      const to  = (isDe() ? "en" : "de");
-      const tip = (overlay?.dataset.tipLangTo || "Switch language → {0}").replace("{0}", to === "de" ? "Deutsch" : "English");
-      setNiceTooltip(langRow, tip);
-      langRow.addEventListener("click", () => {
-        const target = isDe() ? "en" : "de";
-        switchLangDynamic(target);
-      });
-      // Keyboard access for lang toggle
       if (!langRow.hasAttribute('tabindex')) langRow.setAttribute('tabindex','0');
-      langRow.addEventListener('keydown', (e) => {
-        if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); langRow.click(); }
-      });
+      langRow.addEventListener("click", () => switchLangDynamic(isDe() ? "en" : "de"));
+      langRow.addEventListener('keydown', (e) => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); langRow.click(); } });
     }
+
+    // Theme buttons
+    bLight?.addEventListener("click",  ()=>applyTheme("light"));
+    bDark?.addEventListener("click",   ()=>applyTheme("dark"));
+    bSystem?.addEventListener("click", ()=>applyTheme("system"));
 
     // Sequence radios -> event to app
     const seqRoot = doc.getElementById("menuSeqChoice");
@@ -235,14 +249,14 @@
       e.target.setAttribute("aria-checked", String(estimating));
       if (partLbl) partLbl.textContent = estimating ? (isDe() ? "Ich schätze mit" : "I'm estimating")
                                                     : (isDe() ? "Beobachter:in" : "Observer");
-      if (DEBUG) console.debug('[menu] ep:participation-toggle', { detail: { estimating } });
+      if (DEBUG) console.debug('[menu] ep:participation-toggle', { estimating });
       try { document.dispatchEvent(new CustomEvent("ep:participation-toggle", { detail: { estimating } })); } catch {}
     }
     ar?.addEventListener("change", onAR);
     top?.addEventListener("change", onTopic);
     part?.addEventListener("change", onPart);
 
-    // Make **entire rows** interactive
+    // Row-wide toggle (click/keyboard)
     function bindRowToggleFor(inputEl){
       if (!inputEl) return;
       const row = inputEl.closest('.menu-item.switch');
@@ -275,6 +289,10 @@
         closeMenu();
       });
     }
+
+    // Initial tooltips
+    applyStaticTooltips();
+    applySeqTooltips();
 
     bound = true;
     return true;
