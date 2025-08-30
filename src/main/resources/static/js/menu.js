@@ -1,5 +1,5 @@
 // /static/js/menu.js  (v14)
-// central menu + theme + language + i18n runtime + sequence + toggle dispatch
+// central menu + theme + language + i18n runtime + sequence + guarded toggles
 (function () {
   if (window.__epMenuInit) return;
   window.__epMenuInit = true;
@@ -16,6 +16,7 @@
     const cache = new Map();
     let lang = (document.documentElement.lang || "en").toLowerCase();
     let catalog = null;
+
     const norm = l => (String(l || "en").toLowerCase().split("-")[0]);
 
     async function load(nextLang) {
@@ -29,10 +30,12 @@
       try { fetch(`/i18n?lang=${encodeURIComponent(target)}`, { credentials: "same-origin", redirect: "manual" }); } catch {}
       return catalog;
     }
+
     function t(key, fallback){
       if (catalog && Object.prototype.hasOwnProperty.call(catalog, key)) return String(catalog[key]);
       return fallback != null ? String(fallback) : key;
     }
+
     function apply(root){
       const r = root || document;
       r.querySelectorAll("[data-i18n]").forEach(el => {
@@ -47,22 +50,37 @@
           el.setAttribute(attr, t(k, el.getAttribute(attr)));
         });
       });
+      // allow a second attr-batch (used above)
+      r.querySelectorAll("[data-i18n-attr-2]").forEach(el => {
+        const spec = el.getAttribute("data-i18n-attr-2"); if (!spec) return;
+        spec.split(";").forEach(pair => {
+          const [attr,k] = pair.split(":").map(s => s && s.trim());
+          if (!attr || !k) return;
+          el.setAttribute(attr, t(k, el.getAttribute(attr)));
+        });
+      });
+
       document.documentElement.setAttribute("lang", lang);
       try { document.dispatchEvent(new CustomEvent("ep:lang-changed", { detail: { lang, catalog } })); } catch {}
     }
+
     return { load, apply, t,
       get lang(){ return lang; },
       get catalog(){ return catalog; }
     };
   })();
 
-  // helpers
+  // ---------------- helpers ----------------
   const isDe = () => (window.__epI18n?.lang || document.documentElement.lang || "en").toLowerCase().startsWith("de");
   function setNiceTooltip(el, text){ if (!el) return; if (text) el.setAttribute("data-tooltip", text); else el.removeAttribute("data-tooltip"); el.removeAttribute("title"); }
+  function qs(id){ return document.getElementById(id); }
 
-  // menu open/close
+  // ---------------- menu open/close ----------------
   let btn, overlay, panel, backdrop, lastFocus = null;
-  function focusables(){ return panel?.querySelectorAll('button,[href],input,select,textarea,[tabindex]:not([tabindex="-1"])') || []; }
+
+  function focusables(){
+    return panel?.querySelectorAll('button,[href],input,select,textarea,[tabindex]:not([tabindex="-1"])') || [];
+  }
   function trapTab(e){
     if (e.key !== "Tab" || overlay.classList.contains("hidden")) return;
     const f = focusables(); if (!f.length) return;
@@ -99,7 +117,7 @@
   }
   function toggleMenu(){ overlay && (overlay.classList.contains("hidden") ? openMenu() : closeMenu()); }
 
-  // theme
+  // ---------------- theme ----------------
   let bLight, bDark, bSystem;
   function applyTheme(t){
     if (t === "system") document.documentElement.removeAttribute("data-theme");
@@ -111,7 +129,7 @@
     ({light:bLight, dark:bDark, system:bSystem}[t||"dark"])?.setAttribute("aria-pressed","true");
   }
 
-  // language split
+  // ---------------- language switch ----------------
   let langRow, langLbl, flagA, flagB;
   function setSplit(l){
     if (!flagA || !flagB) return;
@@ -135,36 +153,44 @@
       const tpl = window.__epI18n.t("title.lang.to", overlay?.dataset.tipLangTo || "Switch language → {0}");
       setNiceTooltip(langRow, tpl.replace("{0}", toLabel));
 
-      // refresh sequence tooltips after language change
-      setSequenceTooltips();
+      // refresh sequence tooltips after language switch
+      applySeqTooltips();
     }catch(e){ console.warn("[MENU] lang switch failed", e); }
   }
 
-  // one-time binder
+  // ---------------- one-time binder ----------------
   let bound = false;
-  function setSequenceTooltips(){
-    try{
-      const root = doc.getElementById("menuSeqChoice");
-      if (!root) return;
-      root.querySelectorAll("label.radio-row").forEach(lab => {
-        const input = lab.querySelector('input[type="radio"]');
-        const id = input?.value || "";
-        const tipKey = id ? ("seq.tooltip." + id) : null;
-        const tip = tipKey ? window.__epI18n.t(tipKey, "") : "";
-        if (tip) setNiceTooltip(lab, tip);
-      });
-    }catch(_){}
+
+  function applySeqTooltips(){
+    const root = doc.getElementById("menuSeqChoice");
+    if (!root) return;
+    root.querySelectorAll("label.radio-row").forEach(label => {
+      const key = label.getAttribute("data-seq");
+      if (!key) return;
+      const txt = window.__epI18n.t(`seq.tooltip.${key}`, label.getAttribute("data-tooltip") || "");
+      setNiceTooltip(label, txt);
+    });
+  }
+
+  function setRowDisabled(inputEl, disabled, tooltipKey){
+    if (!inputEl) return;
+    inputEl.disabled = !!disabled;
+    const row = inputEl.closest('.menu-item.switch');
+    if (row){
+      row.classList.toggle('disabled', !!disabled);
+      const txt = disabled ? window.__epI18n.t(tooltipKey, "Only the host can change this setting") : "";
+      if (disabled) setNiceTooltip(row, txt); else { row.removeAttribute("data-tooltip"); }
+      row.setAttribute("aria-disabled", String(!!disabled));
+    }
   }
 
   function bindMenu(){
     if (bound) return true;
 
-    const docElLang = (document.documentElement.lang || "en").toLowerCase();
+    const savedTheme = (function(){ try { return localStorage.getItem("estpoker-theme") || "dark"; } catch { return "dark"; } })();
 
-    // roots
-    const btnSel = doc.getElementById("menuButton");
-    btn = btnSel;
-    overlay  = doc.getElementById("appMenuOverlay");
+    btn      = qs("menuButton");
+    overlay  = qs("appMenuOverlay");
     panel    = overlay?.querySelector(".menu-panel");
     backdrop = overlay?.querySelector("[data-close]");
     if (!btn || !overlay) return false;
@@ -174,12 +200,11 @@
     window.addEventListener("keydown", (e)=>{ if (e.key === "Escape") closeMenu(); });
 
     // Theme
-    bLight  = doc.getElementById("themeLight");
-    bDark   = doc.getElementById("themeDark");
-    bSystem = doc.getElementById("themeSystem");
-    const saved = localStorage.getItem("estpoker-theme") || "dark";
-    ({light:bLight, dark:bDark, system:bSystem}[saved])?.classList.add("active");
-    ({light:bLight, dark:bDark, system:bSystem}[saved])?.setAttribute("aria-pressed","true");
+    bLight  = qs("themeLight");
+    bDark   = qs("themeDark");
+    bSystem = qs("themeSystem");
+    ({light:bLight, dark:bDark, system:bSystem}[savedTheme])?.classList.add("active");
+    ({light:bLight, dark:bDark, system:bSystem}[savedTheme])?.setAttribute("aria-pressed","true");
     const tipLight  = overlay?.dataset.tipThemeLight  || "Theme: Light";
     const tipDark   = overlay?.dataset.tipThemeDark   || "Theme: Dark";
     const tipSystem = overlay?.dataset.tipThemeSystem || "Theme: System";
@@ -189,12 +214,12 @@
     bSystem?.addEventListener("click", ()=>applyTheme("system"));
 
     // Language row
-    langRow = doc.getElementById("langRow");
-    langLbl = doc.getElementById("langCurrent");
+    langRow = qs("langRow");
+    langLbl = qs("langCurrent");
     flagA = langRow?.querySelector(".flag-a");
     flagB = langRow?.querySelector(".flag-b");
     if (langRow) {
-      setSplit(window.__epI18n?.lang || docElLang || "en");
+      setSplit(window.__epI18n?.lang || document.documentElement.lang || "en");
       const to  = (isDe() ? "en" : "de");
       const tip = (overlay?.dataset.tipLangTo || "Switch language → {0}").replace("{0}", to === "de" ? "Deutsch" : "English");
       setNiceTooltip(langRow, tip);
@@ -202,7 +227,6 @@
         const target = isDe() ? "en" : "de";
         switchLangDynamic(target);
       });
-      // keyboard access
       if (!langRow.hasAttribute('tabindex')) langRow.setAttribute('tabindex','0');
       langRow.addEventListener('keydown', (e) => {
         if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); langRow.click(); }
@@ -210,9 +234,8 @@
     }
 
     // Sequence radios -> event to app
-    const seqRoot = doc.getElementById("menuSeqChoice");
+    const seqRoot = qs("menuSeqChoice");
     if (seqRoot) {
-      setSequenceTooltips();
       seqRoot.addEventListener("change", (e) => {
         const r = e.target;
         if (!r || r.type !== "radio" || r.name !== "menu-seq") return;
@@ -220,18 +243,19 @@
         if (DEBUG) console.debug('[menu] ep:sequence-change', { id });
         try { document.dispatchEvent(new CustomEvent("ep:sequence-change", { detail: { id } })); } catch {}
       });
+      applySeqTooltips();
     }
 
-    // three switches -> dispatch to app
-    const ar   = doc.getElementById("menuAutoRevealToggle");
-    const top  = doc.getElementById("menuTopicToggle");
-    const part = doc.getElementById("menuParticipationToggle");
-    const arLabel   = doc.getElementById("menuArStatus");
-    const topicLbl  = doc.getElementById("menuTopicStatus");
-    const partLbl   = doc.getElementById("menuPartStatus");
+    // ----- the three switches -----
+    const ar   = qs("menuAutoRevealToggle");
+    const top  = qs("menuTopicToggle");
+    const part = qs("menuParticipationToggle");
+    const arLabel   = qs("menuArStatus");
+    const topicLbl  = qs("menuTopicStatus");
+    const partLbl   = qs("menuPartStatus");
 
     function onAR(e){
-      if (e.target.disabled) return;
+      if (ar.disabled) return;
       const on = !!e.target.checked;
       e.target.setAttribute("aria-checked", String(on));
       if (arLabel) arLabel.textContent = on ? (isDe() ? "An" : "On") : (isDe() ? "Aus" : "Off");
@@ -239,7 +263,7 @@
       try { document.dispatchEvent(new CustomEvent("ep:auto-reveal-toggle", { detail: { on } })); } catch {}
     }
     function onTopic(e){
-      if (e.target.disabled) return;
+      if (top.disabled) return;
       const on = !!e.target.checked;
       e.target.setAttribute("aria-checked", String(on));
       if (topicLbl) topicLbl.textContent = on ? (isDe() ? "An" : "On") : (isDe() ? "Aus" : "Off");
@@ -258,23 +282,23 @@
     top?.addEventListener("change", onTopic);
     part?.addEventListener("change", onPart);
 
-    // Row click/keyboard support — respect disabled!
+    // NEW: whole-row interaction (but not when disabled)
     function bindRowToggleFor(inputEl, changeHandler){
       if (!inputEl) return;
       const row = inputEl.closest('.menu-item.switch');
       if (!row) return;
       if (!row.hasAttribute('tabindex')) row.setAttribute('tabindex','0');
       row.addEventListener('click', (ev) => {
+        if (inputEl.disabled) return;
         if (ev.target === inputEl) return;
         if (ev.target && ev.target.closest('input,button,a,label')) return;
-        if (inputEl.disabled || row.classList.contains('disabled')) return;
         inputEl.checked = !inputEl.checked;
         inputEl.dispatchEvent(new Event('change', { bubbles: true }));
       });
       row.addEventListener('keydown', (ev) => {
+        if (inputEl.disabled) return;
         if (ev.key === ' ' || ev.key === 'Enter') {
           ev.preventDefault();
-          if (inputEl.disabled || row.classList.contains('disabled')) return;
           inputEl.checked = !inputEl.checked;
           inputEl.dispatchEvent(new Event('change', { bubbles: true }));
         }
@@ -284,12 +308,14 @@
     bindRowToggleFor(top, onTopic);
     bindRowToggleFor(part, onPart);
 
-    // Close room relay
-    const closeBtn = doc.getElementById("closeRoomBtn");
+    // Close room
+    const closeBtn = qs("closeRoomBtn");
     if (closeBtn) {
+      setNiceTooltip(closeBtn, window.__epI18n?.t("room.close.hint","Closes this room for all participants and returns to the start page."));
       closeBtn.addEventListener("click", () => {
         if (DEBUG) console.debug('[menu] ep:close-room');
         try { document.dispatchEvent(new CustomEvent("ep:close-room")); } catch {}
+        closeMenu();
       });
     }
 
@@ -301,6 +327,15 @@
     document.addEventListener("DOMContentLoaded", bindMenu, { once:true });
   }
 
-  // expose for other modules
+  // -------- public API for room.js to sync host/guest disable state --------
+  function syncTogglesHostState(isHost){
+    const ar  = document.getElementById("menuAutoRevealToggle");
+    const top = document.getElementById("menuTopicToggle");
+    setRowDisabled(ar,  !isHost, "autoreveal.onlyHost");
+    setRowDisabled(top, !isHost, "autoreveal.onlyHost");
+  }
+  window.__epMenuSyncHost = syncTogglesHostState;
+
+  // expose nice-tooltip util as before
   window.__setNiceTooltip = setNiceTooltip;
 })();
