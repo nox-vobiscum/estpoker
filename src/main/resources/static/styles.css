@@ -799,3 +799,7 @@ body{ padding-bottom: 68px; }
 /* ---------- Host-only utility ---------- */
 .host-only { display: none !important; }
 .is-host .host-only { display: inline-flex !important; }
+
+/* === HOTFIX: make function rows full-width with right-aligned switch === */
+.menu-item { grid-template-columns: 28px 1fr max-content; } /* was 2 columns */
+.menu-item:has(input.switch-control) { grid-template-columns: 28px 1fr max-content; }
