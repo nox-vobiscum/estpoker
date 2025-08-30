@@ -1,9 +1,9 @@
-/* menu.js v25 — full-row switches + live i18n (no ?lang=) + close button toggle */
+/* menu.js v26 — full-row switches + live i18n (no ?lang=) + button toggle + dynamic seq-tooltips */
 (() => {
   'use strict';
-  // Debug/Verify: Im Browser "window.__epMenuVer" tippen → v25
-  window.__epMenuVer = 'v25';
-  console.info('[menu] v25 loaded');
+  // Debug/Verify: Im Browser "window.__epMenuVer" tippen → v26
+  window.__epMenuVer = 'v26';
+  console.info('[menu] v26 loaded');
 
   const $  = (s, r = document) => r.querySelector(s);
   const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
@@ -39,13 +39,13 @@
     if (!btnOpen) return;
     // Icon
     btnOpen.textContent = open ? '✕' : '☰';
-    // ARIA & Tooltip (ohne neue message-keys; lokalisiert minimal)
+    // ARIA (ohne Tooltip, wie gewünscht)
     const de = getLang() === 'de';
     btnOpen.setAttribute('aria-expanded', open ? 'true' : 'false');
     btnOpen.setAttribute('aria-label', open ? (de ? 'Menü schließen' : 'Close menu')
                                             : (de ? 'Menü öffnen'   : 'Open menu'));
-    btnOpen.setAttribute('data-tooltip', open ? (de ? 'Menü schließen' : 'Close menu')
-                                              : (de ? 'Menü öffnen'   : 'Open menu'));
+    // Wichtig: KEIN data-tooltip setzen
+    btnOpen.removeAttribute('data-tooltip');
   }
 
   function forceRowLayout() {
@@ -138,12 +138,14 @@
       const messages = await fetchMessages(to);
       applyMessages(messages, document);
       stripLangParamFromUrl();
-      // Nach Sprachwechsel Buttonbeschriftung aktualisieren
       setMenuButtonState(isMenuOpen());
+      // Nach i18n-Update SEQ-Tooltips erneut bauen (i18n-Fallback könnte überschrieben worden sein)
+      queueSeqTooltipUpdate();
     } catch (err) {
       console.warn('[i18n] switch failed:', err);
       stripLangParamFromUrl();
       setMenuButtonState(isMenuOpen());
+      queueSeqTooltipUpdate();
     }
   }
 
@@ -172,6 +174,97 @@
     document.dispatchEvent(new CustomEvent('ep:close-room'));
   });
 
+  // ---------- Dynamic Sequence Tooltips ----------
+  const SPECIALS = new Set(['❓','💬','☕','∞']);
+
+  function normalizeList(arr) {
+    if (!Array.isArray(arr)) return [];
+    return arr.map(String);
+  }
+
+  function firstSixBaseValues(list) {
+    const out = [];
+    for (const v of list) {
+      const s = String(v).trim();
+      if (SPECIALS.has(s)) continue;            // Sonderkarten überspringen
+      out.push(s);
+      if (out.length >= 6) break;
+    }
+    return out;
+  }
+
+  function setSeqTooltipFor(id, text) {
+    const label = $(`#menuSeqChoice [data-seq-id="${CSS.escape(id)}"]`);
+    if (!label) return;
+    if (text && text.trim()) label.setAttribute('data-tooltip', text);
+  }
+
+  function buildPreviewText(vals) {
+    const six = firstSixBaseValues(vals);
+    if (!six.length) return '';
+    return six.join(', ') + (vals.length > six.length ? ', ...' : '');
+  }
+
+  // Robust Extraktion, mehrere mögliche Antwortformen unterstützen
+  function extractCardsForId(data, id) {
+    if (!data) return null;
+
+    // Variante A: { "fib.scrum": ["1","2",...], "fib.enh": [...] }
+    if (Array.isArray(data[id])) return data[id];
+
+    // Variante B: { sequences: { "fib.scrum": ["1",...], ... } }
+    if (data.sequences) {
+      if (Array.isArray(data.sequences[id])) return data.sequences[id];
+      if (data.sequences[id] && Array.isArray(data.sequences[id].cards)) return data.sequences[id].cards;
+    }
+
+    // Variante C: Array von Objekten
+    if (Array.isArray(data)) {
+      const entry = data.find(x => x && (x.id === id || x.key === id || x.name === id));
+      if (entry) {
+        if (Array.isArray(entry.cards)) return entry.cards;
+        if (Array.isArray(entry.values)) return entry.values;
+      }
+    }
+
+    return null;
+  }
+
+  async function updateSequenceTooltips() {
+    try {
+      const res = await fetch('/sequences', { credentials: 'same-origin' });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+
+      ['fib.scrum','fib.enh','fib.math','pow2','tshirt'].forEach(id => {
+        const cards = normalizeList(extractCardsForId(data, id));
+        const preview = buildPreviewText(cards);
+        if (preview) setSeqTooltipFor(id, preview);
+      });
+    } catch (e) {
+      // Fallback: vorhandene (i18n) Tooltips kürzen auf 6 Werte
+      ['fib.scrum','fib.enh','fib.math','pow2','tshirt'].forEach(id => {
+        const label = $(`#menuSeqChoice [data-seq-id="${CSS.escape(id)}"]`);
+        if (!label) return;
+        const raw = label.getAttribute('data-tooltip') || '';
+        if (!raw) return;
+        // rudimentär nach Komma trennen und kürzen
+        const parts = raw.split(',').map(s => s.trim()).filter(Boolean);
+        const preview = parts.slice(0, 6).join(', ') + (parts.length > 6 ? ', ...' : '');
+        setSeqTooltipFor(id, preview);
+      });
+    }
+  }
+
+  let seqTooltipTimer = null;
+  function queueSeqTooltipUpdate() {
+    if (seqTooltipTimer) cancelAnimationFrame(seqTooltipTimer);
+    seqTooltipTimer = requestAnimationFrame(() => {
+      seqTooltipTimer = null;
+      updateSequenceTooltips();
+    });
+  }
+
   // ---------- Init ----------
   (function init() {
     const lang = getLang();
@@ -181,5 +274,6 @@
     setMenuButtonState(false); // initial geschlossen
     if (isMenuOpen()) setMenuButtonState(true);
     forceRowLayout();
+    queueSeqTooltipUpdate();
   })();
 })();
