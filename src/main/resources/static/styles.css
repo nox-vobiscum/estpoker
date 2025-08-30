@@ -167,10 +167,7 @@ strong { color: var(--text-strong); }
   border-radius: 10px;
   margin: 1.2rem 0 1rem; /* extra top space above topic row */
 }
-.topic-label{
-  white-space: nowrap;
-  color: var(--text-strong);
-}
+.topic-label{ white-space: nowrap; color: var(--text-strong); }
 .topic-text{
   display:inline-block; font-weight:400; color: var(--text);
   padding:.15rem .45rem; border-radius: 6px; background: var(--panel);
@@ -182,22 +179,20 @@ strong { color: var(--text-strong); }
 
 .topic-actions{ display:flex; gap:6px; }
 
-/* CONSOLIDATED: edit mode row uses same box model as view row to avoid jumps */
+/* CONSOLIDATED: make the editor match the view row so the position doesn't jump */
 .topic-edit{
-  /* match .topic-row box so toggling does not move layout */
   display:grid;
   grid-template-columns: 1fr max-content;
   gap: 8px;
   align-items: center;
 
-  /* identical container chrome */
+  /* match .topic-row box */
+  margin: 1.2rem 0 1rem;
   padding: 8px 10px;
   background: var(--panel-2);
   border: 1px solid var(--border);
   border-radius: 10px;
-  margin: 1.2rem 0 1rem;
 }
-
 .topic-input{
   height: 36px;
   border-radius: 8px;
@@ -266,14 +261,7 @@ strong { color: var(--text-strong); }
 
 /* Blocks */
 .menu-group{ display:flex; flex-direction:column; gap:8px; }
-.group-title{
-  margin: 6px 8px 6px;
-  font-weight: 600;
-  font-size: .9rem;
-  opacity: .85;
-  color: var(--text-strong);
-}
-/* NEW: section-title for menu blocks */
+.group-title,
 .section-title{
   margin: 6px 8px 6px;
   font-weight: 600;
@@ -305,9 +293,6 @@ strong { color: var(--text-strong); }
   line-height: 1;
   font-family: "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",system-ui,sans-serif;
 }
-
-/* Language inline container */
-.lang-inline{ display:flex; align-items:center; gap:8px; }
 
 /* Language split flag */
 .flag-split{
@@ -369,7 +354,7 @@ strong { color: var(--text-strong); }
   background: color-mix(in srgb, var(--panel-2) 84%, var(--accent) 16%);
 }
 
-/* Menu hint text */
+/* Menu hint text (kept for optional notes) */
 .hint{
   width: 100%; max-width: 420px;
   color: var(--text-dim);
@@ -377,7 +362,7 @@ strong { color: var(--text-strong); }
   margin: 2px 8px 0;
 }
 
-/* Danger CTA tile */
+/* Danger CTA (red tile variant) */
 #closeRoomBtn.menu-item.danger{
   background: rgba(255,70,70,.10);
   border-color: rgba(255,70,70,.25);
@@ -513,11 +498,7 @@ button.selected{
 }
 
 /* Force a new row between number cards and specials (no visual artifact) */
-.card-grid .grid-break {
-  grid-column: 1 / -1;
-  height: 0;
-  pointer-events: none;
-}
+.card-grid .grid-break { grid-column: 1 / -1; height: 0; pointer-events: none; }
 
 /* Hide any inline checkmark badge on cards */
 .card-grid .checkmark{ display:none !important; }
@@ -532,12 +513,7 @@ button.selected{
   box-shadow: none;
   transform: none !important;
 }
-.card-grid button:disabled:hover {
-  background: var(--panel-2);
-  border-color: var(--border);
-  box-shadow: none;
-  transform: none;
-}
+.card-grid button:disabled:hover { background: var(--panel-2); border-color: var(--border); box-shadow: none; transform: none; }
 
 /* ---------- Participant list (legacy layout) ---------- */
 ul{ list-style:none; padding:0; margin:0; }
@@ -731,7 +707,7 @@ li{ margin-bottom:.4rem; line-height:1.5; font-size:1rem; }
   .topic-label{ display:none; }
   .topic-actions{ justify-content:flex-end; }
 
-  /* NEW: action buttons become icon-only on phones */
+  /* action buttons become icon-only on phones */
   .row-action .ra-label{ display:none; }
 }
 
@@ -754,11 +730,7 @@ li{ margin-bottom:.4rem; line-height:1.5; font-size:1rem; }
   transition: background 180ms ease, border-color 180ms ease, box-shadow 180ms ease, transform 120ms ease;
   -webkit-tap-highlight-color: transparent;
 }
-.row-action .ra-icon{
-  font-size:16px; line-height:1;
-  display:inline-grid; place-items:center;
-  width:1em; height:1em;
-}
+.row-action .ra-icon{ font-size:16px; line-height:1; display:inline-grid; place-items:center; width:1em; height:1em; }
 .row-action:hover{ background: var(--panel-2-hover); border-color: var(--accent); box-shadow: 0 0 0 2px rgba(0,122,204,.12); }
 .row-action:active{ transform: translateY(1px) scale(.98); }
 .row-action:disabled{ opacity:.6; cursor:not-allowed; }
@@ -814,26 +786,17 @@ li{ margin-bottom:.4rem; line-height:1.5; font-size:1rem; }
   z-index: 4;
   -webkit-user-select: none; user-select: none;
 }
-.app-footer a{
-  color: inherit; text-decoration: underline; text-underline-offset: 2px;
-}
+.app-footer a{ color: inherit; text-decoration: underline; text-underline-offset: 2px; }
 body{ padding-bottom: 68px; }
 .container{ padding-bottom: 0; }
 @media (max-width: 600px){
-  .app-footer{
-    font-size: .62rem;
-    padding: 6px 10px;
-    margin-top: 50px;
-  }
+  .app-footer{ font-size: .62rem; padding: 6px 10px; margin-top: 50px; }
   body{ padding-bottom: max(80px, calc(env(safe-area-inset-bottom) + 68px)); }
   .container{ padding-bottom: max(80px, calc(env(safe-area-inset-bottom) + 68px)); }
 }
-@supports (-webkit-touch-callout: none){
-  .app-footer{ font-size: .58rem; }
-}
+@supports (-webkit-touch-callout: none){ .app-footer{ font-size: .58rem; } }
 
 /* ---------- A11y helpers ---------- */
-/* NEW: screenreader-only utility for invisible labels */
 .sr-only{
   position:absolute !important;
   width:1px !important;
@@ -845,23 +808,11 @@ body{ padding-bottom: 68px; }
   white-space:nowrap !important;
   border:0 !important;
 }
-
-/* JS-driven tooltip bubble created by js/ui/tooltip.js (class="tooltip") */
 [data-tooltip] { cursor: help; }
-
-/* One-line truncation helper for labels/text cells */
-.truncate-1 {
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* Ensure no horizontal scroll in panels */
+.truncate-1 { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .no-horizontal-scroll { overflow-x: hidden !important; }
 
 /* === Menu compat layer (match current fragment markup) ================== */
-/* Buttons: .pill  (alias for .choice-btn) */
 .menu-section .btn-row { display:flex; flex-wrap:wrap; gap:8px; }
 .pill{
   display:flex; align-items:center; gap:8px; justify-content:center;
@@ -873,12 +824,8 @@ body{ padding-bottom: 68px; }
   transition: background 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
 }
 .pill:hover{ background: var(--panel-2-hover); border-color: var(--accent); box-shadow: 0 0 0 2px rgba(0,122,204,.12); }
-.pill.active, .pill[aria-pressed="true"]{
-  border-color: var(--accent);
-  box-shadow: 0 0 0 2px rgba(0,122,204,.20);
-}
+.pill.active, .pill[aria-pressed="true"]{ border-color: var(--accent); box-shadow: 0 0 0 2px rgba(0,122,204,.20); }
 
-/* Sequence: .radio-list > label.radio-item  (alias for .radio-row) */
 .radio-list{ display:flex; flex-direction:column; gap:6px; }
 .radio-list .radio-item{
   display:flex; align-items:center; gap:10px;
@@ -896,7 +843,7 @@ body{ padding-bottom: 68px; }
   background: color-mix(in srgb, var(--panel-2) 84%, var(--accent) 16%);
 }
 
-/* Switches: .switch-row + .switch/.slider  (alias for .switch-control) */
+/* Switch compat */
 .switch-row{ display:flex; align-items:center; gap:10px; }
 .switch{ position:relative; width:42px; height:24px; display:inline-block; }
 .switch input{ opacity:0; width:0; height:0; }
