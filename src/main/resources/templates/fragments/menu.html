@@ -29,7 +29,7 @@
          data-i18n-attr="aria-label:menu.title"
          aria-label="Settings">
 
-      <!-- Language (single line) -->
+      <!-- Language (one-line: globe + split flag + text) -->
       <div id="langRow"
            class="menu-item"
            tabindex="0"
@@ -68,27 +68,29 @@
         </div>
       </div>
 
-      <!-- Card sequence (always render; host-only is enforced via disabled) -->
+      <!-- Card sequence (host-only disabled state handled in JS) -->
       <div class="menu-section" th:if="${showSeq}">
         <div class="section-title" data-i18n="menu.sequence">Card sequence</div>
-        <fieldset id="menuSeqChoice" class="menu-choice vertical">
-          <label class="radio-row" data-seq-id="fib.scrum">
+
+        <fieldset id="menuSeqChoice" class="menu-choice vertical" role="radiogroup"
+                  data-i18n-attr="aria-label:menu.sequence" aria-label="Card sequence">
+          <label class="radio-row" th:attr="data-tooltip=#{seq.tooltip.fib.scrum}">
             <input type="radio" name="menu-seq" value="fib.scrum" checked>
             <span data-i18n="sequence.fib.scrum">Fibonacci (Scrum)</span>
           </label>
-          <label class="radio-row" data-seq-id="fib.enh">
+          <label class="radio-row" th:attr="data-tooltip=#{seq.tooltip.fib.enh}">
             <input type="radio" name="menu-seq" value="fib.enh">
             <span data-i18n="sequence.fib.enh">Fibonacci (Scrum enhanced)</span>
           </label>
-          <label class="radio-row" data-seq-id="fib.math">
+          <label class="radio-row" th:attr="data-tooltip=#{seq.tooltip.fib.math}">
             <input type="radio" name="menu-seq" value="fib.math">
             <span data-i18n="sequence.fib.math">Fibonacci (mathematical)</span>
           </label>
-          <label class="radio-row" data-seq-id="pow2">
+          <label class="radio-row" th:attr="data-tooltip=#{seq.tooltip.pow2}">
             <input type="radio" name="menu-seq" value="pow2">
             <span data-i18n="sequence.pow2">Powers of 2</span>
           </label>
-          <label class="radio-row" data-seq-id="tshirt">
+          <label class="radio-row" th:attr="data-tooltip=#{seq.tooltip.tshirt}">
             <input type="radio" name="menu-seq" value="tshirt">
             <span data-i18n="sequence.tshirt">T-Shirt sizes</span>
           </label>
@@ -96,75 +98,72 @@
       </div>
 
       <!-- Room functions -->
-      <div class="menu-section" th:if="${showAuto}">
-        <div id="roomFuncsTitle"
-             class="section-title"
-             data-i18n="menu.roomFunctions"
-             data-i18n-attr="data-tooltip:menu.roomFunctions.hint">Room functions</div>
+      <div class="menu-section">
+        <div class="section-title" data-i18n="menu.roomFunctions">Room functions</div>
 
-        <!-- Auto-reveal -->
-        <div class="menu-item switch"
-             role="group"
-             data-i18n-attr="aria-label:menu.autoreveal"
-             aria-label="Auto reveal">
+        <!-- Auto-reveal (host-only shown; JS host badge controls visibility) -->
+        <button id="menuAutoRevealRow"
+                type="button"
+                class="menu-item switch host-only"
+                data-i18n-attr="data-tooltip:autoreveal.onlyHost"
+                data-tooltip="Only the host can change this setting">
           <span class="mi-icon" aria-hidden="true">⚡</span>
-          <div class="switch-text">
+          <span class="switch-text">
             <strong data-i18n="menu.autoreveal">Auto-reveal</strong>
-            <span id="menuArStatus" data-i18n="toggle.off">Off</span>
-          </div>
+            <small id="menuArStatus" class="text-dim">Off</small>
+          </span>
           <input id="menuAutoRevealToggle" class="switch-control" type="checkbox" role="switch" aria-checked="false">
-        </div>
+        </button>
 
-        <!-- Ticket/Story -->
-        <div class="menu-item switch"
-             role="group"
-             data-i18n-attr="aria-label:label.topic"
-             aria-label="Ticket/Story">
+        <!-- Ticket/Story visible (host-only) -->
+        <button id="menuTopicRow"
+                type="button"
+                class="menu-item switch host-only"
+                data-tooltip="Show/hide the Ticket/Story row for everyone">
           <span class="mi-icon" aria-hidden="true">🎫</span>
-          <div class="switch-text">
+          <span class="switch-text">
             <strong data-i18n="label.topic">Ticket/Story</strong>
-            <span id="menuTopicStatus" data-i18n="toggle.off">Off</span>
-          </div>
-          <input id="menuTopicToggle" class="switch-control" type="checkbox" role="switch" aria-checked="false">
-        </div>
+            <small id="menuTopicStatus" class="text-dim">On</small>
+          </span>
+          <input id="menuTopicToggle" class="switch-control" type="checkbox" role="switch" aria-checked="true">
+        </button>
       </div>
 
       <!-- Personal functions -->
       <div class="menu-section">
-        <div id="personalFuncsTitle"
-             class="section-title"
-             data-i18n="menu.personalFunctions"
-             data-i18n-attr="data-tooltip:menu.personalFunctions.hint">Personal functions</div>
+        <div class="section-title" data-i18n="menu.personalFunctions">Personal functions</div>
 
-        <!-- Participation -->
-        <div class="menu-item switch"
-             role="group"
-             data-i18n-attr="aria-label:menu.participation"
-             aria-label="Participation">
+        <!-- Participation (self only) -->
+        <button id="menuParticipationRow"
+                type="button"
+                class="menu-item switch"
+                data-tooltip="Toggle whether you participate or observe">
           <span class="mi-icon" aria-hidden="true">🧑‍💻</span>
-          <div class="switch-text">
+          <span class="switch-text">
             <strong data-i18n="menu.participation">Participation</strong>
-            <span id="menuPartStatus" data-i18n="participation.imIn">I'm estimating</span>
-          </div>
+            <small id="menuPartStatus" class="text-dim">I'm estimating</small>
+          </span>
           <input id="menuParticipationToggle" class="switch-control" type="checkbox" role="switch" aria-checked="true" checked>
-        </div>
+        </button>
       </div>
 
-      <!-- Close room tile -->
+      <!-- Room actions -->
       <div class="menu-section" th:if="${showRoom}">
+        <!-- One-line danger tile with ❌ and tooltip only -->
         <button id="closeRoomBtn"
                 type="button"
-                class="menu-item danger"
+                class="menu-item danger host-only"
                 data-i18n="room.close"
-                data-i18n-attr="aria-label:room.close;data-tooltip:room.close.hint">
+                data-i18n-attr="data-tooltip:room.close.hint"
+                data-tooltip="Closes this room for all participants and returns to the start page.">
           <span class="mi-icon" aria-hidden="true">❌</span>
-          <span>Close room for everyone</span>
+          <span class="truncate-1">Close room for everyone</span>
         </button>
       </div>
 
     </div>
   </div>
 
-  <!-- Load menu wiring -->
+  <!-- Load menu wiring (ensure cache-bust to latest JS) -->
   <script defer src="/js/menu.js?v=14"></script>
 </th:block>
