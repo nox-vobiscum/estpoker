@@ -100,7 +100,7 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* NEW: unify fonts across native controls (fix mixed system font in menu) */
+/* Unify fonts across native controls */
 button, input, select, textarea { font: inherit; color: inherit; }
 
 .menu-panel, .menu-section, .menu-item, .choice-btn, .radio-row,
@@ -160,13 +160,13 @@ strong { color: var(--text-strong); }
 
 .topic-actions{ display:flex; gap:6px; }
 
-/* EDIT BLOCK: styled same container as topic-row so it doesn't jump */
+/* Topic edit block (same visual rhythm) */
 .topic-edit{
   display:grid;
   grid-template-columns: 1fr max-content;
   gap: 8px;
   align-items: center;
-  margin: 1.2rem 0 1rem;       /* same vertical rhythm as .topic-row */
+  margin: 1.2rem 0 1rem;
   padding: 8px 10px;
   background: var(--panel-2);
   border: 1px solid var(--border);
@@ -228,7 +228,7 @@ strong { color: var(--text-strong); }
 }
 @keyframes slideIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
 
-/* REMOVE default fieldset borders inside menu */
+/* Remove default fieldset borders inside menu */
 .menu-panel fieldset{ border:0; padding:0; margin:0; min-inline-size:auto; }
 
 .menu-header{
@@ -249,7 +249,7 @@ strong { color: var(--text-strong); }
 /* Generic row/button */
 .menu-item{
   display:grid;
-  grid-template-columns: 28px 1fr;
+  grid-template-columns: 28px 1fr; /* default two columns (icon + text) */
   align-items:center;
   gap:12px;
   padding:10px 12px;
@@ -265,6 +265,8 @@ strong { color: var(--text-strong); }
 .menu-item:hover{ background: var(--panel-2-hover); border-color: var(--accent); box-shadow: 0 0 0 2px rgba(0,122,204,0.12); }
 .menu-item.disabled { opacity: .55; cursor: not-allowed; }
 .menu-item .mi-icon{ font-size: 18px; line-height: 1; font-family: "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",system-ui,sans-serif; }
+/* allow truncation in grid 1fr cell */
+.menu-item > .truncate-1 { min-width: 0; }
 
 /* Language one-line helper */
 .lang-inline{ display:flex; align-items:center; gap:8px; }
@@ -318,7 +320,7 @@ strong { color: var(--text-strong); }
 /* Menu hint text */
 .hint{ width: 100%; max-width: 420px; color: var(--text-dim); font-size: .85rem; margin: 2px 8px 0; }
 
-/* Danger CTA (one-line tile) */
+/* Danger CTA (single-line tile) */
 #closeRoomBtn.menu-item.danger{
   grid-template-columns: 28px 1fr;
   background: rgba(255,70,70,.10);
@@ -565,7 +567,7 @@ li{ margin-bottom:.4rem; line-height:1.5; font-size:1rem; }
 @keyframes fadein{ to{ opacity:.95; transform: translateY(0);} }
 @keyframes fadeout{ to{ opacity:0; } }
 
-/* ---------- Menu switch control ---------- */
+/* ---------- Menu switch control (full-row switches) ---------- */
 .menu-item.switch{ grid-template-columns: 28px 1fr max-content; align-items:center; }
 .switch-text{ display:flex; gap:6px; align-items:baseline; min-width:0; white-space:nowrap; }
 .switch-text strong{ max-width:60%; overflow:hidden; text-overflow:ellipsis; }
@@ -644,7 +646,7 @@ li{ margin-bottom:.4rem; line-height:1.5; font-size:1rem; }
   .topic-label{ display:none; }
   .topic-actions{ justify-content:flex-end; }
 
-  /* NEW: action buttons become icon-only on phones */
+  /* Action buttons become icon-only on phones */
   .row-action .ra-label{ display:none; }
 }
 
@@ -799,7 +801,3 @@ body{ padding-bottom: 68px; }
 /* ---------- Host-only utility ---------- */
 .host-only { display: none !important; }
 .is-host .host-only { display: inline-flex !important; }
-
-/* === HOTFIX: make function rows full-width with right-aligned switch === */
-.menu-item { grid-template-columns: 28px 1fr max-content; } /* was 2 columns */
-.menu-item:has(input.switch-control) { grid-template-columns: 28px 1fr max-content; }

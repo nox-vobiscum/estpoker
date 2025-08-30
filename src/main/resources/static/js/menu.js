@@ -1,43 +1,51 @@
-/* menu.js v24 — full-row switches + live i18n (no ?lang=) + close button one-line + debug marker */
+/* menu.js v25 — full-row switches + seq radios + theme + live i18n (no ?lang=) */
 (() => {
   'use strict';
-  // Debug/Verify: Im Browser "window.__epMenuVer" tippen → v24
-  window.__epMenuVer = 'v24';
-  console.info('[menu] v24 loaded');
+  // Debug/Verify: im Browser "window.__epMenuVer" → v25
+  window.__epMenuVer = 'v25';
+  console.info('[menu] v25 loaded');
 
   const $  = (s, r = document) => r.querySelector(s);
   const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
 
-  const overlay   = $('#appMenuOverlay');
-  const panel     = overlay ? $('.menu-panel', overlay) : null;
-  const btnOpen   = $('#menuButton');
-  const backdrop  = overlay ? $('.menu-backdrop', overlay) : null;
+  const overlay  = $('#appMenuOverlay');
+  const btnOpen  = $('#menuButton');
+  const backdrop = overlay ? $('.menu-backdrop', overlay) : null;
 
   const rowLang   = $('#langRow');
   const langLabel = $('#langCurrent');
   const flagA     = rowLang ? $('.flag-a', rowLang) : null;
   const flagB     = rowLang ? $('.flag-b', rowLang) : null;
 
-  const rowAuto   = $('#rowAutoReveal');
-  const swAuto    = $('#menuAutoRevealToggle');
+  const themeBtns = {
+    light:  $('#themeLight'),
+    dark:   $('#themeDark'),
+    system: $('#themeSystem')
+  };
 
-  const rowTopic  = $('#rowTopic');
-  const swTopic   = $('#menuTopicToggle');
+  const seqField = $('#menuSeqChoice');
 
-  const rowPart   = $('#rowParticipation');
-  const swPart    = $('#menuParticipationToggle');
+  const rowAuto = $('#rowAutoReveal');
+  const swAuto  = $('#menuAutoRevealToggle');
 
-  const closeBtn  = $('#closeRoomBtn');
+  const rowTopic = $('#rowTopic');
+  const swTopic  = $('#menuTopicToggle');
 
-  // ---------- Open/Close ----------
+  const rowPart = $('#rowParticipation');
+  const swPart  = $('#menuParticipationToggle');
+
+  const closeBtn = $('#closeRoomBtn');
+
+  // ---------- Overlay ----------
   function forceRowLayout() {
-    // Erzwinge Grid-Layout für ganze Zeile (falls altes CSS gecacht)
+    // Erzwinge Grid-Layout für Switch-Zeilen (falls altes CSS gecacht)
     $$('.menu-item.switch').forEach((row) => {
       row.style.display = 'grid';
       row.style.gridTemplateColumns = '28px 1fr max-content';
       row.style.alignItems = 'center';
       row.style.width = '100%';
     });
+    // Close-Button einzeilig lassen (Kompat)
     if (closeBtn) {
       closeBtn.style.display = 'grid';
       closeBtn.style.gridTemplateColumns = '28px 1fr';
@@ -46,6 +54,7 @@
         text.style.whiteSpace = 'nowrap';
         text.style.overflow = 'hidden';
         text.style.textOverflow = 'ellipsis';
+        text.style.minWidth = '0';
       }
     }
   }
@@ -80,7 +89,7 @@
   function setFlagsFor(code) {
     if (!flagA || !flagB) return;
     if (code === 'de') { flagA.src = '/flags/de.svg'; flagB.src = '/flags/at.svg'; }
-    else { flagA.src = '/flags/us.svg'; flagB.src = '/flags/gb.svg'; }
+    else               { flagA.src = '/flags/us.svg'; flagB.src = '/flags/gb.svg'; }
   }
 
   function stripLangParamFromUrl() {
@@ -98,7 +107,7 @@
   }
 
   function applyMessages(map, root = document) {
-    // Text-Knoten
+    // Texte
     $$('[data-i18n]', root).forEach((el) => {
       const key = el.getAttribute('data-i18n');
       if (key && map[key] != null) el.textContent = map[key];
@@ -140,12 +149,13 @@
     switchLanguage(next);
   });
 
-  // ---------- Switch rows (ganze Zeile klickbar) ----------
+  // ---------- Ganze Zeile klickbar für Switches ----------
   function wireSwitchRow(rowEl, inputEl, onChange) {
     if (!rowEl || !inputEl) return;
     rowEl.addEventListener('click', (e) => {
+      // Direkter Klick auf Input → Browserdefault
       if (e.target === inputEl || e.target.closest('input') === inputEl) return;
-      if (inputEl.disabled) return;
+      if (inputEl.disabled || rowEl.classList.contains('disabled')) return;
       inputEl.checked = !inputEl.checked;
       inputEl.dispatchEvent(new Event('change', { bubbles: true }));
     });
@@ -160,13 +170,57 @@
     document.dispatchEvent(new CustomEvent('ep:close-room'));
   });
 
+  // ---------- Theme (Light/Dark/System) ----------
+  const THEME_KEY = 'ep-theme';
+
+  function applyTheme(mode) {
+    const root = document.documentElement;
+    if (mode === 'light' || mode === 'dark') {
+      root.setAttribute('data-theme', mode);
+    } else {
+      root.removeAttribute('data-theme'); // folgt System
+    }
+    try { localStorage.setItem(THEME_KEY, mode); } catch {}
+    Object.entries(themeBtns).forEach(([k, btn]) =>
+      btn?.setAttribute('aria-pressed', String(k === mode))
+    );
+  }
+
+  function initTheme() {
+    let saved = 'system';
+    try { saved = localStorage.getItem(THEME_KEY) || 'system'; } catch {}
+    applyTheme(saved);
+    // bei System-Änderung live nachziehen
+    if (window.matchMedia) {
+      const mq = window.matchMedia('(prefers-color-scheme: dark)');
+      mq.addEventListener?.('change', () => {
+        const pref = (localStorage.getItem(THEME_KEY) || 'system');
+        if (pref === 'system') applyTheme('system');
+      });
+    }
+  }
+
+  themeBtns.light?.addEventListener('click',  () => applyTheme('light'));
+  themeBtns.dark?.addEventListener('click',   () => applyTheme('dark'));
+  themeBtns.system?.addEventListener('click', () => applyTheme('system'));
+
+  // ---------- Sequence radios ----------
+  seqField?.addEventListener('change', (e) => {
+    const r = e.target;
+    if (!(r instanceof HTMLInputElement)) return;
+    if (r.name === 'menu-seq' && r.checked) {
+      const id = r.value.replace('-', '.'); // tolerant ggü. alter ID-Notation
+      document.dispatchEvent(new CustomEvent('ep:sequence-change', { detail: { id } }));
+    }
+  });
+
   // ---------- Init ----------
   (function init() {
     const lang = getLang();
     setFlagsFor(lang);
     if (langLabel) langLabel.textContent = (lang === 'de') ? 'Deutsch' : 'English';
     stripLangParamFromUrl();
-    // Falls Overlay bereits sichtbar: Layout sofort erzwingen
-    forceRowLayout();
+    forceRowLayout(); // falls Cache alt ist
+    initTheme();
   })();
 })();
