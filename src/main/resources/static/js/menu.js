@@ -215,9 +215,9 @@
 
   // Static fallbacks — used if backend lookup is unavailable
   const SEQ_FALLBACKS = {
-    'fib.scrum': [0, 1, 2, 3, 5, 8, 13, 20, 40, 100],
+    'fib.scrum': [1, 2, 3, 5, 8, 13, 20, 40, 100],
     'fib.enh'  : [0, 0.5, 1, 2, 3, 5, 8, 13, 20, 40, 100, '∞', '❓', '☕'],
-    'fib.math' : [1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89],
+    'fib.math' : [1, 2, 3, 5, 8, 13, 21, 34, 55, 89],
     'pow2'     : [2, 4, 8, 16, 32, 64, 128],
     'tshirt'   : ['XS', 'S', 'M', 'L', 'XL', 'XXL']
   };
