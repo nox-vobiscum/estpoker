@@ -1,4 +1,9 @@
-/* room.js v33 — outlier highlight after reveal (>=3 numeric votes) */
+/* room.js v34 — 15min idle + outlier highlight (post-reveal) + copy-link robust
+   Notes:
+   - Idle threshold now 15 minutes (client-side visibility).
+   - Outlier highlight: after reveal, if ≥3 numeric votes exist, chips farthest
+     from avg get a subtle highlight (.vote-chip.outlier).
+   - No server behavior changed here (host transfer/toasts need server-side). */
 (() => {
   'use strict';
   const TAG = '[ROOM]';
@@ -8,7 +13,8 @@
   // --- constants -------------------------------------------------------------
   const SPECIALS  = ['❓','💬','☕'];
   const INFINITY_ = '∞';
-  const IDLE_MS_THRESHOLD = 600_000; // 10 minutes
+  // 15-minute idle threshold for local "zzz" visibility (server may differ)
+  const IDLE_MS_THRESHOLD = 900_000; // 15 minutes
 
   // script dataset / URL params
   const scriptEl = document.querySelector('script[src*="/js/room.js"]');
@@ -38,10 +44,7 @@
 
     // UI helpers
     _optimisticVote: null,
-    hardRedirect: null,
-
-    // Outlier names after reveal (Set<string>)
-    _outliers: new Set()
+    hardRedirect: null
   };
 
   // stable per-tab client id
@@ -92,46 +95,6 @@
 
   function syncHostClass(){ document.body.classList.toggle('is-host', !!state.isHost); }
 
-  // --- numeric helpers for outlier calc -------------------------------------
-  function toNumber(val) {
-    // Accept number or numeric string; ignore ∞ and specials
-    if (val == null) return null;
-    if (val === INFINITY_) return null;
-    if (SPECIALS.includes(String(val))) return null;
-    const n = (typeof val === 'number') ? val : parseFloat(String(val).replace(',', '.'));
-    return Number.isFinite(n) ? n : null;
-  }
-
-  function recomputeOutliers() {
-    // Only when revealed and we have at least 3 numeric votes and a numeric average
-    state._outliers.clear();
-    if (!state.votesRevealed) return;
-
-    const avg = toNumber(state.averageVote);
-    if (avg == null) return;
-
-    const numeric = [];
-    for (const p of state.participants) {
-      const v = toNumber(p && p.vote);
-      if (v != null) numeric.push({ name: p.name, v });
-    }
-    if (numeric.length < 3) return;
-
-    // Compute max absolute deviation from average
-    let maxDist = 0;
-    for (const it of numeric) {
-      const d = Math.abs(it.v - avg);
-      if (d > maxDist) maxDist = d;
-    }
-    // If maxDist is 0, it's a perfect consensus — highlight none
-    if (maxDist <= 0) return;
-
-    // Mark every vote that reaches the max distance (ties allowed)
-    for (const it of numeric) {
-      if (Math.abs(it.v - avg) === maxDist) state._outliers.add(it.name);
-    }
-  }
-
   // --- message handling ------------------------------------------------------
   function handleMessage(m) {
     switch (m.type) {
@@ -176,9 +139,6 @@
         // clear optimistic selection when server confirms our vote
         if (me && me.vote != null) state._optimisticVote = null;
 
-        // recompute outliers once we have participants + average + reveal flag
-        recomputeOutliers();
-
         syncHostClass();
         renderParticipants();
         renderCards();
@@ -190,12 +150,27 @@
         break;
       }
 
+      // Optional future server events (safe no-op if never sent)
+      case 'hostTransferred': {
+        // Example payload: { type:'hostTransferred', from:'Alice', to:'Bob', youAreHost:true/false }
+        const n = (x)=> (x==null?'':String(x));
+        const de = (document.documentElement.lang||'en').toLowerCase().startsWith('de');
+        const msg = m.youAreHost
+          ? (de ? `${n(m.from)} hat den Raum verlassen, Du bist jetzt Host`
+                : `${n(m.from)} left, you are now Host`)
+          : (de ? `${n(m.from)} hat den Raum verlassen, ${n(m.to)} ist jetzt Host`
+                : `${n(m.from)} left, ${n(m.to)} is now Host`);
+        showToast(msg);
+        break;
+      }
+
       default: break;
     }
   }
 
   // --- participants ----------------------------------------------------------
   function isIdle(p) {
+    // Prefer server's idleMs if provided; otherwise fall back to booleans.
     if (!p || p.disconnected) return false;
     if (typeof p.idleMs === 'number') return p.idleMs >= IDLE_MS_THRESHOLD;
     if (p.inactive === true || p.away === true) return true;
@@ -205,6 +180,10 @@
   function renderParticipants() {
     const ul = $('#liveParticipantList'); if (!ul) return;
     ul.innerHTML = '';
+
+    // Precompute outliers when revealed
+    const outlierVals = computeOutlierValues();
+
     state.participants.forEach(p => {
       const li = document.createElement('li');
       li.className = 'participant-row';
@@ -246,9 +225,10 @@
           const isSpecial = (display === '☕' || display === INFINITY_ || p.disconnected || p.participating === false);
           if (isSpecial) {
             chip.classList.add('special');
-          } else if (state._outliers && state._outliers.has(p.name)) {
-            // Soft highlight for outliers (CSS already present)
-            chip.classList.add('outlier');
+          } else {
+            // highlight if this numeric value is one of the outliers
+            const vNum = toNumeric(display);
+            if (vNum != null && outlierVals.has(vNum)) chip.classList.add('outlier');
           }
           right.appendChild(chip);
         }
@@ -321,6 +301,7 @@
         state._optimisticVote = label;
         grid.querySelectorAll('button').forEach(b => b.classList.remove('selected'));
         btn.classList.add('selected');
+        // send to server
         send(`vote:${state.youName}:${label}`);
       });
 
@@ -461,7 +442,34 @@
   window.revealCards = revealCards;
   window.resetRoom   = resetRoom;
 
-  // ---------- Feedback / copy helpers ----------
+  // ---------- Outlier helpers (post-reveal) ----------------------------------
+  function toNumeric(v){
+    if (v == null) return null;
+    const s = String(v).trim();
+    if (s === '' || s === INFINITY_ || SPECIALS.includes(s)) return null;
+    const n = Number(s);
+    return Number.isFinite(n) ? n : null;
+  }
+  function computeOutlierValues(){
+    if (!state.votesRevealed) return new Set();
+    // Only count participants with numeric votes (no observers/specials/disconnected)
+    const nums = [];
+    for (const p of state.participants) {
+      if (!p || p.observer || p.disconnected) continue;
+      const n = toNumeric(p.vote);
+      if (n != null) nums.push(n);
+    }
+    if (nums.length < 3) return new Set(); // require at least 3 numeric votes
+    const avgNum = toNumeric(state.averageVote);
+    if (avgNum == null) return new Set();
+    let maxDev = -1;
+    for (const n of nums) maxDev = Math.max(maxDev, Math.abs(n - avgNum));
+    // All values reaching the maximum deviation are considered outliers
+    const set = new Set(nums.filter(n => Math.abs(n - avgNum) === maxDev));
+    return set;
+  }
+
+  // ---------- Feedback / copy helpers ---------------------------------------
   function showToast(msg, ms = 2600) {
     try {
       const t = document.createElement('div');
@@ -496,6 +504,7 @@
     }
   }
   function bindCopyLink() {
+    // accept several possible selectors; fall back to icon next to room code
     const candidates = [
       '#copyRoomLink',
       '#copyRoomLinkBtn',

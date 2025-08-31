@@ -30,7 +30,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     private final Map<String, Conn> bySession = new ConcurrentHashMap<>();
 
     // Hard host reassignment threshold (align with service grace)
-    private static final long HOST_INACTIVE_MS = 600_000L; // 10 minutes
+    private static final long HOST_INACTIVE_MS = 900_000L; // 15 minutes  ← CHANGED
 
     public GameWebSocketHandler(GameService gameService) {
         this.gameService = gameService;
@@ -59,18 +59,16 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             // Tell client the canonical identity
             gameService.sendIdentity(session, name, cid);
 
-            // NEW: Make sure the just-joined session receives a full state snapshot.
-            // join() broadcasts, but that can race with addSession(); this targets the new session explicitly.
+            // Ensure the just-joined session receives a full state snapshot.
             try {
                 sendInitialStateSnapshot(session, room, roomCode);
             } catch (Throwable t) {
                 log.warn("WS INIT snapshot failed (room={}, name={}): {}", roomCode, name, t.toString());
             }
 
-            // Note: join() already broadcasts the room state (kept for other clients).
+            // Note: join() already broadcasts the room state.
         } catch (Throwable t) {
             log.error("WS afterConnectionEstablished failed (sid={}, uri={})", session.getId(), safeUri(session), t);
-            // 1011 will be sent by Spring when we throw; be explicit to close.
             try { session.close(CloseStatus.SERVER_ERROR); } catch (Exception ignore) {}
             throw t;
         }
@@ -169,7 +167,19 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             switch (payload) {
                 case "revealCards" -> gameService.reveal(roomCode);       // broadcasts
                 case "resetRoom"   -> gameService.reset(roomCode);        // broadcasts
-                case "intentionalLeave" -> gameService.handleIntentionalLeave(roomCode, name); // best-effort leave
+                case "intentionalLeave" -> {
+                    // Apply the same 5s grace as a transport close to avoid flapping on quick refresh.
+                    // Keep legacy handler (best-effort), but also schedule the standard graceful disconnect.
+                    try {
+                        gameService.handleIntentionalLeave(roomCode, name); // legacy/best-effort
+                    } catch (Throwable t) {
+                        log.debug("handleIntentionalLeave threw (ignored): {}", t.toString());
+                    }
+                    Room room = gameService.getRoom(roomCode);
+                    if (room != null) {
+                        gameService.scheduleDisconnect(room, name); // service should apply ~5s grace
+                    }
+                }
                 case "ping"        -> gameService.touch(roomCode, cid);   // CID-based heartbeat
                 case "topicClear"  -> {                                    // host-only
                     if (!isHost(roomCode, name)) return;
@@ -221,9 +231,9 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             gameService.removeSession(session);
 
             Room room = gameService.getRoom(roomCode);
-            if (room != null) gameService.scheduleDisconnect(room, name);
+            if (room != null) gameService.scheduleDisconnect(room, name); // 5s grace handled in service
 
-            // Re-evaluate host after grace; hard demotion uses threshold
+            // Re-evaluate host after hard inactivity threshold (now 15 min)
             gameService.ensureHost(roomCode, 0L, HOST_INACTIVE_MS);
         } catch (Throwable t) {
             log.error("WS afterConnectionClosed handling failed (room={}, name={})", roomCode, name, t);
