@@ -190,10 +190,13 @@
       if (p.disconnected) li.classList.add('disconnected');
       if (p.isHost) li.classList.add('is-host');
 
+      const idle = isIdle(p); // compute once so we can reuse below
       const left = document.createElement('span');
       left.className = 'participant-icon';
-      left.textContent = p.isHost ? '👑' : '👤';
+      // For non-hosts, show 💤 on the left when idle; keep 👑 for hosts.
+      left.textContent = p.isHost ? '👑' : (idle ? '💤' : '👤');
       li.appendChild(left);
+
 
       const name = document.createElement('span');
       name.className = 'name';
@@ -206,9 +209,14 @@
       if (!state.votesRevealed) {
         if (p.observer) {
           const eye = document.createElement('span'); eye.className = 'status-icon observer'; eye.textContent = '👁'; right.appendChild(eye);
-        } else if (isIdle(p)) {
-          const z = document.createElement('span'); z.className = 'status-icon pending'; z.textContent = '💤'; right.appendChild(z);
+        } else if (idle) {
+        if (p.isHost) {
+        // Host keeps the crown on the left; show 💤 status on the right.
+        const z = document.createElement('span'); z.className = 'status-icon pending'; z.textContent = '💤'; right.appendChild(z);
+        }
+        // For non-hosts, the left icon already shows 💤; no extra status on the right.
         } else if (!p.disconnected && p.vote != null) {
+
           const done = document.createElement('span'); done.className = 'status-icon done'; done.textContent = '✓'; right.appendChild(done);
         } else if (!p.disconnected) {
           const wait = document.createElement('span'); wait.className = 'status-icon pending'; wait.textContent = '⏳'; right.appendChild(wait);
