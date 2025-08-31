@@ -1,5 +1,4 @@
-/* room.js v31 — copy-link robust, 10 min idle threshold, pageshow sync
-   Base: v30 (your IST). Only minimal, additive changes. */
+/* room.js v32 */
 (() => {
   'use strict';
   const TAG = '[ROOM]';
@@ -9,7 +8,6 @@
   // --- constants -------------------------------------------------------------
   const SPECIALS  = ['❓','💬','☕'];
   const INFINITY_ = '∞';
-  // Idle threshold raised to 10 minutes; server booleans are ignored unless idleMs is absent.
   const IDLE_MS_THRESHOLD = 600_000; // 10 minutes
 
   // script dataset / URL params
@@ -152,10 +150,8 @@
 
   // --- participants ----------------------------------------------------------
   function isIdle(p) {
-    // Prefer server idleMs when available to enforce 10 min threshold client-side.
     if (!p || p.disconnected) return false;
     if (typeof p.idleMs === 'number') return p.idleMs >= IDLE_MS_THRESHOLD;
-    // Fallback to booleans only when idleMs is not provided.
     if (p.inactive === true || p.away === true) return true;
     return false;
   }
@@ -206,7 +202,6 @@
         }
       }
 
-      // host-only row actions
       if (state.isHost && !p.isHost) {
         const makeHostBtn = document.createElement('button');
         makeHostBtn.className = 'row-action host';
@@ -269,7 +264,6 @@
 
       btn.addEventListener('click', () => {
         if (btn.disabled) return;
-        // optimistic highlight for snappier UX
         state._optimisticVote = label;
         grid.querySelectorAll('button').forEach(b => b.classList.remove('selected'));
         btn.classList.add('selected');
@@ -317,7 +311,7 @@
         if (rangeWrap) rangeWrap.hidden = true;
       } else {
         row.classList.remove('consensus');
-        setText('#resultLabel', (isDe ? 'Avg:' : 'Avg:'));
+        setText('#resultLabel', (isDe ? 'Ø Durchschnitt:' : 'Ø Average:'));
       }
     }
 
@@ -448,7 +442,6 @@
     }
   }
   function bindCopyLink() {
-    // accept several possible selectors; fall back to icon next to room code
     const candidates = [
       '#copyRoomLink',
       '#copyRoomLinkBtn',
@@ -476,7 +469,7 @@
 
   // --- wire UI once ----------------------------------------------------------
   function wireOnce() {
-    bindCopyLink(); // replaces the simple #copyRoomLink handler from v30
+    bindCopyLink();
 
     // Topic editor (host-only)
     const editBtn = $('#topicEditBtn');
@@ -560,7 +553,7 @@
     // graceful leave notice
     window.addEventListener('beforeunload', () => { try { send('intentionalLeave'); } catch {} });
 
-    // BFCache / back-forward restore: ask the app to sync & ensure socket is up
+    // BFCache / back-forward restore
     window.addEventListener('pageshow', () => {
       document.dispatchEvent(new CustomEvent('ep:request-sync', { detail: { room: state.roomCode } }));
       if (!state.connected && (!state.ws || state.ws.readyState !== 1)) connectWS();
