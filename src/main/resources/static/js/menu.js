@@ -1,7 +1,7 @@
-/* menu.js v26 — full-row switches + live i18n (no ?lang=) + button toggle + dynamic seq-tooltips */
+/* menu.js v26 — full-row switches + live i18n (no ?lang=) + sequence tooltips (all) */
 (() => {
   'use strict';
-  // Debug/Verify: Im Browser "window.__epMenuVer" tippen → v26
+  // Debug/Verify in console: window.__epMenuVer -> 'v26'
   window.__epMenuVer = 'v26';
   console.info('[menu] v26 loaded');
 
@@ -31,25 +31,21 @@
 
   // ---------- helpers ----------
   const isMenuOpen = () => overlay && !overlay.classList.contains('hidden');
-
   const getLang = () =>
     (document.documentElement.lang || 'en').toLowerCase().startsWith('de') ? 'de' : 'en';
 
   function setMenuButtonState(open) {
     if (!btnOpen) return;
-    // Icon
+    // Toggle icon and ARIA (no tooltip by project rule)
     btnOpen.textContent = open ? '✕' : '☰';
-    // ARIA (ohne Tooltip, wie gewünscht)
     const de = getLang() === 'de';
     btnOpen.setAttribute('aria-expanded', open ? 'true' : 'false');
     btnOpen.setAttribute('aria-label', open ? (de ? 'Menü schließen' : 'Close menu')
                                             : (de ? 'Menü öffnen'   : 'Open menu'));
-    // Wichtig: KEIN data-tooltip setzen
-    btnOpen.removeAttribute('data-tooltip');
   }
 
   function forceRowLayout() {
-    // Erzwinge Grid-Layout für ganze Zeile (falls altes CSS gecacht)
+    // Enforce grid layout for full-width switch rows (guards against stale CSS caches)
     $$('.menu-item.switch').forEach((row) => {
       row.style.display = 'grid';
       row.style.gridTemplateColumns = '28px 1fr max-content';
@@ -84,7 +80,7 @@
     btnOpen?.focus?.();
   }
 
-  // Toggle auf dem gleichen Button
+  // Toggle on the same floating button
   btnOpen?.addEventListener('click', () => (isMenuOpen() ? closeMenu() : openMenu()));
   backdrop?.addEventListener('click', (e) => { if (e.target.hasAttribute('data-close')) closeMenu(); });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && isMenuOpen()) closeMenu(); });
@@ -109,10 +105,12 @@
   }
 
   function applyMessages(map, root = document) {
+    // text nodes
     $$('[data-i18n]', root).forEach((el) => {
       const key = el.getAttribute('data-i18n');
       if (key && map[key] != null) el.textContent = map[key];
     });
+    // attributes (attr:key;attr:key;…)
     $$('[data-i18n-attr]', root).forEach((el) => {
       const spec = el.getAttribute('data-i18n-attr'); if (!spec) return;
       spec.split(';').forEach(pair => {
@@ -139,13 +137,10 @@
       applyMessages(messages, document);
       stripLangParamFromUrl();
       setMenuButtonState(isMenuOpen());
-      // Nach i18n-Update SEQ-Tooltips erneut bauen (i18n-Fallback könnte überschrieben worden sein)
-      queueSeqTooltipUpdate();
     } catch (err) {
       console.warn('[i18n] switch failed:', err);
       stripLangParamFromUrl();
       setMenuButtonState(isMenuOpen());
-      queueSeqTooltipUpdate();
     }
   }
 
@@ -154,7 +149,7 @@
     switchLanguage(next);
   });
 
-  // ---------- Switch rows (ganze Zeile klickbar) ----------
+  // ---------- Switch rows (full row clickable) ----------
   function wireSwitchRow(rowEl, inputEl, onChange) {
     if (!rowEl || !inputEl) return;
     rowEl.addEventListener('click', (e) => {
@@ -166,102 +161,77 @@
     inputEl.addEventListener('change', () => onChange?.(!!inputEl.checked));
   }
 
-  wireSwitchRow(rowAuto,  swAuto,  (on) => document.dispatchEvent(new CustomEvent('ep:auto-reveal-toggle', { detail: { on } })));
-  wireSwitchRow(rowTopic, swTopic, (on) => document.dispatchEvent(new CustomEvent('ep:topic-toggle',       { detail: { on } })));
+  wireSwitchRow(rowAuto,  swAuto,  (on) => document.dispatchEvent(new CustomEvent('ep:auto-reveal-toggle',  { detail: { on } })));
+  wireSwitchRow(rowTopic, swTopic, (on) => document.dispatchEvent(new CustomEvent('ep:topic-toggle',        { detail: { on } })));
   wireSwitchRow(rowPart,  swPart,  (on) => document.dispatchEvent(new CustomEvent('ep:participation-toggle',{ detail: { estimating: on } })));
 
   closeBtn?.addEventListener('click', () => {
     document.dispatchEvent(new CustomEvent('ep:close-room'));
   });
 
-  // ---------- Dynamic Sequence Tooltips ----------
-  const SPECIALS = new Set(['❓','💬','☕','∞']);
+  // ---------- Sequence tooltips (first 6 values, then ",…") ----------
+  const SPECIALS = new Set(['❓','💬','☕']);
+  let seqCache = null;
 
-  function normalizeList(arr) {
-    if (!Array.isArray(arr)) return [];
-    return arr.map(String);
-  }
+  // Fallback (kept minimal but representative; used if /sequences unavailable)
+  const SEQ_FALLBACK = {
+    'fib.scrum': [0, 1, 2, 3, 5, 8, 13, 20, 40, 100, '❓', '☕'],
+    'fib.enh'  : [0, 1, 2, 3, 5, 8, 13, 20, 40, 100, '∞', '❓', '☕'],
+    'fib.math' : [1, 1, 2, 3, 5, 8, 13, 21, 34, 55, '❓', '☕'],
+    'pow2'     : [1, 2, 4, 8, 16, 32, 64, '❓', '☕'],
+    'tshirt'   : ['XS','S','M','L','XL','XXL','❓','☕'],
+  };
 
-  function firstSixBaseValues(list) {
-    const out = [];
-    for (const v of list) {
-      const s = String(v).trim();
-      if (SPECIALS.has(s)) continue;            // Sonderkarten überspringen
-      out.push(s);
-      if (out.length >= 6) break;
-    }
-    return out;
-  }
-
-  function setSeqTooltipFor(id, text) {
-    const label = $(`#menuSeqChoice [data-seq-id="${CSS.escape(id)}"]`);
-    if (!label) return;
-    if (text && text.trim()) label.setAttribute('data-tooltip', text);
-  }
-
-  function buildPreviewText(vals) {
-    const six = firstSixBaseValues(vals);
-    if (!six.length) return '';
-    return six.join(', ') + (vals.length > six.length ? ', ...' : '');
-  }
-
-  // Robust Extraktion, mehrere mögliche Antwortformen unterstützen
-  function extractCardsForId(data, id) {
-    if (!data) return null;
-
-    // Variante A: { "fib.scrum": ["1","2",...], "fib.enh": [...] }
-    if (Array.isArray(data[id])) return data[id];
-
-    // Variante B: { sequences: { "fib.scrum": ["1",...], ... } }
-    if (data.sequences) {
-      if (Array.isArray(data.sequences[id])) return data.sequences[id];
-      if (data.sequences[id] && Array.isArray(data.sequences[id].cards)) return data.sequences[id].cards;
-    }
-
-    // Variante C: Array von Objekten
-    if (Array.isArray(data)) {
-      const entry = data.find(x => x && (x.id === id || x.key === id || x.name === id));
-      if (entry) {
-        if (Array.isArray(entry.cards)) return entry.cards;
-        if (Array.isArray(entry.values)) return entry.values;
-      }
-    }
-
-    return null;
-  }
-
-  async function updateSequenceTooltips() {
+  async function getSequencesMap() {
+    if (seqCache) return seqCache;
     try {
       const res = await fetch('/sequences', { credentials: 'same-origin' });
       if (!res.ok) throw new Error('HTTP ' + res.status);
       const data = await res.json();
+      const map = {};
 
-      ['fib.scrum','fib.enh','fib.math','pow2','tshirt'].forEach(id => {
-        const cards = normalizeList(extractCardsForId(data, id));
-        const preview = buildPreviewText(cards);
-        if (preview) setSeqTooltipFor(id, preview);
-      });
+      // Accept object map or array payloads
+      if (Array.isArray(data)) {
+        // Expect objects like { id, cards } or { id, values }
+        data.forEach(item => {
+          const id = item?.id || item?.name;
+          const arr = item?.cards || item?.values || item?.deck;
+          if (id && Array.isArray(arr)) map[id] = arr.slice();
+        });
+      } else if (data && typeof data === 'object') {
+        // Keys are ids, values are arrays
+        Object.keys(data).forEach(k => {
+          if (Array.isArray(data[k])) map[k] = data[k].slice();
+        });
+      }
+
+      // If backend didn’t provide anything useful, fall back
+      seqCache = Object.keys(map).length ? map : SEQ_FALLBACK;
     } catch (e) {
-      // Fallback: vorhandene (i18n) Tooltips kürzen auf 6 Werte
-      ['fib.scrum','fib.enh','fib.math','pow2','tshirt'].forEach(id => {
-        const label = $(`#menuSeqChoice [data-seq-id="${CSS.escape(id)}"]`);
-        if (!label) return;
-        const raw = label.getAttribute('data-tooltip') || '';
-        if (!raw) return;
-        // rudimentär nach Komma trennen und kürzen
-        const parts = raw.split(',').map(s => s.trim()).filter(Boolean);
-        const preview = parts.slice(0, 6).join(', ') + (parts.length > 6 ? ', ...' : '');
-        setSeqTooltipFor(id, preview);
-      });
+      console.warn('[menu] /sequences fetch failed — using fallback', e);
+      seqCache = SEQ_FALLBACK;
     }
+    return seqCache;
   }
 
-  let seqTooltipTimer = null;
-  function queueSeqTooltipUpdate() {
-    if (seqTooltipTimer) cancelAnimationFrame(seqTooltipTimer);
-    seqTooltipTimer = requestAnimationFrame(() => {
-      seqTooltipTimer = null;
-      updateSequenceTooltips();
+  function previewList(arr) {
+    // Show first six non-special values; keep order
+    const base = (arr || []).filter(v => !SPECIALS.has(String(v)));
+    return base.slice(0, 6).map(v => String(v));
+  }
+
+  async function populateSeqTooltips() {
+    const seqs = await getSequencesMap();
+    $$('label.radio-row[data-seq-id]').forEach(label => {
+      const id = label.getAttribute('data-seq-id');
+      const deck = seqs[id] || [];
+      const preview = previewList(deck);
+      if (preview.length) {
+        label.setAttribute('data-tooltip', preview.join(' · ') + ',…');
+      } else {
+        // Gracefully remove placeholder to avoid empty bubbles
+        label.removeAttribute('data-tooltip');
+      }
     });
   }
 
@@ -271,9 +241,10 @@
     setFlagsFor(lang);
     if (langLabel) langLabel.textContent = (lang === 'de') ? 'Deutsch' : 'English';
     stripLangParamFromUrl();
-    setMenuButtonState(false); // initial geschlossen
+    setMenuButtonState(false); // initially closed
     if (isMenuOpen()) setMenuButtonState(true);
     forceRowLayout();
-    queueSeqTooltipUpdate();
+    // Fill sequence tooltips
+    populateSeqTooltips();
   })();
 })();
