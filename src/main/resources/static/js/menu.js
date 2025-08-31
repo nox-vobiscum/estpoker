@@ -1,13 +1,15 @@
-/* menu.js v26 — theme switching (light/dark/system) + smarter lang tooltip + full-row switches */
+/* menu.js v26 — seq tooltips (all sets), seq change wiring, live i18n, toggle button */
 (() => {
   'use strict';
-  // Debug/verify in console: window.__epMenuVer -> v26
+  // Debug/Verify in console: window.__epMenuVer → v26
   window.__epMenuVer = 'v26';
   console.info('[menu] v26 loaded');
 
+  // ---------- tiny DOM helpers ----------
   const $  = (s, r = document) => r.querySelector(s);
   const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
 
+  // ---------- refs ----------
   const overlay   = $('#appMenuOverlay');
   const panel     = overlay ? $('.menu-panel', overlay) : null;
   const btnOpen   = $('#menuButton');
@@ -27,14 +29,15 @@
   const rowPart   = $('#rowParticipation');
   const swPart    = $('#menuParticipationToggle');
 
+  const seqRoot   = $('#menuSeqChoice');
+
+  const themeLight  = $('#themeLight');
+  const themeDark   = $('#themeDark');
+  const themeSystem = $('#themeSystem');
+
   const closeBtn  = $('#closeRoomBtn');
 
-  // Theme buttons
-  const btnThemeLight  = $('#themeLight');
-  const btnThemeDark   = $('#themeDark');
-  const btnThemeSystem = $('#themeSystem');
-
-  // ---------- helpers ----------
+  // ---------- utils ----------
   const isMenuOpen = () => overlay && !overlay.classList.contains('hidden');
 
   const getLang = () =>
@@ -42,17 +45,16 @@
 
   function setMenuButtonState(open) {
     if (!btnOpen) return;
-    // Toggle icon + localized ARIA
     btnOpen.textContent = open ? '✕' : '☰';
+    // Only ARIA labels (no tooltips for menu button per rules)
     const de = getLang() === 'de';
     btnOpen.setAttribute('aria-expanded', open ? 'true' : 'false');
-    // Keep labels but do NOT add tooltips here (project rule: no tooltip on menu button)
     btnOpen.setAttribute('aria-label', open ? (de ? 'Menü schließen' : 'Close menu')
                                             : (de ? 'Menü öffnen'   : 'Open menu'));
   }
 
   function forceRowLayout() {
-    // Enforce full-row grid for switch rows (guards against stale CSS caches)
+    // Enforce grid layout for full-width switch rows (guards against stale CSS caches)
     $$('.menu-item.switch').forEach((row) => {
       row.style.display = 'grid';
       row.style.gridTemplateColumns = '28px 1fr max-content';
@@ -71,7 +73,7 @@
     }
   }
 
-  // ---------- Open/Close ----------
+  // ---------- open/close ----------
   function openMenu() {
     if (!overlay) return;
     overlay.classList.remove('hidden');
@@ -86,17 +88,15 @@
     setMenuButtonState(false);
     btnOpen?.focus?.();
   }
-
-  // Toggle using the same button
   btnOpen?.addEventListener('click', () => (isMenuOpen() ? closeMenu() : openMenu()));
   backdrop?.addEventListener('click', (e) => { if (e.target.hasAttribute('data-close')) closeMenu(); });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && isMenuOpen()) closeMenu(); });
 
-  // ---------- Language ----------
+  // ---------- language/i18n ----------
   function setFlagsFor(code) {
     if (!flagA || !flagB) return;
     if (code === 'de') { flagA.src = '/flags/de.svg'; flagB.src = '/flags/at.svg'; }
-    else { flagA.src = '/flags/us.svg'; flagB.src = '/flags/gb.svg'; }
+    else               { flagA.src = '/flags/us.svg'; flagB.src = '/flags/gb.svg'; }
   }
 
   function stripLangParamFromUrl() {
@@ -112,10 +112,12 @@
   }
 
   function applyMessages(map, root = document) {
+    // Text nodes
     $$('[data-i18n]', root).forEach((el) => {
       const key = el.getAttribute('data-i18n');
       if (key && map[key] != null) el.textContent = map[key];
     });
+    // Attributes
     $$('[data-i18n-attr]', root).forEach((el) => {
       const spec = el.getAttribute('data-i18n-attr'); if (!spec) return;
       spec.split(';').forEach(pair => {
@@ -133,14 +135,14 @@
     return res.json();
   }
 
-  function updateLangTooltipForCurrent() {
+  function setLangTooltip(code) {
+    // Tooltip text explains switching to the other language
     if (!rowLang) return;
-    const curIsDe = getLang() === 'de';
-    // Localized, explicit “switch to …”
-    const text = curIsDe
-      ? 'Sprache: Deutsch → zu Englisch wechseln'
-      : 'Language: English → switch to German';
-    rowLang.setAttribute('data-tooltip', text);
+    if (code === 'de') {
+      rowLang.setAttribute('data-tooltip', 'Sprache: Deutsch → zu Englisch wechseln');
+    } else {
+      rowLang.setAttribute('data-tooltip', 'Language: English → switch to German');
+    }
   }
 
   async function switchLanguage(to) {
@@ -151,13 +153,14 @@
       const messages = await fetchMessages(to);
       applyMessages(messages, document);
       stripLangParamFromUrl();
+      setLangTooltip(to);
+      // keep menu button labels in sync with language
       setMenuButtonState(isMenuOpen());
-      updateLangTooltipForCurrent();
     } catch (err) {
       console.warn('[i18n] switch failed:', err);
       stripLangParamFromUrl();
+      setLangTooltip(to);
       setMenuButtonState(isMenuOpen());
-      updateLangTooltipForCurrent();
     }
   }
 
@@ -166,64 +169,27 @@
     switchLanguage(next);
   });
 
-  // ---------- Theme switching ----------
-  const THEME_KEY = 'ep.theme'; // 'light' | 'dark' | 'system'
-  let systemMql = window.matchMedia('(prefers-color-scheme: dark)');
-  let systemListener = null;
-
-  function currentSystemTheme() {
-    return systemMql.matches ? 'dark' : 'light';
-  }
-
-  function setThemeAttr(mode) {
-    const root = document.documentElement;
-    if (mode === 'system') {
-      root.setAttribute('data-theme', currentSystemTheme());
-      root.setAttribute('data-theme-source', 'system');
-      // (Re)attach listener to live-follow system changes
-      if (systemListener) systemMql.removeEventListener('change', systemListener);
-      systemListener = () => {
-        if (localStorage.getItem(THEME_KEY) === 'system') {
-          root.setAttribute('data-theme', currentSystemTheme());
-          // keep buttons’ pressed states as-is
-        }
-      };
-      systemMql.addEventListener('change', systemListener);
-    } else {
-      root.setAttribute('data-theme', mode);
-      root.removeAttribute('data-theme-source');
-      if (systemListener) {
-        systemMql.removeEventListener('change', systemListener);
-        systemListener = null;
+  // ---------- theme (light/dark/system) ----------
+  function applyTheme(mode) {
+    try {
+      if (mode === 'system') {
+        document.documentElement.removeAttribute('data-theme');
+      } else {
+        document.documentElement.setAttribute('data-theme', mode);
       }
-    }
+      localStorage.setItem('ep-theme', mode);
+      // reflect pressed state
+      const setPressed = (btn, on) => btn && btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+      setPressed(themeLight,  mode === 'light');
+      setPressed(themeDark,   mode === 'dark');
+      setPressed(themeSystem, mode === 'system');
+    } catch (e) {}
   }
+  themeLight?.addEventListener('click',  () => applyTheme('light'));
+  themeDark?.addEventListener('click',   () => applyTheme('dark'));
+  themeSystem?.addEventListener('click', () => applyTheme('system'));
 
-  function setTheme(mode) {
-    localStorage.setItem(THEME_KEY, mode);
-    setThemeAttr(mode);
-    updateThemeButtons(mode);
-  }
-
-  function updateThemeButtons(mode) {
-    const map = {
-      light: btnThemeLight,
-      dark: btnThemeDark,
-      system: btnThemeSystem
-    };
-    Object.entries(map).forEach(([key, btn]) => {
-      if (!btn) return;
-      const active = (key === mode);
-      btn.classList.toggle('active', active);
-      btn.setAttribute('aria-pressed', active ? 'true' : 'false');
-    });
-  }
-
-  btnThemeLight?.addEventListener('click', () => setTheme('light'));
-  btnThemeDark?.addEventListener('click', () => setTheme('dark'));
-  btnThemeSystem?.addEventListener('click', () => setTheme('system'));
-
-  // ---------- Switch rows (full-row click) ----------
+  // ---------- switches (full-row clickable) ----------
   function wireSwitchRow(rowEl, inputEl, onChange) {
     if (!rowEl || !inputEl) return;
     rowEl.addEventListener('click', (e) => {
@@ -234,7 +200,6 @@
     });
     inputEl.addEventListener('change', () => onChange?.(!!inputEl.checked));
   }
-
   wireSwitchRow(rowAuto,  swAuto,  (on) => document.dispatchEvent(new CustomEvent('ep:auto-reveal-toggle', { detail: { on } })));
   wireSwitchRow(rowTopic, swTopic, (on) => document.dispatchEvent(new CustomEvent('ep:topic-toggle',       { detail: { on } })));
   wireSwitchRow(rowPart,  swPart,  (on) => document.dispatchEvent(new CustomEvent('ep:participation-toggle',{ detail: { estimating: on } })));
@@ -243,25 +208,89 @@
     document.dispatchEvent(new CustomEvent('ep:close-room'));
   });
 
-  // ---------- Init ----------
+  // ---------- sequences: tooltips + change ----------
+  const SPECIALS = new Set(['?', '❓', '💬', '☕', '∞']);
+
+  // Static fallbacks — used if backend lookup is unavailable
+  const SEQ_FALLBACKS = {
+    'fib.scrum': [0, 1, 2, 3, 5, 8, 13, 20, 40, 100],
+    'fib.enh'  : [0, 0.5, 1, 2, 3, 5, 8, 13, 20, 40, 100, '∞', '❓', '☕'],
+    'fib.math' : [1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89],
+    'pow2'     : [1, 2, 4, 8, 16, 32, 64, 128],
+    'tshirt'   : ['XS', 'S', 'M', 'L', 'XL', 'XXL']
+  };
+
+  function previewFromArray(arr) {
+    // Build "a, b, c, d, e, f,..." preview; filter out explicit specials for numeric sets
+    const cleaned = (Array.isArray(arr) ? arr : []).filter(x => !SPECIALS.has(String(x)));
+    const firstSix = cleaned.slice(0, 6).map(String);
+    if (firstSix.length === 0) return '...';
+    return `${firstSix.join(', ')},...`;
+    // Note: we always end with ",..." per spec, even if < 6 items
+  }
+
+  async function fetchSequences() {
+    // Try a couple of likely endpoints; fall back to static map if all fail
+    const candidates = ['/sequences', '/sequences/list'];
+    for (const url of candidates) {
+      try {
+        const res = await fetch(url, { credentials: 'same-origin' });
+        if (!res.ok) continue;
+        const data = await res.json();
+        // Expecting either { "fib.scrum":[...], ... } or [{id:'fib.scrum',cards:[...]}]
+        if (Array.isArray(data)) {
+          const map = {};
+          data.forEach(it => {
+            const id = it?.id || it?.name || it?.sequenceId;
+            const cards = it?.cards || it?.values || it?.deck;
+            if (id && Array.isArray(cards)) map[id] = cards;
+          });
+          if (Object.keys(map).length) return map;
+        } else if (data && typeof data === 'object') {
+          return data;
+        }
+      } catch (e) { /* keep trying */ }
+    }
+    return SEQ_FALLBACKS;
+  }
+
+  async function initSequenceTooltips() {
+    if (!seqRoot) return;
+    const seqMap = await fetchSequences();
+
+    // Attach tooltip with first six values for each radio-row label
+    $$('label.radio-row', seqRoot).forEach(label => {
+      const input = $('input[type="radio"]', label);
+      if (!input) return;
+      const id = input.value;
+      const arr = seqMap[id] || SEQ_FALLBACKS[id] || [];
+      label.setAttribute('data-tooltip', previewFromArray(arr));
+    });
+
+    // Wire change => emit custom event with selected id
+    seqRoot.addEventListener('change', (e) => {
+      const r = e.target && e.target.closest('input[type="radio"][name="menu-seq"]');
+      if (!r) return;
+      const id = r.value;
+      document.dispatchEvent(new CustomEvent('ep:sequence-change', { detail: { id } }));
+    });
+  }
+
+  // ---------- init ----------
   (function init() {
-    // Language
+    const savedTheme = localStorage.getItem('ep-theme');
+    if (savedTheme) applyTheme(savedTheme);
+
     const lang = getLang();
     setFlagsFor(lang);
     if (langLabel) langLabel.textContent = (lang === 'de') ? 'Deutsch' : 'English';
     stripLangParamFromUrl();
-    updateLangTooltipForCurrent();
+    setLangTooltip(lang);
 
-    // Menu button state
-    setMenuButtonState(false);
+    setMenuButtonState(false); // initial closed
     if (isMenuOpen()) setMenuButtonState(true);
 
-    // Theme (load persisted or default to 'system')
-    const stored = localStorage.getItem(THEME_KEY) || 'system';
-    setThemeAttr(stored);
-    updateThemeButtons(stored);
-
-    // If overlay is already visible, enforce row layout immediately
     forceRowLayout();
+    initSequenceTooltips();
   })();
 })();

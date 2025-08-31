@@ -1,7 +1,7 @@
-<!-- templates/fragments/menu.html (v26) -->
+<!-- templates/fragments/menu.html -->
 <th:block th:fragment="appMenu (showSeq, showAuto, showRoom)">
 
-  <!-- Floating menu button (no tooltip by request) -->
+  <!-- Floating menu button (no tooltip — self-explanatory) -->
   <button id="menuButton"
           class="menu-button"
           type="button"
@@ -10,7 +10,7 @@
           data-i18n-attr="aria-label:ui.menu.open"
           aria-label="Open menu">☰</button>
 
-  <!-- Overlay root -->
+  <!-- Overlay root (kept data-* for existing tooltip strings used elsewhere) -->
   <div id="appMenuOverlay"
        class="menu-overlay hidden"
        aria-hidden="true"
@@ -36,7 +36,7 @@
       <div class="menu-section">
         <div class="section-title" data-i18n="menu.language">Language</div>
 
-        <!-- One-line language switch row -->
+        <!-- One-line language switch row (shows split flags; tooltip describes action) -->
         <div id="langRow"
              class="menu-item"
              tabindex="0"
@@ -91,25 +91,26 @@
       <!-- Card sequence -->
       <div class="menu-section" th:if="${showSeq}">
         <div class="section-title" data-i18n="menu.sequence">Card sequence</div>
-        <!-- per-row tooltips; JS will fill with first 6 values (",...") -->
+
+        <!-- NOTE: label tooltips are set dynamically by menu.js (no fieldset tooltip here) -->
         <fieldset id="menuSeqChoice" class="menu-choice vertical">
-          <label class="radio-row" data-seq-id="fib.scrum" data-tooltip="…">
+          <label class="radio-row">
             <input type="radio" name="menu-seq" value="fib.scrum" checked>
             <span data-i18n="sequence.fib.scrum">Fibonacci (Scrum)</span>
           </label>
-          <label class="radio-row" data-seq-id="fib.enh" data-tooltip="…">
+          <label class="radio-row">
             <input type="radio" name="menu-seq" value="fib.enh">
             <span data-i18n="sequence.fib.enh">Fibonacci (Scrum enhanced)</span>
           </label>
-          <label class="radio-row" data-seq-id="fib.math" data-tooltip="…">
+          <label class="radio-row">
             <input type="radio" name="menu-seq" value="fib.math">
             <span data-i18n="sequence.fib.math">Fibonacci (mathematical)</span>
           </label>
-          <label class="radio-row" data-seq-id="pow2" data-tooltip="…">
+          <label class="radio-row">
             <input type="radio" name="menu-seq" value="pow2">
             <span data-i18n="sequence.pow2">Powers of 2</span>
           </label>
-          <label class="radio-row" data-seq-id="tshirt" data-tooltip="…">
+          <label class="radio-row">
             <input type="radio" name="menu-seq" value="tshirt">
             <span data-i18n="sequence.tshirt">T-Shirt sizes</span>
           </label>
@@ -181,13 +182,14 @@
         </div>
       </div>
 
-      <!-- Close room (no tooltip on button) -->
+      <!-- Close room -->
       <div class="menu-section" th:if="${showRoom}">
         <button id="closeRoomBtn"
                 type="button"
                 class="menu-item danger"
                 data-i18n="room.close"
-                data-i18n-attr="aria-label:room.close">
+                data-i18n-attr="aria-label:room.close"
+                data-tooltip="Closes this room for all participants and returns to the start page.">
           <span class="mi-icon" aria-hidden="true">❌</span>
           <span class="truncate-1">Close room for everyone</span>
         </button>
@@ -196,6 +198,6 @@
     </div>
   </div>
 
-  <!-- Load JS (cache-bust) -->
-  <script defer src="/js/menu.js?v=25"></script>
+  <!-- Load JS (cache-bust updated to match v26) -->
+  <script defer src="/js/menu.js?v=26"></script>
 </th:block>
