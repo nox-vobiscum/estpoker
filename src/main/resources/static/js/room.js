@@ -354,7 +354,7 @@
         if (rangeWrap) rangeWrap.hidden = true;
       } else {
         row.classList.remove('consensus');
-        setText('#resultLabel', (isDe ? 'Ø Durchschnitt:' : 'Ø Average:'));
+        setText('#resultLabel', (isDe ? 'Ø :' : 'Ø :'));
       }
     }
 
