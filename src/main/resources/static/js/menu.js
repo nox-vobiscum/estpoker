@@ -1,9 +1,9 @@
-/* menu.js v26 — seq tooltips (all sets), seq change wiring, live i18n, toggle button */
+/* menu.js v27 — seq tooltips (robust), seq change wiring, live i18n, toggle button */
 (() => {
   'use strict';
-  // Debug/Verify in console: window.__epMenuVer → v26
-  window.__epMenuVer = 'v26';
-  console.info('[menu] v26 loaded');
+  // Debug/Verify in console: window.__epMenuVer → v27
+  window.__epMenuVer = 'v27';
+  console.info('[menu] v27 loaded');
 
   // ---------- tiny DOM helpers ----------
   const $  = (s, r = document) => r.querySelector(s);
@@ -46,7 +46,7 @@
   function setMenuButtonState(open) {
     if (!btnOpen) return;
     btnOpen.textContent = open ? '✕' : '☰';
-    // Only ARIA labels (no tooltips for menu button per rules)
+    // ARIA label only (no tooltip for menu button per rules)
     const de = getLang() === 'de';
     btnOpen.setAttribute('aria-expanded', open ? 'true' : 'false');
     btnOpen.setAttribute('aria-label', open ? (de ? 'Menü schließen' : 'Close menu')
@@ -70,6 +70,8 @@
         text.style.overflow = 'hidden';
         text.style.textOverflow = 'ellipsis';
       }
+      // Ensure no tooltip on the close tile (avoid overflow issues)
+      closeBtn.removeAttribute('data-tooltip');
     }
   }
 
@@ -216,42 +218,59 @@
     'fib.scrum': [0, 1, 2, 3, 5, 8, 13, 20, 40, 100],
     'fib.enh'  : [0, 0.5, 1, 2, 3, 5, 8, 13, 20, 40, 100, '∞', '❓', '☕'],
     'fib.math' : [1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89],
-    'pow2'     : [1, 2, 4, 8, 16, 32, 64, 128],
+    'pow2'     : [2, 4, 8, 16, 32, 64, 128],
     'tshirt'   : ['XS', 'S', 'M', 'L', 'XL', 'XXL']
   };
 
+  // Normalize ids so 'fib.scrum', 'fib-scrum', 'FIB_SCRUM' all match
+  const normKey = (s) => String(s || '').replace(/[\s._-]+/g, '').toLowerCase();
+
   function previewFromArray(arr) {
-    // Build "a, b, c, d, e, f,..." preview; filter out explicit specials for numeric sets
+    // Build "a, b, c, d, e, f,..." preview; filter out specials for numeric sets
     const cleaned = (Array.isArray(arr) ? arr : []).filter(x => !SPECIALS.has(String(x)));
     const firstSix = cleaned.slice(0, 6).map(String);
     if (firstSix.length === 0) return '...';
     return `${firstSix.join(', ')},...`;
-    // Note: we always end with ",..." per spec, even if < 6 items
   }
 
   async function fetchSequences() {
-    // Try a couple of likely endpoints; fall back to static map if all fail
+    // Try likely endpoints; return robust normalized map; fall back to static
     const candidates = ['/sequences', '/sequences/list'];
     for (const url of candidates) {
       try {
         const res = await fetch(url, { credentials: 'same-origin' });
         if (!res.ok) continue;
         const data = await res.json();
-        // Expecting either { "fib.scrum":[...], ... } or [{id:'fib.scrum',cards:[...]}]
+
+        // Normalize into { normalizedId: cards[] }
+        const out = new Map();
+
         if (Array.isArray(data)) {
-          const map = {};
+          // Shape: [{ id, cards }] (accept various property names)
           data.forEach(it => {
             const id = it?.id || it?.name || it?.sequenceId;
             const cards = it?.cards || it?.values || it?.deck;
-            if (id && Array.isArray(cards)) map[id] = cards;
+            if (!id || !Array.isArray(cards)) return;
+            out.set(normKey(id), cards);
           });
-          if (Object.keys(map).length) return map;
         } else if (data && typeof data === 'object') {
-          return data;
+          // Shape: { "fib.scrum": [...] , ... }
+          Object.keys(data).forEach(k => {
+            const v = data[k];
+            if (Array.isArray(v)) out.set(normKey(k), v);
+          });
         }
-      } catch (e) { /* keep trying */ }
+
+        if (out.size) return out;
+      } catch (e) {
+        // keep trying next candidate
+      }
     }
-    return SEQ_FALLBACKS;
+
+    // Fallback: return normalized Map from static object
+    const m = new Map();
+    Object.keys(SEQ_FALLBACKS).forEach(k => m.set(normKey(k), SEQ_FALLBACKS[k]));
+    return m;
   }
 
   async function initSequenceTooltips() {
@@ -262,9 +281,33 @@
     $$('label.radio-row', seqRoot).forEach(label => {
       const input = $('input[type="radio"]', label);
       if (!input) return;
-      const id = input.value;
-      const arr = seqMap[id] || SEQ_FALLBACKS[id] || [];
-      label.setAttribute('data-tooltip', previewFromArray(arr));
+
+      // Try multiple candidates to be resilient to value formats
+      const candidates = [
+        input.value,
+        input.value.replace(/\./g, '-'),
+        input.value.replace(/-/g, '.'),
+        input.value.replace(/[.\-_]/g, '')
+      ];
+
+      let arr = null;
+      for (const cand of candidates) {
+        const v = seqMap.get(normKey(cand));
+        if (v && v.length) { arr = v; break; }
+      }
+
+      // Final fallback: direct static lookup
+      if (!arr) {
+        const v = SEQ_FALLBACKS[input.value];
+        if (v && v.length) arr = v;
+      }
+
+      if (arr && arr.length) {
+        label.setAttribute('data-tooltip', previewFromArray(arr));
+      } else {
+        // Avoid showing a bare "..." bubble if we cannot resolve
+        label.removeAttribute('data-tooltip');
+      }
     });
 
     // Wire change => emit custom event with selected id
