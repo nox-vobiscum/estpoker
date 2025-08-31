@@ -310,7 +310,7 @@
     if (row) {
       if (m && m.consensus) {
         row.classList.add('consensus');
-        setText('#resultLabel', (isDe ? '🤝 Konsens' : '🤝 Consensus'));
+        setText('#resultLabel', (isDe ? '🎉 Konsens' : '🎉 Consensus'));
         const sep1 = document.querySelector('#resultRow .sep'); if (sep1) sep1.hidden = true;
         if (medianWrap) medianWrap.hidden = true;
         if (rangeSep)  rangeSep.hidden  = true;
