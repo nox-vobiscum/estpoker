@@ -1,4 +1,4 @@
-/* room.js v32 */
+/* room.js v33 — outlier highlight after reveal (>=3 numeric votes) */
 (() => {
   'use strict';
   const TAG = '[ROOM]';
@@ -38,7 +38,10 @@
 
     // UI helpers
     _optimisticVote: null,
-    hardRedirect: null
+    hardRedirect: null,
+
+    // Outlier names after reveal (Set<string>)
+    _outliers: new Set()
   };
 
   // stable per-tab client id
@@ -89,6 +92,46 @@
 
   function syncHostClass(){ document.body.classList.toggle('is-host', !!state.isHost); }
 
+  // --- numeric helpers for outlier calc -------------------------------------
+  function toNumber(val) {
+    // Accept number or numeric string; ignore ∞ and specials
+    if (val == null) return null;
+    if (val === INFINITY_) return null;
+    if (SPECIALS.includes(String(val))) return null;
+    const n = (typeof val === 'number') ? val : parseFloat(String(val).replace(',', '.'));
+    return Number.isFinite(n) ? n : null;
+  }
+
+  function recomputeOutliers() {
+    // Only when revealed and we have at least 3 numeric votes and a numeric average
+    state._outliers.clear();
+    if (!state.votesRevealed) return;
+
+    const avg = toNumber(state.averageVote);
+    if (avg == null) return;
+
+    const numeric = [];
+    for (const p of state.participants) {
+      const v = toNumber(p && p.vote);
+      if (v != null) numeric.push({ name: p.name, v });
+    }
+    if (numeric.length < 3) return;
+
+    // Compute max absolute deviation from average
+    let maxDist = 0;
+    for (const it of numeric) {
+      const d = Math.abs(it.v - avg);
+      if (d > maxDist) maxDist = d;
+    }
+    // If maxDist is 0, it's a perfect consensus — highlight none
+    if (maxDist <= 0) return;
+
+    // Mark every vote that reaches the max distance (ties allowed)
+    for (const it of numeric) {
+      if (Math.abs(it.v - avg) === maxDist) state._outliers.add(it.name);
+    }
+  }
+
   // --- message handling ------------------------------------------------------
   function handleMessage(m) {
     switch (m.type) {
@@ -132,6 +175,9 @@
 
         // clear optimistic selection when server confirms our vote
         if (me && me.vote != null) state._optimisticVote = null;
+
+        // recompute outliers once we have participants + average + reveal flag
+        recomputeOutliers();
 
         syncHostClass();
         renderParticipants();
@@ -196,12 +242,19 @@
           chip.className = 'vote-chip';
           let display = (p.vote == null || p.vote === '') ? '–' : String(p.vote);
           chip.textContent = display;
-          const special = (display === '☕' || display === INFINITY_ || p.disconnected || p.participating === false);
-          if (special) chip.classList.add('special');
+
+          const isSpecial = (display === '☕' || display === INFINITY_ || p.disconnected || p.participating === false);
+          if (isSpecial) {
+            chip.classList.add('special');
+          } else if (state._outliers && state._outliers.has(p.name)) {
+            // Soft highlight for outliers (CSS already present)
+            chip.classList.add('outlier');
+          }
           right.appendChild(chip);
         }
       }
 
+      // host-only row actions
       if (state.isHost && !p.isHost) {
         const makeHostBtn = document.createElement('button');
         makeHostBtn.className = 'row-action host';
@@ -264,6 +317,7 @@
 
       btn.addEventListener('click', () => {
         if (btn.disabled) return;
+        // optimistic highlight for snappier UX
         state._optimisticVote = label;
         grid.querySelectorAll('button').forEach(b => b.classList.remove('selected'));
         btn.classList.add('selected');
