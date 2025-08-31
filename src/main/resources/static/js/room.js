@@ -1,4 +1,5 @@
-/* room.js v30 — consensus label (localized) + safer idle + selected-card highlight */
+/* room.js v31 — copy-link robust, 10 min idle threshold, pageshow sync
+   Base: v30 (your IST). Only minimal, additive changes. */
 (() => {
   'use strict';
   const TAG = '[ROOM]';
@@ -8,7 +9,8 @@
   // --- constants -------------------------------------------------------------
   const SPECIALS  = ['❓','💬','☕'];
   const INFINITY_ = '∞';
-  const IDLE_MS_THRESHOLD = 120_000; // show 💤 only if idle >= 2 minutes
+  // Idle threshold raised to 10 minutes; server booleans are ignored unless idleMs is absent.
+  const IDLE_MS_THRESHOLD = 600_000; // 10 minutes
 
   // script dataset / URL params
   const scriptEl = document.querySelector('script[src*="/js/room.js"]');
@@ -37,7 +39,7 @@
     autoRevealEnabled: false,
 
     // UI helpers
-    _optimisticVote: null, // temporary highlight until server confirms
+    _optimisticVote: null,
     hardRedirect: null
   };
 
@@ -130,7 +132,7 @@
         const me = state.participants.find(p => p && p.name === state.youName);
         state.isHost = !!(me && me.isHost);
 
-        // if server confirmed our vote, clear optimistic selection
+        // clear optimistic selection when server confirms our vote
         if (me && me.vote != null) state._optimisticVote = null;
 
         syncHostClass();
@@ -150,10 +152,11 @@
 
   // --- participants ----------------------------------------------------------
   function isIdle(p) {
-    // Only trust server-provided hints; do not guess on the client.
+    // Prefer server idleMs when available to enforce 10 min threshold client-side.
     if (!p || p.disconnected) return false;
+    if (typeof p.idleMs === 'number') return p.idleMs >= IDLE_MS_THRESHOLD;
+    // Fallback to booleans only when idleMs is not provided.
     if (p.inactive === true || p.away === true) return true;
-    if (typeof p.idleMs === 'number' && p.idleMs >= IDLE_MS_THRESHOLD) return true;
     return false;
   }
 
@@ -203,7 +206,7 @@
         }
       }
 
-      // host-only row actions (visible only for host)
+      // host-only row actions
       if (state.isHost && !p.isHost) {
         const makeHostBtn = document.createElement('button');
         makeHostBtn.className = 'row-action host';
@@ -268,10 +271,8 @@
         if (btn.disabled) return;
         // optimistic highlight for snappier UX
         state._optimisticVote = label;
-        // update UI immediately
         grid.querySelectorAll('button').forEach(b => b.classList.remove('selected'));
         btn.classList.add('selected');
-        // send to server
         send(`vote:${state.youName}:${label}`);
       });
 
@@ -309,22 +310,17 @@
     if (row) {
       if (m && m.consensus) {
         row.classList.add('consensus');
-        // Localized "Consensus" with handshake icon
         setText('#resultLabel', (isDe ? '🤝 Konsens' : '🤝 Consensus'));
-        // hide median/range + separators
         const sep1 = document.querySelector('#resultRow .sep'); if (sep1) sep1.hidden = true;
         if (medianWrap) medianWrap.hidden = true;
         if (rangeSep)  rangeSep.hidden  = true;
         if (rangeWrap) rangeWrap.hidden = true;
       } else {
         row.classList.remove('consensus');
-        // Localized "Avg:"
         setText('#resultLabel', (isDe ? 'Avg:' : 'Avg:'));
-        // median/range visibility driven by payload below
       }
     }
 
-    // restore dynamic visibility when not in consensus mode
     if (!(m && m.consensus)) {
       if (medianWrap) {
         const show = m && m.medianVote != null;
@@ -381,23 +377,19 @@
   function syncMenuFromState() {
     const isDe = (document.documentElement.lang||'en').toLowerCase().startsWith('de');
 
-    // Host-only switches visible but disabled for non-host
     setRowDisabled('menuAutoRevealToggle', !state.isHost);
     setRowDisabled('menuTopicToggle',      !state.isHost);
 
-    // Topic toggle
     const mTgl = $('#menuTopicToggle'); const mSt  = $('#menuTopicStatus');
     if (mTgl) { mTgl.checked = !!state.topicVisible; mTgl.setAttribute('aria-checked', String(!!state.topicVisible)); }
     if (mSt) mSt.textContent = state.topicVisible ? (isDe ? 'An' : 'On') : (isDe ? 'Aus' : 'Off');
 
-    // Participation toggle
     const me = state.participants.find(p => p.name === state.youName);
     const isObserver = !!(me && me.observer);
     const mPTgl = $('#menuParticipationToggle'); const mPSt  = $('#menuPartStatus');
     if (mPTgl) { mPTgl.checked = !isObserver; mPTgl.setAttribute('aria-checked', String(!isObserver)); }
     if (mPSt) mPSt.textContent = !isObserver ? (isDe ? 'Ich schätze mit' : "I'm estimating") : (isDe ? 'Beobachter:in' : 'Observer');
 
-    // Auto-reveal switch
     const mARTgl = $('#menuAutoRevealToggle');
     if (mARTgl) { mARTgl.checked = !!state.autoRevealEnabled; mARTgl.setAttribute('aria-checked', String(!!state.autoRevealEnabled)); }
   }
@@ -421,20 +413,70 @@
   window.revealCards = revealCards;
   window.resetRoom   = resetRoom;
 
+  // ---------- Feedback / copy helpers ----------
+  function showToast(msg, ms = 2600) {
+    try {
+      const t = document.createElement('div');
+      t.className = 'toast';
+      t.textContent = msg;
+      document.body.appendChild(t);
+      // force reflow for CSS animation
+      // eslint-disable-next-line no-unused-expressions
+      t.offsetHeight;
+      setTimeout(() => t.remove(), ms + 600);
+    } catch {}
+  }
+  function inviteUrl() {
+    return `${location.origin}/invite?roomCode=${encodeURIComponent(state.roomCode)}`;
+  }
+  async function copyText(text) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      try {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.top = '-9999px';
+        document.body.appendChild(ta);
+        ta.focus(); ta.select();
+        const ok = document.execCommand('copy');
+        ta.remove();
+        return ok;
+      } catch { return false; }
+    }
+  }
+  function bindCopyLink() {
+    // accept several possible selectors; fall back to icon next to room code
+    const candidates = [
+      '#copyRoomLink',
+      '#copyRoomLinkBtn',
+      '#copyRoomBtn',
+      '.room-with-actions .icon-button',
+      '.main-info .icon-button'
+    ].map(sel => $(sel)).filter(Boolean);
+    const btn = candidates[0];
+    if (!btn) return;
+
+    const isDe = (document.documentElement.lang||'en').toLowerCase().startsWith('de');
+    const okMsg   = isDe ? 'Link kopiert' : 'Link copied';
+    const failMsg = isDe ? 'Kopieren fehlgeschlagen' : 'Copy failed';
+
+    async function handle() {
+      const ok = await copyText(inviteUrl());
+      const prev = btn.getAttribute('data-tooltip');
+      if (prev != null) btn.setAttribute('data-tooltip', ok ? okMsg : failMsg);
+      showToast(ok ? okMsg : failMsg);
+      if (prev != null) setTimeout(() => btn.setAttribute('data-tooltip', prev), 2200);
+    }
+    btn.addEventListener('click', (e) => { e.preventDefault(); handle(); });
+    btn.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handle(); } });
+  }
+
   // --- wire UI once ----------------------------------------------------------
   function wireOnce() {
-    const copyBtn = $('#copyRoomLink');
-    if (copyBtn) copyBtn.addEventListener('click', async () => {
-      try {
-        const link = `${location.origin}/invite?roomCode=${encodeURIComponent(state.roomCode)}`;
-        await navigator.clipboard.writeText(link);
-        const de = (document.documentElement.lang||'en').toLowerCase().startsWith('de');
-        copyBtn.setAttribute('data-tooltip', de ? 'Link kopiert' : 'Link copied');
-      } catch {
-        const de = (document.documentElement.lang||'en').toLowerCase().startsWith('de');
-        copyBtn.setAttribute('data-tooltip', de ? 'Kopieren nicht möglich' : 'Copy failed');
-      }
-    });
+    bindCopyLink(); // replaces the simple #copyRoomLink handler from v30
 
     // Topic editor (host-only)
     const editBtn = $('#topicEditBtn');
@@ -517,6 +559,12 @@
 
     // graceful leave notice
     window.addEventListener('beforeunload', () => { try { send('intentionalLeave'); } catch {} });
+
+    // BFCache / back-forward restore: ask the app to sync & ensure socket is up
+    window.addEventListener('pageshow', () => {
+      document.dispatchEvent(new CustomEvent('ep:request-sync', { detail: { room: state.roomCode } }));
+      if (!state.connected && (!state.ws || state.ws.readyState !== 1)) connectWS();
+    });
   }
 
   // --- helpers ---------------------------------------------------------------

@@ -1,7 +1,7 @@
-/* menu.js v26 — full-row switches + live i18n (no ?lang=) + sequence tooltips (all) */
+/* menu.js v26 — theme switching (light/dark/system) + smarter lang tooltip + full-row switches */
 (() => {
   'use strict';
-  // Debug/Verify in console: window.__epMenuVer -> 'v26'
+  // Debug/verify in console: window.__epMenuVer -> v26
   window.__epMenuVer = 'v26';
   console.info('[menu] v26 loaded');
 
@@ -29,23 +29,30 @@
 
   const closeBtn  = $('#closeRoomBtn');
 
+  // Theme buttons
+  const btnThemeLight  = $('#themeLight');
+  const btnThemeDark   = $('#themeDark');
+  const btnThemeSystem = $('#themeSystem');
+
   // ---------- helpers ----------
   const isMenuOpen = () => overlay && !overlay.classList.contains('hidden');
+
   const getLang = () =>
     (document.documentElement.lang || 'en').toLowerCase().startsWith('de') ? 'de' : 'en';
 
   function setMenuButtonState(open) {
     if (!btnOpen) return;
-    // Toggle icon and ARIA (no tooltip by project rule)
+    // Toggle icon + localized ARIA
     btnOpen.textContent = open ? '✕' : '☰';
     const de = getLang() === 'de';
     btnOpen.setAttribute('aria-expanded', open ? 'true' : 'false');
+    // Keep labels but do NOT add tooltips here (project rule: no tooltip on menu button)
     btnOpen.setAttribute('aria-label', open ? (de ? 'Menü schließen' : 'Close menu')
                                             : (de ? 'Menü öffnen'   : 'Open menu'));
   }
 
   function forceRowLayout() {
-    // Enforce grid layout for full-width switch rows (guards against stale CSS caches)
+    // Enforce full-row grid for switch rows (guards against stale CSS caches)
     $$('.menu-item.switch').forEach((row) => {
       row.style.display = 'grid';
       row.style.gridTemplateColumns = '28px 1fr max-content';
@@ -80,7 +87,7 @@
     btnOpen?.focus?.();
   }
 
-  // Toggle on the same floating button
+  // Toggle using the same button
   btnOpen?.addEventListener('click', () => (isMenuOpen() ? closeMenu() : openMenu()));
   backdrop?.addEventListener('click', (e) => { if (e.target.hasAttribute('data-close')) closeMenu(); });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && isMenuOpen()) closeMenu(); });
@@ -105,12 +112,10 @@
   }
 
   function applyMessages(map, root = document) {
-    // text nodes
     $$('[data-i18n]', root).forEach((el) => {
       const key = el.getAttribute('data-i18n');
       if (key && map[key] != null) el.textContent = map[key];
     });
-    // attributes (attr:key;attr:key;…)
     $$('[data-i18n-attr]', root).forEach((el) => {
       const spec = el.getAttribute('data-i18n-attr'); if (!spec) return;
       spec.split(';').forEach(pair => {
@@ -128,6 +133,16 @@
     return res.json();
   }
 
+  function updateLangTooltipForCurrent() {
+    if (!rowLang) return;
+    const curIsDe = getLang() === 'de';
+    // Localized, explicit “switch to …”
+    const text = curIsDe
+      ? 'Sprache: Deutsch → zu Englisch wechseln'
+      : 'Language: English → switch to German';
+    rowLang.setAttribute('data-tooltip', text);
+  }
+
   async function switchLanguage(to) {
     try {
       document.documentElement.lang = to;
@@ -137,10 +152,12 @@
       applyMessages(messages, document);
       stripLangParamFromUrl();
       setMenuButtonState(isMenuOpen());
+      updateLangTooltipForCurrent();
     } catch (err) {
       console.warn('[i18n] switch failed:', err);
       stripLangParamFromUrl();
       setMenuButtonState(isMenuOpen());
+      updateLangTooltipForCurrent();
     }
   }
 
@@ -149,7 +166,64 @@
     switchLanguage(next);
   });
 
-  // ---------- Switch rows (full row clickable) ----------
+  // ---------- Theme switching ----------
+  const THEME_KEY = 'ep.theme'; // 'light' | 'dark' | 'system'
+  let systemMql = window.matchMedia('(prefers-color-scheme: dark)');
+  let systemListener = null;
+
+  function currentSystemTheme() {
+    return systemMql.matches ? 'dark' : 'light';
+  }
+
+  function setThemeAttr(mode) {
+    const root = document.documentElement;
+    if (mode === 'system') {
+      root.setAttribute('data-theme', currentSystemTheme());
+      root.setAttribute('data-theme-source', 'system');
+      // (Re)attach listener to live-follow system changes
+      if (systemListener) systemMql.removeEventListener('change', systemListener);
+      systemListener = () => {
+        if (localStorage.getItem(THEME_KEY) === 'system') {
+          root.setAttribute('data-theme', currentSystemTheme());
+          // keep buttons’ pressed states as-is
+        }
+      };
+      systemMql.addEventListener('change', systemListener);
+    } else {
+      root.setAttribute('data-theme', mode);
+      root.removeAttribute('data-theme-source');
+      if (systemListener) {
+        systemMql.removeEventListener('change', systemListener);
+        systemListener = null;
+      }
+    }
+  }
+
+  function setTheme(mode) {
+    localStorage.setItem(THEME_KEY, mode);
+    setThemeAttr(mode);
+    updateThemeButtons(mode);
+  }
+
+  function updateThemeButtons(mode) {
+    const map = {
+      light: btnThemeLight,
+      dark: btnThemeDark,
+      system: btnThemeSystem
+    };
+    Object.entries(map).forEach(([key, btn]) => {
+      if (!btn) return;
+      const active = (key === mode);
+      btn.classList.toggle('active', active);
+      btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+    });
+  }
+
+  btnThemeLight?.addEventListener('click', () => setTheme('light'));
+  btnThemeDark?.addEventListener('click', () => setTheme('dark'));
+  btnThemeSystem?.addEventListener('click', () => setTheme('system'));
+
+  // ---------- Switch rows (full-row click) ----------
   function wireSwitchRow(rowEl, inputEl, onChange) {
     if (!rowEl || !inputEl) return;
     rowEl.addEventListener('click', (e) => {
@@ -161,90 +235,33 @@
     inputEl.addEventListener('change', () => onChange?.(!!inputEl.checked));
   }
 
-  wireSwitchRow(rowAuto,  swAuto,  (on) => document.dispatchEvent(new CustomEvent('ep:auto-reveal-toggle',  { detail: { on } })));
-  wireSwitchRow(rowTopic, swTopic, (on) => document.dispatchEvent(new CustomEvent('ep:topic-toggle',        { detail: { on } })));
+  wireSwitchRow(rowAuto,  swAuto,  (on) => document.dispatchEvent(new CustomEvent('ep:auto-reveal-toggle', { detail: { on } })));
+  wireSwitchRow(rowTopic, swTopic, (on) => document.dispatchEvent(new CustomEvent('ep:topic-toggle',       { detail: { on } })));
   wireSwitchRow(rowPart,  swPart,  (on) => document.dispatchEvent(new CustomEvent('ep:participation-toggle',{ detail: { estimating: on } })));
 
   closeBtn?.addEventListener('click', () => {
     document.dispatchEvent(new CustomEvent('ep:close-room'));
   });
 
-  // ---------- Sequence tooltips (first 6 values, then ",…") ----------
-  const SPECIALS = new Set(['❓','💬','☕']);
-  let seqCache = null;
-
-  // Fallback (kept minimal but representative; used if /sequences unavailable)
-  const SEQ_FALLBACK = {
-    'fib.scrum': [0, 1, 2, 3, 5, 8, 13, 20, 40, 100, '❓', '☕'],
-    'fib.enh'  : [0, 1, 2, 3, 5, 8, 13, 20, 40, 100, '∞', '❓', '☕'],
-    'fib.math' : [1, 1, 2, 3, 5, 8, 13, 21, 34, 55, '❓', '☕'],
-    'pow2'     : [1, 2, 4, 8, 16, 32, 64, '❓', '☕'],
-    'tshirt'   : ['XS','S','M','L','XL','XXL','❓','☕'],
-  };
-
-  async function getSequencesMap() {
-    if (seqCache) return seqCache;
-    try {
-      const res = await fetch('/sequences', { credentials: 'same-origin' });
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      const data = await res.json();
-      const map = {};
-
-      // Accept object map or array payloads
-      if (Array.isArray(data)) {
-        // Expect objects like { id, cards } or { id, values }
-        data.forEach(item => {
-          const id = item?.id || item?.name;
-          const arr = item?.cards || item?.values || item?.deck;
-          if (id && Array.isArray(arr)) map[id] = arr.slice();
-        });
-      } else if (data && typeof data === 'object') {
-        // Keys are ids, values are arrays
-        Object.keys(data).forEach(k => {
-          if (Array.isArray(data[k])) map[k] = data[k].slice();
-        });
-      }
-
-      // If backend didn’t provide anything useful, fall back
-      seqCache = Object.keys(map).length ? map : SEQ_FALLBACK;
-    } catch (e) {
-      console.warn('[menu] /sequences fetch failed — using fallback', e);
-      seqCache = SEQ_FALLBACK;
-    }
-    return seqCache;
-  }
-
-  function previewList(arr) {
-    // Show first six non-special values; keep order
-    const base = (arr || []).filter(v => !SPECIALS.has(String(v)));
-    return base.slice(0, 6).map(v => String(v));
-  }
-
-  async function populateSeqTooltips() {
-    const seqs = await getSequencesMap();
-    $$('label.radio-row[data-seq-id]').forEach(label => {
-      const id = label.getAttribute('data-seq-id');
-      const deck = seqs[id] || [];
-      const preview = previewList(deck);
-      if (preview.length) {
-        label.setAttribute('data-tooltip', preview.join(' · ') + ',…');
-      } else {
-        // Gracefully remove placeholder to avoid empty bubbles
-        label.removeAttribute('data-tooltip');
-      }
-    });
-  }
-
   // ---------- Init ----------
   (function init() {
+    // Language
     const lang = getLang();
     setFlagsFor(lang);
     if (langLabel) langLabel.textContent = (lang === 'de') ? 'Deutsch' : 'English';
     stripLangParamFromUrl();
-    setMenuButtonState(false); // initially closed
+    updateLangTooltipForCurrent();
+
+    // Menu button state
+    setMenuButtonState(false);
     if (isMenuOpen()) setMenuButtonState(true);
+
+    // Theme (load persisted or default to 'system')
+    const stored = localStorage.getItem(THEME_KEY) || 'system';
+    setThemeAttr(stored);
+    updateThemeButtons(stored);
+
+    // If overlay is already visible, enforce row layout immediately
     forceRowLayout();
-    // Fill sequence tooltips
-    populateSeqTooltips();
   })();
 })();
