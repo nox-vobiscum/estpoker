@@ -324,9 +324,21 @@
     }
 
     const revealBtn = $('#revealButton');
-    const resetBtn  = $('#resetButton');
-    if (revealBtn) revealBtn.style.display = (!state.votesRevealed && state.isHost) ? '' : 'none';
-    if (resetBtn)  resetBtn.style.display  = ( state.votesRevealed && state.isHost) ? '' : 'none';
+      const resetBtn  = $('#resetButton');
+
+      const showReveal = (!state.votesRevealed && state.isHost);
+      const showReset  = ( state.votesRevealed && state.isHost);
+
+      // Keep CSS + attribute in sync so Playwright "visible" works
+      if (revealBtn) {
+        revealBtn.style.display = showReveal ? '' : 'none';
+        revealBtn.hidden = !showReveal;   // NEW
+      }
+    if (resetBtn) {
+        resetBtn.style.display  = showReset ? '' : 'none';
+        resetBtn.hidden = !showReset;     // NEW
+      }
+
   }
 
   // --- result bar (avg / consensus) -----------------------------------------
