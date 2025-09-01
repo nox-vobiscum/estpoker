@@ -485,12 +485,10 @@
   }
 
   // --- global actions --------------------------------------------------------
-  function revealCards(){
-    state.votesRevealed = true;
-    renderCards();
-    renderResultBar(null);
+    function revealCards(){
     send('revealCards');
   }
+
   function resetRoom(){  send('resetRoom'); }
   window.revealCards = revealCards;
   window.resetRoom   = resetRoom;
