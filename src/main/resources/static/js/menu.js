@@ -1,12 +1,11 @@
-/* menu.js v32 — native tooltips only (title); close-room label i18n; init i18n apply
-   - No more data-tooltip anywhere (prevents double tooltip).
-   - Theme/Language/Sequence use title (+ aria-label for buttons).
-   - Close-room button gets localized label and keeps one-line truncation.
-*/
+/* menu.js v33 — native (title) tooltips incl. room/personal/close; fix close-btn icon wipe
+   - Adds localized title tooltips for Auto-reveal, Ticket/Story, Participation, Close room.
+   - Keeps theme/lang titles + i18n-on-init + one-line close label.
+   - Fix: removed any i18n text replacement on the close button element (see menu.html). */
 (() => {
   'use strict';
-  window.__epMenuVer = 'v32';
-  console.info('[menu] v32 loaded');
+  window.__epMenuVer = 'v33';
+  console.info('[menu] v33 loaded');
 
   const $  = (s, r = document) => r.querySelector(s);
   const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
@@ -26,8 +25,7 @@
   const rowPart   = $('#rowParticipation');
   const swPart    = $('#menuParticipationToggle');
 
-  const seqRoot   = $('#menuSeqChoice');
-
+  const seqRoot     = $('#menuSeqChoice');
   const themeLight  = $('#themeLight');
   const themeDark   = $('#themeDark');
   const themeSystem = $('#themeSystem');
@@ -109,16 +107,12 @@
     return res.json();
   }
 
-  // Theme button tooltips (native only)
+  // Theme button titles (native)
   function setThemeTooltips(code) {
     const T = (code === 'de')
       ? { light: 'Helles Design', dark: 'Dunkles Design', system: 'Systemthema' }
       : { light: 'Light theme',   dark: 'Dark theme',     system: 'System theme' };
-    const apply = (btn, text) => {
-      if (!btn) return;
-      btn.setAttribute('title', text);
-      btn.setAttribute('aria-label', text);
-    };
+    const apply = (btn, text) => { if (!btn) return; btn.setAttribute('title', text); btn.setAttribute('aria-label', text); };
     apply(themeLight,  T.light);
     apply(themeDark,   T.dark);
     apply(themeSystem, T.system);
@@ -132,12 +126,37 @@
     rowLang.setAttribute('title', text);
   }
 
-  // localized label for the red close-room tile, keep truncation
+  // Room/Personal tooltips (native)
+  function setSwitchTooltips(code) {
+    const TT = (code === 'de')
+      ? {
+          auto : 'Karten automatisch aufdecken, sobald alle geschätzt haben',
+          topic: 'Ticket/Story-Zeile für die aktuelle Runde ein-/ausblenden',
+          part : 'Zwischen Schätzer- und Beobachtermodus umschalten',
+          close: 'Diesen Raum für alle schließen',
+        }
+      : {
+          auto : 'Automatically reveal cards once all estimators voted',
+          topic: 'Show or hide the Ticket/Story row for the current round',
+          part : 'Toggle between estimator and observer mode for yourself',
+          close: 'Close this room for everyone',
+        };
+    rowAuto?.setAttribute('title', TT.auto);
+    rowTopic?.setAttribute('title', TT.topic);
+    rowPart?.setAttribute('title', TT.part);
+    closeBtn?.setAttribute('title', TT.close);
+  }
+
+  // localized label for the red close-room tile (keep ❌ and truncation)
   function setCloseBtnLabel(code) {
     if (!closeBtn) return;
-    const labelEl = closeBtn.querySelector('.ra-label') || closeBtn.querySelector('.truncate-1') || closeBtn;
+    let labelEl = closeBtn.querySelector('.truncate-1');
+    if (!labelEl) {
+      labelEl = document.createElement('span');
+      labelEl.className = 'truncate-1';
+      closeBtn.appendChild(labelEl);
+    }
     labelEl.textContent = (code === 'de') ? 'Raum für alle schließen' : 'Close room for everyone';
-    labelEl.classList.add('truncate-1');
     labelEl.style.whiteSpace = 'nowrap';
     labelEl.style.overflow = 'hidden';
     labelEl.style.textOverflow = 'ellipsis';
@@ -149,27 +168,28 @@
       setFlagsFor(to);
       if (langLabel) langLabel.textContent = (to === 'de') ? 'Deutsch' : 'English';
 
-      // immediate native titles/labels
       setLangTooltip(to);
       setThemeTooltips(to);
+      setSwitchTooltips(to);
       setCloseBtnLabel(to);
 
       const messages = await fetchMessages(to);
       applyMessages(messages, document);
       stripLangParamFromUrl();
 
-      // ensure correct after messages, keep layout stable
+      // ensure stable after i18n apply
       setLangTooltip(to);
       setThemeTooltips(to);
+      setSwitchTooltips(to);
       setCloseBtnLabel(to);
       forceRowLayout();
-
       setMenuButtonState(isMenuOpen());
     } catch (err) {
       console.warn('[i18n] switch failed:', err);
       stripLangParamFromUrl();
       setLangTooltip(to);
       setThemeTooltips(to);
+      setSwitchTooltips(to);
       setCloseBtnLabel(to);
       forceRowLayout();
       setMenuButtonState(isMenuOpen());
@@ -196,7 +216,7 @@
   themeDark?.addEventListener('click',   () => applyTheme('dark'));
   themeSystem?.addEventListener('click', () => applyTheme('system'));
 
-  /* ---------- switches: full-row clickable ---------- */
+  /* ---------- switches ---------- */
   function reflectAriaChecked(inputEl, rowEl) {
     if (!inputEl) return;
     const v = inputEl.checked ? 'true' : 'false';
@@ -229,7 +249,7 @@
     document.dispatchEvent(new CustomEvent('ep:close-room'));
   });
 
-  /* ---------- sequences: titles + change ---------- */
+  /* ---------- sequences: native title previews + change ---------- */
   const SPECIALS = new Set(['?', '❓', '💬', '☕', '∞']);
   const SEQ_FALLBACKS = {
     'fib.scrum': [0, 1, 2, 3, 5, 8, 13, 20, 40, 100],
@@ -266,10 +286,9 @@
     }
     return SEQ_FALLBACKS;
   }
-
   async function initSequenceTooltips() {
     if (!seqRoot) return;
-    $$('input[type="radio"][name="menu-seq"]', seqRoot).forEach(r => {
+    $$( 'input[type="radio"][name="menu-seq"]', seqRoot).forEach(r => {
       r.disabled = true;
       r.setAttribute('aria-disabled', 'true');
       r.closest('label')?.classList.add('disabled');
@@ -283,7 +302,7 @@
       const id = input.value;
       const arr = seqMap[id] || SEQ_FALLBACKS[id] || [];
       const tip = previewFromArray(arr);
-      label.setAttribute('title', tip); // native only
+      label.setAttribute('title', tip); // native title preview
     });
 
     seqRoot.addEventListener('change', (e) => {
@@ -307,6 +326,7 @@
     // native titles on first render
     setLangTooltip(lang);
     setThemeTooltips(lang);
+    setSwitchTooltips(lang);
     setCloseBtnLabel(lang);
 
     // apply i18n immediately once
@@ -314,7 +334,8 @@
       try {
         const msgs = await fetchMessages(lang);
         applyMessages(msgs, document);
-        setCloseBtnLabel(lang);
+        setCloseBtnLabel(lang);     // keep icon + 1-line after any text updates
+        setSwitchTooltips(lang);    // ensure titles present
         forceRowLayout();
       } catch (e) {
         console.warn('[menu] initial i18n apply failed', e);

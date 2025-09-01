@@ -12,7 +12,11 @@
 
   <div id="appMenuOverlay"
        class="menu-overlay hidden"
-       aria-hidden="true">
+       aria-hidden="true"
+       data-tipThemeLight="Theme: Light"
+       data-tipThemeDark="Theme: Dark"
+       data-tipThemeSystem="Theme: System"
+       data-tipLangTo="Switch language → {0}">
 
     <div class="menu-backdrop" data-close></div>
 
@@ -22,7 +26,6 @@
          data-i18n-attr="aria-label:menu.settings"
          aria-label="Settings">
 
-      <!-- Header -->
       <div class="menu-header">
         <h3 data-i18n="menu.settings">Settings</h3>
       </div>
@@ -30,8 +33,6 @@
       <!-- Language -->
       <div class="menu-section">
         <div class="section-title" data-i18n="menu.language">Language</div>
-
-        <!-- One-line language switch row (title is set by menu.js) -->
         <div id="langRow"
              class="menu-item"
              tabindex="0"
@@ -53,28 +54,19 @@
       <div class="menu-section">
         <div class="section-title" data-i18n="menu.theme">Theme</div>
         <div class="menu-choice">
-          <button id="themeLight"
-                  type="button"
-                  class="choice-btn"
-                  aria-pressed="false"
+          <button id="themeLight"  type="button" class="choice-btn" aria-pressed="false"
                   data-i18n-attr="aria-label:theme.light">
             <span class="mi-icon" aria-hidden="true">☀️</span>
             <span data-i18n="theme.light">Light</span>
           </button>
 
-          <button id="themeDark"
-                  type="button"
-                  class="choice-btn"
-                  aria-pressed="false"
+          <button id="themeDark"   type="button" class="choice-btn" aria-pressed="false"
                   data-i18n-attr="aria-label:theme.dark">
             <span class="mi-icon" aria-hidden="true">🌙</span>
             <span data-i18n="theme.dark">Dark</span>
           </button>
 
-          <button id="themeSystem"
-                  type="button"
-                  class="choice-btn"
-                  aria-pressed="false"
+          <button id="themeSystem" type="button" class="choice-btn" aria-pressed="false"
                   data-i18n-attr="aria-label:theme.system">
             <span class="mi-icon" aria-hidden="true">🖥️</span>
             <span data-i18n="theme.system">System</span>
@@ -85,8 +77,6 @@
       <!-- Card sequence -->
       <div class="menu-section" th:if="${showSeq}">
         <div class="section-title" data-i18n="menu.sequence">Card sequence</div>
-
-        <!-- NOTE: label titles are set dynamically by menu.js -->
         <fieldset id="menuSeqChoice" class="menu-choice vertical">
           <label class="radio-row">
             <input type="radio" name="menu-seq" value="fib.scrum" checked>
@@ -115,38 +105,26 @@
       <div class="menu-section">
         <div class="section-title" data-i18n="menu.roomFunctions">Room functions</div>
 
-        <div class="menu-item switch"
-             role="group"
-             id="rowAutoReveal">
+        <div class="menu-item switch" id="rowAutoReveal" role="group"
+             data-i18n-attr="aria-label:menu.autoreveal" aria-label="Auto-reveal">
           <span class="mi-icon" aria-hidden="true">⚡</span>
           <div class="switch-text">
             <strong data-i18n="menu.autoreveal">Auto-reveal</strong>
             <span id="menuArStatus" data-i18n="toggle.off">Off</span>
           </div>
-          <input id="menuAutoRevealToggle"
-                 class="switch-control"
-                 type="checkbox"
-                 role="switch"
-                 aria-checked="false"
-                 data-i18n-attr="aria-label:menu.autoreveal"
-                 aria-label="Auto-reveal">
+          <input id="menuAutoRevealToggle" class="switch-control" type="checkbox"
+                 role="switch" aria-checked="false">
         </div>
 
-        <div class="menu-item switch"
-             role="group"
-             id="rowTopic">
+        <div class="menu-item switch" id="rowTopic" role="group"
+             data-i18n-attr="aria-label:label.topic" aria-label="Ticket/Story">
           <span class="mi-icon" aria-hidden="true">🧾</span>
           <div class="switch-text">
             <strong data-i18n="label.topic">Ticket/Story</strong>
             <span id="menuTopicStatus" data-i18n="toggle.off">Off</span>
           </div>
-          <input id="menuTopicToggle"
-                 class="switch-control"
-                 type="checkbox"
-                 role="switch"
-                 aria-checked="false"
-                 data-i18n-attr="aria-label:label.topic"
-                 aria-label="Ticket/Story">
+          <input id="menuTopicToggle" class="switch-control" type="checkbox"
+                 role="switch" aria-checked="false">
         </div>
       </div>
 
@@ -154,40 +132,30 @@
       <div class="menu-section">
         <div class="section-title" data-i18n="menu.personalFunctions">Personal functions</div>
 
-        <div class="menu-item switch"
-             role="group"
-             id="rowParticipation">
+        <div class="menu-item switch" id="rowParticipation" role="group"
+             data-i18n-attr="aria-label:menu.participation" aria-label="Participation">
           <span class="mi-icon" aria-hidden="true">🧑‍💻</span>
           <div class="switch-text">
             <strong data-i18n="menu.participation">Participation</strong>
             <span id="menuPartStatus" data-i18n="participation.imIn">I'm estimating</span>
           </div>
-          <input id="menuParticipationToggle"
-                 class="switch-control"
-                 type="checkbox"
-                 role="switch"
-                 aria-checked="true"
-                 checked
-                 data-i18n-attr="aria-label:menu.participation"
-                 aria-label="Participation">
+          <input id="menuParticipationToggle" class="switch-control" type="checkbox"
+                 role="switch" aria-checked="true" checked>
         </div>
       </div>
 
       <!-- Close room -->
       <div class="menu-section" th:if="${showRoom}">
-        <button id="closeRoomBtn"
-                type="button"
-                class="menu-item danger"
-                data-i18n="room.close"
-                data-i18n-attr="aria-label:room.close">
+        <button id="closeRoomBtn" type="button" class="menu-item danger"
+                data-i18n-attr="aria-label:room.close" aria-label="Close room for everyone">
           <span class="mi-icon" aria-hidden="true">❌</span>
-          <span class="truncate-1">Close room for everyone</span>
+          <span class="truncate-1" data-i18n="room.close">Close room for everyone</span>
         </button>
       </div>
 
     </div>
   </div>
 
-  <!-- Load JS -->
-  <script defer src="/js/menu.js?v=32"></script>
+  <!-- Load JS (cache-bust to v33) -->
+  <script defer src="/js/menu.js?v=33"></script>
 </th:block>
