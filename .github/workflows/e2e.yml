@@ -17,11 +17,10 @@ jobs:
     timeout-minutes: 30
     env:
       TZ: Europe/Vienna
-      # Einheitlich für deine Configs: EP_BASE_URL
-      # Fallbacks: Secret -> alternativer Secret -> Repo-Var -> alternative Var -> Default
+      # Einheitlich: EP_BASE_URL (Fallback Secret -> Var -> Default)
       EP_BASE_URL: ${{ secrets.EP_BASE_URL || secrets.E2E_BASE_URL || vars.EP_BASE_URL || vars.E2E_BASE_URL || 'http://localhost:8080' }}
-      # Legacy-Alias ohne env-Kontext (duplizierter Ausdruck, vermeidet Linter-Warnung)
-      BASE_URL:   ${{ secrets.EP_BASE_URL || secrets.E2E_BASE_URL || vars.EP_BASE_URL || vars.E2E_BASE_URL || 'http://localhost:8080' }}
+      # Optionaler Alias für Altcode, NICHT via env.* referenzieren
+      BASE_URL: ${{ secrets.EP_BASE_URL || secrets.E2E_BASE_URL || vars.EP_BASE_URL || vars.E2E_BASE_URL || 'http://localhost:8080' }}
       CI: true
 
     steps:
@@ -33,30 +32,27 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-          cache-dependency-path: e2e/package-lock.json
+          cache-dependency-path: package-lock.json
 
       - name: Install dependencies
         run: npm ci
-        working-directory: e2e
 
       - name: Install Playwright browsers & system deps
         run: npx playwright install --with-deps
-        working-directory: e2e
 
+      # Optional – nur wenn du gegen eine laufende URL testest:
       # - name: Wait for app
-      #   run: npx -y wait-on $EP_BASE_URL --http-timeout 60000 --timeout 300000
-      #   working-directory: e2e
+      #   run: npx -y wait-on "$EP_BASE_URL" --http-timeout 60000 --timeout 300000
 
       - name: Run Playwright tests
-        run: npx playwright test --reporter=github
-        working-directory: e2e
+        run: npx playwright test --reporter=github --config=playwright.config.ts
 
       - name: Upload Playwright HTML report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report
-          path: e2e/playwright-report
+          path: playwright-report
           retention-days: 7
 
       - name: Upload traces & screenshots
@@ -64,5 +60,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: test-results
-          path: e2e/test-results
+          path: test-results
           retention-days: 7
