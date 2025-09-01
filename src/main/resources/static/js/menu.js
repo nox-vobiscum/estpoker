@@ -1,8 +1,8 @@
-/* menu.js v27 — immediate aria-checked, initial disabled radios, theme tooltips */
+/* menu.js v28 — guest radios disabled (incl. aria), aria-checked mirrors checked on inputs & rows */
 (() => {
   'use strict';
-  window.__epMenuVer = 'v27';
-  console.info('[menu] v27 loaded');
+  window.__epMenuVer = 'v28';
+  console.info('[menu] v28 loaded');
 
   const $  = (s, r = document) => r.querySelector(s);
   const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
@@ -133,7 +133,7 @@
       applyMessages(messages, document);
       stripLangParamFromUrl();
       setLangTooltip(to);
-      setThemeTooltips(to);            // NEW: keep theme tooltips localized & present
+      setThemeTooltips(to);            // keep theme tooltips localized & present
       setMenuButtonState(isMenuOpen());
     } catch (err) {
       console.warn('[i18n] switch failed:', err);
@@ -165,26 +165,35 @@
   themeSystem?.addEventListener('click', () => applyTheme('system'));
 
   /* ---------- switches: full-row clickable ---------- */
-  function reflectAriaChecked(inputEl) {
+  // Mirrors the *native* checked state into ARIA for both the input and its row.
+  function reflectAriaChecked(inputEl, rowEl) {
     if (!inputEl) return;
-    inputEl.setAttribute('aria-checked', inputEl.checked ? 'true' : 'false');
+    const v = inputEl.checked ? 'true' : 'false';
+    inputEl.setAttribute('aria-checked', v);
+    // Also mirror on the row element if it behaves like a switch
+    if (rowEl) rowEl.setAttribute('aria-checked', v);
+    // If there's an element with role="switch", ensure it matches too
+    const roleSwitchEl = rowEl?.getAttribute('role') === 'switch' ? rowEl : inputEl.closest('[role="switch"]');
+    if (roleSwitchEl && roleSwitchEl !== rowEl) roleSwitchEl.setAttribute('aria-checked', v);
   }
+
   function wireSwitchRow(rowEl, inputEl, onChange) {
     if (!rowEl || !inputEl) return;
     rowEl.addEventListener('click', (e) => {
       if (e.target === inputEl || e.target.closest('input') === inputEl) return;
       if (inputEl.disabled) return;
-      inputEl.checked = !inputEl.checked;
-      reflectAriaChecked(inputEl);  // NEW: immediate aria reflection
+      inputEl.checked = !inputEl.checked;             // source of truth: native
+      reflectAriaChecked(inputEl, rowEl);             // keep ARIA in sync immediately
       inputEl.dispatchEvent(new Event('change', { bubbles: true }));
     });
     inputEl.addEventListener('change', () => {
-      reflectAriaChecked(inputEl);  // NEW: also on native change
+      reflectAriaChecked(inputEl, rowEl);             // also on native change
       onChange?.(!!inputEl.checked);
     });
-    // initial aria reflection
-    reflectAriaChecked(inputEl);
+    // initial ARIA reflection
+    reflectAriaChecked(inputEl, rowEl);
   }
+
   wireSwitchRow(rowAuto,  swAuto,  (on) => document.dispatchEvent(new CustomEvent('ep:auto-reveal-toggle', { detail: { on } })));
   wireSwitchRow(rowTopic, swTopic, (on) => document.dispatchEvent(new CustomEvent('ep:topic-toggle',       { detail: { on } })));
   wireSwitchRow(rowPart,  swPart,  (on) => document.dispatchEvent(new CustomEvent('ep:participation-toggle',{ detail: { estimating: on } })));
@@ -234,10 +243,12 @@
   async function initSequenceTooltips() {
     if (!seqRoot) return;
 
-    // NEW: default all radios to disabled until room.js enables them for host
+    // Default all radios to disabled until host enables them (guest must stay disabled).
     $$('input[type="radio"][name="menu-seq"]', seqRoot).forEach(r => {
-      r.disabled = true;
-      r.closest('label')?.classList.add('disabled');
+      r.disabled = true;                                // native disable (source of truth for tests)
+      r.setAttribute('aria-disabled', 'true');          // accessibility mirror
+      r.closest('label')?.classList.add('disabled');    // visual hint (style in CSS if desired)
+      r.closest('label')?.setAttribute('aria-disabled', 'true');
     });
 
     const seqMap = await fetchSequences();
@@ -267,7 +278,7 @@
     if (langLabel) langLabel.textContent = (lang === 'de') ? 'Deutsch' : 'English';
     stripLangParamFromUrl();
     setLangTooltip(lang);
-    setThemeTooltips(lang);         // NEW: ensure present for tests
+    setThemeTooltips(lang);         // ensure present for tests
 
     setMenuButtonState(false);
     if (isMenuOpen()) setMenuButtonState(true);
