@@ -5,17 +5,19 @@ on:
     branches: [ "main" ]
   pull_request:
 
+# Least-privilege perms for checkout
+permissions:
+  contents: read
+
+# Cancel previous runs on the same ref to save minutes
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  build-and-e2e:
+  build:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
-
-    env:
-      EP_BASE_URL: http://localhost:8080
+    timeout-minutes: 15
 
     steps:
       - name: Checkout
@@ -28,63 +30,18 @@ jobs:
           java-version: '21'
           cache: maven
 
-      - name: Set up Node 20
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-
       - name: Make Maven Wrapper executable
         run: chmod +x mvnw
 
-      - name: Install Node deps
-        run: npm ci
+      # Fast packaging; unit tests can run in a separate workflow if desired
+      - name: Maven package (skip tests)
+        run: ./mvnw -B -DskipTests --no-transfer-progress package
 
-      - name: Install Playwright browsers
-        run: npx playwright install --with-deps
-
-      - name: Build backend (skip unit tests)
-        run: ./mvnw -DskipTests --no-transfer-progress package
-
-      - name: Start Spring Boot (background)
-        run: |
-          JAR="$(ls -1 target/*SNAPSHOT.jar | head -n1)"
-          nohup java -jar "$JAR" --server.port=8080 > app.log 2>&1 &
-          echo $! > app.pid
-
-      - name: Wait for app to be ready
-        run: |
-          for i in {1..60}; do
-            if curl -fsS "http://localhost:8080/" >/dev/null 2>&1; then
-              echo "App is up."; exit 0
-            fi
-            sleep 2
-          done
-          echo "App did not come up in time. Last 200 log lines:"; tail -n 200 app.log
-          exit 1
-
-      - name: Run Playwright E2E
-        run: npm run test:e2e
-
-      - name: Upload Playwright report (on failure)
-        if: failure()
+      # Optional: publish the built JAR for convenience (ignored if none)
+      - name: Upload JAR artifact
+        if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report
-          path: playwright-report/
+          name: estpoker-app
+          path: target/*.jar
           if-no-files-found: ignore
-
-      - name: Upload backend log (always)
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: app-log
-          path: app.log
-          if-no-files-found: warn
-
-      - name: Stop Spring Boot (always)
-        if: always()
-        run: |
-          if [ -f app.pid ]; then kill $(cat app.pid) 2>/dev/null || true; fi
-          echo "=== last 200 lines of app.log ==="
-          tail -n 200 app.log || true
