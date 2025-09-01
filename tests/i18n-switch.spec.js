@@ -44,10 +44,11 @@ test.describe('i18n switch', () => {
     const beforeLabel = (await page.locator('#langCurrent').textContent() || '').trim();
 
     // Also capture theme-light tooltip existence (should exist after switch)
-    const beforeTip = await page.locator('#themeLight').getAttribute('data-tooltip');
+    const beforeTip = await page.locator('#themeLight').getAttribute('title');
 
     // Click the language row
     await page.locator('#langRow').click();
+    await page.waitForTimeout(25);
 
     // Wait for <html lang> to flip OR the custom event to fire
     await page.waitForFunction((lang) => {
@@ -81,11 +82,8 @@ test.describe('i18n switch', () => {
     }
 
     // Theme button tooltip should exist (content may differ per locale, but must not be empty)
-    const tipLight = await page.locator('#themeLight').getAttribute('data-tooltip');
+    const tipLight = await page.locator('#themeLight').getAttribute('title');
     expect(tipLight && tipLight.trim().length > 0).toBeTruthy();
-
-    // Optional: if tooltip existed before, it may change after switching; we allow equality too
-    // (No assert here to avoid failing when localized strings equal fallback.)
 
     // Close the menu to avoid overlay intercepts for any follow-up tests
     await page.locator('#menuButton').click();
