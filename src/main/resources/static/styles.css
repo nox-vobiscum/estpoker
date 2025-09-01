@@ -35,7 +35,7 @@
   --switch-knob:#fff;
 
   /* result chips */
-  --vote-chip-width:3.2ch; /* fits "100", "∞", "XL" etc. */
+  --vote-chip-width:5ch; /* fits "100", "∞", "XL" etc. */
 }
 
 :root[data-theme="light"]{
