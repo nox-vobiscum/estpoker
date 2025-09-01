@@ -3,7 +3,12 @@
    - Idle threshold 15 minutes for local "zzz" visibility.
    - Outlier highlight: after reveal, if ≥3 numeric votes exist, chips farthest from avg get a subtle highlight.
    - Average label now has long/short variants + separate consensus label (better on mobile).
-   - Reveal/Reset also toggle [hidden] so Playwright "visible" checks behave. */
+   - Reveal/Reset also toggle [hidden] so Playwright "visible" checks behave.
+   - PATCHES:
+     * Optimistic reveal: show Reset immediately after clicking "Reveal" (tests expect instant toggle).
+     * Average text now appends "(n/m)" where n = numeric votes, m = all submitted votes (excl. observers/disconnected).
+     * Special chips include ❓ and 💬 too; they are excluded from numeric calcs.
+     * Anti-flake: set <html data-ready="1"> after first complete voteUpdate render. */
 (() => {
   'use strict';
   const TAG = '[ROOM]';
@@ -147,12 +152,15 @@
         renderAutoReveal();
         syncMenuFromState();
         syncSequenceInMenu();
+
+        // Anti-flake: mark UI ready after first complete render
+        if (!document.documentElement.hasAttribute('data-ready')) {
+          document.documentElement.setAttribute('data-ready','1');
+        }
         break;
       }
 
-      // Optional future server events (safe no-op if never sent)
       case 'hostTransferred': {
-        // Example payload: { type:'hostTransferred', from:'Alice', to:'Bob', youAreHost:true/false }
         const n = (x)=> (x==null?'':String(x));
         const de = (document.documentElement.lang||'en').toLowerCase().startsWith('de');
         const msg = m.youAreHost
@@ -190,10 +198,9 @@
       if (p.disconnected) li.classList.add('disconnected');
       if (p.isHost) li.classList.add('is-host');
 
-      const idle = isIdle(p); // compute once so we can reuse below
+      const idle = isIdle(p);
       const left = document.createElement('span');
       left.className = 'participant-icon';
-      // For non-hosts, show 💤 on the left when idle; keep 👑 for hosts.
       left.textContent = p.isHost ? '👑' : (idle ? '💤' : '👤');
       li.appendChild(left);
 
@@ -210,10 +217,8 @@
           const eye = document.createElement('span'); eye.className = 'status-icon observer'; eye.textContent = '👁'; right.appendChild(eye);
         } else if (idle) {
           if (p.isHost) {
-            // Host keeps the crown on the left; show 💤 status on the right.
             const z = document.createElement('span'); z.className = 'status-icon pending'; z.textContent = '💤'; right.appendChild(z);
           }
-          // For non-hosts, the left icon already shows 💤; no extra status on the right.
         } else if (!p.disconnected && p.vote != null) {
           const done = document.createElement('span'); done.className = 'status-icon done'; done.textContent = '✓'; right.appendChild(done);
         } else if (!p.disconnected) {
@@ -228,7 +233,8 @@
           let display = (p.vote == null || p.vote === '') ? '–' : String(p.vote);
           chip.textContent = display;
 
-          const isSpecial = (display === '☕' || display === INFINITY_ || p.disconnected || p.participating === false);
+          // Treat specials and ∞ as special chips (excluded from numeric calc)
+          const isSpecial = (display === '☕' || display === '❓' || display === '💬' || display === INFINITY_ || p.disconnected || p.participating === false);
           if (isSpecial) {
             chip.classList.add('special');
           } else {
@@ -340,7 +346,21 @@
 
   // --- result bar (avg / consensus) -----------------------------------------
   function renderResultBar(m) {
-    const avgEl = $('#averageVote'); if (avgEl) avgEl.textContent = (state.averageVote != null ? String(state.averageVote) : 'N/A');
+    // Compute counts to display "(n/m)" after the average:
+    // n = numeric votes; m = all submitted votes (exclude observers/disconnected)
+    const eligible = state.participants.filter(p => p && !p.observer && !p.disconnected);
+    const submitted = eligible.filter(p => p.vote != null && p.vote !== '');
+    const numericCount = submitted.filter(p => toNumeric(p.vote) != null).length;
+
+    const avgEl = $('#averageVote');
+    if (avgEl) {
+      if (state.averageVote != null) {
+        const suffix = submitted.length ? ` (${numericCount}/${submitted.length})` : '';
+        avgEl.textContent = String(state.averageVote) + suffix; // <-- "(n/m)"
+      } else {
+        avgEl.textContent = 'N/A';
+      }
+    }
 
     const pre  = document.querySelector('.pre-vote');
     const post = document.querySelector('.post-vote');
@@ -358,7 +378,6 @@
     if (row) {
       if (m && m.consensus) {
         row.classList.add('consensus');
-        // Show "🎉 Consensus/Konsens", hide average label cluster
         if (avgWrap) avgWrap.hidden = true;
         if (consEl) { consEl.hidden = false; consEl.textContent = isDe ? '🎉 Konsens' : '🎉 Consensus'; }
         const sep1 = document.querySelector('#resultRow .sep'); if (sep1) sep1.hidden = true;
@@ -367,10 +386,8 @@
         if (rangeWrap) rangeWrap.hidden = true;
       } else {
         row.classList.remove('consensus');
-        // Show average label cluster, hide consensus label
         if (avgWrap) avgWrap.hidden = false;
         if (consEl)  consEl.hidden  = true;
-        // median/range handled below
       }
     }
 
@@ -461,7 +478,13 @@
   }
 
   // --- global actions --------------------------------------------------------
-  function revealCards(){ send('revealCards'); }
+  function revealCards(){
+    // Optimistic UI: immediately switch to "revealed" so Reset appears for Host
+    state.votesRevealed = true;          // <-- optimistic
+    renderCards();
+    renderResultBar(null);
+    send('revealCards');
+  }
   function resetRoom(){  send('resetRoom'); }
   window.revealCards = revealCards;
   window.resetRoom   = resetRoom;
