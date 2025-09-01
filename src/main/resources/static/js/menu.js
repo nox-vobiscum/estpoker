@@ -1,8 +1,11 @@
-/* menu.js v29 — i18n: theme tooltips never null (immediate + mirrored to title), guest radios disabled, aria-checked mirrors checked */
+/* menu.js v30 — i18n init apply + tooltip mirroring (fix EN tooltips under room functions)
+   - Applies i18n messages on initial load (so tooltips aren’t stuck in EN).
+   - Mirrors any [data-tooltip] to native [title] for reliable tests and UX.
+   - Keeps v28/v29 fixes: guest radios disabled, aria-checked mirrors checked, theme tooltips never null. */
 (() => {
   'use strict';
-  window.__epMenuVer = 'v29';
-  console.info('[menu] v29 loaded');
+  window.__epMenuVer = 'v30';
+  console.info('[menu] v30 loaded');
 
   const $  = (s, r = document) => r.querySelector(s);
   const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
@@ -61,7 +64,15 @@
     }
   }
 
-  function openMenu(){ if (!overlay) return; overlay.classList.remove('hidden'); overlay.setAttribute('aria-hidden','false'); setMenuButtonState(true); forceRowLayout(); }
+  // Mirror any data-tooltip to native title (for tests & accessibility)
+  function mirrorTooltips(root = document) {
+    $$('[data-tooltip]', root).forEach(el => {
+      const t = el.getAttribute('data-tooltip');
+      if (t != null) el.setAttribute('title', t);
+    });
+  }
+
+  function openMenu(){ if (!overlay) return; overlay.classList.remove('hidden'); overlay.setAttribute('aria-hidden','false'); setMenuButtonState(true); forceRowLayout(); mirrorTooltips(overlay); }
   function closeMenu(){ if (!overlay) return; overlay.classList.add('hidden');    overlay.setAttribute('aria-hidden','true');  setMenuButtonState(false); btnOpen?.focus?.(); }
   btnOpen?.addEventListener('click', () => (isMenuOpen() ? closeMenu() : openMenu()));
   backdrop?.addEventListener('click', (e) => { if (e.target.hasAttribute('data-close')) closeMenu(); });
@@ -105,7 +116,7 @@
     return res.json();
   }
 
-  // Theme button tooltips (never null; mirrored to title & aria-label)
+  // Theme button tooltips (never null; mirror to title & aria-label)
   function setThemeTooltips(code) {
     const T = (code === 'de')
       ? { light: 'Helles Design', dark: 'Dunkles Design', system: 'Systemthema' }
@@ -113,8 +124,8 @@
     const apply = (btn, text) => {
       if (!btn) return;
       btn.setAttribute('data-tooltip', text);
-      btn.setAttribute('title', text);         // <- native title for tests querying title
-      btn.setAttribute('aria-label', text);    // <- accessibility mirror
+      btn.setAttribute('title', text);
+      btn.setAttribute('aria-label', text);
     };
     apply(themeLight,  T.light);
     apply(themeDark,   T.dark);
@@ -127,7 +138,7 @@
       ? 'Sprache: Deutsch → zu Englisch wechseln'
       : 'Language: English → switch to German';
     rowLang.setAttribute('data-tooltip', text);
-    rowLang.setAttribute('title', text);       // <- mirror to title as well
+    rowLang.setAttribute('title', text);
   }
 
   async function switchLanguage(to) {
@@ -136,25 +147,27 @@
       setFlagsFor(to);
       if (langLabel) langLabel.textContent = (to === 'de') ? 'Deutsch' : 'English';
 
-      // v29: set tooltips immediately (before fetch/apply) so they are never null
+      // Immediate tooltips so they’re never null
       setLangTooltip(to);
       setThemeTooltips(to);
+      mirrorTooltips(document);
 
       const messages = await fetchMessages(to);
       applyMessages(messages, document);
       stripLangParamFromUrl();
 
-      // v29: set tooltips again after messages (harmless, ensures correct lang)
+      // Apply again post-messages to be 100% correct
       setLangTooltip(to);
       setThemeTooltips(to);
+      mirrorTooltips(document);
 
       setMenuButtonState(isMenuOpen());
     } catch (err) {
       console.warn('[i18n] switch failed:', err);
       stripLangParamFromUrl();
-      // Even on failure, ensure non-null tooltips
       setLangTooltip(to);
       setThemeTooltips(to);
+      mirrorTooltips(document);
       setMenuButtonState(isMenuOpen());
     }
   }
@@ -268,8 +281,9 @@
       if (!input) return;
       const id = input.value;
       const arr = seqMap[id] || SEQ_FALLBACKS[id] || [];
-      label.setAttribute('data-tooltip', previewFromArray(arr));
-      label.setAttribute('title', previewFromArray(arr));
+      const tip = previewFromArray(arr);
+      label.setAttribute('data-tooltip', tip);
+      label.setAttribute('title', tip);
     });
 
     seqRoot.addEventListener('change', (e) => {
@@ -290,9 +304,21 @@
     if (langLabel) langLabel.textContent = (lang === 'de') ? 'Deutsch' : 'English';
     stripLangParamFromUrl();
 
-    // v29: make sure tooltips are never null on first render
+    // Ensure tooltips present on first render
     setLangTooltip(lang);
     setThemeTooltips(lang);
+    mirrorTooltips(document);
+
+    // NEW in v30: apply i18n messages once on initial load so all tooltips (incl. room functions) localize immediately
+    (async () => {
+      try {
+        const msgs = await fetchMessages(lang);
+        applyMessages(msgs, document);
+        mirrorTooltips(document);
+      } catch (e) {
+        console.warn('[menu] initial i18n apply failed', e);
+      }
+    })();
 
     setMenuButtonState(false);
     if (isMenuOpen()) setMenuButtonState(true);
