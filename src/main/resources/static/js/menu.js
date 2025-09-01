@@ -212,7 +212,7 @@
     try {
       if (mode === 'system') document.documentElement.removeAttribute('data-theme');
       else                   document.documentElement.setAttribute('data-theme', mode);
-      localStorage.setItem('ep-theme', mode);
+      localStorage.setItem('estpoker-theme', mode);
       const setPressed = (btn, on) => btn && btn.setAttribute('aria-pressed', on ? 'true' : 'false');
       setPressed(themeLight,  mode === 'light');
       setPressed(themeDark,   mode === 'dark');
@@ -320,7 +320,7 @@
 
   /* ---------- init ---------- */
   (function init() {
-    const savedTheme = localStorage.getItem('ep-theme');
+    const savedTheme = localStorage.getItem('estpoker-theme');
     if (savedTheme) applyTheme(savedTheme);
 
     const lang = getLang();
