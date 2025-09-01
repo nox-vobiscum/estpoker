@@ -123,8 +123,6 @@
     </div>
   </div>
 
-  <th:block th:replace="~{fragments/scripts :: scripts}"></th:block>
-
   <!-- room connector (bumped to v35) -->
   <script defer th:src="@{/js/room.js?v=35}"
           th:attr="data-participant=${participantName},data-room=${roomCode}"></script>

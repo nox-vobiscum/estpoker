@@ -20,7 +20,6 @@
 
   <properties>
     <java.version>21</java.version>
-    <!-- explizit für den Compiler -->
     <maven.compiler.release>21</maven.compiler.release>
   </properties>
 
@@ -43,33 +42,33 @@
       <optional>true</optional>
     </dependency>
 
-    <!-- JPA (Spring Data) -->
+    <!-- JPA -->
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-data-jpa</artifactId>
     </dependency>
 
-    <!-- Bean Validation (NotBlank, Size, ...) -->
+    <!-- Bean Validation -->
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-validation</artifactId>
     </dependency>
 
-    <!-- PostgreSQL-Treiber -->
+    <!-- PostgreSQL -->
     <dependency>
       <groupId>org.postgresql</groupId>
       <artifactId>postgresql</artifactId>
       <version>42.7.3</version>
     </dependency>
 
-    <!-- H2 (nur lokal zur Laufzeit) -->
+    <!-- H2 (runtime) -->
     <dependency>
       <groupId>com.h2database</groupId>
       <artifactId>h2</artifactId>
       <scope>runtime</scope>
     </dependency>
 
-    <!-- JetBrains-Annotations (Optional) -->
+    <!-- JetBrains annotations (optional) -->
     <dependency>
       <groupId>org.jetbrains</groupId>
       <artifactId>annotations</artifactId>
@@ -82,14 +81,12 @@
       <artifactId>spring-boot-starter-websocket</artifactId>
     </dependency>
 
-    <!-- Spring Boot Test (JUnit 5) -->
+    <!-- Tests -->
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-test</artifactId>
       <scope>test</scope>
     </dependency>
-
-    <!-- Selenium + WebDriverManager (Tests) -->
     <dependency>
       <groupId>org.seleniumhq.selenium</groupId>
       <artifactId>selenium-java</artifactId>
@@ -103,7 +100,7 @@
       <scope>test</scope>
     </dependency>
 
-    <!-- Für @ConfigurationProperties-Metadaten -->
+    <!-- Config metadata -->
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-configuration-processor</artifactId>
@@ -113,13 +110,13 @@
 
   <build>
     <plugins>
-      <!-- Spring Boot Plugin -->
+      <!-- Spring Boot plugin -->
       <plugin>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-maven-plugin</artifactId>
       </plugin>
 
-      <!-- (optional) Compiler explizit auf Release 21 -->
+      <!-- Compiler auf Release 21 -->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
@@ -130,30 +127,8 @@
     </plugins>
   </build>
 
-  <!-- Nur in Unix-Umgebungen (CI/Docker) den HTML-Check versuchen -->
+  <!-- Eclipse/STS: M2E-Warnung für exec-maven-plugin (falls jemals wieder genutzt) ausblenden -->
   <profiles>
-    <profile>
-      <id>html-check-unix</id>
-      <activation>
-        <os>
-          <family>unix</family>
-        </os>
-      </activation>
-      <build>
-        <plugins>
-          <plugin>
-            <groupId>org.codehaus.mojo</groupId>
-            <artifactId>exec-maven-plugin</artifactId>
-            <version>3.3.0</version>
-            <executions>
-            
-            </executions>
-          </plugin>
-        </plugins>
-      </build>
-    </profile>
-
-    <!-- Eclipse/STS: M2E-Warnung für exec-maven-plugin ausblenden -->
     <profile>
       <id>eclipse</id>
       <activation>

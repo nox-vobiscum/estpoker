@@ -1,8 +1,11 @@
 #!/usr/bin/env sh
 set -e
 
-# Prüfen, ob Node verfügbar ist
+# Optional: nur Minimalprüfung, kein alter "no-title"-Check mehr.
 if ! command -v node >/dev/null 2>&1; then
   echo "[pre-push] Node nicht gefunden – bitte Node installieren/ins PATH legen." >&2
   exit 1
 fi
+
+echo "[pre-push] OK"
+exit 0

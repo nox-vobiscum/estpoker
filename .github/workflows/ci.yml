@@ -17,7 +17,13 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          
+
+      - name: Install Node deps
+        run: npm ci
+
+      - name: Guardrails (menu events)
+        run: npm run ci:verify
+
       - name: Set up Java 21 (Temurin) with Maven cache
         uses: actions/setup-java@v4
         with:

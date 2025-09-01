@@ -3,9 +3,7 @@
      <th:block th:replace="~{fragments/scripts :: scripts}"></th:block>
 -->
 <th:block th:fragment="scripts">
-  <!-- Tooltip logic (custom bubble; never uses native title="") -->
-  <script th:src="@{/js/tooltip.js}" defer></script>
-
+  <!-- (empty) reserved for future page-specific scripts; custom tooltip removed -->
   <!-- DO NOT include menu.js here.
        menu.js is loaded by the menu fragment itself to avoid double binding. -->
 </th:block>
