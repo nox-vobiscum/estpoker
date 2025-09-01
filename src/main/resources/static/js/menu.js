@@ -1,8 +1,8 @@
-/* menu.js v28 — guest radios disabled (incl. aria), aria-checked mirrors checked on inputs & rows */
+/* menu.js v29 — i18n: theme tooltips never null (immediate + mirrored to title), guest radios disabled, aria-checked mirrors checked */
 (() => {
   'use strict';
-  window.__epMenuVer = 'v28';
-  console.info('[menu] v28 loaded');
+  window.__epMenuVer = 'v29';
+  console.info('[menu] v29 loaded');
 
   const $  = (s, r = document) => r.querySelector(s);
   const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
@@ -105,23 +105,29 @@
     return res.json();
   }
 
-  // Theme button tooltips (non-empty for tests)
+  // Theme button tooltips (never null; mirrored to title & aria-label)
   function setThemeTooltips(code) {
     const T = (code === 'de')
       ? { light: 'Helles Design', dark: 'Dunkles Design', system: 'Systemthema' }
       : { light: 'Light theme',   dark: 'Dark theme',     system: 'System theme' };
-    themeLight?.setAttribute('data-tooltip',  T.light);
-    themeDark?.setAttribute('data-tooltip',   T.dark);
-    themeSystem?.setAttribute('data-tooltip', T.system);
+    const apply = (btn, text) => {
+      if (!btn) return;
+      btn.setAttribute('data-tooltip', text);
+      btn.setAttribute('title', text);         // <- native title for tests querying title
+      btn.setAttribute('aria-label', text);    // <- accessibility mirror
+    };
+    apply(themeLight,  T.light);
+    apply(themeDark,   T.dark);
+    apply(themeSystem, T.system);
   }
 
   function setLangTooltip(code) {
     if (!rowLang) return;
-    if (code === 'de') {
-      rowLang.setAttribute('data-tooltip', 'Sprache: Deutsch → zu Englisch wechseln');
-    } else {
-      rowLang.setAttribute('data-tooltip', 'Language: English → switch to German');
-    }
+    const text = (code === 'de')
+      ? 'Sprache: Deutsch → zu Englisch wechseln'
+      : 'Language: English → switch to German';
+    rowLang.setAttribute('data-tooltip', text);
+    rowLang.setAttribute('title', text);       // <- mirror to title as well
   }
 
   async function switchLanguage(to) {
@@ -129,15 +135,24 @@
       document.documentElement.lang = to;
       setFlagsFor(to);
       if (langLabel) langLabel.textContent = (to === 'de') ? 'Deutsch' : 'English';
+
+      // v29: set tooltips immediately (before fetch/apply) so they are never null
+      setLangTooltip(to);
+      setThemeTooltips(to);
+
       const messages = await fetchMessages(to);
       applyMessages(messages, document);
       stripLangParamFromUrl();
+
+      // v29: set tooltips again after messages (harmless, ensures correct lang)
       setLangTooltip(to);
-      setThemeTooltips(to);            // keep theme tooltips localized & present
+      setThemeTooltips(to);
+
       setMenuButtonState(isMenuOpen());
     } catch (err) {
       console.warn('[i18n] switch failed:', err);
       stripLangParamFromUrl();
+      // Even on failure, ensure non-null tooltips
       setLangTooltip(to);
       setThemeTooltips(to);
       setMenuButtonState(isMenuOpen());
@@ -165,14 +180,11 @@
   themeSystem?.addEventListener('click', () => applyTheme('system'));
 
   /* ---------- switches: full-row clickable ---------- */
-  // Mirrors the *native* checked state into ARIA for both the input and its row.
   function reflectAriaChecked(inputEl, rowEl) {
     if (!inputEl) return;
     const v = inputEl.checked ? 'true' : 'false';
     inputEl.setAttribute('aria-checked', v);
-    // Also mirror on the row element if it behaves like a switch
     if (rowEl) rowEl.setAttribute('aria-checked', v);
-    // If there's an element with role="switch", ensure it matches too
     const roleSwitchEl = rowEl?.getAttribute('role') === 'switch' ? rowEl : inputEl.closest('[role="switch"]');
     if (roleSwitchEl && roleSwitchEl !== rowEl) roleSwitchEl.setAttribute('aria-checked', v);
   }
@@ -190,7 +202,6 @@
       reflectAriaChecked(inputEl, rowEl);             // also on native change
       onChange?.(!!inputEl.checked);
     });
-    // initial ARIA reflection
     reflectAriaChecked(inputEl, rowEl);
   }
 
@@ -245,9 +256,9 @@
 
     // Default all radios to disabled until host enables them (guest must stay disabled).
     $$('input[type="radio"][name="menu-seq"]', seqRoot).forEach(r => {
-      r.disabled = true;                                // native disable (source of truth for tests)
-      r.setAttribute('aria-disabled', 'true');          // accessibility mirror
-      r.closest('label')?.classList.add('disabled');    // visual hint (style in CSS if desired)
+      r.disabled = true;
+      r.setAttribute('aria-disabled', 'true');
+      r.closest('label')?.classList.add('disabled');
       r.closest('label')?.setAttribute('aria-disabled', 'true');
     });
 
@@ -258,6 +269,7 @@
       const id = input.value;
       const arr = seqMap[id] || SEQ_FALLBACKS[id] || [];
       label.setAttribute('data-tooltip', previewFromArray(arr));
+      label.setAttribute('title', previewFromArray(arr));
     });
 
     seqRoot.addEventListener('change', (e) => {
@@ -277,8 +289,10 @@
     setFlagsFor(lang);
     if (langLabel) langLabel.textContent = (lang === 'de') ? 'Deutsch' : 'English';
     stripLangParamFromUrl();
+
+    // v29: make sure tooltips are never null on first render
     setLangTooltip(lang);
-    setThemeTooltips(lang);         // ensure present for tests
+    setThemeTooltips(lang);
 
     setMenuButtonState(false);
     if (isMenuOpen()) setMenuButtonState(true);
