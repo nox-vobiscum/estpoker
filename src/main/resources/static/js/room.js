@@ -1,15 +1,14 @@
-/* room.js v36 — 15min idle + outlier highlight (post-reveal) + copy-link native tooltip + responsive avg label
+/* room.js v36 — 15min idle + outlier highlight + native titles for host/kick + copy-link robust
    Notes:
    - Idle threshold 15 minutes for local "zzz" visibility.
-   - Outlier highlight: after reveal, if ≥3 numeric votes exist, chips farthest from avg get a subtle highlight.
-   - Average label now has long/short variants + separate consensus label (better on mobile).
-   - Reveal/Reset also toggle [hidden] so Playwright "visible" checks behave.
-   - PATCHES:
-     * Optimistic reveal: show Reset immediately after clicking "Reveal" (tests expect instant toggle).
-     * Average text now appends "(n/m)" where n = numeric votes, m = all submitted votes (excl. observers/disconnected).
-     * Special chips include ❓ and 💬 too; they are excluded from numeric calcs.
-     * Anti-flake: set <html data-ready="1"> after first complete voteUpdate render.
-     * Copy-link: no custom tooltips; only native title + toast.
+   - Outlier highlight after reveal (>=3 numeric votes).
+   - Average label long/short variants + consensus label.
+   - Reveal/Reset toggle [hidden] so Playwright "visible" checks behave.
+   - Optimistic reveal shows Reset immediately.
+   - Average text appends "(n/m)" (numeric/total submitted).
+   - Special chips (❓ 💬 ☕ ∞) are excluded from numeric calcs.
+   - Sets <html data-ready="1"> after first voteUpdate render.
+   - NEW: Add native `title` tooltips for "Make host" and "Kick" buttons.
 */
 (() => {
   'use strict';
@@ -20,7 +19,6 @@
   // --- constants -------------------------------------------------------------
   const SPECIALS  = ['❓','💬','☕'];
   const INFINITY_ = '∞';
-  // 15-minute idle threshold for local "zzz" visibility (server may differ)
   const IDLE_MS_THRESHOLD = 900_000; // 15 minutes
 
   // script dataset / URL params
@@ -155,7 +153,6 @@
         syncMenuFromState();
         syncSequenceInMenu();
 
-        // Anti-flake: mark UI ready after first complete render
         if (!document.documentElement.hasAttribute('data-ready')) {
           document.documentElement.setAttribute('data-ready','1');
         }
@@ -180,7 +177,6 @@
 
   // --- participants ----------------------------------------------------------
   function isIdle(p) {
-    // Prefer server's idleMs if provided; otherwise fall back to booleans.
     if (!p || p.disconnected) return false;
     if (typeof p.idleMs === 'number') return p.idleMs >= IDLE_MS_THRESHOLD;
     if (p.inactive === true || p.away === true) return true;
@@ -200,10 +196,9 @@
       if (p.disconnected) li.classList.add('disconnected');
       if (p.isHost) li.classList.add('is-host');
 
-      const idle = isIdle(p); // compute once so we can reuse below
+      const idle = isIdle(p);
       const left = document.createElement('span');
       left.className = 'participant-icon';
-      // For non-hosts, show 💤 on the left when idle; keep 👑 for hosts.
       left.textContent = p.isHost ? '👑' : (idle ? '💤' : '👤');
       li.appendChild(left);
 
@@ -220,10 +215,8 @@
           const eye = document.createElement('span'); eye.className = 'status-icon observer'; eye.textContent = '👁'; right.appendChild(eye);
         } else if (idle) {
           if (p.isHost) {
-            // Host keeps the crown on the left; show 💤 status on the right.
             const z = document.createElement('span'); z.className = 'status-icon pending'; z.textContent = '💤'; right.appendChild(z);
           }
-          // For non-hosts, the left icon already shows 💤; no extra status on the right.
         } else if (!p.disconnected && p.vote != null) {
           const done = document.createElement('span'); done.className = 'status-icon done'; done.textContent = '✓'; right.appendChild(done);
         } else if (!p.disconnected) {
@@ -242,7 +235,6 @@
           if (isSpecial) {
             chip.classList.add('special');
           } else {
-            // highlight if this numeric value is one of the outliers
             const vNum = toNumeric(display);
             if (vNum != null && outlierVals.has(vNum)) chip.classList.add('outlier');
           }
@@ -255,7 +247,10 @@
         const makeHostBtn = document.createElement('button');
         makeHostBtn.className = 'row-action host';
         makeHostBtn.type = 'button';
-        makeHostBtn.setAttribute('aria-label', 'Make host');
+        const isDe = (document.documentElement.lang||'en').toLowerCase().startsWith('de');
+        const titleHost = isDe ? 'Zum Host machen' : 'Make host';
+        makeHostBtn.setAttribute('aria-label', titleHost);
+        makeHostBtn.setAttribute('title', titleHost);
         makeHostBtn.innerHTML = '<span class="ra-icon">👑</span><span class="ra-label">Make host</span>';
         makeHostBtn.addEventListener('click', () => {
           const de  = (document.documentElement.lang||'en').toLowerCase().startsWith('de');
@@ -267,7 +262,9 @@
         const kickBtn = document.createElement('button');
         kickBtn.className = 'row-action kick';
         kickBtn.type = 'button';
-        kickBtn.setAttribute('aria-label', 'Kick');
+        const titleKick = isDe ? 'Teilnehmer entfernen' : 'Kick participant';
+        kickBtn.setAttribute('aria-label', titleKick);
+        kickBtn.setAttribute('title', titleKick);
         kickBtn.innerHTML = '<span class="ra-icon">❌</span><span class="ra-label">Kick</span>';
         kickBtn.addEventListener('click', () => {
           const de  = (document.documentElement.lang||'en').toLowerCase().startsWith('de');
@@ -313,11 +310,9 @@
 
       btn.addEventListener('click', () => {
         if (btn.disabled) return;
-        // optimistic highlight for snappier UX
         state._optimisticVote = label;
         grid.querySelectorAll('button').forEach(b => b.classList.remove('selected'));
         btn.classList.add('selected');
-        // send to server
         send(`vote:${state.youName}:${label}`);
       });
 
@@ -337,7 +332,6 @@
     const showReveal = (!state.votesRevealed && state.isHost);
     const showReset  = ( state.votesRevealed && state.isHost);
 
-    // Keep CSS + attribute in sync so Playwright "visible" works
     if (revealBtn) {
       revealBtn.style.display = showReveal ? '' : 'none';
       revealBtn.hidden = !showReveal;
@@ -350,8 +344,6 @@
 
   // --- result bar (avg / consensus) -----------------------------------------
   function renderResultBar(m) {
-    // Compute counts to display "(n/m)" after the average:
-    // n = numeric votes; m = all submitted votes (exclude observers/disconnected)
     const eligible = state.participants.filter(p => p && !p.observer && !p.disconnected);
     const submitted = eligible.filter(p => p.vote != null && p.vote !== '');
     const numericCount = submitted.filter(p => toNumeric(p.vote) != null).length;
@@ -360,7 +352,7 @@
     if (avgEl) {
       if (state.averageVote != null) {
         const suffix = submitted.length ? ` (${numericCount}/${submitted.length})` : '';
-        avgEl.textContent = String(state.averageVote) + suffix; // "(n/m)"
+        avgEl.textContent = String(state.averageVote) + suffix;
       } else {
         avgEl.textContent = 'N/A';
       }
@@ -483,7 +475,6 @@
 
   // --- global actions --------------------------------------------------------
   function revealCards(){
-    // Optimistic UI: immediately switch to "revealed" so Reset appears for Host
     state.votesRevealed = true;
     renderCards();
     renderResultBar(null);
@@ -504,7 +495,6 @@
   function computeOutlierValues(){
     if (!state.votesRevealed) return new Set();
 
-    // Only count numeric votes (no specials/observers/disconnected)
     const nums = [];
     for (const p of state.participants) {
       if (!p || p.observer || p.disconnected) continue;
@@ -519,7 +509,7 @@
     const diffs = nums.map(n => Math.abs(n - avgNum));
     const maxDev = Math.max(...diffs);
 
-    const EPS = 1e-6; // small tolerance to avoid precision misses
+    const EPS = 1e-6;
     return new Set(nums.filter((n, i) => Math.abs(diffs[i] - maxDev) <= EPS));
   }
 
@@ -558,7 +548,6 @@
     }
   }
   function bindCopyLink() {
-    // accept several possible selectors; fall back to icon next to room code
     const candidates = [
       '#copyRoomLink',
       '#copyRoomLinkBtn',
@@ -575,14 +564,11 @@
 
     async function handle() {
       const ok = await copyText(inviteUrl());
-      // native tooltip only: set a temporary title
       const prev = btn.getAttribute('title');
       btn.setAttribute('title', ok ? okMsg : failMsg);
       showToast(ok ? okMsg : failMsg);
-      setTimeout(() => {
-        if (prev != null) btn.setAttribute('title', prev);
-        else btn.removeAttribute('title');
-      }, 2200);
+      if (prev != null) setTimeout(() => btn.setAttribute('title', prev), 2200);
+      else setTimeout(() => btn.removeAttribute('title'), 2200);
     }
     btn.addEventListener('click', (e) => { e.preventDefault(); handle(); });
     btn.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handle(); } });
@@ -671,10 +657,8 @@
       send(`participation:${estimating}`);
     });
 
-    // graceful leave notice
     window.addEventListener('beforeunload', () => { try { send('intentionalLeave'); } catch {} });
 
-    // BFCache / back-forward restore
     window.addEventListener('pageshow', () => {
       document.dispatchEvent(new CustomEvent('ep:request-sync', { detail: { room: state.roomCode } }));
       if (!state.connected && (!state.ws || state.ws.readyState !== 1)) connectWS();
