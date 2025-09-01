@@ -23,8 +23,8 @@
           <button id="copyRoomLink"
                   class="icon-button"
                   type="button"
-                  th:attr="aria-label=#{invite.copyLink},data-tooltip=#{invite.copyLink}"
-                  data-i18n-attr="aria-label:invite.copyLink;data-tooltip:invite.copyLink"
+                  th:attr="aria-label=#{invite.copyLink},title=#{invite.copyLink}"
+                  data-i18n-attr="aria-label:invite.copyLink;title:invite.copyLink"
                   aria-live="polite">🔗</button>
         </div>
       </dd>
@@ -40,13 +40,13 @@
       <div class="topic-actions">
         <!-- Host-only controls -->
         <button id="topicEditBtn" class="row-action host-only" type="button"
-                data-i18n-attr="data-tooltip:button.edit;aria-label:button.edit"
-                data-tooltip="Edit" aria-label="Edit">
+                data-i18n-attr="title:button.edit;aria-label:button.edit"
+                title="Edit" aria-label="Edit">
           <span class="ra-icon">✏️</span><span class="ra-label" data-i18n="button.edit">Edit</span>
         </button>
         <button id="topicClearBtn" class="row-action kick host-only" type="button"
-                th:attr="data-tooltip=#{button.clearTopic},aria-label=#{button.clearTopic}"
-                data-i18n-attr="data-tooltip:button.clearTopic;aria-label:button.clearTopic">
+                th:attr="title=#{button.clearTopic},aria-label=#{button.clearTopic}"
+                data-i18n-attr="title:button.clearTopic;aria-label:button.clearTopic">
           <span class="ra-icon">🧹</span><span class="ra-label" th:text="#{button.clearTopic}" data-i18n="button.clearTopic">Clear</span>
         </button>
       </div>
@@ -62,13 +62,13 @@
              placeholder="Paste JIRA link or type key (e.g., RBSEP-123)…">
       <div class="topic-actions">
         <button id="topicSaveBtn" class="row-action host host-only" type="button"
-                th:attr="data-tooltip=#{button.saveTopic},aria-label=#{button.saveTopic}"
-                data-i18n-attr="data-tooltip:button.saveTopic;aria-label:button.saveTopic">
+                th:attr="title=#{button.saveTopic},aria-label=#{button.saveTopic}"
+                data-i18n-attr="title:button.saveTopic;aria-label:button.saveTopic">
           <span class="ra-icon">💾</span><span class="ra-label" th:text="#{button.saveTopic}" data-i18n="button.saveTopic">Save</span>
         </button>
         <button id="topicCancelBtn" class="row-action host-only" type="button"
-                data-i18n-attr="data-tooltip:button.cancel;aria-label:button.cancel"
-                data-tooltip="Cancel" aria-label="Cancel">
+                data-i18n-attr="title:button.cancel;aria-label:button.cancel"
+                title="Cancel" aria-label="Cancel">
           <span class="ra-icon">✖</span><span class="ra-label" data-i18n="button.cancel">Cancel</span>
         </button>
       </div>

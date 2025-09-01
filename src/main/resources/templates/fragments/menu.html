@@ -1,7 +1,7 @@
 <!-- templates/fragments/menu.html -->
 <th:block th:fragment="appMenu (showSeq, showAuto, showRoom)">
 
-  <!-- Floating menu button (no tooltip — self-explanatory) -->
+  <!-- Floating menu button -->
   <button id="menuButton"
           class="menu-button"
           type="button"
@@ -10,14 +10,9 @@
           data-i18n-attr="aria-label:ui.menu.open"
           aria-label="Open menu">☰</button>
 
-  <!-- Overlay root (kept data-* for existing tooltip strings used elsewhere) -->
   <div id="appMenuOverlay"
        class="menu-overlay hidden"
-       aria-hidden="true"
-       data-tipThemeLight="Theme: Light"
-       data-tipThemeDark="Theme: Dark"
-       data-tipThemeSystem="Theme: System"
-       data-tipLangTo="Switch language → {0}">
+       aria-hidden="true">
 
     <div class="menu-backdrop" data-close></div>
 
@@ -27,7 +22,7 @@
          data-i18n-attr="aria-label:menu.settings"
          aria-label="Settings">
 
-      <!-- Header / title -->
+      <!-- Header -->
       <div class="menu-header">
         <h3 data-i18n="menu.settings">Settings</h3>
       </div>
@@ -36,14 +31,13 @@
       <div class="menu-section">
         <div class="section-title" data-i18n="menu.language">Language</div>
 
-        <!-- One-line language switch row (shows split flags; tooltip describes action) -->
+        <!-- One-line language switch row (title is set by menu.js) -->
         <div id="langRow"
              class="menu-item"
              tabindex="0"
              role="button"
              data-i18n-attr="aria-label:menu.language"
-             aria-label="Language"
-             data-tooltip="Switch language">
+             aria-label="Language">
           <span class="mi-icon" aria-hidden="true">🌐</span>
           <div class="lang-inline">
             <span class="flag-split" aria-hidden="true">
@@ -63,7 +57,7 @@
                   type="button"
                   class="choice-btn"
                   aria-pressed="false"
-                  data-i18n-attr="aria-label:theme.light;data-tooltip:theme.light">
+                  data-i18n-attr="aria-label:theme.light">
             <span class="mi-icon" aria-hidden="true">☀️</span>
             <span data-i18n="theme.light">Light</span>
           </button>
@@ -72,7 +66,7 @@
                   type="button"
                   class="choice-btn"
                   aria-pressed="false"
-                  data-i18n-attr="aria-label:theme.dark;data-tooltip:theme.dark">
+                  data-i18n-attr="aria-label:theme.dark">
             <span class="mi-icon" aria-hidden="true">🌙</span>
             <span data-i18n="theme.dark">Dark</span>
           </button>
@@ -81,7 +75,7 @@
                   type="button"
                   class="choice-btn"
                   aria-pressed="false"
-                  data-i18n-attr="aria-label:theme.system;data-tooltip:theme.system">
+                  data-i18n-attr="aria-label:theme.system">
             <span class="mi-icon" aria-hidden="true">🖥️</span>
             <span data-i18n="theme.system">System</span>
           </button>
@@ -92,7 +86,7 @@
       <div class="menu-section" th:if="${showSeq}">
         <div class="section-title" data-i18n="menu.sequence">Card sequence</div>
 
-        <!-- NOTE: label tooltips are set dynamically by menu.js (no fieldset tooltip here) -->
+        <!-- NOTE: label titles are set dynamically by menu.js -->
         <fieldset id="menuSeqChoice" class="menu-choice vertical">
           <label class="radio-row">
             <input type="radio" name="menu-seq" value="fib.scrum" checked>
@@ -117,14 +111,13 @@
         </fieldset>
       </div>
 
-      <!-- Room functions (no tooltip on section title) -->
+      <!-- Room functions -->
       <div class="menu-section">
         <div class="section-title" data-i18n="menu.roomFunctions">Room functions</div>
 
         <div class="menu-item switch"
              role="group"
-             id="rowAutoReveal"
-             data-tooltip="Automatically reveal cards once all estimators voted">
+             id="rowAutoReveal">
           <span class="mi-icon" aria-hidden="true">⚡</span>
           <div class="switch-text">
             <strong data-i18n="menu.autoreveal">Auto-reveal</strong>
@@ -141,8 +134,7 @@
 
         <div class="menu-item switch"
              role="group"
-             id="rowTopic"
-             data-tooltip="Show or hide the Ticket/Story row for the current round">
+             id="rowTopic">
           <span class="mi-icon" aria-hidden="true">🧾</span>
           <div class="switch-text">
             <strong data-i18n="label.topic">Ticket/Story</strong>
@@ -158,14 +150,13 @@
         </div>
       </div>
 
-      <!-- Personal functions (no tooltip on section title) -->
+      <!-- Personal functions -->
       <div class="menu-section">
         <div class="section-title" data-i18n="menu.personalFunctions">Personal functions</div>
 
         <div class="menu-item switch"
              role="group"
-             id="rowParticipation"
-             data-tooltip="Toggle between estimator and observer mode for yourself">
+             id="rowParticipation">
           <span class="mi-icon" aria-hidden="true">🧑‍💻</span>
           <div class="switch-text">
             <strong data-i18n="menu.participation">Participation</strong>
@@ -188,8 +179,7 @@
                 type="button"
                 class="menu-item danger"
                 data-i18n="room.close"
-                data-i18n-attr="aria-label:room.close"
-                data-tooltip="Closes this room for all participants and returns to the start page.">
+                data-i18n-attr="aria-label:room.close">
           <span class="mi-icon" aria-hidden="true">❌</span>
           <span class="truncate-1">Close room for everyone</span>
         </button>
@@ -198,6 +188,6 @@
     </div>
   </div>
 
-  <!-- Load JS (cache-bust updated to match v27) -->
-  <script defer src="/js/menu.js?v=27"></script>
+  <!-- Load JS -->
+  <script defer src="/js/menu.js?v=32"></script>
 </th:block>
