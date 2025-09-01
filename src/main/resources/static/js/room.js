@@ -1,14 +1,11 @@
-/* room.js v36 — 15min idle + outlier highlight + native titles for host/kick + copy-link robust
+/* room.js v37 — tests-aligned averages + host crown class + titles for host/kick
    Notes:
-   - Idle threshold 15 minutes for local "zzz" visibility.
-   - Outlier highlight after reveal (>=3 numeric votes).
-   - Average label long/short variants + consensus label.
-   - Reveal/Reset toggle [hidden] so Playwright "visible" checks behave.
-   - Optimistic reveal shows Reset immediately.
-   - Average text appends "(n/m)" (numeric/total submitted).
-   - Special chips (❓ 💬 ☕ ∞) are excluded from numeric calcs.
-   - Sets <html data-ready="1"> after first voteUpdate render.
-   - NEW: Add native `title` tooltips for "Make host" and "Kick" buttons.
+   - Host crown now uses `.participant-icon.host` with text "👑" (tests rely on it).
+   - Average text is strictly numeric (no "(n/m)" suffix) to pass Playwright checks.
+   - If server provides a non-numeric/null average, we compute it client-side,
+     ignoring specials (❓ 💬 ☕ ∞) and non-participating/disconnected users.
+   - Outlier highlight uses the (server or locally computed) numeric average.
+   - Native title tooltips for "Make host" and "Kick" buttons.
 */
 (() => {
   'use strict';
@@ -17,7 +14,7 @@
   const setText = (sel, v) => { const el = typeof sel === 'string' ? $(sel) : sel; if (el) el.textContent = v ?? ''; };
 
   // --- constants -------------------------------------------------------------
-  const SPECIALS  = ['❓','💬','☕'];
+  const SPECIALS  = ['❓', '💬', '☕'];
   const INFINITY_ = '∞';
   const IDLE_MS_THRESHOLD = 900_000; // 15 minutes
 
@@ -38,7 +35,7 @@
     votesRevealed: false,
     cards: [],
     participants: [],
-    averageVote: null,
+    averageVote: null,        // may be number or null from server; we normalize to numeric later
 
     sequenceId: null,
     topicVisible: true,
@@ -154,7 +151,7 @@
         syncSequenceInMenu();
 
         if (!document.documentElement.hasAttribute('data-ready')) {
-          document.documentElement.setAttribute('data-ready','1');
+          document.documentElement.setAttribute('data-ready', '1');
         }
         break;
       }
@@ -187,7 +184,7 @@
     const ul = $('#liveParticipantList'); if (!ul) return;
     ul.innerHTML = '';
 
-    // Precompute outliers when revealed
+    // Precompute outliers when revealed (uses numeric average if needed)
     const outlierVals = computeOutlierValues();
 
     state.participants.forEach(p => {
@@ -198,7 +195,8 @@
 
       const idle = isIdle(p);
       const left = document.createElement('span');
-      left.className = 'participant-icon';
+      // IMPORTANT: tests look for `.participant-icon.host` with "👑"
+      left.className = 'participant-icon' + (p.isHost ? ' host' : '');
       left.textContent = p.isHost ? '👑' : (idle ? '💤' : '👤');
       li.appendChild(left);
 
@@ -344,24 +342,37 @@
 
   // --- result bar (avg / consensus) -----------------------------------------
   function renderResultBar(m) {
-    const eligible = state.participants.filter(p => p && !p.observer && !p.disconnected);
-    const submitted = eligible.filter(p => p.vote != null && p.vote !== '');
-    const numericCount = submitted.filter(p => toNumeric(p.vote) != null).length;
-
+    // Compute a numeric average if server does not provide one, or provided value is not numeric.
     const avgEl = $('#averageVote');
+
+    // 1) Decide which average to show (server numeric or client-computed)
+    let avgToShow = toNumeric(state.averageVote);
+    if (state.votesRevealed && avgToShow == null) {
+      const computed = computeNumericAverageFromParticipants();
+      if (computed != null) {
+        avgToShow = computed;
+        // Keep state in sync so outlier calc sees a number
+        state.averageVote = computed;
+      }
+    }
+
+    // 2) Render average strictly as a number (tests expect /^\d+([.,]\d+)?$/)
     if (avgEl) {
-      if (state.averageVote != null) {
-        const suffix = submitted.length ? ` (${numericCount}/${submitted.length})` : '';
-        avgEl.textContent = String(state.averageVote) + suffix;
+      if (avgToShow != null) {
+        // Round to at most 1 decimal (e.g., 4.5) – tests allow integer or decimal
+        const shown = Math.round(avgToShow * 10) / 10;
+        avgEl.textContent = String(shown);
       } else {
         avgEl.textContent = 'N/A';
       }
     }
 
+    // 3) Toggle pre/post containers
     const pre  = document.querySelector('.pre-vote');
     const post = document.querySelector('.post-vote');
     if (pre && post) { pre.style.display  = state.votesRevealed ? 'none' : ''; post.style.display = state.votesRevealed ? '' : 'none'; }
 
+    // 4) Consensus / median / range handling (unchanged)
     const medianWrap = $('#medianWrap');
     const rangeWrap  = $('#rangeWrap');
     const rangeSep   = $('#rangeSep');
@@ -484,27 +495,48 @@
   window.revealCards = revealCards;
   window.resetRoom   = resetRoom;
 
-  // ---------- Outlier helpers (post-reveal) ----------------------------------
+  // ---------- Stats helpers --------------------------------------------------
   function toNumeric(v){
     if (v == null) return null;
     const s = String(v).trim();
     if (s === '' || s === INFINITY_ || SPECIALS.includes(s)) return null;
-    const n = Number(s);
+    // tolerate comma decimal just in case
+    const n = Number(s.replace(',', '.'));
     return Number.isFinite(n) ? n : null;
   }
-  function computeOutlierValues(){
-    if (!state.votesRevealed) return new Set();
 
+  function numericVotesFromParticipants(){
     const nums = [];
     for (const p of state.participants) {
       if (!p || p.observer || p.disconnected) continue;
       const n = toNumeric(p.vote);
       if (n != null) nums.push(n);
     }
+    return nums;
+  }
+
+  function computeNumericAverageFromParticipants(){
+    const nums = numericVotesFromParticipants();
+    if (nums.length === 0) return null;
+    const sum = nums.reduce((a,b) => a + b, 0);
+    return sum / nums.length;
+  }
+
+  function computeOutlierValues(){
+    if (!state.votesRevealed) return new Set();
+
+    const nums = numericVotesFromParticipants();
     if (nums.length < 3) return new Set();
 
-    const avgNum = toNumeric(state.averageVote);
-    if (avgNum == null) return new Set();
+    // Prefer numeric state.averageVote; fall back to local compute
+    let avgNum = toNumeric(state.averageVote);
+    if (avgNum == null) {
+      const local = computeNumericAverageFromParticipants();
+      if (local == null) return new Set();
+      avgNum = local;
+      // Keep state in sync so later renders are stable
+      state.averageVote = avgNum;
+    }
 
     const diffs = nums.map(n => Math.abs(n - avgNum));
     const maxDev = Math.max(...diffs);
