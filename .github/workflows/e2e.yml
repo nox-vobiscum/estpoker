@@ -23,7 +23,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # Resolve EP_BASE_URL without expressions inside "run:" (keeps linters happy)
+      # Resolve EP_BASE_URL from secrets/vars; fallback to localhost
       - name: Resolve EP_BASE_URL (lint-friendly)
         env:
           EP1: ${{ secrets.EP_BASE_URL }}
@@ -34,23 +34,38 @@ jobs:
         run: |
           EP="${EP1:-${EP2:-${EP3:-${EP4:-http://localhost:8080}}}}"
           echo "EP_BASE_URL=$EP" >> "$GITHUB_ENV"
-          echo "BASE_URL=$EP"   >> "$GITHUB_ENV"
+          echo "BASE_URL=$EP" >> "$GITHUB_ENV"
+
+      - name: Set up Java 21 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: 'maven'
+
+      - name: Make Maven Wrapper executable
+        run: chmod +x mvnw
+
+      # Start app locally if we are using the localhost fallback
+      - name: Start Spring Boot (background)
+        if: ${{ endsWith(env.EP_BASE_URL, 'localhost:8080') }}
+        run: ./mvnw -DskipTests spring-boot:run &
+      
+      - name: Wait for app (only when local)
+        if: ${{ endsWith(env.EP_BASE_URL, 'localhost:8080') }}
+        run: npx -y wait-on "$EP_BASE_URL" --http-timeout 60000 --timeout 300000
 
       - name: Use Node.js 20
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'                 # uses package-lock.json in repo root
+          cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci                    # root package.json / package-lock.json
+        run: npm ci
 
       - name: Install Playwright browsers & system deps
         run: npx playwright install --with-deps
-
-      # Optional: wait until target is up (for prod/Koyeb)
-      # - name: Wait for app
-      #   run: npx -y wait-on "$EP_BASE_URL" --http-timeout 60000 --timeout 300000
 
       - name: Run Playwright tests
         run: npx playwright test -c playwright.config.ts --reporter=github

@@ -295,31 +295,28 @@
   }
 
   async function initSequenceTooltips() {
-    if (!seqRoot) return;
-    $$('input[type="radio"][name="menu-seq"]', seqRoot).forEach(r => {
-      r.disabled = true;
-      r.setAttribute('aria-disabled', 'true');
-      r.closest('label')?.classList.add('disabled');
-      r.closest('label')?.setAttribute('aria-disabled', 'true');
-    });
+  if (!seqRoot) return;
 
-    const seqMap = await fetchSequences();
-    $$('label.radio-row', seqRoot).forEach(label => {
-      const input = $('input[type="radio"]', label);
-      if (!input) return;
-      const id = input.value;
-      const arr = seqMap[id] || SEQ_FALLBACKS[id] || [];
-      const tip = previewFromArray(arr);
-      label.setAttribute('title', tip); // native only
-    });
+  // Do NOT pre-disable radios here — room.js toggles them once host/guest is known.
+  const seqMap = await fetchSequences();
 
-    seqRoot.addEventListener('change', (e) => {
-      const r = e.target && e.target.closest('input[type="radio"][name="menu-seq"]');
-      if (!r || r.disabled) return;
-      const id = r.value;
-      document.dispatchEvent(new CustomEvent('ep:sequence-change', { detail: { id } }));
-    });
-  }
+  $$('label.radio-row', seqRoot).forEach(label => {
+    const input = $('input[type="radio"]', label);
+    if (!input) return;
+    const id  = input.value;
+    const arr = seqMap[id] || SEQ_FALLBACKS[id] || [];
+    const tip = previewFromArray(arr);
+    label.setAttribute('title', tip); // native tooltip only
+  });
+
+  seqRoot.addEventListener('change', (e) => {
+    const r = e.target && e.target.closest('input[type="radio"][name="menu-seq"]');
+    if (!r || r.disabled) return; // ignore when not host
+    const id = r.value;
+    document.dispatchEvent(new CustomEvent('ep:sequence-change', { detail: { id } }));
+  });
+}
+
 
   /* ---------- init ---------- */
   (function init() {
