@@ -1,9 +1,9 @@
-/* room.js v34 — 15min idle + outlier highlight (post-reveal) + copy-link robust
+/* room.js v35 — 15min idle + outlier highlight (post-reveal) + copy-link robust + responsive avg label
    Notes:
-   - Idle threshold now 15 minutes (client-side visibility).
-   - Outlier highlight: after reveal, if ≥3 numeric votes exist, chips farthest
-     from avg get a subtle highlight (.vote-chip.outlier).
-   - No server behavior changed here (host transfer/toasts need server-side). */
+   - Idle threshold 15 minutes for local "zzz" visibility.
+   - Outlier highlight: after reveal, if ≥3 numeric votes exist, chips farthest from avg get a subtle highlight.
+   - Average label now has long/short variants + separate consensus label (better on mobile).
+   - Reveal/Reset also toggle [hidden] so Playwright "visible" checks behave. */
 (() => {
   'use strict';
   const TAG = '[ROOM]';
@@ -197,7 +197,6 @@
       left.textContent = p.isHost ? '👑' : (idle ? '💤' : '👤');
       li.appendChild(left);
 
-
       const name = document.createElement('span');
       name.className = 'name';
       name.textContent = p.name;
@@ -210,13 +209,12 @@
         if (p.observer) {
           const eye = document.createElement('span'); eye.className = 'status-icon observer'; eye.textContent = '👁'; right.appendChild(eye);
         } else if (idle) {
-        if (p.isHost) {
-        // Host keeps the crown on the left; show 💤 status on the right.
-        const z = document.createElement('span'); z.className = 'status-icon pending'; z.textContent = '💤'; right.appendChild(z);
-        }
-        // For non-hosts, the left icon already shows 💤; no extra status on the right.
+          if (p.isHost) {
+            // Host keeps the crown on the left; show 💤 status on the right.
+            const z = document.createElement('span'); z.className = 'status-icon pending'; z.textContent = '💤'; right.appendChild(z);
+          }
+          // For non-hosts, the left icon already shows 💤; no extra status on the right.
         } else if (!p.disconnected && p.vote != null) {
-
           const done = document.createElement('span'); done.className = 'status-icon done'; done.textContent = '✓'; right.appendChild(done);
         } else if (!p.disconnected) {
           const wait = document.createElement('span'); wait.className = 'status-icon pending'; wait.textContent = '⏳'; right.appendChild(wait);
@@ -324,21 +322,20 @@
     }
 
     const revealBtn = $('#revealButton');
-      const resetBtn  = $('#resetButton');
+    const resetBtn  = $('#resetButton');
 
-      const showReveal = (!state.votesRevealed && state.isHost);
-      const showReset  = ( state.votesRevealed && state.isHost);
+    const showReveal = (!state.votesRevealed && state.isHost);
+    const showReset  = ( state.votesRevealed && state.isHost);
 
-      // Keep CSS + attribute in sync so Playwright "visible" works
-      if (revealBtn) {
-        revealBtn.style.display = showReveal ? '' : 'none';
-        revealBtn.hidden = !showReveal;   // NEW
-      }
+    // Keep CSS + attribute in sync so Playwright "visible" works
+    if (revealBtn) {
+      revealBtn.style.display = showReveal ? '' : 'none';
+      revealBtn.hidden = !showReveal;
+    }
     if (resetBtn) {
-        resetBtn.style.display  = showReset ? '' : 'none';
-        resetBtn.hidden = !showReset;     // NEW
-      }
-
+      resetBtn.style.display  = showReset ? '' : 'none';
+      resetBtn.hidden = !showReset;
+    }
   }
 
   // --- result bar (avg / consensus) -----------------------------------------
@@ -355,18 +352,25 @@
 
     const row = $('#resultRow');
     const isDe = (document.documentElement.lang||'en').toLowerCase().startsWith('de');
+    const avgWrap = document.querySelector('#resultLabel .label-average');
+    const consEl  = document.querySelector('#resultLabel .label-consensus');
 
     if (row) {
       if (m && m.consensus) {
         row.classList.add('consensus');
-        setText('#resultLabel', (isDe ? '🎉 Konsens' : '🎉 Consensus'));
+        // Show "🎉 Consensus/Konsens", hide average label cluster
+        if (avgWrap) avgWrap.hidden = true;
+        if (consEl) { consEl.hidden = false; consEl.textContent = isDe ? '🎉 Konsens' : '🎉 Consensus'; }
         const sep1 = document.querySelector('#resultRow .sep'); if (sep1) sep1.hidden = true;
         if (medianWrap) medianWrap.hidden = true;
         if (rangeSep)  rangeSep.hidden  = true;
         if (rangeWrap) rangeWrap.hidden = true;
       } else {
         row.classList.remove('consensus');
-        setText('#resultLabel', (isDe ? 'Ø :' : 'Ø :'));
+        // Show average label cluster, hide consensus label
+        if (avgWrap) avgWrap.hidden = false;
+        if (consEl)  consEl.hidden  = true;
+        // median/range handled below
       }
     }
 
@@ -472,21 +476,24 @@
   }
   function computeOutlierValues(){
     if (!state.votesRevealed) return new Set();
-    // Only count participants with numeric votes (no observers/specials/disconnected)
+
+    // Only count numeric votes (no specials/observers/disconnected)
     const nums = [];
     for (const p of state.participants) {
       if (!p || p.observer || p.disconnected) continue;
       const n = toNumeric(p.vote);
       if (n != null) nums.push(n);
     }
-    if (nums.length < 3) return new Set(); // require at least 3 numeric votes
+    if (nums.length < 3) return new Set();
+
     const avgNum = toNumeric(state.averageVote);
     if (avgNum == null) return new Set();
-    let maxDev = -1;
-    for (const n of nums) maxDev = Math.max(maxDev, Math.abs(n - avgNum));
-    // All values reaching the maximum deviation are considered outliers
-    const set = new Set(nums.filter(n => Math.abs(n - avgNum) === maxDev));
-    return set;
+
+    const diffs = nums.map(n => Math.abs(n - avgNum));
+    const maxDev = Math.max(...diffs);
+
+    const EPS = 1e-6; // small tolerance to avoid precision misses
+    return new Set(nums.filter((n, i) => Math.abs(diffs[i] - maxDev) <= EPS));
   }
 
   // ---------- Feedback / copy helpers ---------------------------------------

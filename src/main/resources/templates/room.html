@@ -90,7 +90,16 @@
       <p id="resultRow"
          class="average-label consensus-row"
          role="status" aria-live="polite" aria-atomic="true">
-        <span id="resultLabel" class="label" th:text="#{label.average}" data-i18n="label.average">Avg:</span>
+
+        <!-- Variant 3: long+short labels + separate consensus label -->
+        <span id="resultLabel" class="label">
+          <span class="label-average">
+            <span class="label-long" th:text="#{label.average}" data-i18n="label.average">Ø Average:</span>
+            <span class="label-short" aria-hidden="true">Ø</span>
+          </span>
+          <span class="label-consensus" hidden>🎉 Consensus</span>
+        </span>
+
         <span id="averageVote" class="value">–</span>
 
         <span class="sep" aria-hidden="true"> • </span>
@@ -116,8 +125,8 @@
 
   <th:block th:replace="~{fragments/scripts :: scripts}"></th:block>
 
-  <!-- room connector (bumped to v29) -->
-  <script defer th:src="@{/js/room.js?v=29}"
+  <!-- room connector (bumped to v35) -->
+  <script defer th:src="@{/js/room.js?v=35}"
           th:attr="data-participant=${participantName},data-room=${roomCode}"></script>
   <script defer src="/js/ws-probe.js"></script>
 
