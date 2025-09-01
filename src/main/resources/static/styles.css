@@ -1,7 +1,6 @@
-/* === styles.css v27 — disable custom tooltip bubble; keep everything else ===
-   Changes vs v26:
-   - hard-disable .tooltip bubble (display:none !important; visibility:hidden !important)
-   - (optional) future-proof: also kill any ::before/::after tooltip decorations
+/* === styles.css v27 — system tooltips only; custom bubble disabled ===
+   - Disables custom tooltip bubble completely (keeps native title tooltips).
+   - Everything else identical to v26 (switches, one-line close btn, etc.).
 ============================================================================ */
 
 /* ---------- Theme tokens (dark default) ---------- */
@@ -173,10 +172,11 @@ strong{color:var(--text-strong)}
 .icon-button:active{transform:translateY(1px) scale(.98)}
 :root[data-theme="light"] .icon-button:hover{box-shadow:0 0 0 2px rgba(37,99,235,.12)}
 
-/* ---------- Tooltip bubble (DISABLED) ---------- */
-.tooltip{display:none !important; visibility:hidden !important}
-.tooltip::before{display:none !important; content:none !important}
-[data-tooltip]::before,[data-tooltip]::after{display:none !important; content:none !important}
+/* ---------- System tooltips only: disable custom bubble ---------- */
+.tooltip{display:none !important;visibility:hidden !important}
+[data-tooltip]::before,[data-tooltip]::after{display:none !important;content:none !important}
+/* keep the familiar cursor */
+[data-tooltip]{cursor:help}
 
 /* ---------- Forms / landing ---------- */
 .landing-container{display:flex;flex-direction:column;align-items:center;min-height:90vh;padding:2rem;text-align:center;margin-top:6vh}
@@ -273,6 +273,7 @@ li{margin-bottom:.4rem;line-height:1.5;font-size:1rem}
 .qr-dialog{position:absolute;inset:0;margin:auto;width:min(92vw,420px);background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow);padding:12px;max-height:92vh;display:grid;grid-template-rows:auto 1fr auto;animation:slideIn 180ms ease both}
 .qr-header{display:flex;align-items:center;justify-content:space-between;padding:4px 6px 8px;border-bottom:1px solid var(--border)}
 .qr-header h3{margin:0;font-size:1rem;color:var(--text-strong)}
+.qr-body{display:grid;place-items:center;padding:16px}
 .qr-actions{display:flex;justify-content:flex-end;gap:8px}
 #qrCanvas{image-rendering:pixelated;width:320px;height:320px;border-radius:10px;background:#fff}
 @media (prefers-reduced-motion:reduce){.menu-panel,.qr-dialog{animation:none}}
@@ -318,7 +319,6 @@ body{padding-bottom:68px}.container{padding-bottom:0}
 
 /* ---------- Utilities ---------- */
 .sr-only{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}
-[data-tooltip]{cursor:help}
 .truncate-1{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .no-horizontal-scroll{overflow-x:hidden !important}
 

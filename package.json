@@ -2,9 +2,8 @@
   "name": "ep-noxvobiscum-guardrails",
   "private": true,
   "scripts": {
-    "check:no-title": "node scripts/check-no-title.js",
     "check:menu-events": "node scripts/check-menu-toggle-events.js",
-    "check": "npm run check:no-title && npm run check:menu-events",
+    "check": "npm run check:menu-events",
     "ci:verify": "npm run check",
     "test:e2e": "playwright test -c playwright.config.ts",
     "test": "npm run test:e2e"

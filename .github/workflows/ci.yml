@@ -17,10 +17,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-
-      - name: Run "no title" check
-        run: node scripts/check-no-title.js
-
+          
       - name: Set up Java 21 (Temurin) with Maven cache
         uses: actions/setup-java@v4
         with:

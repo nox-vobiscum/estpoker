@@ -1,11 +1,12 @@
-/* menu.js v30 — i18n init apply + tooltip mirroring (fix EN tooltips under room functions)
-   - Applies i18n messages on initial load (so tooltips aren’t stuck in EN).
-   - Mirrors any [data-tooltip] to native [title] for reliable tests and UX.
-   - Keeps v28/v29 fixes: guest radios disabled, aria-checked mirrors checked, theme tooltips never null. */
+/* menu.js v32 — native tooltips only (title); close-room label i18n; init i18n apply
+   - No more data-tooltip anywhere (prevents double tooltip).
+   - Theme/Language/Sequence use title (+ aria-label for buttons).
+   - Close-room button gets localized label and keeps one-line truncation.
+*/
 (() => {
   'use strict';
-  window.__epMenuVer = 'v30';
-  console.info('[menu] v30 loaded');
+  window.__epMenuVer = 'v32';
+  console.info('[menu] v32 loaded');
 
   const $  = (s, r = document) => r.querySelector(s);
   const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
@@ -64,15 +65,7 @@
     }
   }
 
-  // Mirror any data-tooltip to native title (for tests & accessibility)
-  function mirrorTooltips(root = document) {
-    $$('[data-tooltip]', root).forEach(el => {
-      const t = el.getAttribute('data-tooltip');
-      if (t != null) el.setAttribute('title', t);
-    });
-  }
-
-  function openMenu(){ if (!overlay) return; overlay.classList.remove('hidden'); overlay.setAttribute('aria-hidden','false'); setMenuButtonState(true); forceRowLayout(); mirrorTooltips(overlay); }
+  function openMenu(){ if (!overlay) return; overlay.classList.remove('hidden'); overlay.setAttribute('aria-hidden','false'); setMenuButtonState(true); forceRowLayout(); }
   function closeMenu(){ if (!overlay) return; overlay.classList.add('hidden');    overlay.setAttribute('aria-hidden','true');  setMenuButtonState(false); btnOpen?.focus?.(); }
   btnOpen?.addEventListener('click', () => (isMenuOpen() ? closeMenu() : openMenu()));
   backdrop?.addEventListener('click', (e) => { if (e.target.hasAttribute('data-close')) closeMenu(); });
@@ -116,14 +109,13 @@
     return res.json();
   }
 
-  // Theme button tooltips (never null; mirror to title & aria-label)
+  // Theme button tooltips (native only)
   function setThemeTooltips(code) {
     const T = (code === 'de')
       ? { light: 'Helles Design', dark: 'Dunkles Design', system: 'Systemthema' }
       : { light: 'Light theme',   dark: 'Dark theme',     system: 'System theme' };
     const apply = (btn, text) => {
       if (!btn) return;
-      btn.setAttribute('data-tooltip', text);
       btn.setAttribute('title', text);
       btn.setAttribute('aria-label', text);
     };
@@ -137,8 +129,18 @@
     const text = (code === 'de')
       ? 'Sprache: Deutsch → zu Englisch wechseln'
       : 'Language: English → switch to German';
-    rowLang.setAttribute('data-tooltip', text);
     rowLang.setAttribute('title', text);
+  }
+
+  // localized label for the red close-room tile, keep truncation
+  function setCloseBtnLabel(code) {
+    if (!closeBtn) return;
+    const labelEl = closeBtn.querySelector('.ra-label') || closeBtn.querySelector('.truncate-1') || closeBtn;
+    labelEl.textContent = (code === 'de') ? 'Raum für alle schließen' : 'Close room for everyone';
+    labelEl.classList.add('truncate-1');
+    labelEl.style.whiteSpace = 'nowrap';
+    labelEl.style.overflow = 'hidden';
+    labelEl.style.textOverflow = 'ellipsis';
   }
 
   async function switchLanguage(to) {
@@ -147,19 +149,20 @@
       setFlagsFor(to);
       if (langLabel) langLabel.textContent = (to === 'de') ? 'Deutsch' : 'English';
 
-      // Immediate tooltips so they’re never null
+      // immediate native titles/labels
       setLangTooltip(to);
       setThemeTooltips(to);
-      mirrorTooltips(document);
+      setCloseBtnLabel(to);
 
       const messages = await fetchMessages(to);
       applyMessages(messages, document);
       stripLangParamFromUrl();
 
-      // Apply again post-messages to be 100% correct
+      // ensure correct after messages, keep layout stable
       setLangTooltip(to);
       setThemeTooltips(to);
-      mirrorTooltips(document);
+      setCloseBtnLabel(to);
+      forceRowLayout();
 
       setMenuButtonState(isMenuOpen());
     } catch (err) {
@@ -167,7 +170,8 @@
       stripLangParamFromUrl();
       setLangTooltip(to);
       setThemeTooltips(to);
-      mirrorTooltips(document);
+      setCloseBtnLabel(to);
+      forceRowLayout();
       setMenuButtonState(isMenuOpen());
     }
   }
@@ -201,18 +205,17 @@
     const roleSwitchEl = rowEl?.getAttribute('role') === 'switch' ? rowEl : inputEl.closest('[role="switch"]');
     if (roleSwitchEl && roleSwitchEl !== rowEl) roleSwitchEl.setAttribute('aria-checked', v);
   }
-
   function wireSwitchRow(rowEl, inputEl, onChange) {
     if (!rowEl || !inputEl) return;
     rowEl.addEventListener('click', (e) => {
       if (e.target === inputEl || e.target.closest('input') === inputEl) return;
       if (inputEl.disabled) return;
-      inputEl.checked = !inputEl.checked;             // source of truth: native
-      reflectAriaChecked(inputEl, rowEl);             // keep ARIA in sync immediately
+      inputEl.checked = !inputEl.checked;
+      reflectAriaChecked(inputEl, rowEl);
       inputEl.dispatchEvent(new Event('change', { bubbles: true }));
     });
     inputEl.addEventListener('change', () => {
-      reflectAriaChecked(inputEl, rowEl);             // also on native change
+      reflectAriaChecked(inputEl, rowEl);
       onChange?.(!!inputEl.checked);
     });
     reflectAriaChecked(inputEl, rowEl);
@@ -226,7 +229,7 @@
     document.dispatchEvent(new CustomEvent('ep:close-room'));
   });
 
-  /* ---------- sequences: tooltips + change ---------- */
+  /* ---------- sequences: titles + change ---------- */
   const SPECIALS = new Set(['?', '❓', '💬', '☕', '∞']);
   const SEQ_FALLBACKS = {
     'fib.scrum': [0, 1, 2, 3, 5, 8, 13, 20, 40, 100],
@@ -266,8 +269,6 @@
 
   async function initSequenceTooltips() {
     if (!seqRoot) return;
-
-    // Default all radios to disabled until host enables them (guest must stay disabled).
     $$('input[type="radio"][name="menu-seq"]', seqRoot).forEach(r => {
       r.disabled = true;
       r.setAttribute('aria-disabled', 'true');
@@ -282,13 +283,12 @@
       const id = input.value;
       const arr = seqMap[id] || SEQ_FALLBACKS[id] || [];
       const tip = previewFromArray(arr);
-      label.setAttribute('data-tooltip', tip);
-      label.setAttribute('title', tip);
+      label.setAttribute('title', tip); // native only
     });
 
     seqRoot.addEventListener('change', (e) => {
       const r = e.target && e.target.closest('input[type="radio"][name="menu-seq"]');
-      if (!r || r.disabled) return; // ignore when not host
+      if (!r || r.disabled) return;
       const id = r.value;
       document.dispatchEvent(new CustomEvent('ep:sequence-change', { detail: { id } }));
     });
@@ -304,17 +304,18 @@
     if (langLabel) langLabel.textContent = (lang === 'de') ? 'Deutsch' : 'English';
     stripLangParamFromUrl();
 
-    // Ensure tooltips present on first render
+    // native titles on first render
     setLangTooltip(lang);
     setThemeTooltips(lang);
-    mirrorTooltips(document);
+    setCloseBtnLabel(lang);
 
-    // NEW in v30: apply i18n messages once on initial load so all tooltips (incl. room functions) localize immediately
+    // apply i18n immediately once
     (async () => {
       try {
         const msgs = await fetchMessages(lang);
         applyMessages(msgs, document);
-        mirrorTooltips(document);
+        setCloseBtnLabel(lang);
+        forceRowLayout();
       } catch (e) {
         console.warn('[menu] initial i18n apply failed', e);
       }

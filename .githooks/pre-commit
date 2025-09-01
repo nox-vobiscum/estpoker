@@ -1,39 +1,27 @@
 #!/usr/bin/env sh
-# pre-commit: blockiert native title-Tooltips in HTML/JS/TS
-# robust für Windows/VS Code: kein set -e, bewusste Fehlerbehandlung
+# pre-commit: nur noch der Menü-Toggle-Event-Check
 
 set -u
+echo "[pre-commit] Checking menu toggle events …"
 
-echo "[pre-commit] Checking for forbidden title tooltips …"
-
-# Nur laufen, wenn überhaupt relevante Dateien im Index sind
 changed="$(git diff --cached --name-only --diff-filter=ACMRTUXB \
   | tr -d '\r' \
   | grep -Ei '\.(html|js|ts)$' || true)"
 
-if [ -z "$changed" ]; then
-  echo "[pre-commit] OK (no relevant files staged)"
-  exit 0
-fi
+[ -z "$changed" ] && { echo "[pre-commit] OK (no relevant files staged)"; exit 0; }
 
-# (Optional) Sicherstellen, dass die Prüfscripts LF haben – stört nicht, wenn sed fehlt
 if command -v sed >/dev/null 2>&1; then
-  sed -i 's/\r$//' scripts/check-no-title.js 2>/dev/null || true
+  sed -i 's/\r$//' scripts/check-menu-toggle-events.js 2>/dev/null || true
 fi
 
-# Checker nur laufen lassen, wenn Node verfügbar ist
 if command -v node >/dev/null 2>&1; then
-  node scripts/check-no-title.js
+  node scripts/check-menu-toggle-events.js
   rc=$?
 else
   echo "[pre-commit] Node not found – skipping check."
   rc=0
 fi
 
-if [ $rc -ne 0 ]; then
-  echo "[pre-commit] ✖ aborting commit"
-  exit $rc
-fi
-
+[ $rc -ne 0 ] && { echo "[pre-commit] ✖ aborting commit"; exit $rc; }
 echo "[pre-commit] ✓ OK"
 exit 0

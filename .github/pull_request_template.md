@@ -5,7 +5,6 @@ Kurz beschreiben, was geändert wurde und warum.
 
 ## Änderungen
 - [ ] Nur `ui/tooltip.js` für Tooltips verwendet (keine ad-hoc-Tooltips)
-- [ ] Keine `title=`-Attribute für Nutzer-Tooltips (No-Title-Check grün)
 - [ ] Kein horizontaler Scroll im Settings-Panel (manuell geprüft)
 - [ ] i18n-Strings hinzugefügt / geprüft
 - [ ] CI grün (Node-Check + Maven-Build)

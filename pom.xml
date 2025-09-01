@@ -146,23 +146,7 @@
             <artifactId>exec-maven-plugin</artifactId>
             <version>3.3.0</version>
             <executions>
-              <execution>
-                <id>check-no-title-attrs</id>
-                <phase>validate</phase>
-                <goals><goal>exec</goal></goals>
-                <configuration>
-                  <executable>/bin/sh</executable>
-                  <workingDirectory>${project.basedir}</workingDirectory>
-                  <arguments>
-                    <argument>-lc</argument>
-                    <argument><![CDATA[
-                      command -v node >/dev/null 2>&1 \
-                        && node scripts/check-no-title.js \
-                        || echo "[exec] Node nicht gefunden – HTML-Check wird übersprungen."
-                    ]]></argument>
-                  </arguments>
-                </configuration>
-              </execution>
+            
             </executions>
           </plugin>
         </plugins>

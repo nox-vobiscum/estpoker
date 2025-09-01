@@ -1,4 +1,4 @@
-/* room.js v35 — 15min idle + outlier highlight (post-reveal) + copy-link robust + responsive avg label
+/* room.js v36 — 15min idle + outlier highlight (post-reveal) + copy-link native tooltip + responsive avg label
    Notes:
    - Idle threshold 15 minutes for local "zzz" visibility.
    - Outlier highlight: after reveal, if ≥3 numeric votes exist, chips farthest from avg get a subtle highlight.
@@ -8,7 +8,9 @@
      * Optimistic reveal: show Reset immediately after clicking "Reveal" (tests expect instant toggle).
      * Average text now appends "(n/m)" where n = numeric votes, m = all submitted votes (excl. observers/disconnected).
      * Special chips include ❓ and 💬 too; they are excluded from numeric calcs.
-     * Anti-flake: set <html data-ready="1"> after first complete voteUpdate render. */
+     * Anti-flake: set <html data-ready="1"> after first complete voteUpdate render.
+     * Copy-link: no custom tooltips; only native title + toast.
+*/
 (() => {
   'use strict';
   const TAG = '[ROOM]';
@@ -198,9 +200,10 @@
       if (p.disconnected) li.classList.add('disconnected');
       if (p.isHost) li.classList.add('is-host');
 
-      const idle = isIdle(p);
+      const idle = isIdle(p); // compute once so we can reuse below
       const left = document.createElement('span');
       left.className = 'participant-icon';
+      // For non-hosts, show 💤 on the left when idle; keep 👑 for hosts.
       left.textContent = p.isHost ? '👑' : (idle ? '💤' : '👤');
       li.appendChild(left);
 
@@ -217,8 +220,10 @@
           const eye = document.createElement('span'); eye.className = 'status-icon observer'; eye.textContent = '👁'; right.appendChild(eye);
         } else if (idle) {
           if (p.isHost) {
+            // Host keeps the crown on the left; show 💤 status on the right.
             const z = document.createElement('span'); z.className = 'status-icon pending'; z.textContent = '💤'; right.appendChild(z);
           }
+          // For non-hosts, the left icon already shows 💤; no extra status on the right.
         } else if (!p.disconnected && p.vote != null) {
           const done = document.createElement('span'); done.className = 'status-icon done'; done.textContent = '✓'; right.appendChild(done);
         } else if (!p.disconnected) {
@@ -233,7 +238,6 @@
           let display = (p.vote == null || p.vote === '') ? '–' : String(p.vote);
           chip.textContent = display;
 
-          // Treat specials and ∞ as special chips (excluded from numeric calc)
           const isSpecial = (display === '☕' || display === '❓' || display === '💬' || display === INFINITY_ || p.disconnected || p.participating === false);
           if (isSpecial) {
             chip.classList.add('special');
@@ -356,7 +360,7 @@
     if (avgEl) {
       if (state.averageVote != null) {
         const suffix = submitted.length ? ` (${numericCount}/${submitted.length})` : '';
-        avgEl.textContent = String(state.averageVote) + suffix; // <-- "(n/m)"
+        avgEl.textContent = String(state.averageVote) + suffix; // "(n/m)"
       } else {
         avgEl.textContent = 'N/A';
       }
@@ -480,7 +484,7 @@
   // --- global actions --------------------------------------------------------
   function revealCards(){
     // Optimistic UI: immediately switch to "revealed" so Reset appears for Host
-    state.votesRevealed = true;          // <-- optimistic
+    state.votesRevealed = true;
     renderCards();
     renderResultBar(null);
     send('revealCards');
@@ -571,10 +575,14 @@
 
     async function handle() {
       const ok = await copyText(inviteUrl());
-      const prev = btn.getAttribute('data-tooltip');
-      if (prev != null) btn.setAttribute('data-tooltip', ok ? okMsg : failMsg);
+      // native tooltip only: set a temporary title
+      const prev = btn.getAttribute('title');
+      btn.setAttribute('title', ok ? okMsg : failMsg);
       showToast(ok ? okMsg : failMsg);
-      if (prev != null) setTimeout(() => btn.setAttribute('data-tooltip', prev), 2200);
+      setTimeout(() => {
+        if (prev != null) btn.setAttribute('title', prev);
+        else btn.removeAttribute('title');
+      }, 2200);
     }
     btn.addEventListener('click', (e) => { e.preventDefault(); handle(); });
     btn.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handle(); } });
