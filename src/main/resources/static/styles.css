@@ -545,3 +545,30 @@ body{padding-bottom:68px}.container{padding-bottom:0}
 #closeRoomBtn.menu-item.danger{
   grid-template-columns:24px 1fr;  /* was 28px */
 }
+
+
+/* ===== Inputs readability (ensure no white-on-white) ===== */
+input[type="text"],
+input[type="search"],
+input[type="email"],
+input[type="password"],
+textarea,
+.join-form input,
+.topic-input{
+  color: var(--text-strong) !important;       /* readable in both themes */
+  background: var(--bg-elev) !important;      /* your existing elevated/bg token */
+  caret-color: var(--text-strong);
+}
+
+/* Placeholder contrast */
+input::placeholder,
+textarea::placeholder{
+  color: var(--text-muted);
+  opacity: .9;
+}
+
+/* iOS Safari default styling reset helps with odd colors on mobile */
+input, textarea{
+  -webkit-appearance: none;
+  appearance: none;
+}
