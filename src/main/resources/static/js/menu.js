@@ -139,7 +139,7 @@
     const T = {
       auto : de ? 'Automatisch aufdecken, sobald alle geschätzt haben' : 'Automatically reveal once everyone voted',
       topic: de ? 'Ticket/Story-Zeile ein-/ausblenden'                : 'Show or hide the Ticket/Story row',
-      specials: de ? 'Spezialkarten erlauben (❓ 💬 ☕ ∞)'              : 'Allow special cards (❓ 💬 ☕ ∞)',
+      specials: de ? 'Spezialkarten erlauben (❓ 💬 ☕)'              : 'Allow special cards (❓ 💬 ☕)',
       hard : de ? 'Nur aufdecken, wenn alle gewählt haben'            : 'Reveal only when everyone voted',
       part : de ? 'Zwischen Schätzer:in und Beobachter:in umschalten' : 'Toggle between estimator and observer',
       close: de ? 'Raum für alle schließen'                           : 'Close this room for everyone',
