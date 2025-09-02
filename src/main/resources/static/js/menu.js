@@ -1,7 +1,6 @@
-/* menu.js v33 — native tooltips across the menu; close-room label i18n; init i18n apply
-   - Adds native `title` tooltips for Room/Personal functions and Close room.
-   - Theme/Language/Sequence already use native titles (+ aria-label for buttons).
-   - Close-room button keeps the ❌ icon and one-line truncation.
+/* menu.js v33 — native tooltips only; i18n; theme/lang; sequence; hard/soft mode
+   - No data-tooltip usage; native title/aria-label only.
+   - Adds "Hard reveal mode" switch (host-only; client-side gate for reveal button).
 */
 (() => {
   'use strict';
@@ -25,6 +24,9 @@
   const swTopic   = $('#menuTopicToggle');
   const rowPart   = $('#rowParticipation');
   const swPart    = $('#menuParticipationToggle');
+
+  const rowHard   = $('#rowHardMode');           // NEW
+  const swHard    = $('#menuHardModeToggle');    // NEW
 
   const seqRoot   = $('#menuSeqChoice');
 
@@ -109,7 +111,7 @@
     return res.json();
   }
 
-  // Theme button titles (native)
+  // Theme button tooltips (native only)
   function setThemeTooltips(code) {
     const T = (code === 'de')
       ? { light: 'Helles Design', dark: 'Dunkles Design', system: 'Systemthema' }
@@ -124,7 +126,6 @@
     apply(themeSystem, T.system);
   }
 
-  // Language row title
   function setLangTooltip(code) {
     if (!rowLang) return;
     const text = (code === 'de')
@@ -133,31 +134,10 @@
     rowLang.setAttribute('title', text);
   }
 
-  // Titles for Room/Personal functions and Close room (native)
-  function setMenuTooltips(code) {
-    const T = (code === 'de')
-      ? {
-          auto: 'Deck automatisch aufdecken, sobald alle Schätzer:innen gewählt haben',
-          topic: 'Ticket/Story-Zeile für diese Runde ein- oder ausblenden',
-          part: 'Zwischen Schätzer:in und Beobachter:in wechseln',
-          close: 'Schließt diesen Raum für alle und kehrt zur Startseite zurück'
-        }
-      : {
-          auto: 'Automatically reveal cards once all estimators have voted',
-          topic: 'Show or hide the Ticket/Story row for the current round',
-          part: 'Toggle between estimator and observer mode for yourself',
-          close: 'Closes this room for all participants and returns to the start page'
-        };
-    if (rowAuto)  rowAuto.setAttribute('title',  T.auto);
-    if (rowTopic) rowTopic.setAttribute('title', T.topic);
-    if (rowPart)  rowPart.setAttribute('title',  T.part);
-    if (closeBtn) closeBtn.setAttribute('title', T.close);
-  }
-
-  // Localized label for the red close-room tile; keep truncation and icon
+  // localized label for the red close-room tile, keep truncation
   function setCloseBtnLabel(code) {
     if (!closeBtn) return;
-    const labelEl = closeBtn.querySelector('.truncate-1') || closeBtn;
+    const labelEl = closeBtn.querySelector('.ra-label') || closeBtn.querySelector('.truncate-1') || closeBtn;
     labelEl.textContent = (code === 'de') ? 'Raum für alle schließen' : 'Close room for everyone';
     labelEl.classList.add('truncate-1');
     labelEl.style.whiteSpace = 'nowrap';
@@ -171,32 +151,27 @@
       setFlagsFor(to);
       if (langLabel) langLabel.textContent = (to === 'de') ? 'Deutsch' : 'English';
 
-      // Immediate titles/labels
+      // immediate native titles/labels
       setLangTooltip(to);
       setThemeTooltips(to);
-      setMenuTooltips(to);
       setCloseBtnLabel(to);
 
       const messages = await fetchMessages(to);
       applyMessages(messages, document);
       stripLangParamFromUrl();
 
-      // Ensure correct after messages, keep layout stable
+      // ensure correct after messages, keep layout stable
       setLangTooltip(to);
       setThemeTooltips(to);
-      setMenuTooltips(to);
       setCloseBtnLabel(to);
       forceRowLayout();
 
       setMenuButtonState(isMenuOpen());
-      // Optional: announce language change for tests/other scripts
-      try { document.dispatchEvent(new CustomEvent('ep:lang-changed', { detail: { lang: to } })); } catch {}
     } catch (err) {
       console.warn('[i18n] switch failed:', err);
       stripLangParamFromUrl();
       setLangTooltip(to);
       setThemeTooltips(to);
-      setMenuTooltips(to);
       setCloseBtnLabel(to);
       forceRowLayout();
       setMenuButtonState(isMenuOpen());
@@ -205,6 +180,8 @@
   rowLang?.addEventListener('click', () => {
     const next = getLang() === 'de' ? 'en' : 'de';
     switchLanguage(next);
+    // best-effort fire an app-wide event (tests may listen for it)
+    try { document.dispatchEvent(new CustomEvent('ep:lang-changed', { detail: { to: next } })); } catch {}
   });
 
   /* ---------- theme ---------- */
@@ -212,7 +189,7 @@
     try {
       if (mode === 'system') document.documentElement.removeAttribute('data-theme');
       else                   document.documentElement.setAttribute('data-theme', mode);
-      localStorage.setItem('estpoker-theme', mode);
+      localStorage.setItem('ep-theme', mode);
       const setPressed = (btn, on) => btn && btn.setAttribute('aria-pressed', on ? 'true' : 'false');
       setPressed(themeLight,  mode === 'light');
       setPressed(themeDark,   mode === 'dark');
@@ -251,6 +228,9 @@
   wireSwitchRow(rowAuto,  swAuto,  (on) => document.dispatchEvent(new CustomEvent('ep:auto-reveal-toggle', { detail: { on } })));
   wireSwitchRow(rowTopic, swTopic, (on) => document.dispatchEvent(new CustomEvent('ep:topic-toggle',       { detail: { on } })));
   wireSwitchRow(rowPart,  swPart,  (on) => document.dispatchEvent(new CustomEvent('ep:participation-toggle',{ detail: { estimating: on } })));
+
+  // NEW: hard/soft reveal mode (client-only gate)
+  wireSwitchRow(rowHard,  swHard,  (on) => document.dispatchEvent(new CustomEvent('ep:hard-mode-toggle', { detail: { on } })));
 
   closeBtn?.addEventListener('click', () => {
     document.dispatchEvent(new CustomEvent('ep:close-room'));
@@ -295,32 +275,35 @@
   }
 
   async function initSequenceTooltips() {
-  if (!seqRoot) return;
+    if (!seqRoot) return;
+    $$( 'input[type="radio"][name="menu-seq"]', seqRoot).forEach(r => {
+      r.disabled = true;
+      r.setAttribute('aria-disabled', 'true');
+      r.closest('label')?.classList.add('disabled');
+      r.closest('label')?.setAttribute('aria-disabled', 'true');
+    });
 
-  // Do NOT pre-disable radios here — room.js toggles them once host/guest is known.
-  const seqMap = await fetchSequences();
+    const seqMap = await fetchSequences();
+    $$('label.radio-row', seqRoot).forEach(label => {
+      const input = $('input[type="radio"]', label);
+      if (!input) return;
+      const id = input.value;
+      const arr = seqMap[id] || SEQ_FALLBACKS[id] || [];
+      const tip = previewFromArray(arr);
+      label.setAttribute('title', tip); // native only
+    });
 
-  $$('label.radio-row', seqRoot).forEach(label => {
-    const input = $('input[type="radio"]', label);
-    if (!input) return;
-    const id  = input.value;
-    const arr = seqMap[id] || SEQ_FALLBACKS[id] || [];
-    const tip = previewFromArray(arr);
-    label.setAttribute('title', tip); // native tooltip only
-  });
-
-  seqRoot.addEventListener('change', (e) => {
-    const r = e.target && e.target.closest('input[type="radio"][name="menu-seq"]');
-    if (!r || r.disabled) return; // ignore when not host
-    const id = r.value;
-    document.dispatchEvent(new CustomEvent('ep:sequence-change', { detail: { id } }));
-  });
-}
-
+    seqRoot.addEventListener('change', (e) => {
+      const r = e.target && e.target.closest('input[type="radio"][name="menu-seq"]');
+      if (!r || r.disabled) return;
+      const id = r.value;
+      document.dispatchEvent(new CustomEvent('ep:sequence-change', { detail: { id } }));
+    });
+  }
 
   /* ---------- init ---------- */
   (function init() {
-    const savedTheme = localStorage.getItem('estpoker-theme');
+    const savedTheme = localStorage.getItem('ep-theme');
     if (savedTheme) applyTheme(savedTheme);
 
     const lang = getLang();
@@ -331,7 +314,6 @@
     // native titles on first render
     setLangTooltip(lang);
     setThemeTooltips(lang);
-    setMenuTooltips(lang);
     setCloseBtnLabel(lang);
 
     // apply i18n immediately once
@@ -339,7 +321,6 @@
       try {
         const msgs = await fetchMessages(lang);
         applyMessages(msgs, document);
-        setMenuTooltips(lang); // ensure present after texts
         setCloseBtnLabel(lang);
         forceRowLayout();
       } catch (e) {

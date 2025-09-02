@@ -1,15 +1,12 @@
-/* room.js v37 — 15min idle + outlier highlight + native titles for host/kick + copy-link robust
+/* room.js v37 — hard/soft reveal mode + hide topic edit for non-host + chip fixes + native titles
    Notes:
-   - Idle threshold 15 minutes for local "zzz" visibility.
-   - Outlier highlight after reveal (>=3 numeric votes).
-   - Average label long/short variants + consensus label.
-   - Reveal/Reset toggle [hidden] so Playwright "visible" checks behave.
-   - Defer UI switch for reveal to server update (avoid transient "N/A").
-   - Average text appends "(n/m)" (numeric/total submitted).
-   - Special chips (❓ 💬 ☕ ∞) are excluded from numeric calcs.
-   - Sets <html data-ready="1"> after first voteUpdate render.
-   - Native `title` tooltips for "Make host" and "Kick" buttons.
-   - NEW: Topic row (compact view) is clickable to open editor (host-only).
+   - Hard mode: host can reveal only when all eligible participants have selected a card.
+   - Soft mode: host can reveal anytime (current default).
+   - Non-hosts no longer see topic Edit/Clear buttons (enforced by JS, no CSS dependency).
+   - Empty vote after reveal shows a gray chip (treated as "special", not green).
+   - Native title tooltips for "Make host" and "Kick".
+   - Average text appends "(n/m)" (numeric/total submitted); specials excluded from numeric calcs.
+   - Reveal/Reset toggle use [hidden] & display to satisfy Playwright visibility checks.
 */
 (() => {
   'use strict';
@@ -47,6 +44,9 @@
     topicUrl: null,
 
     autoRevealEnabled: false,
+
+    // New: hard/soft mode (false = soft / default)
+    hardMode: false,
 
     // UI helpers
     _optimisticVote: null,
@@ -229,11 +229,15 @@
         } else {
           const chip = document.createElement('span');
           chip.className = 'vote-chip';
-          let display = (p.vote == null || p.vote === '') ? '–' : String(p.vote);
+          // En dash for "no vote"
+          const display = (p.vote == null || p.vote === '') ? '–' : String(p.vote);
           chip.textContent = display;
 
-          const isSpecial = (display === '☕' || display === '❓' || display === '💬' || display === INFINITY_ || p.disconnected || p.participating === false);
-          if (isSpecial) {
+          // Treat empty ("–" or "-"), specials, disconnected or non-participating as "special" (gray chip)
+          const isEmpty   = (display === '–' || display === '-');
+          const isSpecial = (display === '☕' || display === '❓' || display === '💬' || display === INFINITY_);
+          const nonNumeric = isEmpty || isSpecial || p.disconnected || p.participating === false;
+          if (nonNumeric) {
             chip.classList.add('special');
           } else {
             const vNum = toNumeric(display);
@@ -245,17 +249,17 @@
 
       // host-only row actions
       if (state.isHost && !p.isHost) {
+        const isDe = (document.documentElement.lang||'en').toLowerCase().startsWith('de');
+
         const makeHostBtn = document.createElement('button');
         makeHostBtn.className = 'row-action host';
         makeHostBtn.type = 'button';
-        const isDe = (document.documentElement.lang||'en').toLowerCase().startsWith('de');
         const titleHost = isDe ? 'Zum Host machen' : 'Make host';
         makeHostBtn.setAttribute('aria-label', titleHost);
         makeHostBtn.setAttribute('title', titleHost);
         makeHostBtn.innerHTML = '<span class="ra-icon">👑</span><span class="ra-label">Make host</span>';
         makeHostBtn.addEventListener('click', () => {
-          const de  = (document.documentElement.lang||'en').toLowerCase().startsWith('de');
-          const q = de ? `Host-Rolle an ${p.name} übergeben?` : `Make ${p.name} the host?`;
+          const q = isDe ? `Host-Rolle an ${p.name} übergeben?` : `Make ${p.name} the host?`;
           if (confirm(q)) send('makeHost:' + encodeURIComponent(p.name));
         });
         right.appendChild(makeHostBtn);
@@ -268,8 +272,7 @@
         kickBtn.setAttribute('title', titleKick);
         kickBtn.innerHTML = '<span class="ra-icon">❌</span><span class="ra-label">Kick</span>';
         kickBtn.addEventListener('click', () => {
-          const de  = (document.documentElement.lang||'en').toLowerCase().startsWith('de');
-          const q = de ? `${p.name} wirklich entfernen?` : `Remove ${p.name}?`;
+          const q = isDe ? `${p.name} wirklich entfernen?` : `Remove ${p.name}?`;
           if (confirm(q)) send('kick:' + encodeURIComponent(p.name));
         });
         right.appendChild(kickBtn);
@@ -286,6 +289,13 @@
     if (me && me.vote != null && me.vote !== '') return String(me.vote);
     if (state._optimisticVote != null) return String(state._optimisticVote);
     return null;
+  }
+
+  function allEligibleVoted() {
+    // Eligible = not observer, not disconnected
+    const elig = state.participants.filter(p => p && !p.observer && !p.disconnected);
+    if (!elig.length) return false;
+    return elig.every(p => p.vote != null && String(p.vote) !== '');
   }
 
   function renderCards() {
@@ -330,7 +340,10 @@
     const revealBtn = $('#revealButton');
     const resetBtn  = $('#resetButton');
 
-    const showReveal = (!state.votesRevealed && state.isHost);
+    // Hard mode: only show Reveal if everyone voted (non-observers, not disconnected)
+    const hardGateOK = !state.hardMode || allEligibleVoted();
+
+    const showReveal = (!state.votesRevealed && state.isHost && hardGateOK);
     const showReset  = ( state.votesRevealed && state.isHost);
 
     if (revealBtn) {
@@ -405,7 +418,7 @@
 
   // --- topic row -------------------------------------------------------------
   function renderTopic() {
-    const row  = $('#topicRow');
+    const row = $('#topicRow');
     const edit = $('#topicEdit');
     const disp = $('#topicDisplay');
 
@@ -419,26 +432,15 @@
       }
     }
 
+    // Show/hide rows
     const shouldShow = !!state.topicVisible;
     if (row) row.style.display = shouldShow ? '' : 'none';
     if (edit && !shouldShow) edit.style.display = 'none';
 
-    // Make compact row clickable for host: native title + ARIA + pointer.
-    if (row) {
-      const isHostNow = !!state.isHost;
-      row.classList.toggle('editable', isHostNow);
-      row.setAttribute('aria-disabled', isHostNow ? 'false' : 'true');
-      if (isHostNow) {
-        const de = (document.documentElement.lang||'en').toLowerCase().startsWith('de');
-        row.setAttribute('title', de ? 'Klicken zum Bearbeiten' : 'Click to edit');
-        row.setAttribute('role', 'button');
-        row.tabIndex = 0;
-      } else {
-        row.removeAttribute('title');
-        row.removeAttribute('role');
-        row.removeAttribute('tabindex');
-      }
-    }
+    // Enforce host-only visibility for Edit/Clear group (no CSS dependency)
+    const actions = row ? row.querySelector('.topic-actions') : null;
+    if (actions) actions.style.display = state.isHost ? '' : 'none';
+    if (edit)     edit.style.display   = (state.isHost && !shouldShow) ? '' : 'none';
   }
 
   // --- auto-reveal indicator -------------------------------------------------
@@ -463,6 +465,7 @@
 
     setRowDisabled('menuAutoRevealToggle', !state.isHost);
     setRowDisabled('menuTopicToggle',      !state.isHost);
+    setRowDisabled('menuHardModeToggle',   !state.isHost);
 
     const mTgl = $('#menuTopicToggle'); const mSt  = $('#menuTopicStatus');
     if (mTgl) { mTgl.checked = !!state.topicVisible; mTgl.setAttribute('aria-checked', String(!!state.topicVisible)); }
@@ -476,6 +479,10 @@
 
     const mARTgl = $('#menuAutoRevealToggle');
     if (mARTgl) { mARTgl.checked = !!state.autoRevealEnabled; mARTgl.setAttribute('aria-checked', String(!!state.autoRevealEnabled)); }
+
+    const mHRTgl = $('#menuHardModeToggle'); const mHRSt = $('#menuHardStatus');
+    if (mHRTgl) { mHRTgl.checked = !!state.hardMode; mHRTgl.setAttribute('aria-checked', String(!!state.hardMode)); }
+    if (mHRSt)  mHRSt.textContent = state.hardMode ? (isDe ? 'An' : 'On') : (isDe ? 'Aus' : 'Off');
   }
 
   function syncSequenceInMenu() {
@@ -493,8 +500,14 @@
 
   // --- global actions --------------------------------------------------------
   function revealCards(){
-    // Defer UI switch to server update to avoid showing a transient "N/A" average.
-    // The server will send a voteUpdate with votesRevealed=true and concrete votes/average.
+    // Soft/hard gate is handled in renderCards() by hiding the button, but
+    // for safety do a runtime check as well.
+    if (state.hardMode && !allEligibleVoted()) {
+      const isDe = (document.documentElement.lang||'en').toLowerCase().startsWith('de');
+      showToast(isDe ? 'Erst aufdecken, wenn alle gewählt haben.' : 'Reveal only after everyone voted.');
+      return;
+    }
+    // Defer UI switch to server update to avoid a transient "N/A"
     send('revealCards');
   }
   function resetRoom(){  send('resetRoom'); }
@@ -595,42 +608,23 @@
   function wireOnce() {
     bindCopyLink();
 
-    // Topic editor (host-only)
-    const editBtn  = $('#topicEditBtn');
+    // Topic editor (host-only; visibility also enforced in renderTopic)
+    const editBtn = $('#topicEditBtn');
     const clearBtn = $('#topicClearBtn');
-    const editBox  = $('#topicEdit');
-    const row      = $('#topicRow');
-    const input    = $('#topicInput');
-    const saveBtn  = $('#topicSaveBtn');
-    const cancelBtn= $('#topicCancelBtn');
-
-    // Centralize "open editor" logic so both button and row use the same behavior.
-    function openTopicEditor() {
-      if (!state.isHost || !editBox || !row) return;
-      editBox.style.display = '';
-      row.style.display = 'none';
-      if (input) { input.value = state.topicLabel || ''; input.focus(); }
-    }
+    const editBox = $('#topicEdit');
+    const row = $('#topicRow');
+    const input = $('#topicInput');
+    const saveBtn = $('#topicSaveBtn');
+    const cancelBtn = $('#topicCancelBtn');
 
     if (editBtn && editBox && row) {
-      editBtn.addEventListener('click', () => openTopicEditor());
-    }
-
-    // NEW: make compact row clickable (but ignore clicks on links/buttons)
-    if (row) {
-      row.addEventListener('click', (e) => {
+      editBtn.addEventListener('click', () => {
         if (!state.isHost) return;
-        if (e.target.closest('.topic-actions')) return; // don't hijack action buttons
-        if (e.target.closest('a')) return;              // let links work normally
-        openTopicEditor();
-      });
-      row.addEventListener('keydown', (e) => {
-        if (!state.isHost) return;
-        // Space/Enter open editor (matching role="button")
-        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openTopicEditor(); }
+        editBox.style.display = '';
+        row.style.display = 'none';
+        if (input) { input.value = state.topicLabel || ''; input.focus(); }
       });
     }
-
     if (cancelBtn && editBox) {
       cancelBtn.addEventListener('click', () => { editBox.style.display = 'none'; $('#topicRow').style.display = ''; });
     }
@@ -691,6 +685,15 @@
     document.addEventListener('ep:participation-toggle', (ev) => {
       const estimating = !!(ev && ev.detail && ev.detail.estimating);
       send(`participation:${estimating}`);
+    });
+
+    // New: hard/soft mode toggle (client-only)
+    document.addEventListener('ep:hard-mode-toggle', (ev) => {
+      if (!state.isHost) return; // host-only control
+      const on = !!(ev && ev.detail && ev.detail.on);
+      state.hardMode = on;
+      syncMenuFromState();
+      renderCards(); // may hide/show reveal button
     });
 
     window.addEventListener('beforeunload', () => { try { send('intentionalLeave'); } catch {} });
