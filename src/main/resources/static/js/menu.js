@@ -1,12 +1,11 @@
-/* menu.js v35 — native titles; i18n; sequence tips; hard/soft toggle; specials toggle
-   Tweaks:
-   - Adds native title tooltips for Room/Personal sections and Close-room.
-   - Keeps icon for Close-room.
+/* menu.js v33 — native titles everywhere; radios visible; hard mode & specials toggles wired
+   - Adds localized native tooltips for all rows below "Card sequence".
+   - Wires new toggles: Hard mode & Special cards (dispatch custom events).
 */
 (() => {
   'use strict';
-  window.__epMenuVer = 'v35';
-  console.info('[menu] v35 loaded');
+  window.__epMenuVer = 'v33';
+  console.info('[menu] v33 loaded');
 
   const $  = (s, r = document) => r.querySelector(s);
   const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
@@ -14,7 +13,6 @@
   const overlay   = $('#appMenuOverlay');
   const btnOpen   = $('#menuButton');
   const backdrop  = overlay ? $('.menu-backdrop', overlay) : null;
-
   const rowLang   = $('#langRow');
   const langLabel = $('#langCurrent');
   const flagA     = rowLang ? $('.flag-a', rowLang) : null;
@@ -27,11 +25,10 @@
   const rowPart   = $('#rowParticipation');
   const swPart    = $('#menuParticipationToggle');
 
-  const rowSpecials = $('#rowSpecials');
-  const swSpecials  = $('#menuSpecialsToggle');
-
   const rowHard   = $('#rowHardMode');
   const swHard    = $('#menuHardModeToggle');
+  const rowSpecs  = $('#rowSpecials');
+  const swSpecs   = $('#menuSpecialsToggle');
 
   const seqRoot   = $('#menuSeqChoice');
 
@@ -56,15 +53,13 @@
   function forceRowLayout() {
     $$('.menu-item.switch').forEach((row) => {
       row.style.display = 'grid';
-      row.style.gridTemplateColumns = '24px 1fr max-content';
+      row.style.gridTemplateColumns = '28px 1fr max-content';
       row.style.alignItems = 'center';
       row.style.width = '100%';
-      row.style.columnGap = '8px';
     });
     if (closeBtn) {
       closeBtn.style.display = 'grid';
-      closeBtn.style.gridTemplateColumns = '24px 1fr';
-      closeBtn.style.columnGap = '8px';
+      closeBtn.style.gridTemplateColumns = '28px 1fr';
       const text = closeBtn.querySelector('.truncate-1');
       if (text) {
         text.style.whiteSpace = 'nowrap';
@@ -80,7 +75,7 @@
   backdrop?.addEventListener('click', (e) => { if (e.target.hasAttribute('data-close')) closeMenu(); });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && isMenuOpen()) closeMenu(); });
 
-  /* ---------- i18n helpers ---------- */
+  /* ---------- i18n ---------- */
   function setFlagsFor(code) {
     if (!flagA || !flagB) return;
     if (code === 'de') { flagA.src = '/flags/de.svg'; flagB.src = '/flags/at.svg'; }
@@ -118,7 +113,7 @@
     return res.json();
   }
 
-  // Theme button titles (native)
+  // Theme button tooltips (native only)
   function setThemeTooltips(code) {
     const T = (code === 'de')
       ? { light: 'Helles Design', dark: 'Dunkles Design', system: 'Systemthema' }
@@ -133,39 +128,43 @@
     apply(themeSystem, T.system);
   }
 
-  // NEW: functional row titles (Room/Personal + Close room)
-  function setFunctionalTooltips(code) {
-    const de = code === 'de';
-    const T = {
-      auto : de ? 'Automatisch aufdecken, sobald alle geschätzt haben' : 'Automatically reveal once everyone voted',
-      topic: de ? 'Ticket/Story-Zeile ein-/ausblenden'                : 'Show or hide the Ticket/Story row',
-      specials: de ? 'Spezialkarten erlauben (❓ 💬 ☕)'              : 'Allow special cards (❓ 💬 ☕)',
-      hard : de ? 'Nur aufdecken, wenn alle gewählt haben'            : 'Reveal only when everyone voted',
-      part : de ? 'Zwischen Schätzer:in und Beobachter:in umschalten' : 'Toggle between estimator and observer',
-      close: de ? 'Raum für alle schließen'                           : 'Close this room for everyone',
-      lang : de ? 'Sprache: Deutsch → zu Englisch wechseln'           : 'Language: English → switch to German'
-    };
-
-    // language row
-    rowLang?.setAttribute('title', T.lang);
-
-    // room section rows
-    rowAuto?.setAttribute('title', T.auto);
-    rowTopic?.setAttribute('title', T.topic);
-    rowSpecials?.setAttribute('title', T.specials);
-    rowHard?.setAttribute('title', T.hard);
-
-    // personal section
-    rowPart?.setAttribute('title', T.part);
-
-    // close room button
-    if (closeBtn) {
-      closeBtn.setAttribute('title', T.close);
-      closeBtn.setAttribute('aria-label', T.close);
-    }
+  function setLangTooltip(code) {
+    if (!rowLang) return;
+    const text = (code === 'de')
+      ? 'Sprache: Deutsch → zu Englisch wechseln'
+      : 'Language: English → switch to German';
+    rowLang.setAttribute('title', text);
   }
 
-  // Close-room label stays localized + ellipsis
+  // tooltips for room/personal toggles + close button
+  function setFunctionTooltips(code) {
+    const T = (code === 'de')
+      ? {
+          ar: 'Karten automatisch aufdecken, sobald alle Schätzungen abgegeben sind',
+          topic: 'Ticket/Story-Zeile anzeigen oder ausblenden',
+          part: 'Zwischen Schätzen und Beobachten wechseln',
+          hard: 'Hart: Aufdecken erst möglich, wenn alle gewählt haben',
+          specs: 'Sonderkarten (❓ 💬 ☕ ∞) ein-/ausblenden',
+          close: 'Diesen Raum für alle schließen'
+        }
+      : {
+          ar: 'Reveal cards automatically once everyone has voted',
+          topic: 'Show or hide the Ticket/Story row',
+          part: 'Toggle between estimating and observing',
+          hard: 'Hard: reveal only when everyone has voted',
+          specs: 'Show or hide special cards (❓ 💬 ☕ ∞)',
+          close: 'Close this room for everyone'
+        };
+    const apply = (el, text) => { if (el) el.setAttribute('title', text); };
+    apply(rowAuto,  T.ar);
+    apply(rowTopic, T.topic);
+    apply(rowPart,  T.part);
+    apply(rowHard,  T.hard);
+    apply(rowSpecs, T.specs);
+    apply(closeBtn, T.close);
+  }
+
+  // localized label for the red close-room tile
   function setCloseBtnLabel(code) {
     if (!closeBtn) return;
     const labelEl = closeBtn.querySelector('.truncate-1') || closeBtn;
@@ -183,17 +182,19 @@
       if (langLabel) langLabel.textContent = (to === 'de') ? 'Deutsch' : 'English';
 
       // immediate native titles/labels
+      setLangTooltip(to);
       setThemeTooltips(to);
-      setFunctionalTooltips(to);
+      setFunctionTooltips(to);
       setCloseBtnLabel(to);
 
       const messages = await fetchMessages(to);
       applyMessages(messages, document);
       stripLangParamFromUrl();
 
-      // ensure stability
+      // ensure correct after messages, keep layout stable
+      setLangTooltip(to);
       setThemeTooltips(to);
-      setFunctionalTooltips(to);
+      setFunctionTooltips(to);
       setCloseBtnLabel(to);
       forceRowLayout();
 
@@ -201,18 +202,17 @@
     } catch (err) {
       console.warn('[i18n] switch failed:', err);
       stripLangParamFromUrl();
+      setLangTooltip(to);
       setThemeTooltips(to);
-      setFunctionalTooltips(to);
+      setFunctionTooltips(to);
       setCloseBtnLabel(to);
       forceRowLayout();
       setMenuButtonState(isMenuOpen());
     }
   }
-
   rowLang?.addEventListener('click', () => {
     const next = getLang() === 'de' ? 'en' : 'de';
     switchLanguage(next);
-    try { document.dispatchEvent(new CustomEvent('ep:lang-changed', { detail: { to: next } })); } catch {}
   });
 
   /* ---------- theme ---------- */
@@ -256,15 +256,13 @@
     reflectAriaChecked(inputEl, rowEl);
   }
 
-  wireSwitchRow(rowAuto,     swAuto,     (on) => document.dispatchEvent(new CustomEvent('ep:auto-reveal-toggle', { detail: { on } })));
-  wireSwitchRow(rowTopic,    swTopic,    (on) => document.dispatchEvent(new CustomEvent('ep:topic-toggle',       { detail: { on } })));
-  wireSwitchRow(rowPart,     swPart,     (on) => document.dispatchEvent(new CustomEvent('ep:participation-toggle',{ detail: { estimating: on } })));
-  wireSwitchRow(rowSpecials, swSpecials, (on) => document.dispatchEvent(new CustomEvent('ep:specials-toggle',    { detail: { on } })));
-  wireSwitchRow(rowHard,     swHard,     (on) => document.dispatchEvent(new CustomEvent('ep:hard-mode-toggle',   { detail: { on } })));
+  wireSwitchRow(rowAuto,  swAuto,  (on) => document.dispatchEvent(new CustomEvent('ep:auto-reveal-toggle', { detail: { on } })));
+  wireSwitchRow(rowTopic, swTopic, (on) => document.dispatchEvent(new CustomEvent('ep:topic-toggle',       { detail: { on } })));
+  wireSwitchRow(rowPart,  swPart,  (on) => document.dispatchEvent(new CustomEvent('ep:participation-toggle',{ detail: { estimating: on } })));
 
-  closeBtn?.addEventListener('click', () => {
-    document.dispatchEvent(new CustomEvent('ep:close-room'));
-  });
+  // NEW: hard mode + specials
+  wireSwitchRow(rowHard,  swHard,  (hard) => document.dispatchEvent(new CustomEvent('ep:hardmode-toggle', { detail: { hard } })));
+  wireSwitchRow(rowSpecs, swSpecs, (on)   => document.dispatchEvent(new CustomEvent('ep:specials-toggle', { detail: { on } })));
 
   /* ---------- sequences: titles + change ---------- */
   const SPECIALS = new Set(['?', '❓', '💬', '☕', '∞']);
@@ -320,7 +318,7 @@
       const id = input.value;
       const arr = seqMap[id] || SEQ_FALLBACKS[id] || [];
       const tip = previewFromArray(arr);
-      label.setAttribute('title', tip); // native title
+      label.setAttribute('title', tip); // native only
     });
 
     seqRoot.addEventListener('change', (e) => {
@@ -342,8 +340,9 @@
     stripLangParamFromUrl();
 
     // native titles on first render
+    setLangTooltip(lang);
     setThemeTooltips(lang);
-    setFunctionalTooltips(lang);
+    setFunctionTooltips(lang);
     setCloseBtnLabel(lang);
 
     // apply i18n immediately once

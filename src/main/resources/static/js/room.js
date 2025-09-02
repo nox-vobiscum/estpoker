@@ -1,9 +1,9 @@
-/* room.js v41 — topic edit stabil; hard/soft reveal disabled+tooltip; specials toggle; host-only actions; chip fix
-   Highlights:
-   - Stable topic UI: never auto-opens; edit only when Host klickt "Edit". Resets on refresh/host transfer.
-   - In hard mode, Reveal bleibt sichtbar aber disabled + Titel-Tooltip, bis alle gewählt haben.
-   - Non-host sieht keine Topic-Edit/Clear-Actions.
-   - Leere Votes zeigen grauen Chip (nicht grün).
+/* room.js v37 — hard/soft reveal, specials toggle, robust topic edit, native titles for row actions
+   - Hard mode: host can reveal only when everyone has voted (disabled button + tooltip).
+   - Specials toggle: host can show/hide (❓ 💬 ☕ ∞) from the deck live.
+   - Topic edit view reliably hidden unless explicitly opened; host can click the row to edit.
+   - Native title tooltips for "Make host" / "Kick".
+   - Outlier logic unchanged from last fix (consensus = no outliers).
 */
 (() => {
   'use strict';
@@ -41,13 +41,8 @@
     topicUrl: null,
 
     autoRevealEnabled: false,
-
-    // Client-only toggles
-    hardMode: false,
-    allowSpecials: true,
-
-    // Topic edit state: never auto-open on refresh/host transfer
-    topicEditing: false,
+    hardMode: false,          // NEW
+    specialsOn: true,         // NEW
 
     // UI helpers
     _optimisticVote: null,
@@ -114,12 +109,17 @@
       case 'kicked':     { state.hardRedirect = m.redirect || '/'; try { state.ws && state.ws.close(4001, 'Kicked'); }      catch {} break; }
 
       case 'voteUpdate': {
+        // server flags (with sane defaults)
+        state.hardMode = !!(m.hardMode ?? state.hardMode);
+        state.specialsOn = (m.specialsOn !== undefined) ? !!m.specialsOn : state.specialsOn;
+
         // cards & sequence
         const seqId = m.sequenceId || state.sequenceId || 'fib.scrum';
         const specials = (Array.isArray(m.specials) && m.specials.length) ? m.specials.slice() : SPECIALS.slice();
         let base = Array.isArray(m.cards) ? m.cards.slice() : [];
         base = base.filter(c => !specials.includes(c));
         if (seqId !== 'fib.enh') base = base.filter(c => c !== INFINITY_);
+        // keep full list; rendering decides whether specials are shown
         state.cards = base.concat(specials);
 
         // flags
@@ -140,16 +140,8 @@
         state.sequenceId = m.sequenceId || state.sequenceId;
 
         // host?
-        const wasHost = state.isHost;
         const me = state.participants.find(p => p && p.name === state.youName);
         state.isHost = !!(me && me.isHost);
-        if (!state.isHost) {
-          // Never show edit UI for non-host; also clear any stale edit state on host loss/refresh
-          state.topicEditing = false;
-        } else if (!wasHost && state.isHost) {
-          // Just became host via transfer → do NOT auto-open edit
-          state.topicEditing = false;
-        }
 
         // clear optimistic selection when server confirms our vote
         if (me && me.vote != null) state._optimisticVote = null;
@@ -238,13 +230,11 @@
         } else {
           const chip = document.createElement('span');
           chip.className = 'vote-chip';
-          const display = (p.vote == null || p.vote === '') ? '–' : String(p.vote);
+          let display = (p.vote == null || p.vote === '') ? '–' : String(p.vote);
           chip.textContent = display;
 
-          const isEmpty   = (display === '–' || display === '-');
-          const isSpecial = (display === '☕' || display === '❓' || display === '💬' || display === INFINITY_);
-          const nonNumeric = isEmpty || isSpecial || p.disconnected || p.participating === false;
-          if (nonNumeric) {
+          const isSpecial = (display === '☕' || display === '❓' || display === '💬' || display === INFINITY_ || p.disconnected || p.participating === false);
+          if (isSpecial) {
             chip.classList.add('special');
           } else {
             const vNum = toNumeric(display);
@@ -266,7 +256,8 @@
         makeHostBtn.setAttribute('title', titleHost);
         makeHostBtn.innerHTML = '<span class="ra-icon">👑</span><span class="ra-label">Make host</span>';
         makeHostBtn.addEventListener('click', () => {
-          const q = isDe ? `Host-Rolle an ${p.name} übergeben?` : `Make ${p.name} the host?`;
+          const de  = (document.documentElement.lang||'en').toLowerCase().startsWith('de');
+          const q = de ? `Host-Rolle an ${p.name} übergeben?` : `Make ${p.name} the host?`;
           if (confirm(q)) send('makeHost:' + encodeURIComponent(p.name));
         });
         right.appendChild(makeHostBtn);
@@ -279,7 +270,8 @@
         kickBtn.setAttribute('title', titleKick);
         kickBtn.innerHTML = '<span class="ra-icon">❌</span><span class="ra-label">Kick</span>';
         kickBtn.addEventListener('click', () => {
-          const q = isDe ? `${p.name} wirklich entfernen?` : `Remove ${p.name}?`;
+          const de  = (document.documentElement.lang||'en').toLowerCase().startsWith('de');
+          const q = de ? `${p.name} wirklich entfernen?` : `Remove ${p.name}?`;
           if (confirm(q)) send('kick:' + encodeURIComponent(p.name));
         });
         right.appendChild(kickBtn);
@@ -298,12 +290,6 @@
     return null;
   }
 
-  function allEligibleVoted() {
-    const elig = state.participants.filter(p => p && !p.observer && !p.disconnected);
-    if (!elig.length) return false;
-    return elig.every(p => p.vote != null && String(p.vote) !== '');
-  }
-
   function renderCards() {
     const grid = $('#cardGrid'); if (!grid) return;
     grid.innerHTML = '';
@@ -312,9 +298,10 @@
     const isObserver = !!(me && me.observer);
     const disabled = state.votesRevealed || isObserver;
 
-    const specialsAll = state.cards.filter(v => SPECIALS.includes(v));
-    const numbers     = state.cards.filter(v => !SPECIALS.includes(v));
-    const specials    = state.allowSpecials ? specialsAll : [];
+    // decide what to render based on specials flag
+    const all = state.cards.slice();
+    const specials = state.specialsOn ? all.filter(v => SPECIALS.includes(v)) : [];
+    const numbers  = all.filter(v => !SPECIALS.includes(v));
 
     const selectedVal = mySelectedValue();
 
@@ -347,24 +334,27 @@
     const revealBtn = $('#revealButton');
     const resetBtn  = $('#resetButton');
 
-    // Hard mode: button visible but disabled until everyone voted
-    const hardGateOK = !state.hardMode || allEligibleVoted();
-
-    const showReveal = (!state.votesRevealed && state.isHost);   // always show for host pre-reveal
+    const showReveal = (!state.votesRevealed && state.isHost);
     const showReset  = ( state.votesRevealed && state.isHost);
 
+    // hard mode: disable reveal until all eligible participants voted
     if (revealBtn) {
       revealBtn.style.display = showReveal ? '' : 'none';
       revealBtn.hidden = !showReveal;
-      revealBtn.disabled = !hardGateOK;
-      const isDe = (document.documentElement.lang||'en').toLowerCase().startsWith('de');
-      if (!hardGateOK) {
-        revealBtn.setAttribute('title', isDe ? 'Es haben noch nicht alle ihre Schätzung abgegeben' : 'Not everyone has voted yet');
-        revealBtn.setAttribute('aria-disabled', 'true');
-      } else {
-        revealBtn.removeAttribute('title');
-        revealBtn.removeAttribute('aria-disabled');
+
+      let canReveal = true;
+      if (state.hardMode) {
+        const elig = state.participants.filter(p => p && !p.observer && !p.disconnected);
+        const submitted = elig.filter(p => p.vote != null && p.vote !== '');
+        canReveal = submitted.length >= elig.length && elig.length > 0;
       }
+      revealBtn.disabled = showReveal && state.hardMode && !canReveal;
+
+      const isDe = (document.documentElement.lang||'en').toLowerCase().startsWith('de');
+      const tip = isDe ? 'Es haben noch nicht alle ihre Schätzung abgegeben'
+                       : 'Not everyone has voted yet';
+      if (revealBtn.disabled) revealBtn.setAttribute('title', tip);
+      else revealBtn.removeAttribute('title');
     }
     if (resetBtn) {
       resetBtn.style.display  = showReset ? '' : 'none';
@@ -438,6 +428,9 @@
     const edit = $('#topicEdit');
     const disp = $('#topicDisplay');
 
+    // always keep editor hidden unless explicitly opened via handlers
+    if (edit) edit.style.display = 'none';
+
     if (disp) {
       if (state.topicLabel && state.topicUrl) {
         disp.innerHTML = `<a href="${encodeURI(state.topicUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(state.topicLabel)}</a>`;
@@ -448,16 +441,8 @@
       }
     }
 
-    // Host-only actions visibility
-    const actions = row ? row.querySelector('.topic-actions') : null;
-    if (actions) actions.style.display = state.isHost ? '' : 'none';
-
-    // Never auto-open edit; only show if Host AND explicitly in edit mode
-    const showRow  = !!state.topicVisible;
-    const showEdit = !!(state.isHost && state.topicEditing);
-
-    if (row)  row.style.display  = showRow  ? '' : 'none';
-    if (edit) edit.style.display = showEdit ? '' : 'none';
+    const shouldShow = !!state.topicVisible;
+    if (row) row.style.display = shouldShow ? '' : 'none';
   }
 
   // --- auto-reveal indicator -------------------------------------------------
@@ -482,8 +467,8 @@
 
     setRowDisabled('menuAutoRevealToggle', !state.isHost);
     setRowDisabled('menuTopicToggle',      !state.isHost);
-    setRowDisabled('menuSpecialsToggle',   !state.isHost);
     setRowDisabled('menuHardModeToggle',   !state.isHost);
+    setRowDisabled('menuSpecialsToggle',   !state.isHost);
 
     const mTgl = $('#menuTopicToggle'); const mSt  = $('#menuTopicStatus');
     if (mTgl) { mTgl.checked = !!state.topicVisible; mTgl.setAttribute('aria-checked', String(!!state.topicVisible)); }
@@ -498,13 +483,13 @@
     const mARTgl = $('#menuAutoRevealToggle');
     if (mARTgl) { mARTgl.checked = !!state.autoRevealEnabled; mARTgl.setAttribute('aria-checked', String(!!state.autoRevealEnabled)); }
 
-    const mSPTgl = $('#menuSpecialsToggle'); const mSPSt = $('#menuSpecialsStatus');
-    if (mSPTgl) { mSPTgl.checked = !!state.allowSpecials; mSPTgl.setAttribute('aria-checked', String(!!state.allowSpecials)); }
-    if (mSPSt)  mSPSt.textContent = state.allowSpecials ? (isDe ? 'An' : 'On') : (isDe ? 'Aus' : 'Off');
+    const mHard = $('#menuHardModeToggle'); const mHardSt = $('#menuHardStatus');
+    if (mHard) { mHard.checked = !!state.hardMode; mHard.setAttribute('aria-checked', String(!!state.hardMode)); }
+    if (mHardSt) mHardSt.textContent = state.hardMode ? (isDe ? 'Hart' : 'Hard') : (isDe ? 'Weich' : 'Soft');
 
-    const mHRTgl = $('#menuHardModeToggle'); const mHRSt = $('#menuHardStatus');
-    if (mHRTgl) { mHRTgl.checked = !!state.hardMode; mHRTgl.setAttribute('aria-checked', String(!!state.hardMode)); }
-    if (mHRSt)  mHRSt.textContent = state.hardMode ? (isDe ? 'An' : 'On') : (isDe ? 'Aus' : 'Off');
+    const mSpec = $('#menuSpecialsToggle'); const mSpecSt = $('#menuSpecialsStatus');
+    if (mSpec) { mSpec.checked = !!state.specialsOn; mSpec.setAttribute('aria-checked', String(!!state.specialsOn)); }
+    if (mSpecSt) mSpecSt.textContent = state.specialsOn ? (isDe ? 'An' : 'On') : (isDe ? 'Aus' : 'Off');
   }
 
   function syncSequenceInMenu() {
@@ -522,19 +507,14 @@
 
   // --- global actions --------------------------------------------------------
   function revealCards(){
-    if (state.hardMode && !allEligibleVoted()) {
-      const isDe = (document.documentElement.lang||'en').toLowerCase().startsWith('de');
-      showToast(isDe ? 'Erst aufdecken, wenn alle gewählt haben.' : 'Reveal only after everyone voted.');
-      return;
-    }
-    // Defer UI switch to server update to avoid transient "N/A"
+    // Defer UI switch to server update to avoid transient "N/A".
     send('revealCards');
   }
   function resetRoom(){  send('resetRoom'); }
   window.revealCards = revealCards;
   window.resetRoom   = resetRoom;
 
-  // ---------- Outlier helpers (post-reveal) ----------------------------------
+  // ---------- Outlier helpers -----------------------------------------------
   function toNumeric(v){
     if (v == null) return null;
     const s = String(v).trim();
@@ -543,44 +523,29 @@
     return Number.isFinite(n) ? n : null;
   }
   function computeOutlierValues(){
-  // Only after reveal we consider outliers.
-  if (!state.votesRevealed) return new Set();
+    if (!state.votesRevealed) return new Set();
 
-  // Collect numeric votes of eligible participants (no observers / disconnected).
-  const nums = [];
-  for (const p of state.participants) {
-    if (!p || p.observer || p.disconnected) continue;
-    const n = toNumeric(p.vote);
-    if (n != null) nums.push(n);
+    const nums = [];
+    for (const p of state.participants) {
+      if (!p || p.observer || p.disconnected) continue;
+      const n = toNumeric(p.vote);
+      if (n != null) nums.push(n);
+    }
+    if (nums.length < 3) return new Set();
+
+    // consensus: all equal => no outliers
+    const allEq = nums.every(n => n === nums[0]);
+    if (allEq) return new Set();
+
+    const avgNum = toNumeric(state.averageVote);
+    if (avgNum == null) return new Set();
+
+    const diffs = nums.map(n => Math.abs(n - avgNum));
+    const maxDev = Math.max(...diffs);
+
+    const EPS = 1e-6;
+    return new Set(nums.filter((n, i) => Math.abs(diffs[i] - maxDev) <= EPS));
   }
-
-  // Need at least 3 numeric votes to talk about outliers.
-  if (nums.length < 3) return new Set();
-
-  // If all numeric votes are identical (zero spread), there are no outliers.
-  const min = Math.min(...nums);
-  const max = Math.max(...nums);
-  if (!Number.isFinite(min) || !Number.isFinite(max) || Math.abs(max - min) < 1e-9) {
-    return new Set();
-  }
-
-  // Use distance to average and highlight the farthest values (ties allowed).
-  const avgNum = toNumeric(state.averageVote);
-  if (avgNum == null) return new Set();
-
-  const diffs = nums.map(n => Math.abs(n - avgNum));
-  const maxDev = Math.max(...diffs);
-  const EPS = 1e-6;
-
-  // Zero spread around the mean → no outliers (extra guard).
-  if (maxDev <= EPS) return new Set();
-
-  const out = new Set();
-  nums.forEach((n, i) => {
-    if (Math.abs(diffs[i] - maxDev) <= EPS) out.add(n);
-  });
-  return out;
-}
 
   // ---------- Feedback / copy helpers ---------------------------------------
   function showToast(msg, ms = 2600) {
@@ -589,7 +554,7 @@
       t.className = 'toast';
       t.textContent = msg;
       document.body.appendChild(t);
-      // force reflow for CSS animation
+      // force reflow
       // eslint-disable-next-line no-unused-expressions
       t.offsetHeight;
       setTimeout(() => t.remove(), ms + 600);
@@ -647,7 +612,7 @@
   function wireOnce() {
     bindCopyLink();
 
-    // Topic editor (host-only; visibility also enforced in renderTopic)
+    // Topic editor (host-only)
     const editBtn = $('#topicEditBtn');
     const clearBtn = $('#topicClearBtn');
     const editBox = $('#topicEdit');
@@ -656,27 +621,30 @@
     const saveBtn = $('#topicSaveBtn');
     const cancelBtn = $('#topicCancelBtn');
 
-    if (editBtn && editBox && row) {
-      editBtn.addEventListener('click', () => {
-        if (!state.isHost) return;
-        state.topicEditing = true;
-        renderTopic();
-        if (input) { input.value = state.topicLabel || ''; input.focus(); }
-      });
+    const openTopicEdit = () => {
+      if (!state.isHost) return;
+      if (!editBox || !row) return;
+      editBox.style.display = '';
+      row.style.display = 'none';
+      if (input) { input.value = state.topicLabel || ''; input.focus(); }
+    };
+
+    if (row) {
+      // Make the display row itself open the editor for hosts
+      row.addEventListener('click', openTopicEdit);
     }
+    if (editBtn) editBtn.addEventListener('click', openTopicEdit);
+
     if (cancelBtn && editBox) {
-      cancelBtn.addEventListener('click', () => {
-        state.topicEditing = false;
-        renderTopic();
-      });
+      cancelBtn.addEventListener('click', () => { editBox.style.display = 'none'; $('#topicRow').style.display = ''; });
     }
     if (saveBtn && input) {
       saveBtn.addEventListener('click', () => {
         if (!state.isHost) return;
         const val = input.value || '';
         send('topicSave:' + encodeURIComponent(val));
-        state.topicEditing = false;
-        renderTopic();
+        editBox.style.display = 'none';
+        $('#topicRow').style.display = '';
       });
     }
     if (clearBtn) {
@@ -684,7 +652,6 @@
         if (!state.isHost) return;
         send('topicSave:' + encodeURIComponent(''));
         state.topicLabel = ''; state.topicUrl = null; state.topicVisible = true;
-        state.topicEditing = false;
         renderTopic(); syncMenuFromState();
       });
     }
@@ -722,10 +689,7 @@
     document.addEventListener('ep:topic-toggle', (ev) => {
       if (!state.isHost) return;
       const on = !!(ev && ev.detail && ev.detail.on);
-      // Closing the topic also closes any edit UI
-      if (!on) state.topicEditing = false;
       send(`topicVisible:${on}`);
-      renderTopic();
     });
 
     document.addEventListener('ep:participation-toggle', (ev) => {
@@ -733,22 +697,16 @@
       send(`participation:${estimating}`);
     });
 
-    // specials toggle (client-only)
+    document.addEventListener('ep:hardmode-toggle', (ev) => {
+      if (!state.isHost) return;
+      const hard = !!(ev && ev.detail && ev.detail.hard);
+      send(`hardMode:${hard}`);
+    });
+
     document.addEventListener('ep:specials-toggle', (ev) => {
       if (!state.isHost) return;
       const on = !!(ev && ev.detail && ev.detail.on);
-      state.allowSpecials = on;
-      syncMenuFromState();
-      renderCards();
-    });
-
-    // hard/soft mode toggle (client-only)
-    document.addEventListener('ep:hard-mode-toggle', (ev) => {
-      if (!state.isHost) return;
-      const on = !!(ev && ev.detail && ev.detail.on);
-      state.hardMode = on;
-      syncMenuFromState();
-      renderCards();
+      send(`specialsOn:${on}`);
     });
 
     window.addEventListener('beforeunload', () => { try { send('intentionalLeave'); } catch {} });
@@ -767,6 +725,4 @@
   function boot(){ wireOnce(); syncHostClass(); connectWS(); }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();
-
-  // --- outlier helpers at the end (kept unchanged) ---------------------------
 })();
