@@ -1,13 +1,8 @@
-/* room.js v38 — hard/soft reveal mode + specials toggle + host-only topic actions + chip fixes
-   Notes:
-   - Hard mode: host can reveal only when all eligible participants have selected a card.
-   - Soft mode: host can reveal anytime (default).
-   - Specials toggle (host-only): hides/shows special card buttons (❓ 💬 ☕ ∞) client-side.
-   - Non-hosts do not see topic Edit/Clear buttons (enforced by JS).
-   - Empty vote after reveal shows a gray chip (treated as "special", not green).
-   - Native title tooltips for "Make host" and "Kick".
-   - Average text appends "(n/m)" (numeric/total submitted); specials excluded from numeric calcs.
-   - Reveal UI switches only after server update (avoid transient "N/A").
+/* room.js v39 — hard/soft reveal mode (disabled button + tooltip) + specials toggle + host-only topic actions + chip fixes
+   Tweaks:
+   - In hard mode, Reveal is visible but disabled with a localized tooltip until all eligible users voted.
+   - Non-hosts never see Edit/Clear actions for Topic.
+   - Empty vote chip after reveal is gray (non-numeric).
 */
 (() => {
   'use strict';
@@ -48,7 +43,7 @@
 
     // Client-only toggles
     hardMode: false,
-    allowSpecials: true, // NEW: default ON
+    allowSpecials: true,
 
     // UI helpers
     _optimisticVote: null,
@@ -292,7 +287,6 @@
   }
 
   function allEligibleVoted() {
-    // Eligible = not observer, not disconnected
     const elig = state.participants.filter(p => p && !p.observer && !p.disconnected);
     if (!elig.length) return false;
     return elig.every(p => p.vote != null && String(p.vote) !== '');
@@ -308,7 +302,6 @@
 
     const specialsAll = state.cards.filter(v => SPECIALS.includes(v));
     const numbers     = state.cards.filter(v => !SPECIALS.includes(v));
-    // Hide specials entirely if allowSpecials = false
     const specials    = state.allowSpecials ? specialsAll : [];
 
     const selectedVal = mySelectedValue();
@@ -342,15 +335,24 @@
     const revealBtn = $('#revealButton');
     const resetBtn  = $('#resetButton');
 
-    // Hard mode: only show Reveal if everyone voted (non-observers, not disconnected)
+    // Hard mode: button visible but disabled until everyone voted
     const hardGateOK = !state.hardMode || allEligibleVoted();
 
-    const showReveal = (!state.votesRevealed && state.isHost && hardGateOK);
+    const showReveal = (!state.votesRevealed && state.isHost);   // always show for host pre-reveal
     const showReset  = ( state.votesRevealed && state.isHost);
 
     if (revealBtn) {
       revealBtn.style.display = showReveal ? '' : 'none';
       revealBtn.hidden = !showReveal;
+      revealBtn.disabled = !hardGateOK;
+      const isDe = (document.documentElement.lang||'en').toLowerCase().startsWith('de');
+      if (!hardGateOK) {
+        revealBtn.setAttribute('title', isDe ? 'Es haben noch nicht alle ihre Schätzung abgegeben' : 'Not everyone has voted yet');
+        revealBtn.setAttribute('aria-disabled', 'true');
+      } else {
+        revealBtn.removeAttribute('title');
+        revealBtn.removeAttribute('aria-disabled');
+      }
     }
     if (resetBtn) {
       resetBtn.style.display  = showReset ? '' : 'none';
@@ -434,12 +436,11 @@
       }
     }
 
-    // Show/hide rows
     const shouldShow = !!state.topicVisible;
     if (row) row.style.display = shouldShow ? '' : 'none';
     if (edit && !shouldShow) edit.style.display = 'none';
 
-    // Enforce host-only visibility for Edit/Clear group (no CSS dependency)
+    // Enforce host-only visibility for the action buttons
     const actions = row ? row.querySelector('.topic-actions') : null;
     if (actions) actions.style.display = state.isHost ? '' : 'none';
     if (edit)     edit.style.display   = (state.isHost && !shouldShow) ? '' : 'none';
@@ -467,7 +468,7 @@
 
     setRowDisabled('menuAutoRevealToggle', !state.isHost);
     setRowDisabled('menuTopicToggle',      !state.isHost);
-    setRowDisabled('menuSpecialsToggle',   !state.isHost); // NEW
+    setRowDisabled('menuSpecialsToggle',   !state.isHost);
     setRowDisabled('menuHardModeToggle',   !state.isHost);
 
     const mTgl = $('#menuTopicToggle'); const mSt  = $('#menuTopicStatus');
@@ -512,7 +513,7 @@
       showToast(isDe ? 'Erst aufdecken, wenn alle gewählt haben.' : 'Reveal only after everyone voted.');
       return;
     }
-    // Defer UI switch to server update to avoid a transient "N/A"
+    // Defer UI switch to server update to avoid transient "N/A"
     send('revealCards');
   }
   function resetRoom(){  send('resetRoom'); }
@@ -526,7 +527,7 @@
     if (s === '' || s === INFINITY_ || SPECIALS.includes(s)) return null;
     const n = Number(s);
     return Number.isFinite(n) ? n : null;
-    }
+  }
   function computeOutlierValues(){
     if (!state.votesRevealed) return new Set();
 
@@ -692,22 +693,22 @@
       send(`participation:${estimating}`);
     });
 
-    // NEW: specials toggle (client-only)
+    // specials toggle (client-only)
     document.addEventListener('ep:specials-toggle', (ev) => {
-      if (!state.isHost) return; // host-only control
+      if (!state.isHost) return;
       const on = !!(ev && ev.detail && ev.detail.on);
       state.allowSpecials = on;
       syncMenuFromState();
-      renderCards(); // show/hide special buttons immediately
+      renderCards();
     });
 
     // hard/soft mode toggle (client-only)
     document.addEventListener('ep:hard-mode-toggle', (ev) => {
-      if (!state.isHost) return; // host-only control
+      if (!state.isHost) return;
       const on = !!(ev && ev.detail && ev.detail.on);
       state.hardMode = on;
       syncMenuFromState();
-      renderCards(); // may hide/show reveal button
+      renderCards();
     });
 
     window.addEventListener('beforeunload', () => { try { send('intentionalLeave'); } catch {} });

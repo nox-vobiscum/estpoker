@@ -1,12 +1,12 @@
-/* menu.js v34 — native tooltips only; i18n; theme/lang; sequence; hard/soft mode; specials toggle
-   - No data-tooltip usage; native title/aria-label only.
-   - Adds "Hard reveal mode" switch (host-only; client-side gate for reveal button).
-   - Adds "Allow special cards" switch (host-only; client-side: hides/shows special card buttons).
+/* menu.js v35 — native titles; i18n; sequence tips; hard/soft toggle; specials toggle
+   Tweaks:
+   - Adds native title tooltips for Room/Personal sections and Close-room.
+   - Keeps icon for Close-room.
 */
 (() => {
   'use strict';
-  window.__epMenuVer = 'v34';
-  console.info('[menu] v34 loaded');
+  window.__epMenuVer = 'v35';
+  console.info('[menu] v35 loaded');
 
   const $  = (s, r = document) => r.querySelector(s);
   const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
@@ -14,6 +14,7 @@
   const overlay   = $('#appMenuOverlay');
   const btnOpen   = $('#menuButton');
   const backdrop  = overlay ? $('.menu-backdrop', overlay) : null;
+
   const rowLang   = $('#langRow');
   const langLabel = $('#langCurrent');
   const flagA     = rowLang ? $('.flag-a', rowLang) : null;
@@ -26,11 +27,9 @@
   const rowPart   = $('#rowParticipation');
   const swPart    = $('#menuParticipationToggle');
 
-  // NEW: Specials toggle
   const rowSpecials = $('#rowSpecials');
   const swSpecials  = $('#menuSpecialsToggle');
 
-  // Hard mode
   const rowHard   = $('#rowHardMode');
   const swHard    = $('#menuHardModeToggle');
 
@@ -57,13 +56,15 @@
   function forceRowLayout() {
     $$('.menu-item.switch').forEach((row) => {
       row.style.display = 'grid';
-      row.style.gridTemplateColumns = '28px 1fr max-content';
+      row.style.gridTemplateColumns = '24px 1fr max-content';
       row.style.alignItems = 'center';
       row.style.width = '100%';
+      row.style.columnGap = '8px';
     });
     if (closeBtn) {
       closeBtn.style.display = 'grid';
-      closeBtn.style.gridTemplateColumns = '28px 1fr';
+      closeBtn.style.gridTemplateColumns = '24px 1fr';
+      closeBtn.style.columnGap = '8px';
       const text = closeBtn.querySelector('.truncate-1');
       if (text) {
         text.style.whiteSpace = 'nowrap';
@@ -79,7 +80,7 @@
   backdrop?.addEventListener('click', (e) => { if (e.target.hasAttribute('data-close')) closeMenu(); });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && isMenuOpen()) closeMenu(); });
 
-  /* ---------- i18n ---------- */
+  /* ---------- i18n helpers ---------- */
   function setFlagsFor(code) {
     if (!flagA || !flagB) return;
     if (code === 'de') { flagA.src = '/flags/de.svg'; flagB.src = '/flags/at.svg'; }
@@ -117,7 +118,7 @@
     return res.json();
   }
 
-  // Theme button tooltips (native only)
+  // Theme button titles (native)
   function setThemeTooltips(code) {
     const T = (code === 'de')
       ? { light: 'Helles Design', dark: 'Dunkles Design', system: 'Systemthema' }
@@ -132,18 +133,42 @@
     apply(themeSystem, T.system);
   }
 
-  function setLangTooltip(code) {
-    if (!rowLang) return;
-    const text = (code === 'de')
-      ? 'Sprache: Deutsch → zu Englisch wechseln'
-      : 'Language: English → switch to German';
-    rowLang.setAttribute('title', text);
+  // NEW: functional row titles (Room/Personal + Close room)
+  function setFunctionalTooltips(code) {
+    const de = code === 'de';
+    const T = {
+      auto : de ? 'Automatisch aufdecken, sobald alle geschätzt haben' : 'Automatically reveal once everyone voted',
+      topic: de ? 'Ticket/Story-Zeile ein-/ausblenden'                : 'Show or hide the Ticket/Story row',
+      specials: de ? 'Spezialkarten erlauben (❓ 💬 ☕ ∞)'              : 'Allow special cards (❓ 💬 ☕ ∞)',
+      hard : de ? 'Nur aufdecken, wenn alle gewählt haben'            : 'Reveal only when everyone voted',
+      part : de ? 'Zwischen Schätzer:in und Beobachter:in umschalten' : 'Toggle between estimator and observer',
+      close: de ? 'Raum für alle schließen'                           : 'Close this room for everyone',
+      lang : de ? 'Sprache: Deutsch → zu Englisch wechseln'           : 'Language: English → switch to German'
+    };
+
+    // language row
+    rowLang?.setAttribute('title', T.lang);
+
+    // room section rows
+    rowAuto?.setAttribute('title', T.auto);
+    rowTopic?.setAttribute('title', T.topic);
+    rowSpecials?.setAttribute('title', T.specials);
+    rowHard?.setAttribute('title', T.hard);
+
+    // personal section
+    rowPart?.setAttribute('title', T.part);
+
+    // close room button
+    if (closeBtn) {
+      closeBtn.setAttribute('title', T.close);
+      closeBtn.setAttribute('aria-label', T.close);
+    }
   }
 
-  // localized label for the red close-room tile, keep truncation
+  // Close-room label stays localized + ellipsis
   function setCloseBtnLabel(code) {
     if (!closeBtn) return;
-    const labelEl = closeBtn.querySelector('.ra-label') || closeBtn.querySelector('.truncate-1') || closeBtn;
+    const labelEl = closeBtn.querySelector('.truncate-1') || closeBtn;
     labelEl.textContent = (code === 'de') ? 'Raum für alle schließen' : 'Close room for everyone';
     labelEl.classList.add('truncate-1');
     labelEl.style.whiteSpace = 'nowrap';
@@ -158,17 +183,17 @@
       if (langLabel) langLabel.textContent = (to === 'de') ? 'Deutsch' : 'English';
 
       // immediate native titles/labels
-      setLangTooltip(to);
       setThemeTooltips(to);
+      setFunctionalTooltips(to);
       setCloseBtnLabel(to);
 
       const messages = await fetchMessages(to);
       applyMessages(messages, document);
       stripLangParamFromUrl();
 
-      // ensure correct after messages, keep layout stable
-      setLangTooltip(to);
+      // ensure stability
       setThemeTooltips(to);
+      setFunctionalTooltips(to);
       setCloseBtnLabel(to);
       forceRowLayout();
 
@@ -176,13 +201,14 @@
     } catch (err) {
       console.warn('[i18n] switch failed:', err);
       stripLangParamFromUrl();
-      setLangTooltip(to);
       setThemeTooltips(to);
+      setFunctionalTooltips(to);
       setCloseBtnLabel(to);
       forceRowLayout();
       setMenuButtonState(isMenuOpen());
     }
   }
+
   rowLang?.addEventListener('click', () => {
     const next = getLang() === 'de' ? 'en' : 'de';
     switchLanguage(next);
@@ -233,12 +259,8 @@
   wireSwitchRow(rowAuto,     swAuto,     (on) => document.dispatchEvent(new CustomEvent('ep:auto-reveal-toggle', { detail: { on } })));
   wireSwitchRow(rowTopic,    swTopic,    (on) => document.dispatchEvent(new CustomEvent('ep:topic-toggle',       { detail: { on } })));
   wireSwitchRow(rowPart,     swPart,     (on) => document.dispatchEvent(new CustomEvent('ep:participation-toggle',{ detail: { estimating: on } })));
-
-  // NEW: Specials toggle (client-only UI)
-  wireSwitchRow(rowSpecials, swSpecials, (on) => document.dispatchEvent(new CustomEvent('ep:specials-toggle', { detail: { on } })));
-
-  // Hard/Soft reveal mode (client-only gate)
-  wireSwitchRow(rowHard,     swHard,     (on) => document.dispatchEvent(new CustomEvent('ep:hard-mode-toggle', { detail: { on } })));
+  wireSwitchRow(rowSpecials, swSpecials, (on) => document.dispatchEvent(new CustomEvent('ep:specials-toggle',    { detail: { on } })));
+  wireSwitchRow(rowHard,     swHard,     (on) => document.dispatchEvent(new CustomEvent('ep:hard-mode-toggle',   { detail: { on } })));
 
   closeBtn?.addEventListener('click', () => {
     document.dispatchEvent(new CustomEvent('ep:close-room'));
@@ -298,7 +320,7 @@
       const id = input.value;
       const arr = seqMap[id] || SEQ_FALLBACKS[id] || [];
       const tip = previewFromArray(arr);
-      label.setAttribute('title', tip); // native only
+      label.setAttribute('title', tip); // native title
     });
 
     seqRoot.addEventListener('change', (e) => {
@@ -320,8 +342,8 @@
     stripLangParamFromUrl();
 
     // native titles on first render
-    setLangTooltip(lang);
     setThemeTooltips(lang);
+    setFunctionalTooltips(lang);
     setCloseBtnLabel(lang);
 
     // apply i18n immediately once

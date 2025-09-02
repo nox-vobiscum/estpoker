@@ -32,7 +32,7 @@
       <div class="menu-section">
         <div class="section-title" data-i18n="menu.language">Language</div>
 
-        <!-- One-line language switch row (shows split flags; tooltip describes action) -->
+        <!-- One-line language switch row -->
         <div id="langRow"
              class="menu-item"
              tabindex="0"
@@ -87,7 +87,7 @@
       <div class="menu-section" th:if="${showSeq}">
         <div class="section-title" data-i18n="menu.sequence">Card sequence</div>
 
-        <!-- NOTE: label tooltips are set dynamically by menu.js (no fieldset tooltip here) -->
+        <!-- NOTE: label tooltips are set dynamically by menu.js -->
         <fieldset id="menuSeqChoice" class="menu-choice vertical">
           <label class="radio-row">
             <input type="radio" name="menu-seq" value="fib.scrum" checked>
@@ -150,7 +150,7 @@
                  aria-label="Ticket/Story">
         </div>
 
-        <!-- NEW: Allow Specials -->
+        <!-- Specials -->
         <div class="menu-item switch"
              role="group"
              id="rowSpecials">
@@ -168,6 +168,7 @@
                  aria-label="Allow special cards">
         </div>
 
+        <!-- Hard mode -->
         <div class="menu-item switch"
              role="group"
              id="rowHardMode">
@@ -224,5 +225,5 @@
   </div>
 
   <!-- Load JS (cache-bust) -->
-  <script defer src="/js/menu.js?v=34"></script>
+  <script defer src="/js/menu.js?v=35"></script>
 </th:block>
