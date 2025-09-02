@@ -150,6 +150,24 @@
                  aria-label="Ticket/Story">
         </div>
 
+        <!-- NEW: Allow Specials -->
+        <div class="menu-item switch"
+             role="group"
+             id="rowSpecials">
+          <span class="mi-icon" aria-hidden="true">🎴</span>
+          <div class="switch-text">
+            <strong data-i18n="menu.specials">Allow special cards</strong>
+            <span id="menuSpecialsStatus" data-i18n="toggle.on">On</span>
+          </div>
+          <input id="menuSpecialsToggle"
+                 class="switch-control"
+                 type="checkbox"
+                 role="switch"
+                 aria-checked="true"
+                 checked
+                 aria-label="Allow special cards">
+        </div>
+
         <div class="menu-item switch"
              role="group"
              id="rowHardMode">
@@ -206,5 +224,5 @@
   </div>
 
   <!-- Load JS (cache-bust) -->
-  <script defer src="/js/menu.js?v=33"></script>
+  <script defer src="/js/menu.js?v=34"></script>
 </th:block>

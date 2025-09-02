@@ -1,11 +1,12 @@
-/* menu.js v33 — native tooltips only; i18n; theme/lang; sequence; hard/soft mode
+/* menu.js v34 — native tooltips only; i18n; theme/lang; sequence; hard/soft mode; specials toggle
    - No data-tooltip usage; native title/aria-label only.
    - Adds "Hard reveal mode" switch (host-only; client-side gate for reveal button).
+   - Adds "Allow special cards" switch (host-only; client-side: hides/shows special card buttons).
 */
 (() => {
   'use strict';
-  window.__epMenuVer = 'v33';
-  console.info('[menu] v33 loaded');
+  window.__epMenuVer = 'v34';
+  console.info('[menu] v34 loaded');
 
   const $  = (s, r = document) => r.querySelector(s);
   const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
@@ -25,8 +26,13 @@
   const rowPart   = $('#rowParticipation');
   const swPart    = $('#menuParticipationToggle');
 
-  const rowHard   = $('#rowHardMode');           // NEW
-  const swHard    = $('#menuHardModeToggle');    // NEW
+  // NEW: Specials toggle
+  const rowSpecials = $('#rowSpecials');
+  const swSpecials  = $('#menuSpecialsToggle');
+
+  // Hard mode
+  const rowHard   = $('#rowHardMode');
+  const swHard    = $('#menuHardModeToggle');
 
   const seqRoot   = $('#menuSeqChoice');
 
@@ -180,7 +186,6 @@
   rowLang?.addEventListener('click', () => {
     const next = getLang() === 'de' ? 'en' : 'de';
     switchLanguage(next);
-    // best-effort fire an app-wide event (tests may listen for it)
     try { document.dispatchEvent(new CustomEvent('ep:lang-changed', { detail: { to: next } })); } catch {}
   });
 
@@ -225,12 +230,15 @@
     reflectAriaChecked(inputEl, rowEl);
   }
 
-  wireSwitchRow(rowAuto,  swAuto,  (on) => document.dispatchEvent(new CustomEvent('ep:auto-reveal-toggle', { detail: { on } })));
-  wireSwitchRow(rowTopic, swTopic, (on) => document.dispatchEvent(new CustomEvent('ep:topic-toggle',       { detail: { on } })));
-  wireSwitchRow(rowPart,  swPart,  (on) => document.dispatchEvent(new CustomEvent('ep:participation-toggle',{ detail: { estimating: on } })));
+  wireSwitchRow(rowAuto,     swAuto,     (on) => document.dispatchEvent(new CustomEvent('ep:auto-reveal-toggle', { detail: { on } })));
+  wireSwitchRow(rowTopic,    swTopic,    (on) => document.dispatchEvent(new CustomEvent('ep:topic-toggle',       { detail: { on } })));
+  wireSwitchRow(rowPart,     swPart,     (on) => document.dispatchEvent(new CustomEvent('ep:participation-toggle',{ detail: { estimating: on } })));
 
-  // NEW: hard/soft reveal mode (client-only gate)
-  wireSwitchRow(rowHard,  swHard,  (on) => document.dispatchEvent(new CustomEvent('ep:hard-mode-toggle', { detail: { on } })));
+  // NEW: Specials toggle (client-only UI)
+  wireSwitchRow(rowSpecials, swSpecials, (on) => document.dispatchEvent(new CustomEvent('ep:specials-toggle', { detail: { on } })));
+
+  // Hard/Soft reveal mode (client-only gate)
+  wireSwitchRow(rowHard,     swHard,     (on) => document.dispatchEvent(new CustomEvent('ep:hard-mode-toggle', { detail: { on } })));
 
   closeBtn?.addEventListener('click', () => {
     document.dispatchEvent(new CustomEvent('ep:close-room'));
@@ -276,7 +284,7 @@
 
   async function initSequenceTooltips() {
     if (!seqRoot) return;
-    $$( 'input[type="radio"][name="menu-seq"]', seqRoot).forEach(r => {
+    $$('input[type="radio"][name="menu-seq"]', seqRoot).forEach(r => {
       r.disabled = true;
       r.setAttribute('aria-disabled', 'true');
       r.closest('label')?.classList.add('disabled');
