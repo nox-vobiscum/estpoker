@@ -466,3 +466,82 @@ body{padding-bottom:68px}.container{padding-bottom:0}
 :root[data-theme="dark"] #topicInput::placeholder{
   color:#9ca3af;
 }
+
+
+
+
+
+
+/* ===== Menu compact sizing (v3) — paste at end of styles.css ===== */
+
+/* Overall scale + panel width/padding */
+.menu-panel{
+  font-size:.85em;                 /* ~0.8–0.85em overall */
+  width:min(92vw,380px);           /* was ~420px */
+  padding:10px 12px;               /* tighter panel padding */
+}
+
+/* Header/title */
+.menu-header h3{
+  font-size:1em;
+  margin:4px 0 6px;
+}
+
+/* Sections + titles: title should belong to following block */
+.menu-section{ margin:10px 0; }
+.section-title{
+  margin:4px 8px 2px;              /* closer to its section */
+  font-size:.95em;
+  opacity:.85;
+}
+
+/* Generic menu rows */
+.menu-item{
+  padding:6px 8px;                 /* tighter row padding */
+  gap:8px;
+}
+
+/* Switch rows: narrower icon column + smaller gaps */
+.menu-item.switch{
+  grid-template-columns:24px 1fr max-content; /* was 28px */
+  column-gap:8px;
+}
+
+/* Leading emoji icons */
+.menu-item .mi-icon{
+  font-size:1rem;
+  min-width:24px;
+  text-align:center;
+}
+
+/* Choice button groups (Theme etc.) */
+.menu-choice{ gap:6px; }
+.choice-btn{
+  padding:6px 10px;                /* was ~8/12 */
+  border-radius:10px;
+  font-size:1em;
+}
+.choice-btn .mi-icon{ font-size:1rem; }
+
+/* Vertical radio list (sequences) */
+.menu-choice.vertical .radio-row{
+  padding:6px 8px;
+  gap:8px;
+}
+.menu-choice.vertical input[type="radio"]{
+  margin-right:6px;
+}
+
+/* Inline row actions (Make host / Kick) */
+.row-action{
+  padding:4px 8px;
+  border-radius:10px;
+  gap:6px;
+}
+.row-action .ra-icon{ font-size:1rem; }
+.row-action .ra-label{ font-size:.95em; }
+
+/* Danger CTA (Close room) — keep icon column in sync with compact grid */
+#closeRoomBtn.menu-item.danger{
+  grid-template-columns:24px 1fr;  /* was 28px */
+}
