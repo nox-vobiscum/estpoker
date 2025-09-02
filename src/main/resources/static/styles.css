@@ -382,3 +382,87 @@ body{padding-bottom:68px}.container{padding-bottom:0}
 
 /* Reveal button disabled style */
 .button[disabled]{opacity:.6;cursor:not-allowed;filter:saturate(.8)}
+
+/* ===== Menu: compact sizing & clearer section anchoring ===== */
+.menu-panel{font-size:.88rem}
+.menu-header h3{font-size:1.02rem;margin:6px 8px 6px}
+.section-title{
+  margin:14px 8px 2px;     /* tighter to *its own* content */
+  font-size:.92rem;
+  font-weight:600;
+  letter-spacing:.01em;
+  opacity:.9
+}
+.menu-item{padding:7px 9px}
+.menu-item.switch{grid-template-columns:22px 1fr max-content;column-gap:8px}
+.menu-choice{gap:.45rem}
+.choice-btn{padding:5px 9px}
+.menu-choice.vertical .radio-row{padding:5px 8px}
+
+/* Ensure menu icons (incl. ❌) are always visible, centered and not clipped */
+.menu-item .mi-icon{
+  width:22px; min-width:22px;
+  display:flex; align-items:center; justify-content:center;
+  line-height:1; font-size:16px
+}
+
+/* Close-room CTA with icon column kept */
+#closeRoomBtn.menu-item.danger{
+  grid-template-columns:22px 1fr;
+  background:rgba(255,70,70,.10);
+  border-color:rgba(255,70,70,.25);
+  color:#fecaca
+}
+#closeRoomBtn.menu-item.danger:hover{
+  border-color:rgba(255,70,70,.45);
+  box-shadow:0 0 0 2px rgba(239,68,68,.18)
+}
+#closeRoomBtn .truncate-1{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* Reveal button disabled look (hard mode) */
+.button[disabled]{opacity:.6;cursor:not-allowed;filter:saturate(.85)}
+
+/* iOS/iPhone text inputs: better contrast + unified native appearance reset */
+.join-form input[type="text"],
+.join-form input[type="search"],
+.join-form input[type="email"],
+.join-form input[type="url"],
+.join-form input[type="tel"],
+.join-form input[type="number"],
+#topicInput,
+.topic-input{
+  /* Reset native styling across engines */
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+
+  background-color:var(--surface,#fff);
+  color:var(--text-strong,#111) !important;
+  border:1px solid rgba(0,0,0,.2);
+  padding:.55rem .65rem;
+  border-radius:8px;
+}
+
+.join-form input::placeholder,
+#topicInput::placeholder{
+  color:rgba(0,0,0,.45);
+}
+
+/* Fight Safari autofill light text */
+.join-form input:-webkit-autofill,
+#topicInput:-webkit-autofill{
+  -webkit-text-fill-color:var(--text-strong,#111) !important;
+  transition:background-color 100000s ease-in-out 0s;
+}
+
+/* Dark theme fallback for inputs */
+:root[data-theme="dark"] .join-form input,
+:root[data-theme="dark"] #topicInput{
+  background-color:#111827;
+  color:#e5e7eb !important;
+  border-color:#374151;
+}
+:root[data-theme="dark"] .join-form input::placeholder,
+:root[data-theme="dark"] #topicInput::placeholder{
+  color:#9ca3af;
+}

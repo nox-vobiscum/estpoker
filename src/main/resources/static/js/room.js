@@ -1,8 +1,9 @@
-/* room.js v39 — hard/soft reveal mode (disabled button + tooltip) + specials toggle + host-only topic actions + chip fixes
-   Tweaks:
-   - In hard mode, Reveal is visible but disabled with a localized tooltip until all eligible users voted.
-   - Non-hosts never see Edit/Clear actions for Topic.
-   - Empty vote chip after reveal is gray (non-numeric).
+/* room.js v41 — topic edit stabil; hard/soft reveal disabled+tooltip; specials toggle; host-only actions; chip fix
+   Highlights:
+   - Stable topic UI: never auto-opens; edit only when Host klickt "Edit". Resets on refresh/host transfer.
+   - In hard mode, Reveal bleibt sichtbar aber disabled + Titel-Tooltip, bis alle gewählt haben.
+   - Non-host sieht keine Topic-Edit/Clear-Actions.
+   - Leere Votes zeigen grauen Chip (nicht grün).
 */
 (() => {
   'use strict';
@@ -44,6 +45,9 @@
     // Client-only toggles
     hardMode: false,
     allowSpecials: true,
+
+    // Topic edit state: never auto-open on refresh/host transfer
+    topicEditing: false,
 
     // UI helpers
     _optimisticVote: null,
@@ -136,8 +140,16 @@
         state.sequenceId = m.sequenceId || state.sequenceId;
 
         // host?
+        const wasHost = state.isHost;
         const me = state.participants.find(p => p && p.name === state.youName);
         state.isHost = !!(me && me.isHost);
+        if (!state.isHost) {
+          // Never show edit UI for non-host; also clear any stale edit state on host loss/refresh
+          state.topicEditing = false;
+        } else if (!wasHost && state.isHost) {
+          // Just became host via transfer → do NOT auto-open edit
+          state.topicEditing = false;
+        }
 
         // clear optimistic selection when server confirms our vote
         if (me && me.vote != null) state._optimisticVote = null;
@@ -422,7 +434,7 @@
 
   // --- topic row -------------------------------------------------------------
   function renderTopic() {
-    const row = $('#topicRow');
+    const row  = $('#topicRow');
     const edit = $('#topicEdit');
     const disp = $('#topicDisplay');
 
@@ -436,14 +448,16 @@
       }
     }
 
-    const shouldShow = !!state.topicVisible;
-    if (row) row.style.display = shouldShow ? '' : 'none';
-    if (edit && !shouldShow) edit.style.display = 'none';
-
-    // Enforce host-only visibility for the action buttons
+    // Host-only actions visibility
     const actions = row ? row.querySelector('.topic-actions') : null;
     if (actions) actions.style.display = state.isHost ? '' : 'none';
-    if (edit)     edit.style.display   = (state.isHost && !shouldShow) ? '' : 'none';
+
+    // Never auto-open edit; only show if Host AND explicitly in edit mode
+    const showRow  = !!state.topicVisible;
+    const showEdit = !!(state.isHost && state.topicEditing);
+
+    if (row)  row.style.display  = showRow  ? '' : 'none';
+    if (edit) edit.style.display = showEdit ? '' : 'none';
   }
 
   // --- auto-reveal indicator -------------------------------------------------
@@ -529,25 +543,44 @@
     return Number.isFinite(n) ? n : null;
   }
   function computeOutlierValues(){
-    if (!state.votesRevealed) return new Set();
+  // Only after reveal we consider outliers.
+  if (!state.votesRevealed) return new Set();
 
-    const nums = [];
-    for (const p of state.participants) {
-      if (!p || p.observer || p.disconnected) continue;
-      const n = toNumeric(p.vote);
-      if (n != null) nums.push(n);
-    }
-    if (nums.length < 3) return new Set();
-
-    const avgNum = toNumeric(state.averageVote);
-    if (avgNum == null) return new Set();
-
-    const diffs = nums.map(n => Math.abs(n - avgNum));
-    const maxDev = Math.max(...diffs);
-
-    const EPS = 1e-6;
-    return new Set(nums.filter((n, i) => Math.abs(diffs[i] - maxDev) <= EPS));
+  // Collect numeric votes of eligible participants (no observers / disconnected).
+  const nums = [];
+  for (const p of state.participants) {
+    if (!p || p.observer || p.disconnected) continue;
+    const n = toNumeric(p.vote);
+    if (n != null) nums.push(n);
   }
+
+  // Need at least 3 numeric votes to talk about outliers.
+  if (nums.length < 3) return new Set();
+
+  // If all numeric votes are identical (zero spread), there are no outliers.
+  const min = Math.min(...nums);
+  const max = Math.max(...nums);
+  if (!Number.isFinite(min) || !Number.isFinite(max) || Math.abs(max - min) < 1e-9) {
+    return new Set();
+  }
+
+  // Use distance to average and highlight the farthest values (ties allowed).
+  const avgNum = toNumeric(state.averageVote);
+  if (avgNum == null) return new Set();
+
+  const diffs = nums.map(n => Math.abs(n - avgNum));
+  const maxDev = Math.max(...diffs);
+  const EPS = 1e-6;
+
+  // Zero spread around the mean → no outliers (extra guard).
+  if (maxDev <= EPS) return new Set();
+
+  const out = new Set();
+  nums.forEach((n, i) => {
+    if (Math.abs(diffs[i] - maxDev) <= EPS) out.add(n);
+  });
+  return out;
+}
 
   // ---------- Feedback / copy helpers ---------------------------------------
   function showToast(msg, ms = 2600) {
@@ -626,21 +659,24 @@
     if (editBtn && editBox && row) {
       editBtn.addEventListener('click', () => {
         if (!state.isHost) return;
-        editBox.style.display = '';
-        row.style.display = 'none';
+        state.topicEditing = true;
+        renderTopic();
         if (input) { input.value = state.topicLabel || ''; input.focus(); }
       });
     }
     if (cancelBtn && editBox) {
-      cancelBtn.addEventListener('click', () => { editBox.style.display = 'none'; $('#topicRow').style.display = ''; });
+      cancelBtn.addEventListener('click', () => {
+        state.topicEditing = false;
+        renderTopic();
+      });
     }
     if (saveBtn && input) {
       saveBtn.addEventListener('click', () => {
         if (!state.isHost) return;
         const val = input.value || '';
         send('topicSave:' + encodeURIComponent(val));
-        editBox.style.display = 'none';
-        $('#topicRow').style.display = '';
+        state.topicEditing = false;
+        renderTopic();
       });
     }
     if (clearBtn) {
@@ -648,6 +684,7 @@
         if (!state.isHost) return;
         send('topicSave:' + encodeURIComponent(''));
         state.topicLabel = ''; state.topicUrl = null; state.topicVisible = true;
+        state.topicEditing = false;
         renderTopic(); syncMenuFromState();
       });
     }
@@ -685,7 +722,10 @@
     document.addEventListener('ep:topic-toggle', (ev) => {
       if (!state.isHost) return;
       const on = !!(ev && ev.detail && ev.detail.on);
+      // Closing the topic also closes any edit UI
+      if (!on) state.topicEditing = false;
       send(`topicVisible:${on}`);
+      renderTopic();
     });
 
     document.addEventListener('ep:participation-toggle', (ev) => {
@@ -727,4 +767,6 @@
   function boot(){ wireOnce(); syncHostClass(); connectWS(); }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();
+
+  // --- outlier helpers at the end (kept unchanged) ---------------------------
 })();
