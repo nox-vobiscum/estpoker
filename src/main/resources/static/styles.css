@@ -346,3 +346,7 @@ body{padding-bottom:68px}.container{padding-bottom:0}
   #liveParticipantList .row-right :where(.status-icon,.vote-chip) ~ .row-action:first-of-type{margin-left:auto}
 }
 @media (max-width:600px) and (-webkit-touch-callout:none){#liveParticipantList .row-right{gap:6px}}
+
+/* Clickable topic row (host-only; added via JS with .editable) */
+.topic-row.editable { cursor: pointer; }
+.topic-row.editable:hover { background: rgba(148,163,184,.08); border-radius: 6px; }

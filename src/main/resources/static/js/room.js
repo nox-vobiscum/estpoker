@@ -1,11 +1,15 @@
-/* room.js v37 — tests-aligned averages + host crown class + titles for host/kick
+/* room.js v37 — 15min idle + outlier highlight + native titles for host/kick + copy-link robust
    Notes:
-   - Host crown now uses `.participant-icon.host` with text "👑" (tests rely on it).
-   - Average text is strictly numeric (no "(n/m)" suffix) to pass Playwright checks.
-   - If server provides a non-numeric/null average, we compute it client-side,
-     ignoring specials (❓ 💬 ☕ ∞) and non-participating/disconnected users.
-   - Outlier highlight uses the (server or locally computed) numeric average.
-   - Native title tooltips for "Make host" and "Kick" buttons.
+   - Idle threshold 15 minutes for local "zzz" visibility.
+   - Outlier highlight after reveal (>=3 numeric votes).
+   - Average label long/short variants + consensus label.
+   - Reveal/Reset toggle [hidden] so Playwright "visible" checks behave.
+   - Defer UI switch for reveal to server update (avoid transient "N/A").
+   - Average text appends "(n/m)" (numeric/total submitted).
+   - Special chips (❓ 💬 ☕ ∞) are excluded from numeric calcs.
+   - Sets <html data-ready="1"> after first voteUpdate render.
+   - Native `title` tooltips for "Make host" and "Kick" buttons.
+   - NEW: Topic row (compact view) is clickable to open editor (host-only).
 */
 (() => {
   'use strict';
@@ -14,7 +18,7 @@
   const setText = (sel, v) => { const el = typeof sel === 'string' ? $(sel) : sel; if (el) el.textContent = v ?? ''; };
 
   // --- constants -------------------------------------------------------------
-  const SPECIALS  = ['❓', '💬', '☕'];
+  const SPECIALS  = ['❓','💬','☕'];
   const INFINITY_ = '∞';
   const IDLE_MS_THRESHOLD = 900_000; // 15 minutes
 
@@ -35,7 +39,7 @@
     votesRevealed: false,
     cards: [],
     participants: [],
-    averageVote: null,        // may be number or null from server; we normalize to numeric later
+    averageVote: null,
 
     sequenceId: null,
     topicVisible: true,
@@ -151,7 +155,7 @@
         syncSequenceInMenu();
 
         if (!document.documentElement.hasAttribute('data-ready')) {
-          document.documentElement.setAttribute('data-ready', '1');
+          document.documentElement.setAttribute('data-ready','1');
         }
         break;
       }
@@ -184,7 +188,7 @@
     const ul = $('#liveParticipantList'); if (!ul) return;
     ul.innerHTML = '';
 
-    // Precompute outliers when revealed (uses numeric average if needed)
+    // Precompute outliers when revealed
     const outlierVals = computeOutlierValues();
 
     state.participants.forEach(p => {
@@ -195,8 +199,7 @@
 
       const idle = isIdle(p);
       const left = document.createElement('span');
-      // IMPORTANT: tests look for `.participant-icon.host` with "👑"
-      left.className = 'participant-icon' + (p.isHost ? ' host' : '');
+      left.className = 'participant-icon';
       left.textContent = p.isHost ? '👑' : (idle ? '💤' : '👤');
       li.appendChild(left);
 
@@ -342,37 +345,24 @@
 
   // --- result bar (avg / consensus) -----------------------------------------
   function renderResultBar(m) {
-    // Compute a numeric average if server does not provide one, or provided value is not numeric.
+    const eligible = state.participants.filter(p => p && !p.observer && !p.disconnected);
+    const submitted = eligible.filter(p => p.vote != null && p.vote !== '');
+    const numericCount = submitted.filter(p => toNumeric(p.vote) != null).length;
+
     const avgEl = $('#averageVote');
-
-    // 1) Decide which average to show (server numeric or client-computed)
-    let avgToShow = toNumeric(state.averageVote);
-    if (state.votesRevealed && avgToShow == null) {
-      const computed = computeNumericAverageFromParticipants();
-      if (computed != null) {
-        avgToShow = computed;
-        // Keep state in sync so outlier calc sees a number
-        state.averageVote = computed;
-      }
-    }
-
-    // 2) Render average strictly as a number (tests expect /^\d+([.,]\d+)?$/)
     if (avgEl) {
-      if (avgToShow != null) {
-        // Round to at most 1 decimal (e.g., 4.5) – tests allow integer or decimal
-        const shown = Math.round(avgToShow * 10) / 10;
-        avgEl.textContent = String(shown);
+      if (state.averageVote != null) {
+        const suffix = submitted.length ? ` (${numericCount}/${submitted.length})` : '';
+        avgEl.textContent = String(state.averageVote) + suffix;
       } else {
         avgEl.textContent = 'N/A';
       }
     }
 
-    // 3) Toggle pre/post containers
     const pre  = document.querySelector('.pre-vote');
     const post = document.querySelector('.post-vote');
     if (pre && post) { pre.style.display  = state.votesRevealed ? 'none' : ''; post.style.display = state.votesRevealed ? '' : 'none'; }
 
-    // 4) Consensus / median / range handling (unchanged)
     const medianWrap = $('#medianWrap');
     const rangeWrap  = $('#rangeWrap');
     const rangeSep   = $('#rangeSep');
@@ -415,7 +405,7 @@
 
   // --- topic row -------------------------------------------------------------
   function renderTopic() {
-    const row = $('#topicRow');
+    const row  = $('#topicRow');
     const edit = $('#topicEdit');
     const disp = $('#topicDisplay');
 
@@ -432,6 +422,23 @@
     const shouldShow = !!state.topicVisible;
     if (row) row.style.display = shouldShow ? '' : 'none';
     if (edit && !shouldShow) edit.style.display = 'none';
+
+    // Make compact row clickable for host: native title + ARIA + pointer.
+    if (row) {
+      const isHostNow = !!state.isHost;
+      row.classList.toggle('editable', isHostNow);
+      row.setAttribute('aria-disabled', isHostNow ? 'false' : 'true');
+      if (isHostNow) {
+        const de = (document.documentElement.lang||'en').toLowerCase().startsWith('de');
+        row.setAttribute('title', de ? 'Klicken zum Bearbeiten' : 'Click to edit');
+        row.setAttribute('role', 'button');
+        row.tabIndex = 0;
+      } else {
+        row.removeAttribute('title');
+        row.removeAttribute('role');
+        row.removeAttribute('tabindex');
+      }
+    }
   }
 
   // --- auto-reveal indicator -------------------------------------------------
@@ -485,56 +492,36 @@
   }
 
   // --- global actions --------------------------------------------------------
-    function revealCards(){
+  function revealCards(){
+    // Defer UI switch to server update to avoid showing a transient "N/A" average.
+    // The server will send a voteUpdate with votesRevealed=true and concrete votes/average.
     send('revealCards');
   }
-
   function resetRoom(){  send('resetRoom'); }
   window.revealCards = revealCards;
   window.resetRoom   = resetRoom;
 
-  // ---------- Stats helpers --------------------------------------------------
+  // ---------- Outlier helpers (post-reveal) ----------------------------------
   function toNumeric(v){
     if (v == null) return null;
     const s = String(v).trim();
     if (s === '' || s === INFINITY_ || SPECIALS.includes(s)) return null;
-    // tolerate comma decimal just in case
-    const n = Number(s.replace(',', '.'));
+    const n = Number(s);
     return Number.isFinite(n) ? n : null;
   }
+  function computeOutlierValues(){
+    if (!state.votesRevealed) return new Set();
 
-  function numericVotesFromParticipants(){
     const nums = [];
     for (const p of state.participants) {
       if (!p || p.observer || p.disconnected) continue;
       const n = toNumeric(p.vote);
       if (n != null) nums.push(n);
     }
-    return nums;
-  }
-
-  function computeNumericAverageFromParticipants(){
-    const nums = numericVotesFromParticipants();
-    if (nums.length === 0) return null;
-    const sum = nums.reduce((a,b) => a + b, 0);
-    return sum / nums.length;
-  }
-
-  function computeOutlierValues(){
-    if (!state.votesRevealed) return new Set();
-
-    const nums = numericVotesFromParticipants();
     if (nums.length < 3) return new Set();
 
-    // Prefer numeric state.averageVote; fall back to local compute
-    let avgNum = toNumeric(state.averageVote);
-    if (avgNum == null) {
-      const local = computeNumericAverageFromParticipants();
-      if (local == null) return new Set();
-      avgNum = local;
-      // Keep state in sync so later renders are stable
-      state.averageVote = avgNum;
-    }
+    const avgNum = toNumeric(state.averageVote);
+    if (avgNum == null) return new Set();
 
     const diffs = nums.map(n => Math.abs(n - avgNum));
     const maxDev = Math.max(...diffs);
@@ -609,22 +596,41 @@
     bindCopyLink();
 
     // Topic editor (host-only)
-    const editBtn = $('#topicEditBtn');
+    const editBtn  = $('#topicEditBtn');
     const clearBtn = $('#topicClearBtn');
-    const editBox = $('#topicEdit');
-    const row = $('#topicRow');
-    const input = $('#topicInput');
-    const saveBtn = $('#topicSaveBtn');
-    const cancelBtn = $('#topicCancelBtn');
+    const editBox  = $('#topicEdit');
+    const row      = $('#topicRow');
+    const input    = $('#topicInput');
+    const saveBtn  = $('#topicSaveBtn');
+    const cancelBtn= $('#topicCancelBtn');
+
+    // Centralize "open editor" logic so both button and row use the same behavior.
+    function openTopicEditor() {
+      if (!state.isHost || !editBox || !row) return;
+      editBox.style.display = '';
+      row.style.display = 'none';
+      if (input) { input.value = state.topicLabel || ''; input.focus(); }
+    }
 
     if (editBtn && editBox && row) {
-      editBtn.addEventListener('click', () => {
+      editBtn.addEventListener('click', () => openTopicEditor());
+    }
+
+    // NEW: make compact row clickable (but ignore clicks on links/buttons)
+    if (row) {
+      row.addEventListener('click', (e) => {
         if (!state.isHost) return;
-        editBox.style.display = '';
-        row.style.display = 'none';
-        if (input) { input.value = state.topicLabel || ''; input.focus(); }
+        if (e.target.closest('.topic-actions')) return; // don't hijack action buttons
+        if (e.target.closest('a')) return;              // let links work normally
+        openTopicEditor();
+      });
+      row.addEventListener('keydown', (e) => {
+        if (!state.isHost) return;
+        // Space/Enter open editor (matching role="button")
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openTopicEditor(); }
       });
     }
+
     if (cancelBtn && editBox) {
       cancelBtn.addEventListener('click', () => { editBox.style.display = 'none'; $('#topicRow').style.display = ''; });
     }
