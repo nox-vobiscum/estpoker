@@ -572,3 +572,79 @@ input, textarea{
   -webkit-appearance: none;
   appearance: none;
 }
+
+
+
+
+/* === Inputs: cross-theme baseline (keeps light mode as-is) ================= */
+input[type="text"],
+input[type="search"],
+input[type="email"],
+input[type="url"],
+input[type="password"],
+input[type="number"],
+input[type="tel"],
+textarea,
+select {
+  display: block;
+  width: 100%;
+  padding: .5rem .75rem;
+  border-radius: 10px;
+  border: 1px solid var(--field-border, rgba(0,0,0,.2));
+  background: var(--field-bg, #fff);
+  color: var(--field-fg, inherit);
+  box-shadow: inset 0 1px 0 rgba(0,0,0,.05);
+  transition: background-color .15s, border-color .15s, box-shadow .15s, color .15s;
+  -webkit-appearance: none;
+  appearance: none; /* (lint) add standard alongside vendor-prefixed */
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--field-placeholder, #8b8b8b);
+  opacity: 1;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+  border-color: var(--field-focus, #60a5fa);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--field-focus, #60a5fa) 35%, transparent);
+}
+
+/* Disabled & read-only for clarity */
+input[disabled],
+textarea[disabled],
+select[disabled],
+input[readonly],
+textarea[readonly] {
+  opacity: .7;
+  cursor: not-allowed;
+}
+
+/* === Dark theme tweaks: lighten fields, softer border, accessible text ===== */
+:root[data-theme="dark"] {
+  /* Slightly lifted surface for fields so they stand out on dark backgrounds */
+  --field-bg: #1f2937;            /* slate-800-ish: spürbar heller als Page-Background */
+  --field-border: rgba(255,255,255,.16);
+  --field-fg: #e5e7eb;            /* neutral-200 */
+  --field-placeholder: rgba(255,255,255,.45);
+  --field-focus: #60a5fa;         /* focus blue */
+}
+
+/* Autofill fixes (Safari/Chrome) so the yellow/white autofill bleibt lesbar */
+:root[data-theme="dark"] input:-webkit-autofill,
+:root[data-theme="dark"] textarea:-webkit-autofill,
+:root[data-theme="dark"] select:-webkit-autofill {
+  -webkit-text-fill-color: var(--field-fg);
+  -webkit-box-shadow: 0 0 0 1000px var(--field-bg) inset;
+  transition: background-color 9999s ease-out 0s;
+}
+
+/* iOS Safari tap highlight weniger grell auf dunklem Grund */
+:root[data-theme="dark"] input,
+:root[data-theme="dark"] textarea,
+:root[data-theme="dark"] select {
+  -webkit-tap-highlight-color: rgba(255,255,255,.08);
+}
