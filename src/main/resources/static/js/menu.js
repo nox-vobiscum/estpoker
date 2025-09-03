@@ -1,13 +1,14 @@
-/* menu.js v36 — native titles; i18n; sequence tips; hard/soft toggle; specials toggle
+/* menu.js v37 — native titles; i18n; sequence tips; hard/soft toggle; specials toggle
    Tweaks:
    - Adds native title tooltips for Room/Personal sections and Close-room.
    - Keeps icon for Close-room.
    - Theme persistence: write both 'estpoker-theme' (legacy tests) and 'ep-theme'.
+   - Sequence radios reliably enabled for host (on menu open + body class changes).
 */
 (() => {
   'use strict';
-  window.__epMenuVer = 'v36';
-  console.info('[menu] v36 loaded');
+  window.__epMenuVer = 'v37';
+  console.info('[menu] v37 loaded');
 
   const $  = (s, r = document) => r.querySelector(s);
   const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
@@ -45,6 +46,29 @@
   const getLang = () =>
     (document.documentElement.lang || 'en').toLowerCase().startsWith('de') ? 'de' : 'en';
 
+  /* ---------- Sequence radios enable/disable tied to host state ---------- */
+  function radiosSetEnabled(isHost){
+    if (!seqRoot) return;
+    const inputs = Array.from(seqRoot.querySelectorAll('input[type="radio"][name="menu-seq"]'));
+    inputs.forEach(r => {
+      r.disabled = !isHost; // real enable/disable for interaction
+      const label = r.closest('label');
+      if (label) {
+        label.classList.toggle('disabled', !isHost);
+        if (!isHost) label.setAttribute('aria-disabled', 'true');
+        else label.removeAttribute('aria-disabled');
+      }
+    });
+  }
+  function updateSeqRadiosEnabledFromBody(){
+    const isHost = document.body.classList.contains('is-host');
+    radiosSetEnabled(isHost);
+  }
+  // run once and observe later host/crown changes
+  updateSeqRadiosEnabledFromBody();
+  new MutationObserver(updateSeqRadiosEnabledFromBody)
+    .observe(document.body, { attributes:true, attributeFilter:['class'] });
+
   function setMenuButtonState(open) {
     if (!btnOpen) return;
     btnOpen.textContent = open ? '✕' : '☰';
@@ -75,8 +99,21 @@
     }
   }
 
-  function openMenu(){ if (!overlay) return; overlay.classList.remove('hidden'); overlay.setAttribute('aria-hidden','false'); setMenuButtonState(true); forceRowLayout(); }
-  function closeMenu(){ if (!overlay) return; overlay.classList.add('hidden');    overlay.setAttribute('aria-hidden','true');  setMenuButtonState(false); btnOpen?.focus?.(); }
+  function openMenu(){
+    if (!overlay) return;
+    overlay.classList.remove('hidden');
+    overlay.setAttribute('aria-hidden','false');
+    setMenuButtonState(true);
+    forceRowLayout();
+    updateSeqRadiosEnabledFromBody(); // ensure radios reflect current host state
+  }
+  function closeMenu(){
+    if (!overlay) return;
+    overlay.classList.add('hidden');
+    overlay.setAttribute('aria-hidden','true');
+    setMenuButtonState(false);
+    btnOpen?.focus?.();
+  }
   btnOpen?.addEventListener('click', () => (isMenuOpen() ? closeMenu() : openMenu()));
   backdrop?.addEventListener('click', (e) => { if (e.target.hasAttribute('data-close')) closeMenu(); });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && isMenuOpen()) closeMenu(); });
@@ -147,19 +184,13 @@
       lang : de ? 'Sprache: Deutsch → zu Englisch wechseln'           : 'Language: English → switch to German'
     };
 
-    // language row
     rowLang?.setAttribute('title', T.lang);
-
-    // room section rows
     rowAuto?.setAttribute('title', T.auto);
     rowTopic?.setAttribute('title', T.topic);
     rowSpecials?.setAttribute('title', T.specials);
     rowHard?.setAttribute('title', T.hard);
-
-    // personal section
     rowPart?.setAttribute('title', T.part);
 
-    // close room button
     if (closeBtn) {
       closeBtn.setAttribute('title', T.close);
       closeBtn.setAttribute('aria-label', T.close);
@@ -197,6 +228,7 @@
       setFunctionalTooltips(to);
       setCloseBtnLabel(to);
       forceRowLayout();
+      updateSeqRadiosEnabledFromBody(); // keep radios correct after i18n refresh
 
       setMenuButtonState(isMenuOpen());
     } catch (err) {
@@ -206,6 +238,7 @@
       setFunctionalTooltips(to);
       setCloseBtnLabel(to);
       forceRowLayout();
+      updateSeqRadiosEnabledFromBody();
       setMenuButtonState(isMenuOpen());
     }
   }
@@ -309,11 +342,14 @@
 
   async function initSequenceTooltips() {
     if (!seqRoot) return;
+    // Initial lock until host-state comes in; avoid aria-disabled on INPUT (use only property + label state)
     $$('input[type="radio"][name="menu-seq"]', seqRoot).forEach(r => {
       r.disabled = true;
-      r.setAttribute('aria-disabled', 'true');
-      r.closest('label')?.classList.add('disabled');
-      r.closest('label')?.setAttribute('aria-disabled', 'true');
+      const label = r.closest('label');
+      if (label) {
+        label.classList.add('disabled');
+        label.setAttribute('aria-disabled', 'true');
+      }
     });
 
     const seqMap = await fetchSequences();
@@ -356,6 +392,7 @@
         applyMessages(msgs, document);
         setCloseBtnLabel(lang);
         forceRowLayout();
+        updateSeqRadiosEnabledFromBody();
       } catch (e) {
         console.warn('[menu] initial i18n apply failed', e);
       }

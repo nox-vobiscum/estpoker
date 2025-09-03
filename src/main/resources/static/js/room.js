@@ -211,6 +211,7 @@
       const left = document.createElement('span');
       left.className = 'participant-icon';
       left.textContent = p.isHost ? '👑' : (idle ? '💤' : '👤');
+      if (p.isHost) left.classList.add('host');
       li.appendChild(left);
 
       const name = document.createElement('span');
@@ -532,14 +533,16 @@
 
   // --- global actions --------------------------------------------------------
   function revealCards(){
-    if (state.hardMode && !allEligibleVoted()) {
-      const isDe = (document.documentElement.lang||'en').toLowerCase().startsWith('de');
-      showToast(isDe ? 'Erst aufdecken, wenn alle gewählt haben.' : 'Reveal only after everyone voted.');
-      return;
-    }
-    // Defer UI switch to server update to avoid transient "N/A".
-    send('revealCards');
+  if (state.hardMode && !allEligibleVoted()) {
+    const isDe = (document.documentElement.lang||'en').toLowerCase().startsWith('de');
+    showToast(isDe ? 'Erst aufdecken, wenn alle gewählt haben.' : 'Reveal only after everyone voted.');
+    return;
   }
+  // A small buffer in case the last vote was just sent.
+  const delay = allEligibleVoted() ? 0 : 180; // ms
+  setTimeout(() => send('revealCards'), delay);
+}
+
   function resetRoom(){  send('resetRoom'); }
   window.revealCards = revealCards;
   window.resetRoom   = resetRoom;
