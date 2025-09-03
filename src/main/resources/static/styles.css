@@ -1,9 +1,10 @@
-/* === styles.css v27 — native tooltips only; equal-width result chips; stable close-room tile ===
+/* === styles.css v28 — compact menu, native tooltips, equal-width chips, stable close-room CTA, dark-input fixes ===
    Focus:
-   - No custom tooltip bubble (use native title only)
-   - Switch rows: clear ON/OFF, full-row click
-   - Result chips: same width for numbers & specials, centered text
-   - Close-room tile: fixed grid, icon always visible, 1-line truncation
+   - Keine Custom-Tooltips (nur native title)
+   - Kompaktes Menü (~0.85em), klare Abschnittszuordnung
+   - Result-Chips: gleiche Breite, zentriert
+   - Close-room-Kachel: feste Spalten (Icon bleibt sichtbar)
+   - Inputs im Dark-Mode deutlich erkennbar (ohne Light-Mode zu ändern)
 ============================================================================================== */
 
 /* ---------- Theme tokens (dark default) ---------- */
@@ -28,14 +29,14 @@
   --kick-pill-bg-dark:rgba(239,68,68,.18); --kick-pill-bdr-dark:rgba(239,68,68,.55);
 
   /* switches */
-  --switch-off-track:#586069;     /* darker than panel for clear OFF */
+  --switch-off-track:#586069;
   --switch-off-border:#7a8089;
   --switch-on-track:var(--accent);
   --switch-on-border:var(--accent-strong);
   --switch-knob:#fff;
 
   /* result chips */
-  --vote-chip-width:5ch; /* fits "100", "∞", "XL" etc. */
+  --vote-chip-width:5ch;
 }
 
 :root[data-theme="light"]{
@@ -88,6 +89,10 @@ strong{color:var(--text-strong)}
 .topic-edit{display:grid;grid-template-columns:1fr max-content;gap:8px;align-items:center;margin:1.2rem 0 1rem;padding:8px 10px;background:var(--panel-2);border:1px solid var(--border);border-radius:10px}
 .topic-input{height:36px;border-radius:8px;border:1px solid var(--border);background:var(--panel);color:var(--text);padding:0 .75rem}
 
+/* Host-klickbar (JS setzt .editable nur für Host, wenn gewünscht) */
+.topic-row.editable { cursor: pointer; }
+.topic-row.editable:hover { background: rgba(148,163,184,.08); border-radius: 6px; }
+
 /* ---------- Menu: trigger ---------- */
 .menu-button{
   position:fixed;top:12px;right:12px;z-index:1100;height:40px;width:40px;border:1px solid var(--border);
@@ -103,27 +108,30 @@ strong{color:var(--text-strong)}
 .menu-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.45);backdrop-filter:blur(1px);padding-bottom:env(safe-area-inset-bottom)}
 :root[data-theme="light"] .menu-backdrop{background:rgba(0,0,0,.25)}
 .menu-panel{
-  position:absolute;top:max(12px,env(safe-area-inset-top));right:12px;width:min(440px,calc(100vw - 24px));
+  position:absolute;top:max(12px,env(safe-area-inset-top));right:12px;width:min(92vw,380px);
   max-height:calc(100dvh - (max(12px,env(safe-area-inset-top)) + 12px));overflow-y:auto;overflow-x:hidden;
   background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:16px;box-shadow:0 20px 40px rgba(0,0,0,.35);
-  padding:12px 12px calc(14px + env(safe-area-inset-bottom));animation:slideIn 180ms ease both
+  padding:10px 12px;animation:slideIn 180ms ease both;font-size:.85em
 }
 @keyframes slideIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
 .menu-panel fieldset{border:0;padding:0;margin:0;min-inline-size:auto}
 .menu-header{display:flex;align-items:center;justify-content:space-between;padding:6px 6px 8px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--panel);z-index:20}
-.menu-header h3{margin:0;font-size:1rem;color:var(--text-strong)}
-.menu-section{display:flex;flex-direction:column;gap:10px;padding:8px 4px 10px}
-.section-title{margin:6px 8px 6px;font-weight:600;font-size:.9rem;opacity:.85;color:var(--text-strong)}
+.menu-header h3{margin:4px 0 6px;font-size:1em;color:var(--text-strong)}
+.menu-section{display:flex;flex-direction:column;gap:10px;padding:8px 4px 10px;margin:10px 0}
+.section-title{margin:4px 8px 2px;font-weight:600;font-size:.95em;opacity:.85;color:var(--text-strong)}
 
 /* rows */
 .menu-item{
-  display:grid;grid-template-columns:28px 1fr;align-items:center;gap:12px;padding:10px 12px;border-radius:12px;background:var(--panel-2);
-  border:1px solid var(--border);cursor:pointer;text-align:left;font-size:.9rem;color:var(--text);
+  display:grid;grid-template-columns:28px 1fr;align-items:center;gap:8px;padding:6px 8px;border-radius:12px;background:var(--panel-2);
+  border:1px solid var(--border);cursor:pointer;text-align:left;font-size:1em;color:var(--text);
   transition:background 180ms,border-color 180ms,box-shadow 180ms
 }
 .menu-item:hover{background:var(--panel-2-hover);border-color:var(--accent);box-shadow:0 0 0 2px rgba(0,122,204,.12)}
 .menu-item.disabled{opacity:.55;cursor:not-allowed}
-.menu-item .mi-icon{font-size:18px;line-height:1;font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",system-ui,sans-serif}
+.menu-item .mi-icon{
+  width:24px;min-width:24px;display:flex;align-items:center;justify-content:center;line-height:1;font-size:1rem;
+  font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",system-ui,sans-serif
+}
 
 /* language quick row */
 .lang-inline{display:flex;align-items:center;gap:8px}
@@ -133,15 +141,15 @@ strong{color:var(--text-strong)}
 @supports not (mask-image:linear-gradient(#000,#000)){.flag-split .flag-b{clip-path:polygon(100% 0,100% 100%,0 100%)}}
 
 /* choice pills */
-.menu-choice{display:flex;flex-wrap:wrap;gap:8px}
-.choice-btn{display:flex;align-items:center;gap:8px;justify-content:center;padding:10px 12px;height:34px;border-radius:10px;background:var(--panel-2);border:1px solid var(--border);cursor:pointer;font-size:.9rem;color:var(--text);transition:background 180ms,border-color 180ms,box-shadow 180ms}
-.choice-btn .mi-icon{font-size:18px;line-height:1}
+.menu-choice{display:flex;flex-wrap:wrap;gap:6px}
+.choice-btn{display:flex;align-items:center;gap:8px;justify-content:center;padding:6px 10px;height:34px;border-radius:10px;background:var(--panel-2);border:1px solid var(--border);cursor:pointer;font-size:1em;color:var(--text);transition:background 180ms,border-color 180ms,box-shadow 180ms}
+.choice-btn .mi-icon{font-size:1rem;line-height:1}
 .choice-btn:hover{background:var(--panel-2-hover);border-color:var(--accent);box-shadow:0 0 0 2px rgba(0,122,204,.12)}
 .choice-btn.active,.choice-btn[aria-pressed="true"]{border-color:var(--accent);box-shadow:0 0 0 2px rgba(0,122,204,.20)}
 
 /* sequence radios */
 .menu-choice.vertical{flex-direction:column;gap:6px}
-.radio-row{display:flex;align-items:center;gap:10px;padding:8px 10px;min-height:36px;border-radius:10px;background:var(--panel-2);border:1px solid var(--border);user-select:none;transition:background 180ms,border-color 180ms,box-shadow 180ms;font-size:.9rem;white-space:nowrap;overflow:hidden}
+.radio-row{display:flex;align-items:center;gap:8px;padding:6px 8px;min-height:32px;border-radius:10px;background:var(--panel-2);border:1px solid var(--border);user-select:none;transition:background 180ms,border-color 180ms,box-shadow 180ms;font-size:.98em;white-space:nowrap;overflow:hidden}
 .radio-row input[type="radio"]{width:16px;height:16px;accent-color:var(--accent);margin:0;flex:0 0 auto}
 .radio-row span{min-width:0;overflow:hidden;text-overflow:ellipsis}
 .radio-row:hover{background:var(--panel-2-hover);border-color:var(--accent);box-shadow:0 0 0 2px rgba(0,122,204,.12)}
@@ -149,11 +157,12 @@ strong{color:var(--text-strong)}
 .radio-row:has(input[type="radio"]:checked){border-color:var(--accent);box-shadow:0 0 0 2px rgba(0,122,204,.20);background:color-mix(in srgb,var(--panel-2) 84%, var(--accent) 16%)}
 
 /* switches: full-row grid with visible OFF state */
-.menu-item.switch{grid-template-columns:28px 1fr max-content}
+.menu-item.switch{grid-template-columns:24px 1fr max-content}
 .switch-text{display:flex;gap:6px;align-items:baseline;min-width:0;white-space:nowrap}
 .switch-text strong{max-width:60%;overflow:hidden;text-overflow:ellipsis}
 .switch-control{
-  -webkit-appearance:none;appearance:none;width:42px;height:24px;border-radius:999px;background:var(--switch-off-track);
+  -webkit-appearance:none; appearance:none;
+  width:42px;height:24px;border-radius:999px;background:var(--switch-off-track);
   border:1px solid var(--switch-off-border);position:relative;cursor:pointer;transition:background 160ms,border-color 160ms,box-shadow 160ms
 }
 .switch-control::after{
@@ -167,7 +176,7 @@ strong{color:var(--text-strong)}
 /* Danger CTA: icon + 1-line label (stable ❌) */
 #closeRoomBtn.menu-item.danger{
   display:grid;
-  grid-template-columns:28px 1fr;
+  grid-template-columns:24px 1fr;
   align-items:center;
   background:rgba(255,70,70,.10);
   border-color:rgba(255,70,70,.25);
@@ -195,13 +204,57 @@ strong{color:var(--text-strong)}
 .form-actions .button{width:100%}
 .error{background:#7f1d1d;border:1px solid #b91c1c;color:#fee2e2;padding:12px;border-radius:10px;width:100%;max-width:400px;margin:0 auto 1rem}
 
+/* ---------- Inputs baseline (cross-theme) ---------- */
+input[type="text"],
+input[type="search"],
+input[type="email"],
+input[type="url"],
+input[type="password"],
+input[type="number"],
+input[type="tel"],
+textarea,
+select{
+  display:block;width:100%;padding:.5rem .75rem;border-radius:10px;
+  border:1px solid var(--field-border, rgba(0,0,0,.2));
+  background:var(--field-bg, #fff);
+  color:var(--field-fg, inherit);
+  box-shadow:inset 0 1px 0 rgba(0,0,0,.05);
+  transition:background-color .15s, border-color .15s, box-shadow .15s, color .15s;
+  -webkit-appearance:none; appearance:none; /* (lint) standard + vendor */
+}
+input::placeholder,textarea::placeholder{color:var(--field-placeholder,#8b8b8b);opacity:1}
+input:focus,textarea:focus,select:focus{
+  outline:none;border-color:var(--field-focus,#60a5fa);
+  box-shadow:0 0 0 3px color-mix(in srgb, var(--field-focus,#60a5fa) 35%, transparent);
+}
+/* Disabled/readonly */
+input[disabled],textarea[disabled],select[disabled],
+input[readonly],textarea[readonly]{opacity:.7;cursor:not-allowed}
+
+/* Dark theme: bessere Lesbarkeit */
+:root[data-theme="dark"]{
+  --field-bg:#1f2937;
+  --field-border:rgba(255,255,255,.16);
+  --field-fg:#e5e7eb;
+  --field-placeholder:rgba(255,255,255,.45);
+  --field-focus:#60a5fa;
+}
+:root[data-theme="dark"] input:-webkit-autofill,
+:root[data-theme="dark"] textarea:-webkit-autofill,
+:root[data-theme="dark"] select:-webkit-autofill{
+  -webkit-text-fill-color:var(--field-fg);
+  -webkit-box-shadow:0 0 0 1000px var(--field-bg) inset;
+  transition:background-color 9999s ease-out 0s;
+}
+:root[data-theme="dark"] input,
+:root[data-theme="dark"] textarea,
+:root[data-theme="dark"] select{ -webkit-tap-highlight-color:rgba(255,255,255,.08) }
+
 /* ---------- Buttons ---------- */
 .button{margin-top:1.2rem;height:var(--h-button);padding:0 1.2rem;background:var(--accent);color:#fff;border:none;border-radius:var(--radius);cursor:pointer;font-size:1rem;transition:transform 120ms,filter 180ms,box-shadow 180ms,background 180ms;box-shadow:var(--shadow)}
 .button:hover{background:var(--accent-strong);filter:brightness(1.04)}
 .button:active{transform:translateY(1px) scale(.985)}
-.button:disabled{opacity:.6;cursor:not-allowed}
-@keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-6px)}40%,80%{transform:translateX(6px)}}
-button.shake{animation:shake .4s}
+.button:disabled{opacity:.6;cursor:not-allowed;filter:saturate(.85)}
 
 /* ---------- Cards ---------- */
 .card-grid{display:grid;grid-template-columns:repeat(auto-fit, minmax(var(--card-min-desktop), var(--card-max-desktop)));gap:8px;margin:1rem 0}
@@ -262,7 +315,6 @@ li{margin-bottom:.4rem;line-height:1.5;font-size:1rem}
 .average-label{font-size:.85rem;margin-top:1rem}
 .average-label #averageVote{font-size:.85rem;font-weight:600;opacity:0;animation:avgIn 240ms ease forwards}
 @keyframes avgIn{to{opacity:1}}
-/* Responsive long/short label */
 #resultLabel .label-short{display:none}
 @media (max-width:420px){
   #resultLabel .label-long{display:none}
@@ -309,8 +361,8 @@ li{margin-bottom:.4rem;line-height:1.5;font-size:1rem}
 @media (min-width:700px){#liveParticipantList .participant-row{grid-template-columns:var(--icon-col-width) max(18ch,var(--name-text-col)) 1fr}}
 
 /* ---------- Action pills ---------- */
-.row-action{display:inline-flex;align-items:center;gap:6px;height:28px;padding:6px 10px;border-radius:999px;background:var(--panel-2);border:1px solid var(--border);color:var(--text);cursor:pointer;font-size:.88rem;line-height:1;transition:background 180ms,border-color 180ms,box-shadow 180ms,transform 120ms;-webkit-tap-highlight-color:transparent}
-.row-action .ra-icon{font-size:16px;line-height:1;display:inline-grid;place-items:center;width:1em;height:1em}
+.row-action{display:inline-flex;align-items:center;gap:6px;height:28px;padding:4px 8px;border-radius:10px;background:var(--panel-2);border:1px solid var(--border);color:var(--text);cursor:pointer;font-size:.95em;line-height:1;transition:background 180ms,border-color 180ms,box-shadow 180ms,transform 120ms;-webkit-tap-highlight-color:transparent}
+.row-action .ra-icon{font-size:1rem;line-height:1;display:inline-grid;place-items:center;width:1em;height:1em}
 .row-action:hover{background:var(--panel-2-hover);border-color:var(--accent);box-shadow:0 0 0 2px rgba(0,122,204,.12)}
 .row-action:active{transform:translateY(1px) scale(.98)}
 .row-action:disabled{opacity:.6;cursor:not-allowed}
@@ -346,305 +398,3 @@ body{padding-bottom:68px}.container{padding-bottom:0}
   #liveParticipantList .row-right :where(.status-icon,.vote-chip) ~ .row-action:first-of-type{margin-left:auto}
 }
 @media (max-width:600px) and (-webkit-touch-callout:none){#liveParticipantList .row-right{gap:6px}}
-
-/* Clickable topic row (host-only; added via JS with .editable) */
-.topic-row.editable { cursor: pointer; }
-.topic-row.editable:hover { background: rgba(148,163,184,.08); border-radius: 6px; }
-
-/* ===== Menu compact sizing (overrides) ===== */
-.menu-panel{font-size:.92rem}
-.menu-header h3{font-size:1.05rem;margin:6px 8px 8px}
-.section-title{
-  /* more space from previous section, tighter to its own content */
-  margin:16px 8px 4px;
-  font-size:.96rem;
-  font-weight:600;
-  opacity:.9
-}
-.menu-item{padding:8px 10px}
-.menu-item.switch{grid-template-columns:24px 1fr max-content;column-gap:8px}
-.menu-choice{gap:.5rem}
-.choice-btn{padding:6px 10px}
-.menu-choice.vertical .radio-row{padding:6px 8px}
-
-/* Keep the danger CTA layout tidy (with icon) */
-#closeRoomBtn.menu-item.danger{
-  grid-template-columns:24px 1fr;
-  background:rgba(255,70,70,.10);
-  border-color:rgba(255,70,70,.25);
-  color:#fecaca
-}
-#closeRoomBtn.menu-item.danger:hover{
-  border-color:rgba(255,70,70,.45);
-  box-shadow:0 0 0 2px rgba(239,68,68,.18)
-}
-#closeRoomBtn .truncate-1{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-
-/* Reveal button disabled style */
-.button[disabled]{opacity:.6;cursor:not-allowed;filter:saturate(.8)}
-
-/* ===== Menu: compact sizing & clearer section anchoring ===== */
-.menu-panel{font-size:.88rem}
-.menu-header h3{font-size:1.02rem;margin:6px 8px 6px}
-.section-title{
-  margin:14px 8px 2px;     /* tighter to *its own* content */
-  font-size:.92rem;
-  font-weight:600;
-  letter-spacing:.01em;
-  opacity:.9
-}
-.menu-item{padding:7px 9px}
-.menu-item.switch{grid-template-columns:22px 1fr max-content;column-gap:8px}
-.menu-choice{gap:.45rem}
-.choice-btn{padding:5px 9px}
-.menu-choice.vertical .radio-row{padding:5px 8px}
-
-/* Ensure menu icons (incl. ❌) are always visible, centered and not clipped */
-.menu-item .mi-icon{
-  width:22px; min-width:22px;
-  display:flex; align-items:center; justify-content:center;
-  line-height:1; font-size:16px
-}
-
-/* Close-room CTA with icon column kept */
-#closeRoomBtn.menu-item.danger{
-  grid-template-columns:22px 1fr;
-  background:rgba(255,70,70,.10);
-  border-color:rgba(255,70,70,.25);
-  color:#fecaca
-}
-#closeRoomBtn.menu-item.danger:hover{
-  border-color:rgba(255,70,70,.45);
-  box-shadow:0 0 0 2px rgba(239,68,68,.18)
-}
-#closeRoomBtn .truncate-1{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-
-/* Reveal button disabled look (hard mode) */
-.button[disabled]{opacity:.6;cursor:not-allowed;filter:saturate(.85)}
-
-/* iOS/iPhone text inputs: better contrast + unified native appearance reset */
-.join-form input[type="text"],
-.join-form input[type="search"],
-.join-form input[type="email"],
-.join-form input[type="url"],
-.join-form input[type="tel"],
-.join-form input[type="number"],
-#topicInput,
-.topic-input{
-  /* Reset native styling across engines */
-  appearance: none;
-  -webkit-appearance: none;
-  -moz-appearance: none;
-
-  background-color:var(--surface,#fff);
-  color:var(--text-strong,#111) !important;
-  border:1px solid rgba(0,0,0,.2);
-  padding:.55rem .65rem;
-  border-radius:8px;
-}
-
-.join-form input::placeholder,
-#topicInput::placeholder{
-  color:rgba(0,0,0,.45);
-}
-
-/* Fight Safari autofill light text */
-.join-form input:-webkit-autofill,
-#topicInput:-webkit-autofill{
-  -webkit-text-fill-color:var(--text-strong,#111) !important;
-  transition:background-color 100000s ease-in-out 0s;
-}
-
-/* Dark theme fallback for inputs */
-:root[data-theme="dark"] .join-form input,
-:root[data-theme="dark"] #topicInput{
-  background-color:#111827;
-  color:#e5e7eb !important;
-  border-color:#374151;
-}
-:root[data-theme="dark"] .join-form input::placeholder,
-:root[data-theme="dark"] #topicInput::placeholder{
-  color:#9ca3af;
-}
-
-
-
-
-
-
-/* ===== Menu compact sizing (v3) — paste at end of styles.css ===== */
-
-/* Overall scale + panel width/padding */
-.menu-panel{
-  font-size:.85em;                 /* ~0.8–0.85em overall */
-  width:min(92vw,380px);           /* was ~420px */
-  padding:10px 12px;               /* tighter panel padding */
-}
-
-/* Header/title */
-.menu-header h3{
-  font-size:1em;
-  margin:4px 0 6px;
-}
-
-/* Sections + titles: title should belong to following block */
-.menu-section{ margin:10px 0; }
-.section-title{
-  margin:4px 8px 2px;              /* closer to its section */
-  font-size:.95em;
-  opacity:.85;
-}
-
-/* Generic menu rows */
-.menu-item{
-  padding:6px 8px;                 /* tighter row padding */
-  gap:8px;
-}
-
-/* Switch rows: narrower icon column + smaller gaps */
-.menu-item.switch{
-  grid-template-columns:24px 1fr max-content; /* was 28px */
-  column-gap:8px;
-}
-
-/* Leading emoji icons */
-.menu-item .mi-icon{
-  font-size:1rem;
-  min-width:24px;
-  text-align:center;
-}
-
-/* Choice button groups (Theme etc.) */
-.menu-choice{ gap:6px; }
-.choice-btn{
-  padding:6px 10px;                /* was ~8/12 */
-  border-radius:10px;
-  font-size:1em;
-}
-.choice-btn .mi-icon{ font-size:1rem; }
-
-/* Vertical radio list (sequences) */
-.menu-choice.vertical .radio-row{
-  padding:6px 8px;
-  gap:8px;
-}
-.menu-choice.vertical input[type="radio"]{
-  margin-right:6px;
-}
-
-/* Inline row actions (Make host / Kick) */
-.row-action{
-  padding:4px 8px;
-  border-radius:10px;
-  gap:6px;
-}
-.row-action .ra-icon{ font-size:1rem; }
-.row-action .ra-label{ font-size:.95em; }
-
-/* Danger CTA (Close room) — keep icon column in sync with compact grid */
-#closeRoomBtn.menu-item.danger{
-  grid-template-columns:24px 1fr;  /* was 28px */
-}
-
-
-/* ===== Inputs readability (ensure no white-on-white) ===== */
-input[type="text"],
-input[type="search"],
-input[type="email"],
-input[type="password"],
-textarea,
-.join-form input,
-.topic-input{
-  color: var(--text-strong) !important;       /* readable in both themes */
-  background: var(--bg-elev) !important;      /* your existing elevated/bg token */
-  caret-color: var(--text-strong);
-}
-
-/* Placeholder contrast */
-input::placeholder,
-textarea::placeholder{
-  color: var(--text-muted);
-  opacity: .9;
-}
-
-/* iOS Safari default styling reset helps with odd colors on mobile */
-input, textarea{
-  -webkit-appearance: none;
-  appearance: none;
-}
-
-
-
-
-/* === Inputs: cross-theme baseline (keeps light mode as-is) ================= */
-input[type="text"],
-input[type="search"],
-input[type="email"],
-input[type="url"],
-input[type="password"],
-input[type="number"],
-input[type="tel"],
-textarea,
-select {
-  display: block;
-  width: 100%;
-  padding: .5rem .75rem;
-  border-radius: 10px;
-  border: 1px solid var(--field-border, rgba(0,0,0,.2));
-  background: var(--field-bg, #fff);
-  color: var(--field-fg, inherit);
-  box-shadow: inset 0 1px 0 rgba(0,0,0,.05);
-  transition: background-color .15s, border-color .15s, box-shadow .15s, color .15s;
-  -webkit-appearance: none;
-  appearance: none; /* (lint) add standard alongside vendor-prefixed */
-}
-
-input::placeholder,
-textarea::placeholder {
-  color: var(--field-placeholder, #8b8b8b);
-  opacity: 1;
-}
-
-input:focus,
-textarea:focus,
-select:focus {
-  outline: none;
-  border-color: var(--field-focus, #60a5fa);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--field-focus, #60a5fa) 35%, transparent);
-}
-
-/* Disabled & read-only for clarity */
-input[disabled],
-textarea[disabled],
-select[disabled],
-input[readonly],
-textarea[readonly] {
-  opacity: .7;
-  cursor: not-allowed;
-}
-
-/* === Dark theme tweaks: lighten fields, softer border, accessible text ===== */
-:root[data-theme="dark"] {
-  /* Slightly lifted surface for fields so they stand out on dark backgrounds */
-  --field-bg: #1f2937;            /* slate-800-ish: spürbar heller als Page-Background */
-  --field-border: rgba(255,255,255,.16);
-  --field-fg: #e5e7eb;            /* neutral-200 */
-  --field-placeholder: rgba(255,255,255,.45);
-  --field-focus: #60a5fa;         /* focus blue */
-}
-
-/* Autofill fixes (Safari/Chrome) so the yellow/white autofill bleibt lesbar */
-:root[data-theme="dark"] input:-webkit-autofill,
-:root[data-theme="dark"] textarea:-webkit-autofill,
-:root[data-theme="dark"] select:-webkit-autofill {
-  -webkit-text-fill-color: var(--field-fg);
-  -webkit-box-shadow: 0 0 0 1000px var(--field-bg) inset;
-  transition: background-color 9999s ease-out 0s;
-}
-
-/* iOS Safari tap highlight weniger grell auf dunklem Grund */
-:root[data-theme="dark"] input,
-:root[data-theme="dark"] textarea,
-:root[data-theme="dark"] select {
-  -webkit-tap-highlight-color: rgba(255,255,255,.08);
-}
