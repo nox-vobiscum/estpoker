@@ -1,12 +1,15 @@
-/* menu.js v35 — native titles; i18n; sequence tips; hard/soft toggle; specials toggle
+/* menu.js v36 — native titles; i18n; sequence tips; hard/soft toggle; specials toggle
    Tweaks:
-   - Adds native title tooltips for Room/Personal sections and Close-room.
-   - Keeps icon for Close-room.
+   - Uses localStorage key "estpoker-theme" (matches early theme apply + tests).
+   - Does NOT pre-disable sequence radios here; room.js toggles them based on host role.
+   - Close-room label updates only the text span to preserve the ❌ icon.
 */
 (() => {
   'use strict';
-  window.__epMenuVer = 'v35';
-  console.info('[menu] v35 loaded');
+  window.__epMenuVer = 'v36';
+  console.info('[menu] v36 loaded');
+
+  const THEME_KEY = 'estpoker-theme';
 
   const $  = (s, r = document) => r.querySelector(s);
   const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
@@ -133,7 +136,7 @@
     apply(themeSystem, T.system);
   }
 
-  // NEW: functional row titles (Room/Personal + Close room)
+  // Functional row titles (Room/Personal + Close room)
   function setFunctionalTooltips(code) {
     const de = code === 'de';
     const T = {
@@ -146,34 +149,35 @@
       lang : de ? 'Sprache: Deutsch → zu Englisch wechseln'           : 'Language: English → switch to German'
     };
 
-    // language row
     rowLang?.setAttribute('title', T.lang);
-
-    // room section rows
     rowAuto?.setAttribute('title', T.auto);
     rowTopic?.setAttribute('title', T.topic);
     rowSpecials?.setAttribute('title', T.specials);
     rowHard?.setAttribute('title', T.hard);
-
-    // personal section
     rowPart?.setAttribute('title', T.part);
 
-    // close room button
     if (closeBtn) {
       closeBtn.setAttribute('title', T.close);
       closeBtn.setAttribute('aria-label', T.close);
     }
   }
 
-  // Close-room label stays localized + ellipsis
+  // Close-room label: only update text span; keep icon intact
   function setCloseBtnLabel(code) {
     if (!closeBtn) return;
-    const labelEl = closeBtn.querySelector('.truncate-1') || closeBtn;
-    labelEl.textContent = (code === 'de') ? 'Raum für alle schließen' : 'Close room for everyone';
-    labelEl.classList.add('truncate-1');
-    labelEl.style.whiteSpace = 'nowrap';
-    labelEl.style.overflow = 'hidden';
-    labelEl.style.textOverflow = 'ellipsis';
+    const labelSpan = closeBtn.querySelector('.ra-label') || closeBtn.querySelector('.truncate-1');
+    const text = (code === 'de') ? 'Raum für alle schließen' : 'Close room for everyone';
+    if (labelSpan) {
+      labelSpan.textContent = text;
+      labelSpan.classList.add('truncate-1');
+      labelSpan.style.whiteSpace = 'nowrap';
+      labelSpan.style.overflow = 'hidden';
+      labelSpan.style.textOverflow = 'ellipsis';
+    } else {
+      // Fallback: do not overwrite entire button (to avoid losing ❌); set aria-label/title only
+      closeBtn.setAttribute('aria-label', text);
+      closeBtn.setAttribute('title', text);
+    }
   }
 
   async function switchLanguage(to) {
@@ -182,7 +186,6 @@
       setFlagsFor(to);
       if (langLabel) langLabel.textContent = (to === 'de') ? 'Deutsch' : 'English';
 
-      // immediate native titles/labels
       setThemeTooltips(to);
       setFunctionalTooltips(to);
       setCloseBtnLabel(to);
@@ -191,7 +194,6 @@
       applyMessages(messages, document);
       stripLangParamFromUrl();
 
-      // ensure stability
       setThemeTooltips(to);
       setFunctionalTooltips(to);
       setCloseBtnLabel(to);
@@ -220,7 +222,7 @@
     try {
       if (mode === 'system') document.documentElement.removeAttribute('data-theme');
       else                   document.documentElement.setAttribute('data-theme', mode);
-      localStorage.setItem('ep-theme', mode);
+      localStorage.setItem(THEME_KEY, mode);
       const setPressed = (btn, on) => btn && btn.setAttribute('aria-pressed', on ? 'true' : 'false');
       setPressed(themeLight,  mode === 'light');
       setPressed(themeDark,   mode === 'dark');
@@ -306,13 +308,8 @@
 
   async function initSequenceTooltips() {
     if (!seqRoot) return;
-    $$('input[type="radio"][name="menu-seq"]', seqRoot).forEach(r => {
-      r.disabled = true;
-      r.setAttribute('aria-disabled', 'true');
-      r.closest('label')?.classList.add('disabled');
-      r.closest('label')?.setAttribute('aria-disabled', 'true');
-    });
 
+    // NOTE: no pre-disable here; room.js will toggle disabled based on host role.
     const seqMap = await fetchSequences();
     $$('label.radio-row', seqRoot).forEach(label => {
       const input = $('input[type="radio"]', label);
@@ -333,7 +330,7 @@
 
   /* ---------- init ---------- */
   (function init() {
-    const savedTheme = localStorage.getItem('ep-theme');
+    const savedTheme = localStorage.getItem(THEME_KEY);
     if (savedTheme) applyTheme(savedTheme);
 
     const lang = getLang();

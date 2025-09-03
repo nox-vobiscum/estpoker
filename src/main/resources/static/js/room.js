@@ -1,9 +1,10 @@
-/* room.js v41 — topic edit stabil; hard/soft reveal disabled+tooltip; specials toggle; host-only actions; chip fix
+/* room.js v42 — numeric-only average; topic edit stabil; hard/soft reveal disabled+tooltip; specials toggle; chip fix
    Highlights:
-   - Stable topic UI: never auto-opens; edit only when Host klickt "Edit". Resets on refresh/host transfer.
-   - In hard mode, Reveal bleibt sichtbar aber disabled + Titel-Tooltip, bis alle gewählt haben.
-   - Non-host sieht keine Topic-Edit/Clear-Actions.
-   - Leere Votes zeigen grauen Chip (nicht grün).
+   - Average text is numeric only (counts in title) → tests for /^\d+([.,]\d+)?$/ pass.
+   - Stable topic UI: never auto-opens; edit only when Host clicks "Edit". Resets on refresh/host transfer.
+   - In hard mode, Reveal stays visible but disabled + title tooltip until everyone voted.
+   - Non-host never sees Topic-Edit/Clear actions.
+   - Empty votes show gray chip (not green).
 */
 (() => {
   'use strict';
@@ -209,7 +210,12 @@
       const idle = isIdle(p);
       const left = document.createElement('span');
       left.className = 'participant-icon';
-      left.textContent = p.isHost ? '👑' : (idle ? '💤' : '👤');
+      if (p.isHost) {
+        left.textContent = '👑';
+        left.classList.add('host'); // tests expect .participant-icon.host
+      } else {
+        left.textContent = idle ? '💤' : '👤';
+      }
       li.appendChild(left);
 
       const name = document.createElement('span');
@@ -374,17 +380,21 @@
 
   // --- result bar (avg / consensus) -----------------------------------------
   function renderResultBar(m) {
-    const eligible = state.participants.filter(p => p && !p.observer && !p.disconnected);
+    const eligible  = state.participants.filter(p => p && !p.observer && !p.disconnected);
     const submitted = eligible.filter(p => p.vote != null && p.vote !== '');
     const numericCount = submitted.filter(p => toNumeric(p.vote) != null).length;
 
     const avgEl = $('#averageVote');
     if (avgEl) {
       if (state.averageVote != null) {
-        const suffix = submitted.length ? ` (${numericCount}/${submitted.length})` : '';
-        avgEl.textContent = String(state.averageVote) + suffix;
+        // Text strictly numeric (tests). Put counts in title "(n/m)".
+        avgEl.textContent = String(state.averageVote);
+        const title = submitted.length ? `(${numericCount}/${submitted.length})` : '';
+        if (title) avgEl.setAttribute('title', title);
+        else avgEl.removeAttribute('title');
       } else {
         avgEl.textContent = 'N/A';
+        avgEl.removeAttribute('title');
       }
     }
 
@@ -543,44 +553,44 @@
     return Number.isFinite(n) ? n : null;
   }
   function computeOutlierValues(){
-  // Only after reveal we consider outliers.
-  if (!state.votesRevealed) return new Set();
+    // Only after reveal we consider outliers.
+    if (!state.votesRevealed) return new Set();
 
-  // Collect numeric votes of eligible participants (no observers / disconnected).
-  const nums = [];
-  for (const p of state.participants) {
-    if (!p || p.observer || p.disconnected) continue;
-    const n = toNumeric(p.vote);
-    if (n != null) nums.push(n);
+    // Collect numeric votes of eligible participants (no observers / disconnected).
+    const nums = [];
+    for (const p of state.participants) {
+      if (!p || p.observer || p.disconnected) continue;
+      const n = toNumeric(p.vote);
+      if (n != null) nums.push(n);
+    }
+
+    // Need at least 3 numeric votes to talk about outliers.
+    if (nums.length < 3) return new Set();
+
+    // If all numeric votes are identical (zero spread), there are no outliers.
+    const min = Math.min(...nums);
+    const max = Math.max(...nums);
+    if (!Number.isFinite(min) || !Number.isFinite(max) || Math.abs(max - min) < 1e-9) {
+      return new Set();
+    }
+
+    // Use distance to average and highlight the farthest values (ties allowed).
+    const avgNum = toNumeric(state.averageVote);
+    if (avgNum == null) return new Set();
+
+    const diffs = nums.map(n => Math.abs(n - avgNum));
+    const maxDev = Math.max(...diffs);
+    const EPS = 1e-6;
+
+    // Zero spread around the mean → no outliers (guard).
+    if (maxDev <= EPS) return new Set();
+
+    const out = new Set();
+    nums.forEach((n, i) => {
+      if (Math.abs(diffs[i] - maxDev) <= EPS) out.add(n);
+    });
+    return out;
   }
-
-  // Need at least 3 numeric votes to talk about outliers.
-  if (nums.length < 3) return new Set();
-
-  // If all numeric votes are identical (zero spread), there are no outliers.
-  const min = Math.min(...nums);
-  const max = Math.max(...nums);
-  if (!Number.isFinite(min) || !Number.isFinite(max) || Math.abs(max - min) < 1e-9) {
-    return new Set();
-  }
-
-  // Use distance to average and highlight the farthest values (ties allowed).
-  const avgNum = toNumeric(state.averageVote);
-  if (avgNum == null) return new Set();
-
-  const diffs = nums.map(n => Math.abs(n - avgNum));
-  const maxDev = Math.max(...diffs);
-  const EPS = 1e-6;
-
-  // Zero spread around the mean → no outliers (extra guard).
-  if (maxDev <= EPS) return new Set();
-
-  const out = new Set();
-  nums.forEach((n, i) => {
-    if (Math.abs(diffs[i] - maxDev) <= EPS) out.add(n);
-  });
-  return out;
-}
 
   // ---------- Feedback / copy helpers ---------------------------------------
   function showToast(msg, ms = 2600) {
@@ -768,5 +778,5 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();
 
-  // --- outlier helpers at the end (kept unchanged) ---------------------------
+  // --- outlier helpers at the end (kept) ------------------------------------
 })();
