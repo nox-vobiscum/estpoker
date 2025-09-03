@@ -717,3 +717,24 @@ textarea[readonly] {
 /* Only while the inline input is visible, reorder actions inside .topic-actions */
 .topic-row:has(#topicInputInline:not([style*="display: none"])) .topic-actions #topicSaveInline{ order: 1; }
 .topic-row:has(#topicInputInline:not([style*="display: none"])) .topic-actions #topicClearBtn { order: 2; }
+
+
+
+
+/* Radios in der Sequence-Liste sichtbar halten (ohne Checkboxes zu beeinflussen) */
+#appMenuOverlay #menuSeqChoice input[type="radio"]{
+  -webkit-appearance: auto; /* Safari/iOS */
+  appearance: auto;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--accent);
+  flex: 0 0 auto;
+}
+
+/* (Optionaler Safari-Fallback, nur falls nötig)
+#appMenuOverlay #menuSeqChoice input[type="radio"]{
+  -webkit-appearance: radio;
+  appearance: radio;
+}
+*/
