@@ -10,14 +10,10 @@
           data-i18n-attr="aria-label:ui.menu.open"
           aria-label="Open menu">☰</button>
 
-  <!-- Overlay root (kept data-* for legacy/backward-compat only) -->
+  <!-- Overlay root -->
   <div id="appMenuOverlay"
        class="menu-overlay hidden"
-       aria-hidden="true"
-       data-tipThemeLight="Theme: Light"
-       data-tipThemeDark="Theme: Dark"
-       data-tipThemeSystem="Theme: System"
-       data-tipLangTo="Switch language → {0}">
+       aria-hidden="true">
 
     <div class="menu-backdrop" data-close></div>
 
@@ -36,14 +32,13 @@
       <div class="menu-section">
         <div class="section-title" data-i18n="menu.language">Language</div>
 
-        <!-- One-line language row (clickable) -->
+        <!-- One-line language switch row (shows split flags; tooltip set by JS) -->
         <div id="langRow"
              class="menu-item"
              tabindex="0"
              role="button"
              data-i18n-attr="aria-label:menu.language"
-             aria-label="Language"
-             title="Switch language">
+             aria-label="Language">
           <span class="mi-icon" aria-hidden="true">🌐</span>
           <div class="lang-inline">
             <span class="flag-split" aria-hidden="true">
@@ -63,8 +58,7 @@
                   type="button"
                   class="choice-btn"
                   aria-pressed="false"
-                  data-i18n-attr="aria-label:theme.light"
-                  title="Light theme">
+                  data-i18n-attr="aria-label:theme.light">
             <span class="mi-icon" aria-hidden="true">☀️</span>
             <span data-i18n="theme.light">Light</span>
           </button>
@@ -73,8 +67,7 @@
                   type="button"
                   class="choice-btn"
                   aria-pressed="false"
-                  data-i18n-attr="aria-label:theme.dark"
-                  title="Dark theme">
+                  data-i18n-attr="aria-label:theme.dark">
             <span class="mi-icon" aria-hidden="true">🌙</span>
             <span data-i18n="theme.dark">Dark</span>
           </button>
@@ -83,19 +76,17 @@
                   type="button"
                   class="choice-btn"
                   aria-pressed="false"
-                  data-i18n-attr="aria-label:theme.system"
-                  title="System theme">
+                  data-i18n-attr="aria-label:theme.system">
             <span class="mi-icon" aria-hidden="true">🖥️</span>
             <span data-i18n="theme.system">System</span>
           </button>
         </div>
       </div>
 
-      <!-- Card sequence (room only if showSeq==true) -->
+      <!-- Card sequence -->
       <div class="menu-section" th:if="${showSeq}">
         <div class="section-title" data-i18n="menu.sequence">Card sequence</div>
-
-        <!-- NOTE: menu.js adds native title= previews to each label -->
+        <!-- Label titles for previews are set by menu.js -->
         <fieldset id="menuSeqChoice" class="menu-choice vertical">
           <label class="radio-row">
             <input type="radio" name="menu-seq" value="fib.scrum" checked>
@@ -120,14 +111,13 @@
         </fieldset>
       </div>
 
-      <!-- Room functions (show only if showAuto==true) -->
-      <div class="menu-section" th:if="${showAuto}">
+      <!-- Room functions -->
+      <div class="menu-section" th:if="${showRoom}">
         <div class="section-title" data-i18n="menu.roomFunctions">Room functions</div>
 
         <div class="menu-item switch"
              role="group"
-             id="rowAutoReveal"
-             title="Automatically reveal cards once all estimators voted">
+             id="rowAutoReveal">
           <span class="mi-icon" aria-hidden="true">⚡</span>
           <div class="switch-text">
             <strong data-i18n="menu.autoreveal">Auto-reveal</strong>
@@ -144,8 +134,7 @@
 
         <div class="menu-item switch"
              role="group"
-             id="rowTopic"
-             title="Show or hide the Ticket/Story row for the current round">
+             id="rowTopic">
           <span class="mi-icon" aria-hidden="true">🧾</span>
           <div class="switch-text">
             <strong data-i18n="label.topic">Ticket/Story</strong>
@@ -159,16 +148,52 @@
                  data-i18n-attr="aria-label:label.topic"
                  aria-label="Ticket/Story">
         </div>
+
+        <!-- NEW: Allow special cards toggle -->
+        <div class="menu-item switch"
+             role="group"
+             id="rowSpecials">
+          <span class="mi-icon" aria-hidden="true">🎴</span>
+          <div class="switch-text">
+            <strong data-i18n="menu.specials">Allow special cards</strong>
+            <span id="menuSpecialsStatus" data-i18n="toggle.on">On</span>
+          </div>
+          <input id="menuSpecialsToggle"
+                 class="switch-control"
+                 type="checkbox"
+                 role="switch"
+                 aria-checked="true"
+                 checked
+                 data-i18n-attr="aria-label:menu.specials"
+                 aria-label="Allow special cards">
+        </div>
+
+        <!-- NEW: Hard mode toggle -->
+        <div class="menu-item switch"
+             role="group"
+             id="rowHardMode">
+          <span class="mi-icon" aria-hidden="true">🧱</span>
+          <div class="switch-text">
+            <strong data-i18n="menu.hardmode">Hard mode</strong>
+            <span id="menuHardStatus" data-i18n="toggle.off">Off</span>
+          </div>
+          <input id="menuHardModeToggle"
+                 class="switch-control"
+                 type="checkbox"
+                 role="switch"
+                 aria-checked="false"
+                 data-i18n-attr="aria-label:menu.hardmode"
+                 aria-label="Hard mode">
+        </div>
       </div>
 
-      <!-- Personal functions (room-only; tied to showRoom) -->
-      <div class="menu-section" th:if="${showRoom}">
+      <!-- Personal functions -->
+      <div class="menu-section">
         <div class="section-title" data-i18n="menu.personalFunctions">Personal functions</div>
 
         <div class="menu-item switch"
              role="group"
-             id="rowParticipation"
-             title="Toggle between estimator and observer mode for yourself">
+             id="rowParticipation">
           <span class="mi-icon" aria-hidden="true">🧑‍💻</span>
           <div class="switch-text">
             <strong data-i18n="menu.participation">Participation</strong>
@@ -185,22 +210,21 @@
         </div>
       </div>
 
-      <!-- Close room (room-only; ❌ icon restored) -->
+      <!-- Close room -->
       <div class="menu-section" th:if="${showRoom}">
         <button id="closeRoomBtn"
                 type="button"
                 class="menu-item danger"
-                data-i18n="room.close"
                 data-i18n-attr="aria-label:room.close"
-                title="Closes this room for all participants and returns to the start page.">
+                aria-label="Close room for everyone">
           <span class="mi-icon" aria-hidden="true">❌</span>
-          <span class="truncate-1">Close room for everyone</span>
+          <span class="truncate-1" data-i18n="room.close">Close room for everyone</span>
         </button>
       </div>
 
     </div>
   </div>
 
-  <!-- Load JS (cache-bust; keep in fragment so it’s present where menu is used) -->
-  <script defer src="/js/menu.js?v=27"></script>
+  <!-- Load JS -->
+  <script defer src="/js/menu.js?v=36"></script>
 </th:block>

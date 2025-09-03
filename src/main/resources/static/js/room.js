@@ -1,10 +1,10 @@
-/* room.js v42 — numeric-only average; topic edit stabil; hard/soft reveal disabled+tooltip; specials toggle; chip fix
+/* room.js v42 — topic edit stable; hard/soft reveal gating; specials toggle; host-only actions; numeric-only average
    Highlights:
-   - Average text is numeric only (counts in title) → tests for /^\d+([.,]\d+)?$/ pass.
    - Stable topic UI: never auto-opens; edit only when Host clicks "Edit". Resets on refresh/host transfer.
-   - In hard mode, Reveal stays visible but disabled + title tooltip until everyone voted.
-   - Non-host never sees Topic-Edit/Clear actions.
-   - Empty votes show gray chip (not green).
+   - In hard mode, the Reveal button stays visible for the host but is disabled + title tooltip until everyone voted.
+   - Non-host never sees Topic Edit/Clear actions.
+   - Empty votes show a gray chip (not green).
+   - Average text is numeric-only; (n/m) goes to the title attribute for E2E regex compatibility.
 */
 (() => {
   'use strict';
@@ -210,12 +210,7 @@
       const idle = isIdle(p);
       const left = document.createElement('span');
       left.className = 'participant-icon';
-      if (p.isHost) {
-        left.textContent = '👑';
-        left.classList.add('host'); // tests expect .participant-icon.host
-      } else {
-        left.textContent = idle ? '💤' : '👤';
-      }
+      left.textContent = p.isHost ? '👑' : (idle ? '💤' : '👤');
       li.appendChild(left);
 
       const name = document.createElement('span');
@@ -380,18 +375,24 @@
 
   // --- result bar (avg / consensus) -----------------------------------------
   function renderResultBar(m) {
-    const eligible  = state.participants.filter(p => p && !p.observer && !p.disconnected);
+    const eligible = state.participants.filter(p => p && !p.observer && !p.disconnected);
     const submitted = eligible.filter(p => p.vote != null && p.vote !== '');
     const numericCount = submitted.filter(p => toNumeric(p.vote) != null).length;
 
     const avgEl = $('#averageVote');
+    const isDe = (document.documentElement.lang||'en').toLowerCase().startsWith('de');
     if (avgEl) {
       if (state.averageVote != null) {
-        // Text strictly numeric (tests). Put counts in title "(n/m)".
+        // Show numeric-only text to satisfy test regex; put (n/m) into title.
         avgEl.textContent = String(state.averageVote);
-        const title = submitted.length ? `(${numericCount}/${submitted.length})` : '';
-        if (title) avgEl.setAttribute('title', title);
-        else avgEl.removeAttribute('title');
+        if (submitted.length) {
+          const title = isDe
+            ? `Numerische Stimmen: ${numericCount}/${submitted.length}`
+            : `Numeric votes: ${numericCount}/${submitted.length}`;
+          avgEl.setAttribute('title', title);
+        } else {
+          avgEl.removeAttribute('title');
+        }
       } else {
         avgEl.textContent = 'N/A';
         avgEl.removeAttribute('title');
@@ -407,7 +408,6 @@
     const rangeSep   = $('#rangeSep');
 
     const row = $('#resultRow');
-    const isDe = (document.documentElement.lang||'en').toLowerCase().startsWith('de');
     const avgWrap = document.querySelector('#resultLabel .label-average');
     const consEl  = document.querySelector('#resultLabel .label-consensus');
 
@@ -537,7 +537,7 @@
       showToast(isDe ? 'Erst aufdecken, wenn alle gewählt haben.' : 'Reveal only after everyone voted.');
       return;
     }
-    // Defer UI switch to server update to avoid transient "N/A"
+    // Defer UI switch to server update to avoid transient "N/A".
     send('revealCards');
   }
   function resetRoom(){  send('resetRoom'); }
@@ -552,6 +552,7 @@
     const n = Number(s);
     return Number.isFinite(n) ? n : null;
   }
+
   function computeOutlierValues(){
     // Only after reveal we consider outliers.
     if (!state.votesRevealed) return new Set();
@@ -582,7 +583,7 @@
     const maxDev = Math.max(...diffs);
     const EPS = 1e-6;
 
-    // Zero spread around the mean → no outliers (guard).
+    // Zero spread around the mean → no outliers (extra guard).
     if (maxDev <= EPS) return new Set();
 
     const out = new Set();
@@ -778,5 +779,5 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();
 
-  // --- outlier helpers at the end (kept) ------------------------------------
+  // --- outlier helpers at the end (kept unchanged) ---------------------------
 })();
