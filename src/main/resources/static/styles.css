@@ -29,8 +29,7 @@
   --kick-pill-bg-dark:rgba(239,68,68,.18); --kick-pill-bdr-dark:rgba(239,68,68,.55);
 
   /* switches */
-  --switch-off-track:#586069;     /* darker than panel for clear OFF */
-  --switch-off-border:#7a8089;
+  --switch-off-track:#586069; --switch-off-border:#7a8089;
   --switch-on-track:var(--accent);
   --switch-on-border:var(--accent-strong);
   --switch-knob:#fff;
@@ -152,7 +151,6 @@ strong{color:var(--text-strong)}
 /* switches: full-row grid with visible OFF state */
 .menu-item.switch{grid-template-columns:28px 1fr max-content}
 .switch-text{display:flex;gap:6px;align-items:baseline;min-width:0;white-space:nowrap}
-.switch-text strong{max-width:60%;overflow:hidden;text-overflow:ellipsis}
 .switch-control{
   -webkit-appearance:none;appearance:none;width:42px;height:24px;border-radius:999px;background:var(--switch-off-track);
   border:1px solid var(--switch-off-border);position:relative;cursor:pointer;transition:background 160ms,border-color 160ms,box-shadow 160ms
@@ -714,3 +712,8 @@ textarea[readonly] {
   .btn span{ display:none; }
   .topic-row:has(#topicInputInline:not([style*="display: none"])) .topic-actions{ margin-top: 4px; }
 }
+
+/* === Topic editor cleanup (v1.1) — Save left, Clear right in edit state ==== */
+/* Only while the inline input is visible, reorder actions inside .topic-actions */
+.topic-row:has(#topicInputInline:not([style*="display: none"])) .topic-actions #topicSaveInline{ order: 1; }
+.topic-row:has(#topicInputInline:not([style*="display: none"])) .topic-actions #topicClearBtn { order: 2; }
