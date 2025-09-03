@@ -25,6 +25,7 @@
 
   /* pills (dark) */
   --host-pill-bg-dark:rgba(37,99,235,.18); --host-pill-bdr-dark:rgba(59,130,246,.55);
+
   --kick-pill-bg-dark:rgba(239,68,68,.18); --kick-pill-bdr-dark:rgba(239,68,68,.55);
 
   /* switches */
@@ -638,4 +639,78 @@ textarea[readonly] {
 :root[data-theme="dark"] textarea,
 :root[data-theme="dark"] select {
   -webkit-tap-highlight-color: rgba(255,255,255,.08);
+}
+
+/* === Topic editor cleanup (v1) — minimal CSS-only overrides =================
+   Goals:
+   - Position action buttons bottom-right when inline editor is visible
+   - Hide inline Cancel, keep DOM (test-safe)
+   - Improve dark-mode contrast for topic field & input
+   - Provide consistent .btn styles for JS-injected Save button
+   - Mobile: icon-only labels for compact UI
+============================================================================= */
+
+/* Hide inline Cancel (DOM kept for tests) */
+#topicCancelInline{ display:none !important; }
+
+/* Better input styling for the inline editor */
+.topic-inline-input{
+  height: var(--h-input);
+  width: 100%;
+  padding: 0 .75rem;
+  border-radius: 10px;
+  border: 1px solid var(--field-border, var(--border));
+  background: var(--field-bg, var(--panel));
+  color: var(--field-fg, var(--text));
+}
+
+/* Improve readability of the compact topic display bubble */
+.topic-text{
+  background: var(--field-bg, var(--panel));
+  border-color: var(--field-border, var(--border));
+  color: var(--field-fg, var(--text));
+}
+
+/* When inline input is visible, move actions to bottom-right of the box */
+.topic-row:has(#topicInputInline:not([style*="display: none"])){
+  grid-template-columns: max-content 1fr;
+  grid-template-rows: auto auto;
+  align-items: start;
+}
+.topic-row:has(#topicInputInline:not([style*="display: none"])) .topic-actions{
+  grid-column: 2;
+  grid-row: 2;
+  justify-self: end;
+  align-self: end;
+  margin-top: 6px;
+}
+
+/* Generic pill buttons used by inline Save (JS-injected .btn) */
+.btn{
+  display:inline-flex; align-items:center; gap:6px;
+  height:28px; padding:6px 10px; border-radius:999px;
+  border:1px solid var(--border); background:var(--panel-2); color:var(--text);
+  cursor:pointer; line-height:1; transition:background 180ms,border-color 180ms,box-shadow 180ms,transform 120ms;
+  -webkit-tap-highlight-color:transparent;
+}
+.btn:hover{ background:var(--panel-2-hover); border-color:var(--accent); box-shadow:0 0 0 2px rgba(0,122,204,.12); }
+.btn:active{ transform:translateY(1px) scale(.98); }
+.btn:disabled{ opacity:.6; cursor:not-allowed; }
+
+.btn.primary{ background:var(--accent); border-color:var(--accent-strong); color:#fff; }
+.btn.primary:hover{ background:var(--accent-strong); box-shadow:0 0 0 2px rgba(0,122,204,.18); }
+
+.btn.neutral{ background:var(--panel-2); border-color:var(--border); color:var(--text); }
+
+.btn.danger{
+  background:var(--kick-pill-bg-dark); border-color:var(--kick-pill-bdr-dark); color:#ffe7e7;
+}
+:root[data-theme="light"] .btn.danger{
+  background:var(--kick-pill-bg); border-color:var(--kick-pill-border); color:var(--kick-pill-text);
+}
+
+/* Mobile: icon-only labels for action buttons inside the topic editor */
+@media (max-width:600px){
+  .btn span{ display:none; }
+  .topic-row:has(#topicInputInline:not([style*="display: none"])) .topic-actions{ margin-top: 4px; }
 }
