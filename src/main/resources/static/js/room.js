@@ -434,6 +434,142 @@
   // --- topic row (inline edit) ----------------------------------------------
   function isDe(){ return (document.documentElement.lang || 'en').toLowerCase().startsWith('de'); }
 
+  // NEW: detect compact/mobile context (viewport + touch UA hints)
+  function isMobileCompact(){
+    try {
+      if (window.matchMedia && window.matchMedia('(max-width: 600px)').matches) return true;
+      const ua = navigator.userAgent || '';
+      return /Android|iPhone|iPad|iPod/i.test(ua);
+    } catch { return false; }
+  }
+
+  // NEW: lightweight topic edit dialog (icon-only on mobile); created lazily
+  function ensureTopicDialog(){
+    let dlg = document.querySelector('dialog.ep-topic-dialog');
+    if (dlg) return dlg;
+
+    dlg = document.createElement('dialog');
+    dlg.className = 'ep-topic-dialog';
+    // Minimal inline styling that respects existing CSS vars (no global CSS changes)
+    dlg.setAttribute('style',
+      'padding:12px;border:1px solid var(--border);border-radius:12px;background:var(--panel);color:var(--text);' +
+      'width:min(92vw,480px);max-width:95vw;box-shadow:0 20px 40px rgba(0,0,0,.35)'
+    );
+
+    const wrap = document.createElement('div');
+    wrap.style.display = 'grid';
+    wrap.style.gridTemplateRows = 'auto auto';
+    wrap.style.gap = '10px';
+
+    const title = document.createElement('div');
+    title.textContent = '📝';
+    title.setAttribute('aria-hidden','true');
+    title.style.fontSize = '20px';
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.autocomplete = 'off';
+    input.spellcheck = false;
+    input.placeholder = isDe()
+      ? 'Anforderung kurz beschreiben oder JIRA-Link einfügen'
+      : 'Briefly describe requirement or paste JIRA link';
+    input.value = '';
+    input.setAttribute('style',
+      'height:44px;padding:0 .75rem;border-radius:10px;border:1px solid var(--field-border, var(--border));' +
+      'background:var(--field-bg, var(--panel));color:var(--field-fg, var(--text));'
+    );
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); doSave(); }
+    });
+
+    const actions = document.createElement('div');
+    actions.style.display = 'flex';
+    actions.style.gap = '8px';
+    actions.style.justifyContent = 'flex-end';
+
+    const mkBtn = (labelEmoji, aria, onClick) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = labelEmoji;  // icon-only; visible text stays out of i18n files
+      b.setAttribute('aria-label', aria);
+      b.style.height = '36px';
+      b.style.width  = '44px';
+      b.style.borderRadius = '10px';
+      b.style.border = '1px solid var(--border)';
+      b.style.background = 'var(--panel-2)';
+      b.style.color = 'var(--text)';
+      b.style.cursor = 'pointer';
+      b.addEventListener('click', onClick);
+      return b;
+    };
+
+    // actions
+    const doSave = () => {
+      const val = input.value || '';
+      send('topicSave:' + encodeURIComponent(val));
+      try { dlg.close(); } catch {}
+    };
+    const doClear = () => {
+      const ok = confirm(isDe() ? 'Feld wirklich leeren?' : 'Clear the field?');
+      if (!ok) return;
+      send('topicSave:' + encodeURIComponent(''));
+      try { dlg.close(); } catch {}
+    };
+    const doCancel = () => { try { dlg.close(); } catch {} };
+
+    const saveBtn   = mkBtn('💾', isDe() ? 'Speichern' : 'Save',   doSave);
+    const clearBtn  = mkBtn('🧹', isDe() ? 'Feld leeren' : 'Clear field', doClear);
+    const cancelBtn = mkBtn('✖',  isDe() ? 'Abbrechen' : 'Cancel', doCancel);
+
+    // Order: Save (left) — Clear (right)
+    actions.appendChild(saveBtn);
+    actions.appendChild(clearBtn);
+    actions.appendChild(cancelBtn);
+
+    wrap.appendChild(title);
+    wrap.appendChild(input);
+    wrap.appendChild(actions);
+    dlg.appendChild(wrap);
+
+    document.body.appendChild(dlg);
+
+    // Expose handles on element for reuse
+    dlg._input = input;
+    dlg._save  = saveBtn;
+    dlg._clear = clearBtn;
+
+    return dlg;
+  }
+
+  // NEW: open dialog or fallback to prompt
+  function showTopicDialog(){
+    try {
+      const dlg = ensureTopicDialog();
+      dlg._input.value = state.topicLabel || '';
+      // Keep placeholder current per language
+      dlg._input.placeholder = isDe()
+        ? 'Anforderung kurz beschreiben oder JIRA-Link einfügen'
+        : 'Briefly describe requirement or paste JIRA link';
+
+      if (typeof dlg.showModal === 'function') {
+        dlg.showModal();
+        setTimeout(() => { try { dlg._input.focus(); } catch {} }, 0);
+      } else {
+        // Fallback: native prompt (OK=Save, Cancel=abort; empty string clears)
+        const v = prompt(
+          isDe() ? 'Ticket/Topic bearbeiten:' : 'Edit ticket/topic:',
+          state.topicLabel || ''
+        );
+        if (v === null) return;
+        send('topicSave:' + encodeURIComponent(v));
+      }
+    } catch (e) {
+      console.warn(TAG, 'dialog failed, falling back to inline', e);
+      state.topicEditing = true;
+      renderTopic();
+    }
+  }
+
   function ensureInlineTopicControls() {
     const row = $('#topicRow'); if (!row) return;
 
@@ -717,7 +853,7 @@
   function wireOnce() {
     bindCopyLink();
 
-    // Inline topic editor (host-only)
+    // Inline + Mobile dialog topic editor (host-only)
     {
       const row      = $('#topicRow');
       const disp     = $('#topicDisplay');
@@ -729,20 +865,29 @@
       const saveBtn   = $('#topicSaveInline');
       const cancelBtn = $('#topicCancelInline');
 
+      // unified begin-edit entry: inline on desktop, dialog on mobile
+      function beginTopicEdit(){
+        if (!state.isHost) return;
+        if (isMobileCompact()) {
+          showTopicDialog();
+        } else {
+          state.topicEditing = true;
+          renderTopic();
+        }
+      }
+
       if (row) {
         row.addEventListener('click', (e) => {
           if (!state.isHost || state.topicLabel || state.topicEditing) return;
           if (e.target.closest('button,a,input')) return;
-          state.topicEditing = true;
-          renderTopic();
+          beginTopicEdit();
         });
       }
 
       if (editBtn) {
         editBtn.addEventListener('click', () => {
           if (!state.isHost) return;
-          state.topicEditing = true;
-          renderTopic();
+          beginTopicEdit();
         });
       }
       if (cancelBtn) {
