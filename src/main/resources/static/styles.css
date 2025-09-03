@@ -130,7 +130,7 @@ strong{color:var(--text-strong)}
 .flag-split{position:relative;display:inline-block;width:24px;height:16px;overflow:hidden;border-radius:3px;border:1px solid var(--border)}
 .flag-split .flag{position:absolute;inset:-.5px;width:calc(100% + 1px);height:calc(100% + 1px);object-fit:cover}
 .flag-split .flag-b{z-index:1;-webkit-mask-image:linear-gradient(135deg,transparent 49.5%,black 50%);mask-image:linear-gradient(135deg,transparent 49.5%,black 50%)}
-@supports not (mask-image:linear-gradient(#000,#000)){.flag-split .flag-b{clip-path:polygon(100% 0,100% 100%,0 100%)}}
+@supports not (mask-image:linear-gradient(#000,#000)){.flag-split .flag-b{clip-path:polygon(100% 0,100% 100%,0 100%)}
 
 /* choice pills */
 .menu-choice{display:flex;flex-wrap:wrap;gap:8px}
@@ -560,10 +560,24 @@ textarea::placeholder{
   opacity: .9;
 }
 
-/* iOS Safari default styling reset helps with odd colors on mobile */
-input, textarea{
+/* iOS Safari default styling reset helps with odd colors on mobile
+   ⚠️ Limit to *text-like* controls; keep radio/checkbox native */
+input[type="text"],
+input[type="search"],
+input[type="email"],
+input[type="url"],
+input[type="password"],
+input[type="number"],
+input[type="tel"],
+textarea{
   -webkit-appearance: none;
   appearance: none;
+}
+/* Ensure radios/checkboxes keep their native look */
+input[type="radio"],
+input[type="checkbox"]{
+  -webkit-appearance: auto;
+  appearance: auto;
 }
 
 /* === Inputs: cross-theme baseline (keeps light mode as-is) ================= */
