@@ -1,10 +1,10 @@
-/* room.js v42 — topic edit stable; hard/soft reveal gating; specials toggle; host-only actions; numeric-only average
+/* room.js v42 — inline topic edit; hard/soft reveal disabled+tooltip; specials toggle; host-only actions; chip/outlier fixes
    Highlights:
-   - Stable topic UI: never auto-opens; edit only when Host clicks "Edit". Resets on refresh/host transfer.
-   - In hard mode, the Reveal button stays visible for the host but is disabled + title tooltip until everyone voted.
-   - Non-host never sees Topic Edit/Clear actions.
-   - Empty votes show a gray chip (not green).
-   - Average text is numeric-only; (n/m) goes to the title attribute for E2E regex compatibility.
+   - Topic edit is inline: the input replaces the display in the same row while editing.
+   - Host can click the (empty) topic row to start editing; when a link/text exists, only the Edit button starts edit mode.
+   - In hard mode, Reveal stays visible but disabled with a tooltip until everyone voted.
+   - Non-host never sees Topic edit/clear actions.
+   - Empty votes render a grey/special chip (not green).
 */
 (() => {
   'use strict';
@@ -145,11 +145,9 @@
         const me = state.participants.find(p => p && p.name === state.youName);
         state.isHost = !!(me && me.isHost);
         if (!state.isHost) {
-          // Never show edit UI for non-host; also clear any stale edit state on host loss/refresh
           state.topicEditing = false;
         } else if (!wasHost && state.isHost) {
-          // Just became host via transfer → do NOT auto-open edit
-          state.topicEditing = false;
+          state.topicEditing = false; // do not auto-open after transfer
         }
 
         // clear optimistic selection when server confirms our vote
@@ -211,7 +209,6 @@
       const left = document.createElement('span');
       left.className = 'participant-icon';
       left.textContent = p.isHost ? '👑' : (idle ? '💤' : '👤');
-      if (p.isHost) left.classList.add('host');
       li.appendChild(left);
 
       const name = document.createElement('span');
@@ -381,22 +378,12 @@
     const numericCount = submitted.filter(p => toNumeric(p.vote) != null).length;
 
     const avgEl = $('#averageVote');
-    const isDe = (document.documentElement.lang||'en').toLowerCase().startsWith('de');
     if (avgEl) {
       if (state.averageVote != null) {
-        // Show numeric-only text to satisfy test regex; put (n/m) into title.
-        avgEl.textContent = String(state.averageVote);
-        if (submitted.length) {
-          const title = isDe
-            ? `Numerische Stimmen: ${numericCount}/${submitted.length}`
-            : `Numeric votes: ${numericCount}/${submitted.length}`;
-          avgEl.setAttribute('title', title);
-        } else {
-          avgEl.removeAttribute('title');
-        }
+        const suffix = submitted.length ? ` (${numericCount}/${submitted.length})` : '';
+        avgEl.textContent = String(state.averageVote) + suffix;
       } else {
         avgEl.textContent = 'N/A';
-        avgEl.removeAttribute('title');
       }
     }
 
@@ -409,6 +396,7 @@
     const rangeSep   = $('#rangeSep');
 
     const row = $('#resultRow');
+    const isDe = (document.documentElement.lang||'en').toLowerCase().startsWith('de');
     const avgWrap = document.querySelector('#resultLabel .label-average');
     const consEl  = document.querySelector('#resultLabel .label-consensus');
 
@@ -443,32 +431,113 @@
     }
   }
 
-  // --- topic row -------------------------------------------------------------
-  function renderTopic() {
-    const row  = $('#topicRow');
-    const edit = $('#topicEdit');
-    const disp = $('#topicDisplay');
+  // --- topic row (inline edit) ----------------------------------------------
+  function isDe(){ return (document.documentElement.lang || 'en').toLowerCase().startsWith('de'); }
 
-    if (disp) {
-      if (state.topicLabel && state.topicUrl) {
-        disp.innerHTML = `<a href="${encodeURI(state.topicUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(state.topicLabel)}</a>`;
-      } else if (state.topicLabel) {
-        disp.textContent = state.topicLabel;
-      } else {
-        disp.textContent = '—';
-      }
+  function ensureInlineTopicControls() {
+    const row = $('#topicRow'); if (!row) return;
+
+    // create inline input once
+    if (!$('#topicInputInline')) {
+      const input = document.createElement('input');
+      input.id = 'topicInputInline';
+      input.type = 'text';
+      input.className = 'topic-inline-input';
+      input.style.gridColumn = '2';
+      input.placeholder = isDe()
+        ? 'Anforderung kurz beschreiben oder JIRA-Link einfügen'
+        : 'Briefly describe requirement or paste JIRA link';
+      input.autocomplete = 'off';
+      input.spellcheck = false;
+      row.appendChild(input);
     }
 
-    // Host-only actions visibility
-    const actions = row ? row.querySelector('.topic-actions') : null;
+    // ensure save/cancel exist inside actions
+    const actions = row.querySelector('.topic-actions');
+    if (actions && !$('#topicSaveInline')) {
+      const mkBtn = (id, cls, html, title) => {
+        const b = document.createElement('button');
+        b.id = id; b.type = 'button';
+        b.className = `btn ${cls}`;
+        b.innerHTML = html;
+        if (title) b.setAttribute('title', title);
+        return b;
+      };
+      const saveTxt = isDe() ? 'Speichern' : 'Save';
+      const cancTxt = isDe() ? 'Abbrechen' : 'Cancel';
+      actions.appendChild(mkBtn('topicSaveInline', 'primary', `💾 <span>${saveTxt}</span>`, saveTxt));
+      actions.appendChild(mkBtn('topicCancelInline', 'neutral', `✖ <span>${cancTxt}</span>`, cancTxt));
+
+      // normalize existing Edit / Clear into buttons with unified style
+      const editBtn = $('#topicEditBtn');
+      const clrBtn  = $('#topicClearBtn');
+      if (editBtn) {
+        editBtn.classList.add('btn','neutral');
+        editBtn.innerHTML = (isDe()? '✏️ <span>Bearbeiten</span>' : '✏️ <span>Edit</span>');
+      }
+      if (clrBtn) {
+        clrBtn.classList.add('btn','danger');
+        clrBtn.innerHTML = (isDe()? '🧹 <span>Feld leeren</span>' : '🧹 <span>Clear field</span>');
+      }
+    }
+  }
+
+  function renderTopic() {
+    const row  = $('#topicRow');
+    const disp = $('#topicDisplay');
+    if (!row || !disp) return;
+
+    ensureInlineTopicControls();
+
+    const input     = $('#topicInputInline');
+    const actions   = row.querySelector('.topic-actions');
+    const editBtn   = $('#topicEditBtn');
+    const clearBtn  = $('#topicClearBtn');
+    const saveBtn   = $('#topicSaveInline');
+    const cancelBtn = $('#topicCancelInline');
+
+    // display content
+    if (state.topicLabel && state.topicUrl) {
+      disp.innerHTML = `<a href="${encodeURI(state.topicUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(state.topicLabel)}</a>`;
+    } else if (state.topicLabel) {
+      disp.textContent = state.topicLabel;
+    } else {
+      disp.textContent = '–';
+    }
+
+    // host-only actions
     if (actions) actions.style.display = state.isHost ? '' : 'none';
 
-    // Never auto-open edit; only show if Host AND explicitly in edit mode
-    const showRow  = !!state.topicVisible;
-    const showEdit = !!(state.isHost && state.topicEditing);
+    // row clickability (only empty topic & not editing)
+    const canClickToEdit = !!(state.isHost && !state.topicLabel && !state.topicEditing);
+    row.classList.toggle('editable', canClickToEdit);
 
-    if (row)  row.style.display  = showRow  ? '' : 'none';
-    if (edit) edit.style.display = showEdit ? '' : 'none';
+    // show/hide
+    const showRow  = !!state.topicVisible;
+    const editing  = !!(state.isHost && state.topicEditing);
+    row.style.display = showRow ? '' : 'none';
+
+    if (input) {
+      input.placeholder = isDe()
+        ? 'Anforderung kurz beschreiben oder JIRA-Link einfügen'
+        : 'Briefly describe requirement or paste JIRA link';
+    }
+
+    if (editing) {
+      if (input) { input.value = state.topicLabel || ''; input.style.display = ''; input.focus(); }
+      disp.style.display = 'none';
+      if (editBtn)   editBtn.style.display = 'none';
+      if (clearBtn)  clearBtn.style.display = '';
+      if (saveBtn)   saveBtn.style.display  = '';
+      if (cancelBtn) cancelBtn.style.display = '';
+    } else {
+      if (input) input.style.display = 'none';
+      disp.style.display = '';
+      if (editBtn)   editBtn.style.display = state.isHost ? '' : 'none';
+      if (clearBtn)  clearBtn.style.display = (state.isHost && state.topicLabel) ? '' : 'none';
+      if (saveBtn)   saveBtn.style.display  = 'none';
+      if (cancelBtn) cancelBtn.style.display = 'none';
+    }
   }
 
   // --- auto-reveal indicator -------------------------------------------------
@@ -533,16 +602,14 @@
 
   // --- global actions --------------------------------------------------------
   function revealCards(){
-  if (state.hardMode && !allEligibleVoted()) {
-    const isDe = (document.documentElement.lang||'en').toLowerCase().startsWith('de');
-    showToast(isDe ? 'Erst aufdecken, wenn alle gewählt haben.' : 'Reveal only after everyone voted.');
-    return;
+    if (state.hardMode && !allEligibleVoted()) {
+      const isDe = (document.documentElement.lang||'en').toLowerCase().startsWith('de');
+      showToast(isDe ? 'Erst aufdecken, wenn alle gewählt haben.' : 'Reveal only after everyone voted.');
+      return;
+    }
+    // Defer UI switch to server update to avoid transient "N/A"
+    send('revealCards');
   }
-  // A small buffer in case the last vote was just sent.
-  const delay = allEligibleVoted() ? 0 : 180; // ms
-  setTimeout(() => send('revealCards'), delay);
-}
-
   function resetRoom(){  send('resetRoom'); }
   window.revealCards = revealCards;
   window.resetRoom   = resetRoom;
@@ -555,44 +622,33 @@
     const n = Number(s);
     return Number.isFinite(n) ? n : null;
   }
-
   function computeOutlierValues(){
-    // Only after reveal we consider outliers.
     if (!state.votesRevealed) return new Set();
 
-    // Collect numeric votes of eligible participants (no observers / disconnected).
     const nums = [];
     for (const p of state.participants) {
       if (!p || p.observer || p.disconnected) continue;
       const n = toNumeric(p.vote);
       if (n != null) nums.push(n);
     }
-
-    // Need at least 3 numeric votes to talk about outliers.
     if (nums.length < 3) return new Set();
 
-    // If all numeric votes are identical (zero spread), there are no outliers.
     const min = Math.min(...nums);
     const max = Math.max(...nums);
     if (!Number.isFinite(min) || !Number.isFinite(max) || Math.abs(max - min) < 1e-9) {
       return new Set();
     }
 
-    // Use distance to average and highlight the farthest values (ties allowed).
     const avgNum = toNumeric(state.averageVote);
     if (avgNum == null) return new Set();
 
     const diffs = nums.map(n => Math.abs(n - avgNum));
     const maxDev = Math.max(...diffs);
     const EPS = 1e-6;
-
-    // Zero spread around the mean → no outliers (extra guard).
     if (maxDev <= EPS) return new Set();
 
     const out = new Set();
-    nums.forEach((n, i) => {
-      if (Math.abs(diffs[i] - maxDev) <= EPS) out.add(n);
-    });
+    nums.forEach((n, i) => { if (Math.abs(diffs[i] - maxDev) <= EPS) out.add(n); });
     return out;
   }
 
@@ -661,46 +717,58 @@
   function wireOnce() {
     bindCopyLink();
 
-    // Topic editor (host-only; visibility also enforced in renderTopic)
-    const editBtn = $('#topicEditBtn');
-    const clearBtn = $('#topicClearBtn');
-    const editBox = $('#topicEdit');
-    const row = $('#topicRow');
-    const input = $('#topicInput');
-    const saveBtn = $('#topicSaveBtn');
-    const cancelBtn = $('#topicCancelBtn');
+    // Inline topic editor (host-only)
+    {
+      const row      = $('#topicRow');
+      const disp     = $('#topicDisplay');
+      const editBtn  = $('#topicEditBtn');
+      const clearBtn = $('#topicClearBtn');
 
-    if (editBtn && editBox && row) {
-      editBtn.addEventListener('click', () => {
-        if (!state.isHost) return;
-        state.topicEditing = true;
-        renderTopic();
-        if (input) { input.value = state.topicLabel || ''; input.focus(); }
-      });
-    }
-    if (cancelBtn && editBox) {
-      cancelBtn.addEventListener('click', () => {
-        state.topicEditing = false;
-        renderTopic();
-      });
-    }
-    if (saveBtn && input) {
-      saveBtn.addEventListener('click', () => {
-        if (!state.isHost) return;
-        const val = input.value || '';
-        send('topicSave:' + encodeURIComponent(val));
-        state.topicEditing = false;
-        renderTopic();
-      });
-    }
-    if (clearBtn) {
-      clearBtn.addEventListener('click', () => {
-        if (!state.isHost) return;
-        send('topicSave:' + encodeURIComponent(''));
-        state.topicLabel = ''; state.topicUrl = null; state.topicVisible = true;
-        state.topicEditing = false;
-        renderTopic(); syncMenuFromState();
-      });
+      ensureInlineTopicControls();
+      const input     = $('#topicInputInline');
+      const saveBtn   = $('#topicSaveInline');
+      const cancelBtn = $('#topicCancelInline');
+
+      if (row) {
+        row.addEventListener('click', (e) => {
+          if (!state.isHost || state.topicLabel || state.topicEditing) return;
+          if (e.target.closest('button,a,input')) return;
+          state.topicEditing = true;
+          renderTopic();
+        });
+      }
+
+      if (editBtn) {
+        editBtn.addEventListener('click', () => {
+          if (!state.isHost) return;
+          state.topicEditing = true;
+          renderTopic();
+        });
+      }
+      if (cancelBtn) {
+        cancelBtn.addEventListener('click', () => {
+          state.topicEditing = false;
+          renderTopic();
+        });
+      }
+      if (saveBtn) {
+        saveBtn.addEventListener('click', () => {
+          if (!state.isHost || !input) return;
+          const val = input.value || '';
+          send('topicSave:' + encodeURIComponent(val));
+          state.topicEditing = false;
+          renderTopic();
+        });
+      }
+      if (clearBtn) {
+        clearBtn.addEventListener('click', () => {
+          if (!state.isHost) return;
+          send('topicSave:' + encodeURIComponent(''));
+          state.topicLabel = ''; state.topicUrl = null; state.topicVisible = true;
+          state.topicEditing = false;
+          renderTopic(); syncMenuFromState();
+        });
+      }
     }
 
     // auto-reveal toggle (pre-vote panel)
@@ -736,7 +804,6 @@
     document.addEventListener('ep:topic-toggle', (ev) => {
       if (!state.isHost) return;
       const on = !!(ev && ev.detail && ev.detail.on);
-      // Closing the topic also closes any edit UI
       if (!on) state.topicEditing = false;
       send(`topicVisible:${on}`);
       renderTopic();
@@ -782,5 +849,5 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();
 
-  // --- outlier helpers at the end (kept unchanged) ---------------------------
+  // --- end -------------------------------------------------------------------
 })();
