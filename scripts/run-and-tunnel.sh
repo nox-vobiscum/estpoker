@@ -1,190 +1,179 @@
 #!/usr/bin/env bash
-# Purpose: Start Spring Boot locally, wait until reachable, then start a Cloudflare Quick Tunnel.
-# Extras (feature flags):
-#   OPEN_QR=1         # open QR code in default browser (default 1)
-#   OPEN_DESKTOP=0    # open tunnel URL in desktop browser (default 0)
-#   COPY_CLIPBOARD=0  # copy tunnel URL to clipboard (default 0)
-#
-# Usage (Git Bash on Windows):
-#   APP_BUILD="v0.8.0 ($(date +%F), $(git rev-parse --short HEAD))" \
-#   OPEN_QR=1 OPEN_DESKTOP=0 COPY_CLIPBOARD=0 \
-#   bash scripts/run-and-tunnel.sh
-#
-# Notes:
-# - English-only comments.
-# - Minimal changes, single-responsibility helper.
-
 set -euo pipefail
 
-# ------------------------- config --------------------------------------------
+# ───────────────────────────────
+# run-and-tunnel.sh (Windows Git-Bash friendly)
+# - Starts Spring Boot locally
+# - Launches Cloudflare Quick Tunnel via scripts/tunnel.sh
+# - Waits for DNS + HTTP readiness (no PowerShell; nslookup/ping only)
+# - Optionally opens QR code, browser, clipboard
+# ───────────────────────────────
 
-APP_URL="${APP_URL:-http://localhost:8080}"
-MVN_CMD="${MVN_CMD:-./mvnw spring-boot:run}"
-TUNNEL_SCRIPT="${TUNNEL_SCRIPT:-scripts/tunnel.sh}"
+# ---------- Config via env ----------
+APP_BUILD="${APP_BUILD:-dev}"
+PORT="${PORT:-8080}"
+LOCAL_URL="http://localhost:${PORT}"
 
-# Feature flags (defaults for your workflow: QR yes, others no)
+# UX toggles (defaults: QR yes; desktop/browser and clipboard off)
 OPEN_QR="${OPEN_QR:-1}"
 OPEN_DESKTOP="${OPEN_DESKTOP:-0}"
 COPY_CLIPBOARD="${COPY_CLIPBOARD:-0}"
 
-# ------------------------- helpers -------------------------------------------
+# Timeouts / limits
+APP_WAIT_SEC="${APP_WAIT_SEC:-60}"
+DNS_WAIT_TRIES="${DNS_WAIT_TRIES:-60}"
+HTTP_WAIT_TRIES="${HTTP_WAIT_TRIES:-20}"   # with backoff up to ~2 min
 
-log() { printf "%s\n" "$*"; }
+# ---------- Logging helpers ----------
+log(){ printf '%s\n' "$*" >&2; }
+ok(){  log "✅ $*"; }
+warn(){ log "⚠️  $*"; }
+err(){ log "🛑 $*"; }
 
-open_url() {
-  local u="$1"
-  if command -v powershell.exe >/dev/null 2>&1; then
-    powershell.exe -NoProfile -Command "Start-Process '$u'" >/dev/null 2>&1 || true
-    return 0
-  fi
-  if command -v cmd.exe >/dev/null 2>&1; then
-    cmd.exe /C start "" "$u" >/dev/null 2>&1 || true
-    return 0
-  fi
-  if command -v rundll32.exe >/dev/null 2>&1; then
-    rundll32.exe url.dll,FileProtocolHandler "$u" >/dev/null 2>&1 || true
-    return 0
-  fi
-  if command -v xdg-open >/dev/null 2>&1; then
-    xdg-open "$u" >/dev/null 2>&1 || true
-    return 0
-  fi
-  return 1
-}
-
-copy_clip() {
-  if command -v clip.exe >/dev/null 2>&1; then
-    printf "%s" "$1" | clip.exe >/dev/null 2>&1 || true
-  fi
-}
-
-wait_http_ok() {
-  # Poll quietly until URL returns HTTP 2xx/3xx (curl -f fails on 4xx/5xx).
-  local url="$1" tries="${2:-60}"
-  log "⏳ Waiting HTTP 200 on ${url} …"
-  for _ in $(seq 1 "$tries"); do
-    if curl -fs -o /dev/null "$url" >/dev/null 2>&1; then
-      return 0
-    fi
-    sleep 1
-  done
-  return 1
-}
-
-wait_dns() {
-  # Wait until the hostname resolves (quiet). 1/sec, bounded.
-  local host="$1" tries="${2:-60}"
-  log "⏳ Waiting DNS for ${host} …"
-  for _ in $(seq 1 "$tries"); do
-    if command -v powershell.exe >/dev/null 2>&1; then
-      # Resolve-DnsName returns nonzero on failure; we suppress output.
-      powershell.exe -NoProfile -Command ^
-        "[bool](Resolve-DnsName -Name '$host' -ErrorAction SilentlyContinue)" \
-        >/dev/null 2>&1 && return 0
-    fi
-    if command -v nslookup >/dev/null 2>&1; then
-      nslookup "$host" >/dev/null 2>&1 && return 0
-    fi
-    # ping works on both Win ( -n 1 ) and Unix ( -c 1 )
-    ping -n 1 "$host" >/dev/null 2>&1 && return 0 || true
-    ping -c 1 "$host" >/dev/null 2>&1 && return 0 || true
-    sleep 1
-  done
-  return 1
-}
-
-# ------------------------- lifecycle -----------------------------------------
-
+# ---------- Cleanup on exit ----------
 APP_PID=""
 TUNNEL_PID=""
-CF_LOG="${TMPDIR:-/tmp}/cf_tunnel_${RANDOM}$$.log"
-
-cleanup() {
-  if [ -n "${TUNNEL_PID}" ] && kill -0 "${TUNNEL_PID}" 2>/dev/null; then
+cleanup(){
+  if [[ -n "${TUNNEL_PID}" ]] && kill -0 "${TUNNEL_PID}" 2>/dev/null; then
     kill "${TUNNEL_PID}" 2>/dev/null || true
   fi
-  if [ -n "${APP_PID}" ] && kill -0 "${APP_PID}" 2>/dev/null; then
-    log "🛑 Stopping app (PID ${APP_PID})…"
+  if [[ -n "${APP_PID}" ]] && kill -0 "${APP_PID}" 2>/dev/null; then
+    mvn -q -DskipTests spring-boot:stop >/dev/null 2>&1 || true
     kill "${APP_PID}" 2>/dev/null || true
   fi
 }
-trap cleanup INT TERM
+trap cleanup EXIT INT TERM
 
-# ------------------------- 1) start app --------------------------------------
+# ---------- Wait for local app ----------
+wait_local(){
+  log "⏳ Waiting for ${LOCAL_URL} to respond…"
+  local t=0
+  until curl -fsS --max-time 2 "${LOCAL_URL}" >/dev/null 2>&1; do
+    sleep 1
+    t=$((t+1))
+    if (( t >= APP_WAIT_SEC )); then
+      err "App did not become ready on ${LOCAL_URL} within ${APP_WAIT_SEC}s"
+      return 1
+    fi
+  done
+  ok "App is reachable."
+}
 
-log "🚀 Starting app: ${MVN_CMD}"
-${MVN_CMD} &
+# ---------- DNS wait without PowerShell ----------
+wait_dns(){
+  # Wait until hostname resolves. Use nslookup or ping; no PowerShell, no noise.
+  local host="$1" tries="${2:-$DNS_WAIT_TRIES}"
+  log "⏳ Waiting DNS for ${host} …"
+  for _ in $(seq 1 "${tries}"); do
+    if command -v nslookup >/dev/null 2>&1; then
+      nslookup "${host}" >/dev/null 2>&1 && return 0
+    fi
+    # Windows ping uses -n, Unix ping uses -c — try both quietly
+    ping -n 1 "${host}" >/dev/null 2>&1 && return 0 || true
+    ping -c 1 "${host}" >/dev/null 2>&1 && return 0 || true
+    sleep 1
+  done
+  return 1
+}
+
+# ---------- HTTP wait with gentle backoff ----------
+wait_http(){
+  local url="$1" tries="${2:-$HTTP_WAIT_TRIES}"
+  log "⏳ Waiting HTTP 200 on ${url} …"
+  local i=1
+  while (( i <= tries )); do
+    if curl -fsS --max-time 3 -o /dev/null "${url}"; then
+      ok "Tunnel is serving HTTP 200."
+      return 0
+    fi
+    # backoff: 1,2,3,… max 10s
+    local sleep_s="$i"; (( sleep_s > 10 )) && sleep_s=10
+    sleep "${sleep_s}"
+    i=$((i+1))
+  done
+  return 1
+}
+
+# ---------- Open helpers (Windows-friendly) ----------
+open_url(){
+  local url="$1"
+  # Git-Bash: try powershell; fallback to 'cmd /c start'
+  if command -v powershell.exe >/dev/null 2>&1; then
+    powershell.exe -NoProfile -Command "Start-Process '$url'" >/dev/null 2>&1 || true
+  else
+    cmd.exe /c start "" "$url" >/dev/null 2>&1 || true
+  fi
+}
+
+copy_clip(){
+  local text="$1"
+  if command -v clip.exe >/dev/null 2>&1; then
+    printf '%s' "$text" | clip.exe
+    ok "URL copied to clipboard."
+  else
+    warn "clip.exe not found; cannot copy to clipboard."
+  fi
+}
+
+# ---------- Start app ----------
+log "🚀 Starting app: ./mvnw spring-boot:run"
+APP_BUILD="${APP_BUILD}" ./mvnw -q spring-boot:run &
 APP_PID=$!
 
-if ! wait_http_ok "${APP_URL}" 120; then
-  log "❌ App did not become reachable at ${APP_URL}."
-  cleanup
-  exit 1
-fi
-log "✅ App is reachable."
+wait_local || { err "Stopping app (PID ${APP_PID})…"; exit 1; }
 
-# ------------------------- 2) start tunnel -----------------------------------
-
-if [ ! -x "${TUNNEL_SCRIPT}" ]; then
-  log "⚠️  Tunnel script not found or not executable: ${TUNNEL_SCRIPT}"
-  log "    Tip: run 'chmod +x ${TUNNEL_SCRIPT}'"
-fi
-
-log "🔌 Starting tunnel via ${TUNNEL_SCRIPT} …"
-: > "${CF_LOG}"
-( bash "${TUNNEL_SCRIPT}" 2>&1 | tee -a "${CF_LOG}" ) &
+# ---------- Start tunnel (background) ----------
+log "🔌 Starting tunnel via scripts/tunnel.sh …"
+# We tee to a temp log to parse the URL
+TUN_LOG="$(mktemp -t tunnel.log.XXXXXX)"
+bash scripts/tunnel.sh | tee "${TUN_LOG}" &
 TUNNEL_PID=$!
 
-# ------------------------- 3) extract URL + wait DNS + HTTP ------------------
-
+# ---------- Extract trycloudflare URL from tunnel output ----------
 TUNNEL_URL=""
+# Wait up to 60s to detect the URL from log
 for _ in $(seq 1 60); do
-  if grep -Eq 'https://[a-z0-9-]+\.trycloudflare\.com' "${CF_LOG}"; then
-    TUNNEL_URL="$(grep -Eo 'https://[a-z0-9-]+\.trycloudflare\.com' "${CF_LOG}" | head -n1)"
+  if grep -Eo 'https://[a-z0-9-]+\.trycloudflare\.com' "${TUN_LOG}" >/dev/null 2>&1; then
+    TUNNEL_URL="$(grep -Eo 'https://[a-z0-9-]+\.trycloudflare\.com' "${TUN_LOG}" | tail -n1)"
     break
   fi
-  sleep 0.5
+  sleep 1
 done
 
-if [ -n "${TUNNEL_URL}" ]; then
-  log "🌐 Tunnel URL detected: ${TUNNEL_URL}"
-
-  # 3a) Wait for DNS to resolve before hitting HTTP (prevents noisy curl errors)
-  TUNNEL_HOST="${TUNNEL_URL#https://}"; TUNNEL_HOST="${TUNNEL_HOST%%/*}"
-  if wait_dns "${TUNNEL_HOST}" 90; then
-    # 3b) One quiet HTTP readiness loop (bounded)
-    if wait_http_ok "${TUNNEL_URL}" 60; then
-      log "✅ Tunnel is live."
-    else
-      log "⚠️  Tunnel URL did not return HTTP 200 in time (may still warm up)."
-    fi
-  else
-    log "⚠️  DNS did not resolve in time for ${TUNNEL_HOST}."
-  fi
-
-  if [ "${COPY_CLIPBOARD}" = "1" ]; then
-    copy_clip "${TUNNEL_URL}" || true
-    log "📋 Copied URL to clipboard."
-  fi
-
-  if [ "${OPEN_QR}" = "1" ]; then
-    QR_URL="https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=${TUNNEL_URL}"
-    if open_url "${QR_URL}"; then
-      log "📱 Opened QR code in your default browser. Scan with iPhone."
-    else
-      log "⚠️  Could not auto-open QR code. QR link: ${QR_URL}"
-    fi
-  fi
-
-  if [ "${OPEN_DESKTOP}" = "1" ]; then
-    open_url "${TUNNEL_URL}" || true
-  fi
-else
-  log "⚠️  Could not detect tunnel URL yet. Tunnel may still be starting."
-  log "    Tip: run 'cloudflared tunnel --url http://localhost:8080' in PowerShell to verify."
+if [[ -z "${TUNNEL_URL}" ]]; then
+  err "Failed to detect tunnel URL from scripts/tunnel.sh output."
+  exit 1
 fi
 
-# ------------------------- 4) wait/hold --------------------------------------
+log "🌐 Tunnel URL detected: ${TUNNEL_URL}"
+
+# ---------- DNS & HTTP readiness ----------
+TUN_HOST="${TUNNEL_URL#https://}"
+if ! wait_dns "${TUN_HOST}"; then
+  warn "Tunnel hostname did not resolve in time; continuing anyway."
+fi
+
+if ! wait_http "${TUNNEL_URL}"; then
+  warn "Tunnel URL did not return HTTP 200 in time (may still warm up)."
+fi
+
+# ---------- Post-actions ----------
+if [[ "${OPEN_DESKTOP}" == "1" ]]; then
+  open_url "${TUNNEL_URL}"
+  ok "Opened tunnel URL in your default browser."
+fi
+
+if [[ "${COPY_CLIPBOARD}" == "1" ]]; then
+  copy_clip "${TUNNEL_URL}"
+fi
+
+if [[ "${OPEN_QR}" == "1" ]]; then
+  # Simple QR: open a QR image in the default browser
+  QR_URL="https://api.qrserver.com/v1/create-qr-code/?data=$(printf '%s' "${TUNNEL_URL}" | sed 's/%/%25/g' | sed 's/ /%20/g')&size=320x320"
+  open_url "${QR_URL}"
+  log "📱 Opened QR code in your default browser. Scan with iPhone."
+fi
 
 log "   (Press Ctrl+C to stop the tunnel and the app)"
+# Keep script alive while child processes run
 wait
