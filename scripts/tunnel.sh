@@ -6,7 +6,9 @@
 set -euo pipefail
 
 PORT="${1:-8080}"
-BIN_DIR="scripts/bin"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BIN_DIR="${SCRIPT_DIR}/bin"
+
 
 # Detect Windows Git Bash / MSYS / MINGW
 uname_s="$(uname -s || echo "")"
