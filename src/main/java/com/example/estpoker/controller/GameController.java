@@ -29,6 +29,22 @@ public class GameController {
         return "index";
     }
 
+    /**
+     * Minimal view route for the invitation page.
+     * Keeps behavior unchanged elsewhere; if a roomCode is provided via query param,
+     * pass it to the view so the hidden field and heading work.
+     */
+    @GetMapping("/invite")
+    public String invite(
+            @RequestParam(name = "roomCode", required = false) String roomCode,
+            Model model) {
+        String rCode = safeTrim(roomCode);
+        if (!rCode.isEmpty()) {
+            model.addAttribute("roomCode", rCode);
+        }
+        return "invite";
+    }
+
     @PostMapping("/join")
     public String joinRoom(@RequestParam String participantName,
                            @RequestParam String roomCode,
@@ -36,7 +52,7 @@ public class GameController {
                            @RequestParam(required = false, defaultValue = "false") boolean testRoom,
                            Model model) {
 
-        // Trim und "effectively final" Variablen
+        // Trim and keep variables effectively final
         final String pName = safeTrim(participantName);
         final String requestedRoomName = safeTrim(roomCode);
 
@@ -51,11 +67,11 @@ public class GameController {
 
         String effectiveRoomCode = requestedRoomName;
 
-        // Persistente Räume nur, wenn Flag aktiv UND Checkbox gesetzt
+        // Persistent rooms only if feature flag enabled AND checkbox set
         if (persistent && persistenceEnabled) {
             Optional<PersistentRoom> existing = persistentRooms.findByNameIgnoreCase(requestedRoomName);
             PersistentRoom pr = existing.orElseGet(() -> {
-                // Öffentlicher Konstruktor mit Name – @PrePersist setzt id/createdAt/lastActiveAt
+                // Public constructor with name – @PrePersist sets id/createdAt/lastActiveAt
                 PersistentRoom r = new PersistentRoom(requestedRoomName);
                 r.setTestRoom(testRoom);
                 r.setLastActiveAt(Instant.now());
@@ -65,11 +81,11 @@ public class GameController {
             effectiveRoomCode = pr.getId();
         }
 
-        // Model für room.html
+        // Model for room.html
         model.addAttribute("participantName", pName);
         model.addAttribute("roomCode", effectiveRoomCode);
 
-        // Kartenreihen (per th:each)
+        // Card rows (rendered via th:each)
         model.addAttribute("cardsRow1", new String[]{"1", "2", "3", "5"});
         model.addAttribute("cardsRow2", new String[]{"8", "13", "20", "40"});
         model.addAttribute("cardsRow3", new String[]{"❓", "💬", "☕"});
@@ -78,7 +94,7 @@ public class GameController {
                 + "&participantName=" + org.springframework.web.util.UriUtils.encodeQueryParam(pName, java.nio.charset.StandardCharsets.UTF_8);
     }
 
-    // --- Hilfsfunktionen ---
+    // --- helpers ---
     private static String safeTrim(String s) {
         return (s == null) ? "" : s.trim();
     }
@@ -92,23 +108,23 @@ public class GameController {
         String rCode = safeTrim(roomCode);
         String pName = safeTrim(participantName);
 
-        // Ohne Room → zurück zur Startseite
+        // No room → back to landing
         if (rCode.isEmpty()) {
             model.addAttribute("error", "Missing room or participant");
             return "index";
         }
 
-        // Deep-Link ohne participantName → Invite-Seite anzeigen
+        // Deep-link without participantName → show invite page
         if (pName.isEmpty()) {
             model.addAttribute("roomCode", rCode);
             return "invite";
         }
 
-        // Mit beiden Parametern → direkt ins Spiel
+        // With both params → go straight to the room
         model.addAttribute("participantName", pName);
         model.addAttribute("roomCode", rCode);
 
-        // Gleiche Kartenreihen wie in POST /join
+        // Same card rows as POST /join
         model.addAttribute("cardsRow1", new String[]{"1", "2", "3", "5"});
         model.addAttribute("cardsRow2", new String[]{"8", "13", "20", "40"});
         model.addAttribute("cardsRow3", new String[]{"❓", "💬", "☕"});
