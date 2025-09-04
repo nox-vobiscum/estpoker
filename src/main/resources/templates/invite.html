@@ -3,36 +3,39 @@
 <head th:replace="~{fragments/head :: head}"></head>
 <body>
 
-<!-- ZENTRALES MENÜ (minimal auf Invite) -->
-<div th:replace="~{fragments/menu :: appMenu(showSeq=${false}, showAuto=${false}, showRoom=${false})}"></div>
+  <!-- App menu (minimal on invite) -->
+  <div th:replace="~{fragments/menu :: appMenu(showSeq=${false}, showAuto=${false}, showRoom=${false})}"></div>
 
-<div class="container landing-container">
-  <h1 class="app-title">
-    <img src="/favicon.svg" alt="" width="24" height="24" class="logo">
-    <span th:text="#{ui.heading}">RBS' Estimation Poker</span>
-  </h1>
+  <!-- Use 'rc' as a safe roomCode (model or query param) -->
+  <div class="container landing-container" th:with="rc=${roomCode != null ? roomCode : param.roomCode}">
+    <h1 class="app-title">
+      <img src="/favicon.svg" alt="" width="24" height="24" class="logo">
+      <span th:text="#{ui.heading}">RBS' Estimation Poker</span>
+    </h1>
 
-  <p class="hint" th:utext="${#messages.msg('invite.heading', roomCode)}">
-    You’ve been invited to room <strong>demo</strong>.
-  </p>
+    <!-- Message with 1 parameter; allows HTML via utext -->
+    <p class="hint"
+       th:utext="#{invite.heading(${rc})}">
+      You’ve been invited to room <strong>demo</strong>.
+    </p>
 
-  <form th:action="@{/join}" method="post" id="joinForm" class="join-form">
-    <input type="hidden" name="roomCode" th:value="${roomCode}">
-    <div class="form-row">
-      <div class="form-field">
-        <label for="participantName" th:text="#{label.yourName}">Your name</label>
-        <input type="text" id="participantName" name="participantName"
-               th:value="${param.participantName != null ? param.participantName : participantName}">
+    <form th:action="@{/join}" method="post" id="joinForm" class="join-form">
+      <input type="hidden" name="roomCode" th:value="${rc}">
+      <div class="form-row">
+        <div class="form-field">
+          <label for="participantName" th:text="#{label.yourName}">Your name</label>
+          <input type="text" id="participantName" name="participantName"
+                 th:value="${param.participantName != null ? param.participantName : participantName}">
+        </div>
       </div>
-    </div>
-    <div class="form-actions">
-      <button type="submit" class="button" th:text="#{button.join}">Join</button>
-    </div>
-  </form>
-</div>
+      <div class="form-actions">
+        <button type="submit" class="button" th:text="#{button.join}">Join</button>
+      </div>
+    </form>
+  </div>
 
-<!-- Footer include (centralized) -->
-<div th:replace="~{fragments/footer :: footer}"></div>
+  <!-- Footer include (centralized) -->
+  <div th:replace="~{fragments/footer :: footer}"></div>
 
 </body>
 </html>
