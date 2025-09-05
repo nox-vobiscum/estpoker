@@ -100,7 +100,12 @@
     try { s = new WebSocket(u); } catch (e) { console.error(TAG, e); return; }
     state.ws = s;
 
-    s.onopen = () => { state.connected = true; heartbeat(); };
+    s.onopen = () => {
+  state.connected = true;
+  // Always ask server to set (or confirm) our current display name.
+  try { send('rename:' + encodeURIComponent(state.youName)); } catch {}
+  heartbeat();
+};
     s.onclose = (ev) => {
       state.connected = false; stopHeartbeat();
       if (state.hardRedirect) { location.href = state.hardRedirect; return; }
