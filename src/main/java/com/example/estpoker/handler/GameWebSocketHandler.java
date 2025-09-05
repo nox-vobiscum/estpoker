@@ -30,7 +30,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     private final Map<String, Conn> bySession = new ConcurrentHashMap<>();
 
     // Hard host reassignment threshold (align with service grace)
-    private static final long HOST_INACTIVE_MS = 900_000L; // 15 minutes  ← CHANGED
+    private static final long HOST_INACTIVE_MS = 900_000L; // 15 minutes
 
     public GameWebSocketHandler(GameService gameService) {
         this.gameService = gameService;
@@ -91,10 +91,31 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         try {
             // Simple line protocol
             if (payload.startsWith("vote:")) {
-                // vote:<ignoredName>:<val>  – use CID-bound identity for stability
+                // vote:<ignoredName>:<val> — use CID-bound identity for stability
                 String[] parts = payload.split(":", 3);
                 if (parts.length >= 3) {
                     gameService.setVote(roomCode, cid, parts[2]); // server handles auto-reveal check
+                }
+                return;
+            }
+
+            // ---- RENAME (client identity correction, URL bootstrap etc.) ----
+            if (payload.startsWith("rename:")) {
+                String nn = decode(payload.substring("rename:".length()));
+                if (nn != null) nn = nn.trim();
+                if (nn == null || nn.isEmpty()) return;
+
+                // Rejoin binds the same CID to the new display name
+                Room room = gameService.join(roomCode, cid, nn);
+
+                // Update our local session index and tracking
+                bySession.put(session.getId(), new Conn(roomCode, cid, nn));
+                gameService.trackParticipant(session, nn);
+                gameService.sendIdentity(session, nn, cid);
+
+                // Send a targeted snapshot so the client immediately sees themselves renamed
+                try { sendInitialStateSnapshot(session, room, roomCode); } catch (Throwable t) {
+                    log.debug("WS rename snapshot failed: {}", t.toString());
                 }
                 return;
             }
@@ -209,7 +230,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
 
     @Override
     public void handleTransportError(@NonNull WebSocketSession session, @NonNull Throwable exception) {
-        // Log full stacktrace to actually see the root cause (previously only toString()).
+        // Log full stacktrace to actually see the root cause.
         log.error("WS ERROR sid={} uri={} : transport error", session.getId(), safeUri(session), exception);
     }
 
