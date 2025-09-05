@@ -68,6 +68,22 @@
   setText('#youName', state.youName);
   setText('#roomCodeVal', state.roomCode);
 
+  // — Canonicalize current URL (uniform param order, no reload)
+(function canonicalizeRoomUrl() {
+  try {
+    const desiredQs = new URLSearchParams({
+      roomCode: state.roomCode || '',
+      participantName: state.youName || ''
+    }).toString();
+
+    const current = location.search.replace(/^\?/, '');
+    if (current !== desiredQs) {
+      const newUrl = `${location.pathname}?${desiredQs}${location.hash || ''}`;
+      history.replaceState(null, '', newUrl);
+    }
+  } catch {}
+})();
+
   const wsUrl = () => {
     const proto = location.protocol === 'https:' ? 'wss://' : 'ws://';
     return `${proto}${location.host}/gameSocket` +
