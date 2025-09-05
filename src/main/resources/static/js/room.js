@@ -102,7 +102,7 @@
 
     s.onopen = () => {
   state.connected = true;
-  // Always ask server to set (or confirm) our current display name.
+  // Assert your display name on (re)connect
   try { send('rename:' + encodeURIComponent(state.youName)); } catch {}
   heartbeat();
 };
