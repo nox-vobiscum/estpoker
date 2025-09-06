@@ -30,7 +30,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     private final Map<String, Conn> bySession = new ConcurrentHashMap<>();
 
     // Hard host reassignment threshold (align with service grace)
-    private static final long HOST_INACTIVE_MS = 900_000L; // 15 minutes  ← CHANGED
+    private static final long HOST_INACTIVE_MS = 900_000L; // 15 minutes
 
     public GameWebSocketHandler(GameService gameService) {
         this.gameService = gameService;
@@ -41,32 +41,37 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         try {
             Map<String, String> q = parseQuery(session.getUri());
             final String roomCode = q.getOrDefault("roomCode", "demo").trim();
-            final String name     = q.getOrDefault("participantName", "Guest").trim();
+            final String reqName  = q.getOrDefault("participantName", "Guest").trim();
             final String cid      = q.getOrDefault("cid", "cid-" + session.getId()).trim();
 
-            log.info("WS OPEN room={} name={} cid={}", roomCode, name, cid);
+            log.info("WS OPEN room={} requestedName={} cid={}", roomCode, reqName, cid);
 
-            // Join with (roomCode, cid, name)
-            Room room = gameService.join(roomCode, cid, name);
+            // Join (creates participant if needed or reuses by CID)
+            Room room = gameService.join(roomCode, cid, reqName);
 
-            // Track session
+            // Determine the canonical/effective name for this CID after join
+            String effectiveName = gameService.getClientName(roomCode, cid);
+            if (effectiveName == null) {
+                Participant p = room != null ? room.getParticipantByCid(cid).orElse(null) : null;
+                effectiveName = (p != null ? p.getName() : reqName);
+            }
+
+            // Track session with canonical name
             gameService.addSession(session, room);
-            gameService.trackParticipant(session, name);
+            gameService.trackParticipant(session, effectiveName);
+            bySession.put(session.getId(), new Conn(roomCode, cid, effectiveName));
 
-            // Store local index
-            bySession.put(session.getId(), new Conn(roomCode, cid, name));
+            // Tell client the canonical identity (keeps header in sync with server name)
+            gameService.sendIdentity(session, effectiveName, cid);
 
-            // Tell client the canonical identity
-            gameService.sendIdentity(session, name, cid);
-
-            // Ensure the just-joined session receives a full state snapshot.
+            // Try to send an initial snapshot of room state to the just-joined session
             try {
                 sendInitialStateSnapshot(session, room, roomCode);
             } catch (Throwable t) {
-                log.warn("WS INIT snapshot failed (room={}, name={}): {}", roomCode, name, t.toString());
+                log.warn("WS INIT snapshot failed (room={}, name={}): {}", roomCode, effectiveName, t.toString());
             }
 
-            // Note: join() already broadcasts the room state.
+            // Note: join() already broadcasted to the room.
         } catch (Throwable t) {
             log.error("WS afterConnectionEstablished failed (sid={}, uri={})", session.getId(), safeUri(session), t);
             try { session.close(CloseStatus.SERVER_ERROR); } catch (Exception ignore) {}
@@ -84,12 +89,26 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         }
 
         final String roomCode = c.room;
-        final String name     = c.name;
+        final String name     = c.name; // current canonical name for logs
         final String cid      = c.cid;
         final String payload  = message.getPayload();
 
         try {
-            // Simple line protocol
+            // --- simple line protocol ----------------------------------------------------------
+
+            // Assert/Request rename (client sends this on (re)connect and from UI if you add a form later)
+            if (payload.startsWith("rename:")) {
+                String desired = decode(payload.substring("rename:".length()));
+                String eff = gameService.rename(roomCode, cid, desired);
+                if (eff != null) {
+                    // refresh local index and session->name mapping
+                    bySession.put(session.getId(), new Conn(roomCode, cid, eff));
+                    gameService.trackParticipant(session, eff);
+                    gameService.sendIdentity(session, eff, cid); // update header immediately
+                }
+                return;
+            }
+
             if (payload.startsWith("vote:")) {
                 // vote:<ignoredName>:<val>  – use CID-bound identity for stability
                 String[] parts = payload.split(":", 3);
@@ -163,16 +182,13 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                 return;
             }
 
-            // Switch on simple keywords
+            // Keywords
             switch (payload) {
                 case "revealCards" -> gameService.reveal(roomCode);       // broadcasts
                 case "resetRoom"   -> gameService.reset(roomCode);        // broadcasts
                 case "intentionalLeave" -> {
                     // Apply the same 5s grace as a transport close to avoid flapping on quick refresh.
-                    // Keep legacy handler (best-effort), but also schedule the standard graceful disconnect.
-                    try {
-                        gameService.handleIntentionalLeave(roomCode, name); // legacy/best-effort
-                    } catch (Throwable t) {
+                    try { gameService.handleIntentionalLeave(roomCode, name); } catch (Throwable t) {
                         log.debug("handleIntentionalLeave threw (ignored): {}", t.toString());
                     }
                     Room room = gameService.getRoom(roomCode);
@@ -209,7 +225,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
 
     @Override
     public void handleTransportError(@NonNull WebSocketSession session, @NonNull Throwable exception) {
-        // Log full stacktrace to actually see the root cause (previously only toString()).
+        // Log full stacktrace to actually see the root cause.
         log.error("WS ERROR sid={} uri={} : transport error", session.getId(), safeUri(session), exception);
     }
 
