@@ -41,37 +41,41 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         try {
             Map<String, String> q = parseQuery(session.getUri());
             final String roomCode = q.getOrDefault("roomCode", "demo").trim();
-            final String reqName  = q.getOrDefault("participantName", "Guest").trim();
-            final String cid      = q.getOrDefault("cid", "cid-" + session.getId()).trim();
+            final String initialName = q.getOrDefault("participantName", "Guest").trim();
+            final String cid = q.getOrDefault("cid", "cid-" + session.getId()).trim();
 
-            log.info("WS OPEN room={} requestedName={} cid={}", roomCode, reqName, cid);
+            log.info("WS OPEN room={} name={} cid={}", roomCode, initialName, cid);
 
-            // Join (creates participant if needed or reuses by CID)
-            Room room = gameService.join(roomCode, cid, reqName);
+            // Join with (roomCode, cid, name). Service will enforce a unique/canonical name.
+            Room room = gameService.join(roomCode, cid, initialName);
 
-            // Determine the canonical/effective name for this CID after join
-            String effectiveName = gameService.getClientName(roomCode, cid);
-            if (effectiveName == null) {
-                Participant p = room != null ? room.getParticipantByCid(cid).orElse(null) : null;
-                effectiveName = (p != null ? p.getName() : reqName);
-            }
+            // Resolve the canonical display name that was actually assigned to this CID.
+            String canonicalName = null;
+            try {
+                Participant p = room.getParticipantByCid(cid).orElse(null);
+                if (p != null) canonicalName = p.getName();
+                if (canonicalName == null) canonicalName = gameService.getClientName(roomCode, cid);
+            } catch (Throwable ignored) {}
+            if (canonicalName == null) canonicalName = initialName;
 
-            // Track session with canonical name
+            // Track session with the canonical name (so kick/close etc. target the right person).
             gameService.addSession(session, room);
-            gameService.trackParticipant(session, effectiveName);
-            bySession.put(session.getId(), new Conn(roomCode, cid, effectiveName));
+            gameService.trackParticipant(session, canonicalName);
 
-            // Tell client the canonical identity (keeps header in sync with server name)
-            gameService.sendIdentity(session, effectiveName, cid);
+            // Store local index
+            bySession.put(session.getId(), new Conn(roomCode, cid, canonicalName));
 
-            // Try to send an initial snapshot of room state to the just-joined session
+            // Tell client the canonical identity (may differ from requested if collision).
+            gameService.sendIdentity(session, canonicalName, cid);
+
+            // Ensure the just-joined session receives a full state snapshot.
             try {
                 sendInitialStateSnapshot(session, room, roomCode);
             } catch (Throwable t) {
-                log.warn("WS INIT snapshot failed (room={}, name={}): {}", roomCode, effectiveName, t.toString());
+                log.warn("WS INIT snapshot failed (room={}, name={}): {}", roomCode, canonicalName, t.toString());
             }
 
-            // Note: join() already broadcasted to the room.
+            // Note: join() already broadcasts the room state.
         } catch (Throwable t) {
             log.error("WS afterConnectionEstablished failed (sid={}, uri={})", session.getId(), safeUri(session), t);
             try { session.close(CloseStatus.SERVER_ERROR); } catch (Exception ignore) {}
@@ -89,26 +93,30 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         }
 
         final String roomCode = c.room;
-        final String name     = c.name; // current canonical name for logs
         final String cid      = c.cid;
         final String payload  = message.getPayload();
 
         try {
-            // --- simple line protocol ----------------------------------------------------------
-
-            // Assert/Request rename (client sends this on (re)connect and from UI if you add a form later)
+            // ---------------------------------------------------------------------------------
+            // NEW: client-driven rename (CID-bound). Server ensures uniqueness and echoes back.
+            // Format: "rename:<urlEncodedName>"
+            // ---------------------------------------------------------------------------------
             if (payload.startsWith("rename:")) {
-                String desired = decode(payload.substring("rename:".length()));
-                String eff = gameService.rename(roomCode, cid, desired);
-                if (eff != null) {
-                    // refresh local index and session->name mapping
-                    bySession.put(session.getId(), new Conn(roomCode, cid, eff));
-                    gameService.trackParticipant(session, eff);
-                    gameService.sendIdentity(session, eff, cid); // update header immediately
+                String requested = decode(payload.substring("rename:".length()));
+                String finalName = gameService.renameParticipant(roomCode, cid, requested);
+
+                // Update our per-session index and server-side session→participant map.
+                if (finalName != null && !finalName.isBlank()) {
+                    bySession.put(session.getId(), new Conn(roomCode, cid, finalName));
+                    gameService.trackParticipant(session, finalName);
+                    // Send explicit identity confirmation so the client corrects its header if adjusted.
+                    gameService.sendIdentity(session, finalName, cid);
+                    log.debug("WS RENAME ok room={} cid={} {} -> {}", roomCode, cid, c.name, finalName);
                 }
                 return;
             }
 
+            // Simple line protocol
             if (payload.startsWith("vote:")) {
                 // vote:<ignoredName>:<val> — use CID-bound identity for stability
                 String[] parts = payload.split(":", 3);
@@ -140,7 +148,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             }
 
             if (payload.startsWith("topicSave:")) {
-                if (!isHost(roomCode, name)) return;
+                if (!isHost(roomCode, c.name)) return;
                 String text = payload.substring("topicSave:".length());
                 gameService.saveTopic(roomCode, decode(text));     // broadcasts
                 return;
@@ -148,7 +156,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
 
             // LEGACY alias kept for backwards compatibility with older clients
             if (payload.startsWith("topicToggle:")) {
-                if (!isHost(roomCode, name)) return;
+                if (!isHost(roomCode, c.name)) return;
                 boolean on = Boolean.parseBoolean(payload.substring("topicToggle:".length()));
                 log.debug("WS topicToggle -> room={} on={}", roomCode, on);
                 gameService.setTopicEnabled(roomCode, on);         // broadcasts
@@ -157,7 +165,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
 
             // NEW: current clients send "topicVisible:true|false"
             if (payload.startsWith("topicVisible:")) {
-                if (!isHost(roomCode, name)) return;
+                if (!isHost(roomCode, c.name)) return;
                 boolean on = Boolean.parseBoolean(payload.substring("topicVisible:".length()));
                 log.debug("WS topicVisible -> room={} on={}", roomCode, on);
                 gameService.setTopicEnabled(roomCode, on);         // broadcasts
@@ -171,7 +179,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             }
 
             if (payload.startsWith("autoReveal:")) {
-                if (!isHost(roomCode, name)) return;
+                if (!isHost(roomCode, c.name)) return;
                 boolean on = Boolean.parseBoolean(payload.substring("autoReveal:".length()));
                 gameService.setAutoRevealEnabled(roomCode, on);     // broadcasts
                 // If already all votes present, reveal immediately
@@ -182,55 +190,58 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             }
 
             if (payload.startsWith("sequence:")) {
-                if (!isHost(roomCode, name)) return;
+                if (!isHost(roomCode, c.name)) return;
                 String id = decode(payload.substring("sequence:".length()));
                 gameService.setSequence(roomCode, id);              // sets, resets round, broadcasts
                 return;
             }
 
             if (payload.startsWith("makeHost:")) {
-                if (!isHost(roomCode, name)) return;
+                if (!isHost(roomCode, c.name)) return;
                 String target = decode(payload.substring("makeHost:".length()));
                 gameService.makeHost(roomCode, target);             // assigns & broadcasts
                 return;
             }
 
             if (payload.startsWith("kick:")) {
-                if (!isHost(roomCode, name)) return;
+                if (!isHost(roomCode, c.name)) return;
                 String target = decode(payload.substring("kick:".length()));
                 Room room = gameService.getRoom(roomCode);
                 if (room != null) gameService.kickParticipant(room, target);
                 return;
             }
 
-            // Keywords
+            // Switch on simple keywords
             switch (payload) {
                 case "revealCards" -> gameService.reveal(roomCode);       // broadcasts
                 case "resetRoom"   -> gameService.reset(roomCode);        // broadcasts
                 case "intentionalLeave" -> {
                     // Apply the same 5s grace as a transport close to avoid flapping on quick refresh.
-                    try { gameService.handleIntentionalLeave(roomCode, name); } catch (Throwable t) {
+                    // Keep legacy handler (best-effort), but also schedule the standard graceful disconnect.
+                    try {
+                        gameService.handleIntentionalLeave(roomCode, c.name); // legacy/best-effort
+                    } catch (Throwable t) {
                         log.debug("handleIntentionalLeave threw (ignored): {}", t.toString());
                     }
                     Room room = gameService.getRoom(roomCode);
                     if (room != null) {
-                        gameService.scheduleDisconnect(room, name); // service should apply ~5s grace
+                        gameService.scheduleDisconnect(room, c.name); // service should apply ~5s grace
                     }
                 }
                 case "ping"        -> gameService.touch(roomCode, cid);   // CID-based heartbeat
                 case "topicClear"  -> {                                    // host-only
-                    if (!isHost(roomCode, name)) return;
+                    if (!isHost(roomCode, c.name)) return;
                     gameService.clearTopic(roomCode);                     // broadcasts
                 }
                 case "closeRoom"   -> {
                     Room room = gameService.getRoom(roomCode);
                     if (room != null) {
                         Participant host = room.getHost();
-                        boolean isHost = (host != null && Objects.equals(host.getName(), name));
+                        boolean isHost = (host != null && Objects.equals(host.getName(), c.name));
                         if (isHost) {
                             gameService.closeRoom(room);                  // broadcasts + closes sessions
                         } else {
-                            log.warn("closeRoom ignored: {} is not host of {}", name, roomCode);
+                            log.warn("closeRoom ignored: {} is not host of {}", c.name, roomCode);
                         }
                     }
                 }
@@ -238,7 +249,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             }
         } catch (Throwable t) {
             log.error("WS handleTextMessage failed (room={}, name={}, payload='{}')",
-                    roomCode, name, payload, t);
+                    roomCode, c.name, payload, t);
             try { session.close(CloseStatus.SERVER_ERROR); } catch (Exception ignore) {}
             throw t;
         }
@@ -246,7 +257,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
 
     @Override
     public void handleTransportError(@NonNull WebSocketSession session, @NonNull Throwable exception) {
-        // Log full stacktrace to actually see the root cause.
+        // Log full stacktrace to actually see the root cause (previously only toString()).
         log.error("WS ERROR sid={} uri={} : transport error", session.getId(), safeUri(session), exception);
     }
 
@@ -259,21 +270,20 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         }
 
         final String roomCode = c.room;
-        final String name     = c.name;
 
         log.info("WS CLOSE room={} name={} cid={} code={} reason={}",
-                roomCode, name, c.cid, status.getCode(), status.getReason());
+                roomCode, c.name, c.cid, status.getCode(), status.getReason());
 
         try {
             gameService.removeSession(session);
 
             Room room = gameService.getRoom(roomCode);
-            if (room != null) gameService.scheduleDisconnect(room, name); // 5s grace handled in service
+            if (room != null) gameService.scheduleDisconnect(room, c.name); // 5s grace handled in service
 
             // Re-evaluate host after hard inactivity threshold (now 15 min)
             gameService.ensureHost(roomCode, 0L, HOST_INACTIVE_MS);
         } catch (Throwable t) {
-            log.error("WS afterConnectionClosed handling failed (room={}, name={})", roomCode, name, t);
+            log.error("WS afterConnectionClosed handling failed (room={}, name={})", roomCode, c.name, t);
         }
     }
 

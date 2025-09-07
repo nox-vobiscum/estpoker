@@ -59,6 +59,7 @@ public class Room {
             existing.setActive(true);
             existing.setParticipating(p.isParticipating());
             if (p.isHost()) existing.setHost(true);
+            // keep vote as-is unless caller wants to overwrite explicitly
         }
     }
 
@@ -180,6 +181,122 @@ public class Room {
         return Optional.ofNullable(getParticipant(name));
     }
 
+    // --- name utilities for collision-safe rename ---------------------------------------------
+
+    /** Quick helper: is a name already taken in this room (by any participant object). */
+    public boolean nameInUse(String name) {
+        return getParticipant(name) != null;
+    }
+
+    /**
+     * Ensure a unique display name inside this room. If the desired name is free, returns it.
+     * Otherwise returns "Name (2)", "Name (3)", ... (first available). This is pure logic;
+     * callers should still apply CID-based reuse to avoid incrementing on reloads.
+     */
+    public String ensureUniqueName(String desired) {
+        if (desired == null || desired.isBlank()) return "Guest";
+        String base = desired.trim();
+
+        if (!nameInUse(base)) return base;
+
+        // If desired already has a " (n)" suffix, strip it for base to avoid "Name (2) (2)"
+        String root = stripNumericSuffix(base);
+
+        // Try root, then root (2..99)
+        if (!nameInUse(root)) return root;
+        for (int i = 2; i <= 99; i++) {
+            String cand = root + " (" + i + ")";
+            if (!nameInUse(cand)) return cand;
+        }
+        // Fallback if >99 duplicates (extremely unlikely)
+        for (int i = 100; i <= 999; i++) {
+            String cand = root + " (" + i + ")";
+            if (!nameInUse(cand)) return cand;
+        }
+        // Last resort
+        return root + " (uniq)";
+    }
+
+    /** Strip a trailing " (number)" suffix if present. E.g., "Roland (3)" -> "Roland". */
+    private static String stripNumericSuffix(String s) {
+        int len = s.length();
+        if (len < 4) return s;
+        // Very small parser: endsWith ')' and has ' (' somewhere before; digits in between.
+        if (s.charAt(len - 1) != ')') return s;
+        int open = s.lastIndexOf(" (");
+        if (open < 0) return s;
+        String inside = s.substring(open + 2, len - 1);
+        if (inside.isEmpty()) return s;
+        for (int i = 0; i < inside.length(); i++) {
+            if (!Character.isDigit(inside.charAt(i))) return s;
+        }
+        // Looks like a numeric suffix -> strip it
+        return s.substring(0, open);
+    }
+
+    /**
+     * Rename a participant object identified by its current name to a new (collision-safe) name.
+     * Properties (vote, activity, host flag, participation) are preserved. CID→name mappings are
+     * updated atomically so that all tabs of the same CID still point to the same person.
+     *
+     * @param oldName   current name of the participant
+     * @param desired   requested new display name (will be uniquified if needed)
+     * @return the final/canonical name, or null if the old participant was not found
+     */
+    public String renameParticipant(String oldName, String desired) {
+        if (oldName == null) return null;
+        Participant current = getParticipant(oldName);
+        if (current == null) return null;
+
+        // If the name does not actually change, keep it (avoid pointless churn)
+        if (Objects.equals(oldName, desired)) return oldName;
+
+        String finalName = ensureUniqueName(desired);
+
+        // If the final target equals the current, nothing to do
+        if (Objects.equals(oldName, finalName)) return oldName;
+
+        // If a participant with finalName already exists, merge into it to avoid duplicates.
+        Participant target = getParticipant(finalName);
+        if (target == null) {
+            // Create a new participant object with the final name and copy state
+            target = new Participant(finalName);
+            target.setActive(current.isActive());
+            target.setParticipating(current.isParticipating());
+            target.setHost(current.isHost());
+            target.setVote(current.getVote());
+            // We do not copy timestamps; they will be refreshed by service on touch/join.
+            // Replace current in list (preserve insertion order roughly by placing at current's index)
+            int idx = participants.indexOf(current);
+            if (idx >= 0) {
+                participants.set(idx, target);
+            } else {
+                // Fallback: remove and append
+                participants.remove(current);
+                participants.add(target);
+            }
+        } else {
+            // Merge current into existing target (preserve host/active/participation/vote)
+            if (current.isHost()) target.setHost(true);
+            if (current.isActive()) target.setActive(true);
+            if (current.isParticipating()) target.setParticipating(true);
+            if (target.getVote() == null && current.getVote() != null) {
+                target.setVote(current.getVote());
+            }
+            // Remove the old object from the list
+            participants.remove(current);
+        }
+
+        // Rewrite CID→name mappings from oldName to finalName so all tabs still point to this person.
+        for (Map.Entry<String, String> e : cidToName.entrySet()) {
+            if (Objects.equals(e.getValue(), oldName)) {
+                e.setValue(finalName);
+            }
+        }
+
+        return finalName;
+    }
+
     // --- derived stats (on-the-fly, for handler convenience) ---
     /**
      * Average as display string if revealed; otherwise null.
@@ -208,16 +325,16 @@ public class Room {
         // You can wire this to CardSequences if you already expose a deck lookup there.
         switch (String.valueOf(id)) {
             case "fib.math":
-                return Arrays.asList("0","1","2","3","5","8","13","21","34","55","∞","☕");
+                return Arrays.asList("0","1","2","3","5","8","13","21","34","55");
             case "pow2":
-                return Arrays.asList("2","4","8","16","32","64","128","∞","☕");
+                return Arrays.asList("2","4","8","16","32","64","128");
             case "tshirt":
-                return Arrays.asList("XXS","XS","S","M","L","XL","XXL","XXXL","☕");
+                return Arrays.asList("XXS","XS","S","M","L","XL","XXL","XXXL");
             case "fib.enh":
-                return Arrays.asList("0","½","1","2","3","5","8","13","20","40","100","∞","☕");
+                return Arrays.asList("0","½","1","2","3","5","8","13","20","40","100","∞");
             case "fib.scrum":
             default:
-                return Arrays.asList("1","2","3","5","8","13","20","40","100","∞","☕");
+                return Arrays.asList("1","2","3","5","8","13","20","40","100");
         }
     }
 }

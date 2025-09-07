@@ -69,20 +69,21 @@
   setText('#roomCodeVal', state.roomCode);
 
   // — Canonicalize current URL (uniform param order, no reload)
-(function canonicalizeRoomUrl() {
-  try {
-    const desiredQs = new URLSearchParams({
-      roomCode: state.roomCode || '',
-      participantName: state.youName || ''
-    }).toString();
+  (function canonicalizeRoomUrl() {
+    try {
+      const desiredQs = new URLSearchParams({
+        roomCode: state.roomCode || '',
+        participantName: state.youName || ''
+      }).toString();
 
-    const current = location.search.replace(/^\?/, '');
-    if (current !== desiredQs) {
-      const newUrl = `${location.pathname}?${desiredQs}${location.hash || ''}`;
-      history.replaceState(null, '', newUrl);
-    }
-  } catch {}
-})();
+      const current = location.search.replace(/^\?/, '');
+      if (current !== desiredQs) {
+        const newUrl = `${location.pathname}?${desiredQs}${location.hash || ''}`;
+        // Use replaceState to avoid polluting history and avoid reload.
+        history.replaceState(null, '', newUrl);
+      }
+    } catch {}
+  })();
 
   const wsUrl = () => {
     const proto = location.protocol === 'https:' ? 'wss://' : 'ws://';
@@ -101,11 +102,12 @@
     state.ws = s;
 
     s.onopen = () => {
-  state.connected = true;
-  // Assert your display name on (re)connect
-  try { send('rename:' + encodeURIComponent(state.youName)); } catch {}
-  heartbeat();
-};
+      state.connected = true;
+      // Assert your display name on (re)connect so server can enforce uniqueness per room.
+      // Server should treat this as "rename my display name to X (CID-bound)".
+      try { send('rename:' + encodeURIComponent(state.youName)); } catch {}
+      heartbeat();
+    };
     s.onclose = (ev) => {
       state.connected = false; stopHeartbeat();
       if (state.hardRedirect) { location.href = state.hardRedirect; return; }
@@ -128,6 +130,7 @@
   function handleMessage(m) {
     switch (m.type) {
       case 'you': {
+        // Server may return canonical name (post-uniquify) and stable cid.
         if (m.yourName && m.yourName !== state.youName) { state.youName = m.yourName; setText('#youName', state.youName); }
         if (m.cid && m.cid !== state.cid) { state.cid = m.cid; try { sessionStorage.setItem(CIDKEY, state.cid); } catch {} }
         break;
