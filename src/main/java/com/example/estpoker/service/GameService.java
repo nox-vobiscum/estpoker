@@ -76,60 +76,123 @@ public class GameService {
     //  JOIN / RENAME
     // ========================================================================
 
-    /** Join/rejoin by CID (prevents duplicates on reload). Also reconciles name drift safely. */
-    public Room join(String roomCode, String cid, String participantName) {
+    // --- join (CID-bound) ------------------------------------------------------
+    /**
+     * Join a room with a given CID and requested display name.
+     * If the CID already exists in the room, we keep that identity (ignore requestedName),
+     * mark it active/participating, and broadcast. Otherwise we create a unique participant
+     * (Name, Name (2), …), link the CID, and broadcast.
+     */
+    public Room join(String roomCode, String cid, String requestedName) {
         Room room = getOrCreateRoom(roomCode);
-        String desired = normalizeName(participantName);
+        String desired = normalizeName(requestedName);
 
-        String canonicalName;
         synchronized (room) {
-            // 1) Known CID? -> we already have a participant instance
             Participant byCid = room.getParticipantByCid(cid).orElse(null);
             if (byCid != null) {
-                // Name drift? -> perform safe rename (no setName; replace participant object)
-                if (!Objects.equals(byCid.getName(), desired)) {
-                    canonicalName = renameInternal(room, byCid.getName(), cid, desired);
-                } else {
-                    canonicalName = byCid.getName();
-                    room.linkCid(cid, canonicalName);
-                    rememberClientName(roomCode, cid, canonicalName);
-                }
+                // Re-connect: keep existing display name for this CID
+                byCid.setActive(true);
+                byCid.setParticipating(true);
+                byCid.bumpLastSeen();
+                if (room.getHost() == null) byCid.setHost(true);
+                rememberClientName(roomCode, cid, byCid.getName());
+                cancelPendingDisconnect(room, byCid.getName()); // cancel any pending grace timer
             } else {
-                // 2) New CID: try to attach to existing same-name row or create one (with uniqueness)
-                String finalName = pickUniqueName(room, desired, null);
-                Participant existing = room.getParticipant(finalName);
-                if (existing == null) {
-                    existing = new Participant(finalName);
-                    room.addParticipant(existing);
-                }
-                room.linkCid(cid, existing.getName());
-                rememberClientName(roomCode, cid, existing.getName());
-                canonicalName = existing.getName();
-            }
-
-            // Mark presence
-            Participant p = room.getParticipant(canonicalName);
-            if (p != null) {
+                // New CID → create/link a unique participant
+                String unique = uniqueNameFor(room, desired, null);
+                Participant p = new Participant(unique);
                 p.setActive(true);
                 p.setParticipating(true);
                 p.bumpLastSeen();
                 if (room.getHost() == null) p.setHost(true);
+
+                room.addParticipant(p);
+                room.linkCid(cid, unique);
+                rememberClientName(roomCode, cid, unique);
             }
         }
-
-        // Cancel any pending disconnect to avoid flicker
-        cancelPendingDisconnect(room, canonicalName);
 
         broadcastRoomState(room);
         return room;
     }
 
-    // Backward-compat alias for existing handlers calling renameParticipant(...).
-// Renames a participant by CID, ensures uniqueness, broadcasts state, and returns the final name.
-public String renameParticipant(String roomCode, String cid, String requestedName) {
-    return renameByCid(roomCode, cid, requestedName);
-}
+    // --- rename (CID-bound) ------------------------------------------------------
 
+    /**
+     * Rename the participant bound to a given CID within a room.
+     * - Keeps identity stable by CID.
+     * - Ensures uniqueness: "Name", "Name (2)", "Name (3)", …
+     * - If desired equals current, it's a no-op.
+     * Returns the final (possibly adjusted) name, or null if room not found.
+     */
+    public String renameParticipant(String roomCode, String cid, String requestedName) {
+        Room room = getRoom(roomCode);
+        if (room == null || cid == null) return null;
+
+        String finalName;
+        synchronized (room) {
+            // Current participant for this CID (should exist after join)
+            Participant cur = room.getParticipantByCid(cid).orElse(null);
+            String currentName = (cur != null ? cur.getName() : null);
+
+            String desired = (requestedName == null ? "" : requestedName.trim());
+            if (desired.isEmpty()) desired = "Guest";
+
+            if (cur == null) {
+                // Fallback: unknown CID – behave like a fresh join with unique name
+                String unique = uniqueNameFor(room, desired, null);
+                Participant p = room.getParticipant(unique);
+                if (p == null) {
+                    p = new Participant(unique);
+                    room.addParticipant(p);
+                }
+                room.linkCid(cid, p.getName());
+                finalName = p.getName();
+            } else {
+                // CID known → rename this one, but keep uniqueness (exclude self)
+                String unique = uniqueNameFor(room, desired, currentName);
+                if (unique.equals(currentName)) {
+                    finalName = currentName; // no-op
+                } else {
+                    // No setName() on Participant → create replacement and transfer minimal state
+                    Participant repl = new Participant(unique);
+                    repl.setActive(cur.isActive());
+                    repl.setParticipating(cur.isParticipating());
+                    repl.setHost(cur.isHost());
+                    repl.setVote(cur.getVote());
+
+                    // Insert replacement, re-link CID, remove old
+                    room.addParticipant(repl);
+                    room.linkCid(cid, unique);
+                    room.removeParticipant(currentName);
+
+                    finalName = unique;
+                }
+            }
+
+            rememberClientName(roomCode, cid, finalName);
+        }
+
+        // Inform clients about the change
+        broadcastRoomState(room);
+        return finalName;
+    }
+
+    /** Produce a unique display name in the given room. If selfName != null, that name is ignored for collision checks. */
+    private static String uniqueNameFor(Room room, String desired, String selfName) {
+        String base = (desired == null || desired.isBlank()) ? "Guest" : desired.trim();
+        String candidate = base;
+        int suffix = 2;
+
+        while (true) {
+            Participant clash = room.getParticipant(candidate);
+            if (clash == null || (selfName != null && selfName.equals(candidate))) {
+                return candidate; // free or the same as self
+            }
+            candidate = base + " (" + suffix + ")";
+            suffix++;
+        }
+    }
 
     /**
      * Public API used by the WS handler to rename by CID.
@@ -158,6 +221,11 @@ public String renameParticipant(String roomCode, String cid, String requestedNam
 
         broadcastRoomState(room);
         return finalName;
+    }
+
+    /** Back-compat adapter in case older callers use gameService.rename(...). */
+    public String rename(String roomCode, String cid, String requestedName) {
+        return renameParticipant(roomCode, cid, requestedName);
     }
 
     /**
