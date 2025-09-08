@@ -93,6 +93,16 @@
       `&cid=${encodeURIComponent(state.cid)}`;
   };
 
+// --- small helpers (client-side normalizations) ---------------------------
+  function normalizeSeq(id) {
+    if (!id) return 'fib.scrum';
+    const s = String(id).toLowerCase().trim();
+    if (s === 'fib-enh')  return 'fib.enh';
+    if (s === 'fib-math') return 'fib.math';
+    if (s === 't-shirt')  return 'tshirt';
+    return s;
+  }
+
   // --- websocket -------------------------------------------------------------
   function connectWS() {
     const u = wsUrl();
@@ -131,8 +141,19 @@
     switch (m.type) {
       case 'you': {
         // Server may return canonical name (post-uniquify) and stable cid.
-        if (m.yourName && m.yourName !== state.youName) { state.youName = m.yourName; setText('#youName', state.youName); }
+        const changed = (m.yourName && m.yourName !== state.youName);
+        if (m.yourName && changed) { state.youName = m.yourName; setText('#youName', state.youName); }
         if (m.cid && m.cid !== state.cid) { state.cid = m.cid; try { sessionStorage.setItem(CIDKEY, state.cid); } catch {} }
+
+        // If our visible name changed after an early voteUpdate, refresh lightweight UI bits.
+        if (changed) {
+        syncHostClass();
+        renderParticipants();
+        renderCards();
+        renderTopic();
+        syncMenuFromState();
+        syncSequenceInMenu();
+        }
         break;
       }
       case 'roomClosed': { state.hardRedirect = m.redirect || '/'; try { state.ws && state.ws.close(4000, 'Room closed'); } catch {} break; }
@@ -959,7 +980,7 @@
     });
 
     document.addEventListener('ep:sequence-change', (ev) => {
-      const id = ev?.detail?.id; if (!id) return;
+      const id = normalizeSeq(ev?.detail?.id); if (!id) return;
       if (!state.isHost) return;
       send('sequence:' + encodeURIComponent(id));
     });
