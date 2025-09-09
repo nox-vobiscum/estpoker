@@ -85,15 +85,7 @@
     } catch {}
   })();
 
-  const wsUrl = () => {
-    const proto = location.protocol === 'https:' ? 'wss://' : 'ws://';
-    return `${proto}${location.host}/gameSocket` +
-      `?roomCode=${encodeURIComponent(state.roomCode)}` +
-      `&participantName=${encodeURIComponent(state.youName)}` +
-      `&cid=${encodeURIComponent(state.cid)}`;
-  };
-
-// --- small helpers (client-side normalizations) ---------------------------
+  // --- small helpers (client-side normalizations) ---------------------------
   function normalizeSeq(id) {
     if (!id) return 'fib.scrum';
     const s = String(id).toLowerCase().trim();
@@ -102,6 +94,14 @@
     if (s === 't-shirt')  return 'tshirt';
     return s;
   }
+
+  const wsUrl = () => {
+    const proto = location.protocol === 'https:' ? 'wss://' : 'ws://';
+    return `${proto}${location.host}/gameSocket` +
+      `?roomCode=${encodeURIComponent(state.roomCode)}` +
+      `&participantName=${encodeURIComponent(state.youName)}` +
+      `&cid=${encodeURIComponent(state.cid)}`;
+  };
 
   // --- websocket -------------------------------------------------------------
   function connectWS() {
@@ -141,19 +141,8 @@
     switch (m.type) {
       case 'you': {
         // Server may return canonical name (post-uniquify) and stable cid.
-        const changed = (m.yourName && m.yourName !== state.youName);
-        if (m.yourName && changed) { state.youName = m.yourName; setText('#youName', state.youName); }
+        if (m.yourName && m.yourName !== state.youName) { state.youName = m.yourName; setText('#youName', state.youName); }
         if (m.cid && m.cid !== state.cid) { state.cid = m.cid; try { sessionStorage.setItem(CIDKEY, state.cid); } catch {} }
-
-        // If our visible name changed after an early voteUpdate, refresh lightweight UI bits.
-        if (changed) {
-        syncHostClass();
-        renderParticipants();
-        renderCards();
-        renderTopic();
-        syncMenuFromState();
-        syncSequenceInMenu();
-        }
         break;
       }
       case 'roomClosed': { state.hardRedirect = m.redirect || '/'; try { state.ws && state.ws.close(4000, 'Room closed'); } catch {} break; }
@@ -253,6 +242,7 @@
       const idle = isIdle(p);
       const left = document.createElement('span');
       left.className = 'participant-icon';
+      if (p.isHost) left.classList.add('host'); // for tests: .participant-icon.host === '👑'
       left.textContent = p.isHost ? '👑' : (idle ? '💤' : '👤');
       li.appendChild(left);
 
@@ -424,12 +414,7 @@
 
     const avgEl = $('#averageVote');
     if (avgEl) {
-      if (state.averageVote != null) {
-        const suffix = submitted.length ? ` (${numericCount}/${submitted.length})` : '';
-        avgEl.textContent = String(state.averageVote) + suffix;
-      } else {
-        avgEl.textContent = 'N/A';
-      }
+      avgEl.textContent = (state.averageVote != null) ? String(state.averageVote) : 'N/A'; // numeric only (tests expect this)
     }
 
     const pre  = document.querySelector('.pre-vote');
@@ -618,24 +603,34 @@
   function ensureInlineTopicControls() {
     const row = $('#topicRow'); if (!row) return;
 
-    // create inline input once
-    if (!$('#topicInputInline')) {
+    // legacy edit container (#topicEdit) – create if missing
+    let editBox = $('#topicEdit');
+    if (!editBox) {
+      editBox = document.createElement('div');
+      editBox.id = 'topicEdit';
+      editBox.className = 'topic-edit';
+      editBox.style.gridColumn = '2';
+      editBox.style.display = 'none';
+      row.appendChild(editBox);
+    }
+
+    // create inline input once inside #topicEdit with legacy id #topicInput
+    if (!$('#topicInput')) {
       const input = document.createElement('input');
-      input.id = 'topicInputInline';
+      input.id = 'topicInput';            // legacy id for tests
       input.type = 'text';
       input.className = 'topic-inline-input';
-      input.style.gridColumn = '2';
       input.placeholder = isDe()
         ? 'Anforderung kurz beschreiben oder JIRA-Link einfügen'
         : 'Briefly describe requirement or paste JIRA link';
       input.autocomplete = 'off';
       input.spellcheck = false;
-      row.appendChild(input);
+      editBox.appendChild(input);
     }
 
-    // ensure save/cancel exist inside actions
+    // ensure save/cancel exist inside actions with legacy ids
     const actions = row.querySelector('.topic-actions');
-    if (actions && !$('#topicSaveInline')) {
+    if (actions && !$('#topicSave')) {
       const mkBtn = (id, cls, html, title) => {
         const b = document.createElement('button');
         b.id = id; b.type = 'button';
@@ -646,8 +641,8 @@
       };
       const saveTxt = isDe() ? 'Speichern' : 'Save';
       const cancTxt = isDe() ? 'Abbrechen' : 'Cancel';
-      actions.appendChild(mkBtn('topicSaveInline', 'primary', `💾 <span>${saveTxt}</span>`, saveTxt));
-      actions.appendChild(mkBtn('topicCancelInline', 'neutral', `✖ <span>${cancTxt}</span>`, cancTxt));
+      actions.appendChild(mkBtn('topicSave',   'primary', `💾 <span>${saveTxt}</span>`, saveTxt));
+      actions.appendChild(mkBtn('topicCancel', 'neutral', `✖ <span>${cancTxt}</span>`, cancTxt));
 
       // normalize existing Edit / Clear into buttons with unified style
       const editBtn = $('#topicEditBtn');
@@ -670,12 +665,13 @@
 
     ensureInlineTopicControls();
 
-    const input     = $('#topicInputInline');
+    const editBox   = $('#topicEdit');        // legacy wrapper for tests
+    const input     = $('#topicInput');       // legacy id
     const actions   = row.querySelector('.topic-actions');
     const editBtn   = $('#topicEditBtn');
     const clearBtn  = $('#topicClearBtn');
-    const saveBtn   = $('#topicSaveInline');
-    const cancelBtn = $('#topicCancelInline');
+    const saveBtn   = $('#topicSave');        // legacy id
+    const cancelBtn = $('#topicCancel');      // legacy id
 
     // display content
     if (state.topicLabel && state.topicUrl) {
@@ -705,6 +701,7 @@
     }
 
     if (editing) {
+      if (editBox) editBox.style.display = '';
       if (input) { input.value = state.topicLabel || ''; input.style.display = ''; input.focus(); }
       disp.style.display = 'none';
       if (editBtn)   editBtn.style.display = 'none';
@@ -712,6 +709,7 @@
       if (saveBtn)   saveBtn.style.display  = '';
       if (cancelBtn) cancelBtn.style.display = '';
     } else {
+      if (editBox) editBox.style.display = 'none';
       if (input) input.style.display = 'none';
       disp.style.display = '';
       if (editBtn)   editBtn.style.display = state.isHost ? '' : 'none';
@@ -906,9 +904,9 @@
       const clearBtn = $('#topicClearBtn');
 
       ensureInlineTopicControls();
-      const input     = $('#topicInputInline');
-      const saveBtn   = $('#topicSaveInline');
-      const cancelBtn = $('#topicCancelInline');
+      const input     = $('#topicInput');
+      const saveBtn   = $('#topicSave');
+      const cancelBtn = $('#topicCancel');
 
       // unified begin-edit entry: inline on desktop, dialog on mobile
       function beginTopicEdit(){
