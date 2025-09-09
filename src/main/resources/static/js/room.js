@@ -84,16 +84,24 @@
       }
     } catch {}
   })();
+  
+ // --- small helpers (client-side normalizations) ---------------------------
+function normalizeSeq(id) {
+  if (!id) return 'fib.scrum';
+  const s = String(id).toLowerCase().trim();
+  if (s === 'fib-enh')  return 'fib.enh';
+  if (s === 'fib-math') return 'fib.math';
+  if (s === 't-shirt')  return 'tshirt';
+  return s;
+}
 
-  // --- small helpers (client-side normalizations) ---------------------------
-  function normalizeSeq(id) {
-    if (!id) return 'fib.scrum';
-    const s = String(id).toLowerCase().trim();
-    if (s === 'fib-enh')  return 'fib.enh';
-    if (s === 'fib-math') return 'fib.math';
-    if (s === 't-shirt')  return 'tshirt';
-    return s;
-  }
+const wsUrl = () => {
+  const proto = location.protocol === 'https:' ? 'wss://' : 'ws://';
+  return `${proto}${location.host}/gameSocket` +
+    `?roomCode=${encodeURIComponent(state.roomCode)}` +
+    `&participantName=${encodeURIComponent(state.youName)}` +
+    `&cid=${encodeURIComponent(state.cid)}`;
+};
 
   const wsUrl = () => {
     const proto = location.protocol === 'https:' ? 'wss://' : 'ws://';
