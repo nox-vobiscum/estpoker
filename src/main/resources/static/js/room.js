@@ -84,6 +84,24 @@
       }
     } catch {}
   })();
+  
+ // --- small helpers (client-side normalizations) ---------------------------
+function normalizeSeq(id) {
+  if (!id) return 'fib.scrum';
+  const s = String(id).toLowerCase().trim();
+  if (s === 'fib-enh')  return 'fib.enh';
+  if (s === 'fib-math') return 'fib.math';
+  if (s === 't-shirt')  return 'tshirt';
+  return s;
+}
+
+const wsUrl = () => {
+  const proto = location.protocol === 'https:' ? 'wss://' : 'ws://';
+  return `${proto}${location.host}/gameSocket` +
+    `?roomCode=${encodeURIComponent(state.roomCode)}` +
+    `&participantName=${encodeURIComponent(state.youName)}` +
+    `&cid=${encodeURIComponent(state.cid)}`;
+};
 
   const wsUrl = () => {
     const proto = location.protocol === 'https:' ? 'wss://' : 'ws://';
@@ -232,6 +250,7 @@
       const idle = isIdle(p);
       const left = document.createElement('span');
       left.className = 'participant-icon';
+      if (p.isHost) left.classList.add('host'); // for tests: .participant-icon.host === '👑'
       left.textContent = p.isHost ? '👑' : (idle ? '💤' : '👤');
       li.appendChild(left);
 
@@ -403,12 +422,7 @@
 
     const avgEl = $('#averageVote');
     if (avgEl) {
-      if (state.averageVote != null) {
-        const suffix = submitted.length ? ` (${numericCount}/${submitted.length})` : '';
-        avgEl.textContent = String(state.averageVote) + suffix;
-      } else {
-        avgEl.textContent = 'N/A';
-      }
+      avgEl.textContent = (state.averageVote != null) ? String(state.averageVote) : 'N/A'; // numeric only (tests expect this)
     }
 
     const pre  = document.querySelector('.pre-vote');
@@ -597,24 +611,34 @@
   function ensureInlineTopicControls() {
     const row = $('#topicRow'); if (!row) return;
 
-    // create inline input once
-    if (!$('#topicInputInline')) {
+    // legacy edit container (#topicEdit) – create if missing
+    let editBox = $('#topicEdit');
+    if (!editBox) {
+      editBox = document.createElement('div');
+      editBox.id = 'topicEdit';
+      editBox.className = 'topic-edit';
+      editBox.style.gridColumn = '2';
+      editBox.style.display = 'none';
+      row.appendChild(editBox);
+    }
+
+    // create inline input once inside #topicEdit with legacy id #topicInput
+    if (!$('#topicInput')) {
       const input = document.createElement('input');
-      input.id = 'topicInputInline';
+      input.id = 'topicInput';            // legacy id for tests
       input.type = 'text';
       input.className = 'topic-inline-input';
-      input.style.gridColumn = '2';
       input.placeholder = isDe()
         ? 'Anforderung kurz beschreiben oder JIRA-Link einfügen'
         : 'Briefly describe requirement or paste JIRA link';
       input.autocomplete = 'off';
       input.spellcheck = false;
-      row.appendChild(input);
+      editBox.appendChild(input);
     }
 
-    // ensure save/cancel exist inside actions
+    // ensure save/cancel exist inside actions with legacy ids
     const actions = row.querySelector('.topic-actions');
-    if (actions && !$('#topicSaveInline')) {
+    if (actions && !$('#topicSave')) {
       const mkBtn = (id, cls, html, title) => {
         const b = document.createElement('button');
         b.id = id; b.type = 'button';
@@ -625,8 +649,8 @@
       };
       const saveTxt = isDe() ? 'Speichern' : 'Save';
       const cancTxt = isDe() ? 'Abbrechen' : 'Cancel';
-      actions.appendChild(mkBtn('topicSaveInline', 'primary', `💾 <span>${saveTxt}</span>`, saveTxt));
-      actions.appendChild(mkBtn('topicCancelInline', 'neutral', `✖ <span>${cancTxt}</span>`, cancTxt));
+      actions.appendChild(mkBtn('topicSave',   'primary', `💾 <span>${saveTxt}</span>`, saveTxt));
+      actions.appendChild(mkBtn('topicCancel', 'neutral', `✖ <span>${cancTxt}</span>`, cancTxt));
 
       // normalize existing Edit / Clear into buttons with unified style
       const editBtn = $('#topicEditBtn');
@@ -649,12 +673,13 @@
 
     ensureInlineTopicControls();
 
-    const input     = $('#topicInputInline');
+    const editBox   = $('#topicEdit');        // legacy wrapper for tests
+    const input     = $('#topicInput');       // legacy id
     const actions   = row.querySelector('.topic-actions');
     const editBtn   = $('#topicEditBtn');
     const clearBtn  = $('#topicClearBtn');
-    const saveBtn   = $('#topicSaveInline');
-    const cancelBtn = $('#topicCancelInline');
+    const saveBtn   = $('#topicSave');        // legacy id
+    const cancelBtn = $('#topicCancel');      // legacy id
 
     // display content
     if (state.topicLabel && state.topicUrl) {
@@ -684,6 +709,7 @@
     }
 
     if (editing) {
+      if (editBox) editBox.style.display = '';
       if (input) { input.value = state.topicLabel || ''; input.style.display = ''; input.focus(); }
       disp.style.display = 'none';
       if (editBtn)   editBtn.style.display = 'none';
@@ -691,6 +717,7 @@
       if (saveBtn)   saveBtn.style.display  = '';
       if (cancelBtn) cancelBtn.style.display = '';
     } else {
+      if (editBox) editBox.style.display = 'none';
       if (input) input.style.display = 'none';
       disp.style.display = '';
       if (editBtn)   editBtn.style.display = state.isHost ? '' : 'none';
@@ -885,9 +912,9 @@
       const clearBtn = $('#topicClearBtn');
 
       ensureInlineTopicControls();
-      const input     = $('#topicInputInline');
-      const saveBtn   = $('#topicSaveInline');
-      const cancelBtn = $('#topicCancelInline');
+      const input     = $('#topicInput');
+      const saveBtn   = $('#topicSave');
+      const cancelBtn = $('#topicCancel');
 
       // unified begin-edit entry: inline on desktop, dialog on mobile
       function beginTopicEdit(){
@@ -959,7 +986,7 @@
     });
 
     document.addEventListener('ep:sequence-change', (ev) => {
-      const id = ev?.detail?.id; if (!id) return;
+      const id = normalizeSeq(ev?.detail?.id); if (!id) return;
       if (!state.isHost) return;
       send('sequence:' + encodeURIComponent(id));
     });
