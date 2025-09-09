@@ -1,10 +1,8 @@
-/* room.js v42 — inline topic edit; hard/soft reveal disabled+tooltip; specials toggle; host-only actions; chip/outlier fixes
-   Highlights:
-   - Topic edit is inline: the input replaces the display in the same row while editing.
-   - Host can click the (empty) topic row to start editing; when a link/text exists, only the Edit button starts edit mode.
-   - In hard mode, Reveal stays visible but disabled with a tooltip until everyone voted.
-   - Non-host never sees Topic edit/clear actions.
-   - Empty votes render a grey/special chip (not green).
+/* room.js v43 — compat + fixes
+   - Restore legacy #topicEdit overlay API (topicBeginEdit/topicSave/topicClear/topicCancel) for tests.
+   - Ensure sequence radios re-sync enabled/disabled on menu open (host vs guest).
+   - Keep inline/mobile editor as progressive enhancement; overlay preferred when present.
+   - Auto-reveal/menu toggles kept; card deck & ∞ visibility follow current sequence.
 */
 (() => {
   'use strict';
@@ -31,6 +29,7 @@
     connected: false,
 
     isHost: false,
+    _hostKnown: false, // set true after first voteUpdate handling
     votesRevealed: false,
     cards: [],
     participants: [],
@@ -47,7 +46,7 @@
     hardMode: false,
     allowSpecials: true,
 
-    // Topic edit state: never auto-open on refresh/host transfer
+    // Topic edit state (inline mode)
     topicEditing: false,
 
     // UI helpers
@@ -79,29 +78,20 @@
       const current = location.search.replace(/^\?/, '');
       if (current !== desiredQs) {
         const newUrl = `${location.pathname}?${desiredQs}${location.hash || ''}`;
-        // Use replaceState to avoid polluting history and avoid reload.
         history.replaceState(null, '', newUrl);
       }
     } catch {}
   })();
-  
- // --- small helpers (client-side normalizations) ---------------------------
-function normalizeSeq(id) {
-  if (!id) return 'fib.scrum';
-  const s = String(id).toLowerCase().trim();
-  if (s === 'fib-enh')  return 'fib.enh';
-  if (s === 'fib-math') return 'fib.math';
-  if (s === 't-shirt')  return 'tshirt';
-  return s;
-}
 
-const wsUrl = () => {
-  const proto = location.protocol === 'https:' ? 'wss://' : 'ws://';
-  return `${proto}${location.host}/gameSocket` +
-    `?roomCode=${encodeURIComponent(state.roomCode)}` +
-    `&participantName=${encodeURIComponent(state.youName)}` +
-    `&cid=${encodeURIComponent(state.cid)}`;
-};
+  // --- small helpers (client-side normalizations) ---------------------------
+  function normalizeSeq(id) {
+    if (!id) return 'fib.scrum';
+    const s = String(id).toLowerCase().trim();
+    if (s === 'fib-enh')  return 'fib.enh';
+    if (s === 'fib-math') return 'fib.math';
+    if (s === 't-shirt')  return 'tshirt';
+    return s;
+  }
 
   const wsUrl = () => {
     const proto = location.protocol === 'https:' ? 'wss://' : 'ws://';
@@ -122,7 +112,6 @@ const wsUrl = () => {
     s.onopen = () => {
       state.connected = true;
       // Assert your display name on (re)connect so server can enforce uniqueness per room.
-      // Server should treat this as "rename my display name to X (CID-bound)".
       try { send('rename:' + encodeURIComponent(state.youName)); } catch {}
       heartbeat();
     };
@@ -148,7 +137,6 @@ const wsUrl = () => {
   function handleMessage(m) {
     switch (m.type) {
       case 'you': {
-        // Server may return canonical name (post-uniquify) and stable cid.
         if (m.yourName && m.yourName !== state.youName) { state.youName = m.yourName; setText('#youName', state.youName); }
         if (m.cid && m.cid !== state.cid) { state.cid = m.cid; try { sessionStorage.setItem(CIDKEY, state.cid); } catch {} }
         break;
@@ -158,7 +146,7 @@ const wsUrl = () => {
 
       case 'voteUpdate': {
         // cards & sequence
-        const seqId = m.sequenceId || state.sequenceId || 'fib.scrum';
+        const seqId = normalizeSeq(m.sequenceId || state.sequenceId || 'fib.scrum');
         const specials = (Array.isArray(m.specials) && m.specials.length) ? m.specials.slice() : SPECIALS.slice();
         let base = Array.isArray(m.cards) ? m.cards.slice() : [];
         base = base.filter(c => !specials.includes(c));
@@ -180,16 +168,16 @@ const wsUrl = () => {
         state.autoRevealEnabled = !!m.autoRevealEnabled;
 
         // sequence persisted
-        state.sequenceId = m.sequenceId || state.sequenceId;
+        state.sequenceId = seqId;
 
         // host?
-        const wasHost = state.isHost;
         const me = state.participants.find(p => p && p.name === state.youName);
         state.isHost = !!(me && me.isHost);
+        state._hostKnown = true;
         if (!state.isHost) {
           state.topicEditing = false;
-        } else if (!wasHost && state.isHost) {
-          state.topicEditing = false; // do not auto-open after transfer
+        } else {
+          state.topicEditing = false;
         }
 
         // clear optimistic selection when server confirms our vote
@@ -201,8 +189,8 @@ const wsUrl = () => {
         renderResultBar(m);
         renderTopic();
         renderAutoReveal();
-        syncMenuFromState();
-        syncSequenceInMenu();
+        // Ensure menu reflects most recent state even if opened just now
+        requestAnimationFrame(() => { syncMenuFromState(); syncSequenceInMenu(); });
 
         if (!document.documentElement.hasAttribute('data-ready')) {
           document.documentElement.setAttribute('data-ready','1');
@@ -238,7 +226,6 @@ const wsUrl = () => {
     const ul = $('#liveParticipantList'); if (!ul) return;
     ul.innerHTML = '';
 
-    // Precompute outliers when revealed
     const outlierVals = computeOutlierValues();
 
     state.participants.forEach(p => {
@@ -249,8 +236,7 @@ const wsUrl = () => {
 
       const idle = isIdle(p);
       const left = document.createElement('span');
-      left.className = 'participant-icon';
-      if (p.isHost) left.classList.add('host'); // for tests: .participant-icon.host === '👑'
+      left.className = 'participant-icon' + (p.isHost ? ' host' : '');
       left.textContent = p.isHost ? '👑' : (idle ? '💤' : '👤');
       li.appendChild(left);
 
@@ -344,6 +330,7 @@ const wsUrl = () => {
     const elig = state.participants.filter(p => p && !p.observer && !p.disconnected);
     if (!elig.length) return false;
     return elig.every(p => p.vote != null && String(p.vote) !== '');
+    // (specials allowed for "done" — server controls auto-reveal validity)
   }
 
   function renderCards() {
@@ -389,10 +376,9 @@ const wsUrl = () => {
     const revealBtn = $('#revealButton');
     const resetBtn  = $('#resetButton');
 
-    // Hard mode: button visible but disabled until everyone voted
     const hardGateOK = !state.hardMode || allEligibleVoted();
 
-    const showReveal = (!state.votesRevealed && state.isHost);   // always show for host pre-reveal
+    const showReveal = (!state.votesRevealed && state.isHost);
     const showReset  = ( state.votesRevealed && state.isHost);
 
     if (revealBtn) {
@@ -422,7 +408,12 @@ const wsUrl = () => {
 
     const avgEl = $('#averageVote');
     if (avgEl) {
-      avgEl.textContent = (state.averageVote != null) ? String(state.averageVote) : 'N/A'; // numeric only (tests expect this)
+      if (state.averageVote != null) {
+        const suffix = submitted.length ? ` (${numericCount}/${submitted.length})` : '';
+        avgEl.textContent = String(state.averageVote) + suffix;
+      } else {
+        avgEl.textContent = 'N/A';
+      }
     }
 
     const pre  = document.querySelector('.pre-vote');
@@ -469,26 +460,16 @@ const wsUrl = () => {
     }
   }
 
-  // --- topic row (inline edit) ----------------------------------------------
+  // --- topic row (inline + legacy overlay) ----------------------------------
   function isDe(){ return (document.documentElement.lang || 'en').toLowerCase().startsWith('de'); }
 
-  // NEW: detect compact/mobile context (viewport + touch UA hints)
-  function isMobileCompact(){
-    try {
-      if (window.matchMedia && window.matchMedia('(max-width: 600px)').matches) return true;
-      const ua = navigator.userAgent || '';
-      return /Android|iPhone|iPad|iPod/i.test(ua);
-    } catch { return false; }
-  }
-
-  // NEW: lightweight topic edit dialog (icon-only on mobile); created lazily
+  // Mobile-friendly dialog for quick edit (kept as enhancement)
   function ensureTopicDialog(){
     let dlg = document.querySelector('dialog.ep-topic-dialog');
     if (dlg) return dlg;
 
     dlg = document.createElement('dialog');
     dlg.className = 'ep-topic-dialog';
-    // Minimal inline styling that respects existing CSS vars (no global CSS changes)
     dlg.setAttribute('style',
       'padding:12px;border:1px solid var(--border);border-radius:12px;background:var(--panel);color:var(--text);' +
       'width:min(92vw,480px);max-width:95vw;box-shadow:0 20px 40px rgba(0,0,0,.35)'
@@ -516,9 +497,7 @@ const wsUrl = () => {
       'height:44px;padding:0 .75rem;border-radius:10px;border:1px solid var(--field-border, var(--border));' +
       'background:var(--field-bg, var(--panel));color:var(--field-fg, var(--text));'
     );
-    input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') { e.preventDefault(); doSave(); }
-    });
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); doSave(); }});
 
     const actions = document.createElement('div');
     actions.style.display = 'flex';
@@ -528,7 +507,7 @@ const wsUrl = () => {
     const mkBtn = (labelEmoji, aria, onClick) => {
       const b = document.createElement('button');
       b.type = 'button';
-      b.textContent = labelEmoji;  // icon-only; visible text stays out of i18n files
+      b.textContent = labelEmoji;
       b.setAttribute('aria-label', aria);
       b.style.height = '36px';
       b.style.width  = '44px';
@@ -541,7 +520,6 @@ const wsUrl = () => {
       return b;
     };
 
-    // actions
     const doSave = () => {
       const val = input.value || '';
       send('topicSave:' + encodeURIComponent(val));
@@ -559,7 +537,6 @@ const wsUrl = () => {
     const clearBtn  = mkBtn('🧹', isDe() ? 'Feld leeren' : 'Clear field', doClear);
     const cancelBtn = mkBtn('✖',  isDe() ? 'Abbrechen' : 'Cancel', doCancel);
 
-    // Order: Save (left) — Clear (right)
     actions.appendChild(saveBtn);
     actions.appendChild(clearBtn);
     actions.appendChild(cancelBtn);
@@ -571,115 +548,47 @@ const wsUrl = () => {
 
     document.body.appendChild(dlg);
 
-    // Expose handles on element for reuse
     dlg._input = input;
-    dlg._save  = saveBtn;
-    dlg._clear = clearBtn;
-
     return dlg;
   }
 
-  // NEW: open dialog or fallback to prompt
-  function showTopicDialog(){
-    try {
-      const dlg = ensureTopicDialog();
-      dlg._input.value = state.topicLabel || '';
-      // Keep placeholder current per language
-      dlg._input.placeholder = isDe()
-        ? 'Anforderung kurz beschreiben oder JIRA-Link einfügen'
-        : 'Briefly describe requirement or paste JIRA link';
-
-      if (typeof dlg.showModal === 'function') {
-        dlg.showModal();
-        setTimeout(() => { try { dlg._input.focus(); } catch {} }, 0);
-      } else {
-        // Fallback: native prompt (OK=Save, Cancel=abort; empty string clears)
-        const v = prompt(
-          isDe() ? 'Ticket/Topic bearbeiten:' : 'Edit ticket/topic:',
-          state.topicLabel || ''
-        );
-        if (v === null) return;
-        send('topicSave:' + encodeURIComponent(v));
-      }
-    } catch (e) {
-      console.warn(TAG, 'dialog failed, falling back to inline', e);
-      state.topicEditing = true;
-      renderTopic();
-    }
+  // Legacy overlay helpers (compat with tests expecting #topicEdit visibility)
+  function overlay(){ return $('#topicEdit'); }
+  function overlayInput(){ return $('#topicInput') || (overlay() ? overlay().querySelector('input[type="text"]') : null); }
+  function showOverlay(){
+    const box = overlay();
+    if (box) { box.hidden = false; box.style.display = ''; }
+    const inp = overlayInput();
+    if (inp) { inp.value = state.topicLabel || ''; setTimeout(() => { try { inp.focus(); } catch {} }, 0); }
+  }
+  function hideOverlay(){
+    const box = overlay();
+    if (box) { box.hidden = true; box.style.display = 'none'; }
   }
 
-  function ensureInlineTopicControls() {
-    const row = $('#topicRow'); if (!row) return;
-
-    // legacy edit container (#topicEdit) – create if missing
-    let editBox = $('#topicEdit');
-    if (!editBox) {
-      editBox = document.createElement('div');
-      editBox.id = 'topicEdit';
-      editBox.className = 'topic-edit';
-      editBox.style.gridColumn = '2';
-      editBox.style.display = 'none';
-      row.appendChild(editBox);
-    }
-
-    // create inline input once inside #topicEdit with legacy id #topicInput
-    if (!$('#topicInput')) {
-      const input = document.createElement('input');
-      input.id = 'topicInput';            // legacy id for tests
-      input.type = 'text';
-      input.className = 'topic-inline-input';
-      input.placeholder = isDe()
-        ? 'Anforderung kurz beschreiben oder JIRA-Link einfügen'
-        : 'Briefly describe requirement or paste JIRA link';
-      input.autocomplete = 'off';
-      input.spellcheck = false;
-      editBox.appendChild(input);
-    }
-
-    // ensure save/cancel exist inside actions with legacy ids
-    const actions = row.querySelector('.topic-actions');
-    if (actions && !$('#topicSave')) {
-      const mkBtn = (id, cls, html, title) => {
-        const b = document.createElement('button');
-        b.id = id; b.type = 'button';
-        b.className = `btn ${cls}`;
-        b.innerHTML = html;
-        if (title) b.setAttribute('title', title);
-        return b;
-      };
-      const saveTxt = isDe() ? 'Speichern' : 'Save';
-      const cancTxt = isDe() ? 'Abbrechen' : 'Cancel';
-      actions.appendChild(mkBtn('topicSave',   'primary', `💾 <span>${saveTxt}</span>`, saveTxt));
-      actions.appendChild(mkBtn('topicCancel', 'neutral', `✖ <span>${cancTxt}</span>`, cancTxt));
-
-      // normalize existing Edit / Clear into buttons with unified style
-      const editBtn = $('#topicEditBtn');
-      const clrBtn  = $('#topicClearBtn');
-      if (editBtn) {
-        editBtn.classList.add('btn','neutral');
-        editBtn.innerHTML = (isDe()? '✏️ <span>Bearbeiten</span>' : '✏️ <span>Edit</span>');
-      }
-      if (clrBtn) {
-        clrBtn.classList.add('btn','danger');
-        clrBtn.innerHTML = (isDe()? '🧹 <span>Feld leeren</span>' : '🧹 <span>Clear field</span>');
-      }
-    }
-  }
+  // Public (global) legacy API used by markup (and tests click the buttons)
+  window.topicBeginEdit = function(){ if (!state.isHost) return; showOverlay(); };
+  window.topicSave      = function(){
+    if (!state.isHost) return;
+    const val = (overlayInput() && overlayInput().value) || '';
+    send('topicSave:' + encodeURIComponent(val));
+    state.topicEditing = false;
+    hideOverlay();
+  };
+  window.topicClear     = function(){
+    if (!state.isHost) return;
+    send('topicSave:' + encodeURIComponent(''));
+    state.topicLabel = ''; state.topicUrl = null; state.topicVisible = true;
+    state.topicEditing = false;
+    hideOverlay();
+    renderTopic(); syncMenuFromState();
+  };
+  window.topicCancel    = function(){ hideOverlay(); state.topicEditing = false; };
 
   function renderTopic() {
     const row  = $('#topicRow');
     const disp = $('#topicDisplay');
     if (!row || !disp) return;
-
-    ensureInlineTopicControls();
-
-    const editBox   = $('#topicEdit');        // legacy wrapper for tests
-    const input     = $('#topicInput');       // legacy id
-    const actions   = row.querySelector('.topic-actions');
-    const editBtn   = $('#topicEditBtn');
-    const clearBtn  = $('#topicClearBtn');
-    const saveBtn   = $('#topicSave');        // legacy id
-    const cancelBtn = $('#topicCancel');      // legacy id
 
     // display content
     if (state.topicLabel && state.topicUrl) {
@@ -690,41 +599,12 @@ const wsUrl = () => {
       disp.textContent = '–';
     }
 
-    // host-only actions
-    if (actions) actions.style.display = state.isHost ? '' : 'none';
+    // host-only actions block visibility handled by CSS via .is-host on body
+    // row visibility
+    row.style.display = state.topicVisible ? '' : 'none';
 
-    // row clickability (only empty topic & not editing)
-    const canClickToEdit = !!(state.isHost && !state.topicLabel && !state.topicEditing);
-    row.classList.toggle('editable', canClickToEdit);
-
-    // show/hide
-    const showRow  = !!state.topicVisible;
-    const editing  = !!(state.isHost && state.topicEditing);
-    row.style.display = showRow ? '' : 'none';
-
-    if (input) {
-      input.placeholder = isDe()
-        ? 'Anforderung kurz beschreiben oder JIRA-Link einfügen'
-        : 'Briefly describe requirement or paste JIRA link';
-    }
-
-    if (editing) {
-      if (editBox) editBox.style.display = '';
-      if (input) { input.value = state.topicLabel || ''; input.style.display = ''; input.focus(); }
-      disp.style.display = 'none';
-      if (editBtn)   editBtn.style.display = 'none';
-      if (clearBtn)  clearBtn.style.display = '';
-      if (saveBtn)   saveBtn.style.display  = '';
-      if (cancelBtn) cancelBtn.style.display = '';
-    } else {
-      if (editBox) editBox.style.display = 'none';
-      if (input) input.style.display = 'none';
-      disp.style.display = '';
-      if (editBtn)   editBtn.style.display = state.isHost ? '' : 'none';
-      if (clearBtn)  clearBtn.style.display = (state.isHost && state.topicLabel) ? '' : 'none';
-      if (saveBtn)   saveBtn.style.display  = 'none';
-      if (cancelBtn) cancelBtn.style.display = 'none';
-    }
+    // keep overlay hidden when not editing
+    if (!state.topicEditing) hideOverlay();
   }
 
   // --- auto-reveal indicator -------------------------------------------------
@@ -747,10 +627,10 @@ const wsUrl = () => {
   function syncMenuFromState() {
     const isDe = (document.documentElement.lang||'en').toLowerCase().startsWith('de');
 
-    setRowDisabled('menuAutoRevealToggle', !state.isHost);
-    setRowDisabled('menuTopicToggle',      !state.isHost);
-    setRowDisabled('menuSpecialsToggle',   !state.isHost);
-    setRowDisabled('menuHardModeToggle',   !state.isHost);
+    setRowDisabled('menuAutoRevealToggle', !state.isHost && state._hostKnown);
+    setRowDisabled('menuTopicToggle',      !state.isHost && state._hostKnown);
+    setRowDisabled('menuSpecialsToggle',   !state.isHost && state._hostKnown);
+    setRowDisabled('menuHardModeToggle',   !state.isHost && state._hostKnown);
 
     const mTgl = $('#menuTopicToggle'); const mSt  = $('#menuTopicStatus');
     if (mTgl) { mTgl.checked = !!state.topicVisible; mTgl.setAttribute('aria-checked', String(!!state.topicVisible)); }
@@ -776,16 +656,24 @@ const wsUrl = () => {
 
   function syncSequenceInMenu() {
     const root = $('#menuSeqChoice'); if (!root) return;
+
+    // Enable for host, disable for guests; when host-unknown yet, don't force-disable
     root.querySelectorAll('input[type="radio"][name="menu-seq"]').forEach(r => {
-      r.disabled = !state.isHost;
-      if (r.disabled) r.closest('label')?.classList.add('disabled');
-      else r.closest('label')?.classList.remove('disabled');
+      const shouldDisable = state._hostKnown ? !state.isHost : false;
+      r.disabled = !!shouldDisable;
+      r.setAttribute('aria-disabled', String(!!shouldDisable));
+      const lab = r.closest('label');
+      if (lab) lab.classList.toggle('disabled', !!shouldDisable);
     });
+
     const id = state.sequenceId || '';
     const sel = root.querySelector(`input[type="radio"][name="menu-seq"][value="${CSS.escape(id)}"]`)
              || root.querySelector(`input[type="radio"][name="menu-seq"][value="${CSS.escape(id.replace('.', '-'))}"]`);
     if (sel) { sel.checked = true; sel.setAttribute('aria-checked','true'); }
   }
+
+  // Re-sync when the menu opens (fix race in tests)
+  document.addEventListener('ep:menu-open', () => { syncMenuFromState(); syncSequenceInMenu(); });
 
   // --- global actions --------------------------------------------------------
   function revealCards(){
@@ -794,7 +682,6 @@ const wsUrl = () => {
       showToast(isDe ? 'Erst aufdecken, wenn alle gewählt haben.' : 'Reveal only after everyone voted.');
       return;
     }
-    // Defer UI switch to server update to avoid transient "N/A"
     send('revealCards');
   }
   function resetRoom(){  send('resetRoom'); }
@@ -904,26 +791,25 @@ const wsUrl = () => {
   function wireOnce() {
     bindCopyLink();
 
-    // Inline + Mobile dialog topic editor (host-only)
+    // Edit button (legacy overlay preferred; inline/dialog fallback)
     {
       const row      = $('#topicRow');
-      const disp     = $('#topicDisplay');
       const editBtn  = $('#topicEditBtn');
       const clearBtn = $('#topicClearBtn');
 
-      ensureInlineTopicControls();
-      const input     = $('#topicInput');
-      const saveBtn   = $('#topicSave');
-      const cancelBtn = $('#topicCancel');
-
-      // unified begin-edit entry: inline on desktop, dialog on mobile
       function beginTopicEdit(){
         if (!state.isHost) return;
-        if (isMobileCompact()) {
-          showTopicDialog();
+        if (overlay()) {
+          showOverlay();
         } else {
-          state.topicEditing = true;
-          renderTopic();
+          // fallback dialog (mobile) or inline (if present)
+          const dlg = ensureTopicDialog();
+          dlg._input.value = state.topicLabel || '';
+          if (typeof dlg.showModal === 'function') dlg.showModal();
+          else {
+            const v = prompt(isDe() ? 'Ticket/Topic bearbeiten:' : 'Edit ticket/topic:', state.topicLabel || '');
+            if (v !== null) send('topicSave:' + encodeURIComponent(v));
+          }
         }
       }
 
@@ -934,34 +820,15 @@ const wsUrl = () => {
           beginTopicEdit();
         });
       }
+      if (editBtn) editBtn.addEventListener('click', beginTopicEdit);
 
-      if (editBtn) {
-        editBtn.addEventListener('click', () => {
-          if (!state.isHost) return;
-          beginTopicEdit();
-        });
-      }
-      if (cancelBtn) {
-        cancelBtn.addEventListener('click', () => {
-          state.topicEditing = false;
-          renderTopic();
-        });
-      }
-      if (saveBtn) {
-        saveBtn.addEventListener('click', () => {
-          if (!state.isHost || !input) return;
-          const val = input.value || '';
-          send('topicSave:' + encodeURIComponent(val));
-          state.topicEditing = false;
-          renderTopic();
-        });
-      }
       if (clearBtn) {
         clearBtn.addEventListener('click', () => {
           if (!state.isHost) return;
           send('topicSave:' + encodeURIComponent(''));
           state.topicLabel = ''; state.topicUrl = null; state.topicVisible = true;
           state.topicEditing = false;
+          hideOverlay();
           renderTopic(); syncMenuFromState();
         });
       }
@@ -986,9 +853,9 @@ const wsUrl = () => {
     });
 
     document.addEventListener('ep:sequence-change', (ev) => {
-      const id = normalizeSeq(ev?.detail?.id); if (!id) return;
+      const id = ev?.detail?.id; if (!id) return;
       if (!state.isHost) return;
-      send('sequence:' + encodeURIComponent(id));
+      send('sequence:' + encodeURIComponent(normalizeSeq(id)));
     });
 
     document.addEventListener('ep:auto-reveal-toggle', (ev) => {
