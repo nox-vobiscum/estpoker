@@ -10,6 +10,44 @@
   <!-- Title from i18n -->
   <title th:text="#{app.title}" data-i18n="app.title">RBS' Estimation Poker</title>
 
+  <!-- === i18n messages exposed for room.js (toasts, confirms, labels) === -->
+  <!-- Presence & rename toasts -->
+  <meta name="msg.toast.participantLeft"    th:content="#{toast.participantLeft}"/>
+  <meta name="msg.toast.participantRenamed" th:content="#{toast.participantRenamed}"/>
+
+  <!-- Host transfer toasts (manual/auto) -->
+  <meta name="msg.toast.hostTransferred.to"     th:content="#{toast.hostTransferred.to}"/>
+  <meta name="msg.toast.hostTransferred.fromTo" th:content="#{toast.hostTransferred.fromTo}"/>
+
+  <!-- Copy feedback (both legacy + new keys for back-compat) -->
+  <meta name="msg.invite.linkCopied" th:content="#{invite.linkCopied}"/>
+  <meta name="msg.notify.copyFailed" th:content="#{notify.copyFailed}"/>
+  <meta name="msg.copy.ok"           th:content="#{copy.ok}"/>
+  <meta name="msg.copy.fail"         th:content="#{copy.fail}"/>
+
+  <!-- Reveal gating (hard mode) -->
+  <meta name="msg.reveal.gate" th:content="#{reveal.gate}"/>
+
+  <!-- Confirms -->
+  <meta name="msg.confirm.clear"      th:content="#{confirm.clear}"/>
+  <meta name="msg.confirm.closeRoom"  th:content="#{confirm.closeRoom}"/>
+  <meta name="msg.confirm.makeHost"   th:content="#{confirm.makeHost}"/>
+  <meta name="msg.confirm.kick"       th:content="#{confirm.kick}"/>
+
+  <!-- Menu short labels -->
+  <meta name="msg.menu.on"           th:content="#{menu.on}"/>
+  <meta name="msg.menu.off"          th:content="#{menu.off}"/>
+  <meta name="msg.menu.imEstimating" th:content="#{menu.imEstimating}"/>
+  <meta name="msg.menu.observer"     th:content="#{menu.observer}"/>
+
+  <!-- Labels used in result bar -->
+  <meta name="msg.label.consensus" th:content="#{label.consensus}"/>
+
+  <!-- Name conflict (optional feature) -->
+  <meta name="msg.name.conflict.title"       th:content="#{name.conflict.title}"/>
+  <meta name="msg.name.conflict.hint"        th:content="#{name.conflict.hint}"/>
+  <meta name="msg.name.conflict.suggestion"  th:content="#{name.conflict.suggestion}"/>
+
   <!-- Favicons -->
   <link rel="icon" type="image/svg+xml" th:href="@{/favicon.svg}"/>
   <link rel="alternate icon" th:href="@{/favicon.ico}" sizes="any"/>
@@ -28,5 +66,4 @@
 
   <!-- Base styles -->
   <link rel="stylesheet" th:href="@{/styles.css}"/>
-  <!-- Tooltip CSS removed (consolidated into styles.css) -->
 </th:block>
