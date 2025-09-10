@@ -115,6 +115,18 @@ public class Room {
         return null;
     }
 
+    // == Specials visibility (room-wide) ==
+    private volatile boolean allowSpecials = true;
+
+    public boolean isAllowSpecials() {
+        return allowSpecials;
+    }
+
+    public void setAllowSpecials(boolean allowSpecials) {
+        this.allowSpecials = allowSpecials;
+    }
+
+
     // --- voting / reveal ---
     public boolean areVotesRevealed() { return cardsRevealed; }
     public void setCardsRevealed(boolean revealed) { this.cardsRevealed = revealed; }
@@ -331,7 +343,7 @@ public class Room {
             case "tshirt":
                 return Arrays.asList("XXS","XS","S","M","L","XL","XXL","XXXL");
             case "fib.enh":
-                return Arrays.asList("0","½","1","2","3","5","8","13","20","40","100","∞");
+                return Arrays.asList("0","½","1","2","3","5","8","13","20","40","100","♾️");
             case "fib.scrum":
             default:
                 return Arrays.asList("1","2","3","5","8","13","20","40","100");

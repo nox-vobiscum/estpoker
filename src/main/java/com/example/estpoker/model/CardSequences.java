@@ -29,13 +29,17 @@ public final class CardSequences {
 
     /* --- Sequence registry (unified to dot-notation) --- */
     public static final String DEFAULT_SEQUENCE_ID = "fib.scrum";
-    public static final String INFINITY = "\u221E";
+
+    /** ASCII infinity sign used by some old clients. */
+    public static final String INFINITY = "\u221E"; // "∞"
+    /** Emoji infinity (preferred visual in UI). */
+    public static final String INFINITY_EMOJI = "♾️";
 
     public static final Map<String, List<String>> SEQUENCES = Map.of(
         "fib.math",  List.of("0","1","2","3","5","8","13","21","34","55","89"),
         "fib.scrum", List.of("1","2","3","5","8","13","20","40"),
         // Infinity appears only in the enhanced Fibonacci sequence (UI-only card, excluded from stats)
-        "fib.enh",   List.of("0","½","1","2","3","5","8","13","20","40","100", INFINITY),
+        "fib.enh",   List.of("0","½","1","2","3","5","8","13","20","40","100","♾️"),
         "pow2",      List.of("2","4","8","16","32","64","128"),
         "tshirt",    List.of("XXS","XS","S","M","L","XL","XXL","XXXL")
     );
@@ -58,13 +62,22 @@ public final class CardSequences {
         return SEQUENCES.keySet();
     }
 
+    /* --- Parsing helpers --- */
+
+    /** Returns true if the value represents infinity (either "∞" or "♾️"). */
+    public static boolean isInfinity(String s) {
+        if (s == null) return false;
+        String t = s.trim();
+        return INFINITY.equals(t) || INFINITY_EMOJI.equals(t);
+    }
+
     /* --- Parsing & basic averaging --- */
 
     public static OptionalDouble parseNumeric(String s) {
         if (s == null) return OptionalDouble.empty();
         s = s.trim();
         if (s.isEmpty() || SPECIALS_SET.contains(s)) return OptionalDouble.empty();
-        if (INFINITY.equals(s)) return OptionalDouble.empty(); // treat ∞ as non-numeric (excluded from stats)
+        if (isInfinity(s)) return OptionalDouble.empty(); // treat infinity as non-numeric
 
         Double alias = ALIASES.get(s);
         if (alias != null) return OptionalDouble.of(alias);
@@ -145,6 +158,12 @@ public final class CardSequences {
 
     public static boolean isConsensus(Collection<String> votes) {
         if (votes == null) return false;
+
+        // If any infinity is present, there is no consensus by definition.
+        for (String v : votes) {
+            if (isInfinity(v)) return false;
+        }
+
         Double first = null;
         for (String v : votes) {
             OptionalDouble od = parseNumeric(v);
