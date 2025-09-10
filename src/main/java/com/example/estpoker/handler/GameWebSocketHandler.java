@@ -3,7 +3,6 @@ package com.example.estpoker.handler;
 import com.example.estpoker.model.Participant;
 import com.example.estpoker.model.Room;
 import com.example.estpoker.service.GameService;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.lang.NonNull;
@@ -23,8 +22,8 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * WebSocket handler for /gameSocket.
  * - Joins by roomCode + cid + requested name (service enforces canonical/unique name)
- * - Handles rename:<name> (broadcasts participantRenamed + you{yourName})
- * - Handles intentionalLeave (immediate participantLeft toast + short-grace disconnect)
+ * - Handles rename:<name> (service broadcasts participantRenamed + we send you{yourName})
+ * - Handles intentionalLeave (service: immediate participantLeft toast + short-grace disconnect)
  * - For transport close: schedules grace disconnect (service broadcasts after grace)
  * - Keeps back-compat for legacy messages used in tests
  */
@@ -34,7 +33,6 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     private static final Logger log = LoggerFactory.getLogger(GameWebSocketHandler.class);
 
     private final GameService gameService;
-    private static final ObjectMapper MAPPER = new ObjectMapper();
 
     /** Per WebSocket session → (room, cid, canonicalName) */
     private final Map<String, Conn> bySession = new ConcurrentHashMap<>();
@@ -62,8 +60,8 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             // Resolve canonical/effective name for this CID after join.
             String canonicalName = null;
             try {
-                Participant p = room.getParticipantByCid(cid).orElse(null);
-                if (p != null) canonicalName = p.getName();
+                var opt = room.getParticipantByCid(cid);
+                if (opt.isPresent()) canonicalName = opt.get().getName();
                 if (canonicalName == null) canonicalName = gameService.getClientName(roomCode, cid);
             } catch (Throwable ignored) {}
             if (canonicalName == null) canonicalName = initialName;
@@ -106,11 +104,10 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
 
         try {
             // ----------------------------------------------------------------------------
-            // RENAME: "rename:<urlEncodedName>" → service canonicalizes; we broadcast toast.
+            // RENAME: "rename:<urlEncodedName>" → service canonicalizes; it broadcasts rename.
             // ----------------------------------------------------------------------------
             if (payload.startsWith("rename:")) {
                 String requested = decode(payload.substring("rename:".length()));
-                String before = c.name;
                 String finalName = gameService.renameParticipant(roomCode, cid, requested);
                 if (finalName == null || finalName.isBlank()) return;
 
@@ -118,19 +115,6 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                 bySession.put(session.getId(), new Conn(roomCode, cid, finalName));
                 gameService.trackParticipant(session, finalName);
                 gameService.sendIdentity(session, finalName, cid);
-
-                // If visible name changed, broadcast participantRenamed toast.
-                if (!Objects.equals(before, finalName)) {
-                    Room room = gameService.getRoom(roomCode);
-                    if (room != null) {
-                        Map<String, Object> m = Map.of(
-                                "type", "participantRenamed",
-                                "from", before,
-                                "to", finalName
-                        );
-                        gameService.broadcastToRoom(room, MAPPER.writeValueAsString(m));
-                    }
-                }
                 return;
             }
 
@@ -184,6 +168,16 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             }
 
             // ----------------------------------------------------------------------------
+            // SPECIALS toggle (host) – room-wide
+            // ----------------------------------------------------------------------------
+            if (payload.startsWith("specials:")) {
+            if (!isHost(roomCode, c.name)) return;
+            boolean on = Boolean.parseBoolean(payload.substring("specials:".length()));
+            gameService.setSpecialsEnabled(roomCode, on);
+            return;
+            }
+        
+            // ----------------------------------------------------------------------------
             // SEQUENCE change (host)
             // ----------------------------------------------------------------------------
             if (payload.startsWith("sequence:")) {
@@ -218,20 +212,8 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                 case "resetRoom"   -> gameService.reset(roomCode);
 
                 case "intentionalLeave" -> {
-                    // Immediate leave-toast (spec) + short-grace disconnect on server.
-                    Room room = gameService.getRoom(roomCode);
-                    if (room != null) {
-                        try {
-                            Map<String, Object> m = Map.of(
-                                    "type", "participantLeft",
-                                    "name", c.name
-                            );
-                            gameService.broadcastToRoom(room, MAPPER.writeValueAsString(m));
-                        } catch (Exception ex) {
-                            log.debug("Broadcast participantLeft failed: {}", ex.toString());
-                        }
-                        gameService.handleIntentionalLeave(roomCode, c.name);
-                    }
+                    // Only tell service; it broadcasts leave + manages host transfer.
+                    gameService.handleIntentionalLeave(roomCode, c.name);
                     return;
                 }
 
@@ -288,7 +270,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             gameService.removeSession(session);
             Room room = gameService.getRoom(roomCode);
             if (room != null) {
-                // Do NOT broadcast leave immediately here (spec: grace on unexpected close).
+                // Do NOT broadcast leave immediately here (grace on unexpected close).
                 gameService.scheduleDisconnect(room, c.name);
             }
             // Host hard demotion safeguard (15 min inactivity).
