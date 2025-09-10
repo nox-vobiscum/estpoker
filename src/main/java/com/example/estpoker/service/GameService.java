@@ -17,7 +17,7 @@ import java.util.concurrent.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/** Game service: room state, participants, voting, topic, auto-reveal, host rotation. */
+/** Game service: room state, participants, voting, topic, auto-reveal, host rotation & presence toasts. */
 @Service
 public class GameService {
 
@@ -43,18 +43,26 @@ public class GameService {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    // --- disconnect grace ---
-    private static final long DISCONNECT_GRACE_MS = 120_000L; // long grace to avoid flapping
-    private static final long INTENTIONAL_GRACE_MS = 2_000L;  // short grace for refresh/navigate
+    // --- disconnect & host grace as per spec ---
+    /** Grace before a leave is considered final (to suppress refresh blips). */
+    private static final long LEAVE_GRACE_MS = 2_000L;      // 2s
+    /** Additional grace before host is transferred on unexpected close. */
+    private static final long HOST_GRACE_UNEXPECTED_MS = 5_000L; // 5s
+    /** Grace before host is transferred on intentional leave. */
+    private static final long HOST_GRACE_INTENTIONAL_MS = 2_000L; // 2s
 
     private final ScheduledExecutorService scheduler =
             Executors.newSingleThreadScheduledExecutor(r -> {
-                Thread t = new Thread(r, "disconnect-grace");
+                Thread t = new Thread(r, "presence-grace");
                 t.setDaemon(true);
                 return t;
             });
 
+    /** Pending participant-left timers (key: room|name). Presence shown as away:true while pending. */
     private final Map<String, ScheduledFuture<?>> pendingDisconnects = new ConcurrentHashMap<>();
+    /** Pending host-transfer timers (key: room|name) so we can cancel on quick reconnect. */
+    private final Map<String, ScheduledFuture<?>> pendingHostTransfers = new ConcurrentHashMap<>();
+
     private static String key(Room room, String name) { return room.getCode() + "|" + name; }
 
     // --- rooms ---
@@ -72,16 +80,22 @@ public class GameService {
         sessionToParticipantMap.remove(session);
     }
 
+    /** Back-compat wrapper: older controllers still call this. */
+    public void markLeftIntentionally(Room room, String participantName) {
+    // Same behavior as the new API
+    scheduleIntentionalDisconnect(room, participantName);
+    }
+
+
     // ========================================================================
     //  JOIN / RENAME
     // ========================================================================
 
-    // --- join (CID-bound) ------------------------------------------------------
     /**
      * Join a room with a given CID and requested display name.
-     * If the CID already exists in the room, we keep that identity (ignore requestedName),
-     * mark it active/participating, and broadcast. Otherwise we create a unique participant
-     * (Name, Name (2), …), link the CID, and broadcast.
+     * If the CID already exists in the room, we keep that identity,
+     * mark it active/participating, and broadcast. Otherwise we create a unique participant,
+     * link the CID, and broadcast.
      */
     public Room join(String roomCode, String cid, String requestedName) {
         Room room = getOrCreateRoom(roomCode);
@@ -96,7 +110,8 @@ public class GameService {
                 byCid.bumpLastSeen();
                 if (room.getHost() == null) byCid.setHost(true);
                 rememberClientName(roomCode, cid, byCid.getName());
-                cancelPendingDisconnect(room, byCid.getName()); // cancel any pending grace timer
+                // Cancel any pending timers for this participant
+                cancelPresenceTimers(room, byCid.getName());
             } else {
                 // New CID → create/link a unique participant
                 String unique = uniqueNameFor(room, desired, null);
@@ -109,6 +124,7 @@ public class GameService {
                 room.addParticipant(p);
                 room.linkCid(cid, unique);
                 rememberClientName(roomCode, cid, unique);
+                cancelPresenceTimers(room, unique);
             }
         }
 
@@ -116,55 +132,62 @@ public class GameService {
         return room;
     }
 
-    // --- rename (CID-bound) ------------------------------------------------------
+    /** Ensure a human-friendly non-empty name; trim + clamp. */
+    private static String normalizeName(String s) {
+        String t = (s == null) ? "" : s.trim();
+        if (t.isEmpty()) t = "Guest";
+        if (t.length() > 80) t = t.substring(0, 80);
+        return t;
+    }
+
 
     /**
      * Rename the participant bound to a given CID within a room.
-     * - Keeps identity stable by CID.
-     * - Ensures uniqueness: "Name", "Name (2)", "Name (3)", …
-     * - If desired equals current, it's a no-op.
-     * Returns the final (possibly adjusted) name, or null if room not found.
+     * Ensures uniqueness and broadcasts a participantRenamed event when the visible
+     * name actually changes.
      */
     public String renameParticipant(String roomCode, String cid, String requestedName) {
         Room room = getRoom(roomCode);
         if (room == null || cid == null) return null;
 
+        String oldName = null;
         String finalName;
-        synchronized (room) {
-            // Current participant for this CID (should exist after join)
-            Participant cur = room.getParticipantByCid(cid).orElse(null);
-            String currentName = (cur != null ? cur.getName() : null);
 
+        synchronized (room) {
+            Participant cur = room.getParticipantByCid(cid).orElse(null);
             String desired = (requestedName == null ? "" : requestedName.trim());
             if (desired.isEmpty()) desired = "Guest";
 
             if (cur == null) {
-                // Fallback: unknown CID – behave like a fresh join with unique name
+                // Unknown CID -> behave like join
                 String unique = uniqueNameFor(room, desired, null);
                 Participant p = room.getParticipant(unique);
                 if (p == null) {
                     p = new Participant(unique);
+                    p.setActive(true);
+                    p.setParticipating(true);
+                    p.bumpLastSeen();
+                    if (room.getHost() == null) p.setHost(true);
                     room.addParticipant(p);
                 }
                 room.linkCid(cid, p.getName());
                 finalName = p.getName();
             } else {
-                // CID known → rename this one, but keep uniqueness (exclude self)
-                String unique = uniqueNameFor(room, desired, currentName);
-                if (unique.equals(currentName)) {
-                    finalName = currentName; // no-op
+                oldName = cur.getName();
+                String unique = uniqueNameFor(room, desired, oldName);
+                if (unique.equals(oldName)) {
+                    finalName = oldName; // no-op
                 } else {
-                    // No setName() on Participant → create replacement and transfer minimal state
+                    // Replace object and keep flags
                     Participant repl = new Participant(unique);
                     repl.setActive(cur.isActive());
                     repl.setParticipating(cur.isParticipating());
                     repl.setHost(cur.isHost());
                     repl.setVote(cur.getVote());
 
-                    // Insert replacement, re-link CID, remove old
                     room.addParticipant(repl);
                     room.linkCid(cid, unique);
-                    room.removeParticipant(currentName);
+                    room.removeParticipant(oldName);
 
                     finalName = unique;
                 }
@@ -173,7 +196,9 @@ public class GameService {
             rememberClientName(roomCode, cid, finalName);
         }
 
-        // Inform clients about the change
+        if (oldName != null && !Objects.equals(oldName, finalName)) {
+            broadcastParticipantRenamed(room, oldName, finalName);
+        }
         broadcastRoomState(room);
         return finalName;
     }
@@ -194,138 +219,10 @@ public class GameService {
         }
     }
 
-    /**
-     * Public API used by the WS handler to rename by CID.
-     * Returns the final (possibly uniquified) name.
-     */
-    public String renameByCid(String roomCode, String cid, String requestedName) {
-        Room room = getOrCreateRoom(roomCode);
-        String desired = normalizeName(requestedName);
-        String finalName;
-
-        synchronized (room) {
-            Participant p = room.getParticipantByCid(cid).orElse(null);
-            if (p == null) {
-                // Unknown CID -> treat as join path
-                join(roomCode, cid, desired);
-                finalName = room.getParticipantByCid(cid).map(Participant::getName).orElse(desired);
-            } else if (Objects.equals(p.getName(), desired)) {
-                finalName = p.getName();
-                room.linkCid(cid, finalName);
-                rememberClientName(roomCode, cid, finalName);
-                p.bumpLastSeen();
-            } else {
-                finalName = renameInternal(room, p.getName(), cid, desired);
-            }
-        }
-
-        broadcastRoomState(room);
-        return finalName;
-    }
-
-    /** Back-compat adapter in case older callers use gameService.rename(...). */
-    public String rename(String roomCode, String cid, String requestedName) {
-        return renameParticipant(roomCode, cid, requestedName);
-    }
-
-    /**
-     * Internal rename without using setName (Participant has no name setter).
-     * We remove the old participant, create a new one with the target name,
-     * copy relevant flags/vote, link CID, and add back to the room.
-     */
-    private String renameInternal(Room room, String oldName, String cid, String desired) {
-        String target = pickUniqueName(room, desired, oldName);
-        if (Objects.equals(target, oldName)) {
-            room.linkCid(cid, oldName);
-            return oldName;
-        }
-
-        Participant old = room.getParticipant(oldName);
-        if (old == null) {
-            // Fallback: nothing to copy; just create a fresh participant
-            Participant fresh = new Participant(target);
-            fresh.setActive(true);
-            fresh.setParticipating(true);
-            fresh.bumpLastSeen();
-            room.removeParticipant(oldName);
-            room.addParticipant(fresh);
-            room.linkCid(cid, target);
-            return target;
-        }
-
-        // Snapshot flags to retain state over rename
-        boolean wasHost = old.isHost();
-        boolean active = old.isActive();
-        boolean participating = old.isParticipating();
-        String vote = old.getVote();
-
-        // Replace object
-        room.removeParticipant(oldName);
-        Participant neo = new Participant(target);
-        neo.setActive(active);
-        neo.setParticipating(participating);
-        neo.setVote(vote);
-        neo.setHost(wasHost);
-        neo.bumpLastSeen();
-
-        room.addParticipant(neo);
-        room.linkCid(cid, target);
-        return target;
-    }
-
-    /** Ensure a human-friendly non-empty name; trim + clamp. */
-    private static String normalizeName(String s) {
-        String t = (s == null) ? "" : s.trim();
-        if (t.isEmpty()) t = "Guest";
-        if (t.length() > 80) t = t.substring(0, 80);
-        return t;
-    }
-
-    /**
-     * Pick a unique visible name inside the room.
-     * If 'selfOldName' is provided, that name is considered "ours" and allowed.
-     * Strategy: base, base (2), base (3) … (cap at 99, then add short suffix).
-     */
-    private static String pickUniqueName(Room room, String base, String selfOldName) {
-        String candidate = base;
-        int i = 2;
-        while (true) {
-            Participant clash = room.getParticipant(candidate);
-            if (clash == null) return candidate;
-            if (selfOldName != null && candidate.equals(selfOldName)) return candidate;
-            if (i > 99) {
-                // Emergency: avoid unbounded loops on pathological history
-                String shortRand = UUID.randomUUID().toString().substring(0, 4);
-                return base + " (" + shortRand + ")";
-            }
-            candidate = base + " (" + i + ")";
-            i++;
-        }
-    }
-
     // ========================================================================
     //  PRESENCE / VOTE / TOPIC / SEQUENCE / HOSTING
     // ========================================================================
 
-    /** Optional: explicitly mark connected (kept for completeness). */
-    public void markConnected(String roomCode, String cid, boolean announce) {
-        Room room = getOrCreateRoom(roomCode);
-        synchronized (room) {
-            Participant p = room.getParticipantByCid(cid).orElse(null);
-            if (p == null) {
-                String last = getClientName(roomCode, cid);
-                if (last != null) p = room.getParticipant(last);
-            }
-            if (p != null) {
-                p.setActive(true);
-                p.bumpLastSeen();
-                if (room.getHost() == null) p.setHost(true);
-            }
-        }
-        if (announce) broadcastRoomState(room);
-    }
-
-    /** Set a vote (supports name or CID). */
     public void setVote(String roomCode, String nameOrCid, String value) {
         Room room = getOrCreateRoom(roomCode);
         synchronized (room) {
@@ -345,21 +242,18 @@ public class GameService {
         broadcastRoomState(room);
     }
 
-    /** Reveal cards explicitly. */
     public void reveal(String roomCode) {
         Room room = getOrCreateRoom(roomCode);
         synchronized (room) { room.setCardsRevealed(true); }
         broadcastRoomState(room);
     }
 
-    /** Start a new round. */
     public void reset(String roomCode) {
         Room room = getOrCreateRoom(roomCode);
         synchronized (room) { room.reset(); }
         broadcastRoomState(room);
     }
 
-    /** Save topic (label+optional url) and show it. */
     public void saveTopic(String roomCode, String input) {
         Room room = getOrCreateRoom(roomCode);
         String[] parsed = parseTopic(input);
@@ -371,7 +265,6 @@ public class GameService {
         broadcastRoomState(room);
     }
 
-    /** Clear topic and hide it. */
     public void clearTopic(String roomCode) {
         Room room = getOrCreateRoom(roomCode);
         synchronized (room) {
@@ -382,17 +275,12 @@ public class GameService {
         broadcastRoomState(room);
     }
 
-    /** Toggle topic visibility without changing content. */
     public void setTopicEnabled(String roomCode, boolean enabled) {
         Room room = getOrCreateRoom(roomCode);
         synchronized (room) { room.setTopicVisible(enabled); }
         broadcastRoomState(room);
     }
 
-    /**
-     * Toggle auto-reveal flag and broadcast.
-     * If enabling and all votes are already present, reveal immediately.
-     */
     public void setAutoRevealEnabled(String roomCode, boolean enabled) {
         Room room = getOrCreateRoom(roomCode);
         boolean flippedToRevealed = false;
@@ -409,10 +297,6 @@ public class GameService {
         broadcastRoomState(room);
     }
 
-    /**
-     * Observer toggle (supports cid or name).
-     * observer=false => participating=true. Clears vote when becoming observer.
-     */
     public void setObserver(String roomCode, String nameOrCid, boolean observer) {
         Room room = getOrCreateRoom(roomCode);
         synchronized (room) {
@@ -431,7 +315,7 @@ public class GameService {
         broadcastRoomState(room);
     }
 
-    /** Keep-alive ping from client (cid or name) to prevent false host demotion. */
+    /** Keep-alive ping to keep presence fresh. */
     public void touch(String roomCode, String nameOrCid) {
         Room room = getOrCreateRoom(roomCode);
         synchronized (room) {
@@ -444,18 +328,16 @@ public class GameService {
         }
     }
 
-    /** Change card sequence, reset round and broadcast. */
     public void setSequence(String roomCode, String sequenceId) {
         Room room = getOrCreateRoom(roomCode);
         String normalized = sanitizeSequenceId(sequenceId);
         synchronized (room) {
             room.setSequenceId(normalized);
-            room.reset(); // clear votes because card set changed
+            room.reset();
         }
         broadcastRoomState(room);
     }
 
-    /** Promote a participant to host (demote current host). */
     public void makeHost(String roomCode, String targetName) {
         Room room = getRoom(roomCode);
         if (room == null || targetName == null) return;
@@ -472,11 +354,11 @@ public class GameService {
             target.setHost(true);
             target.bumpLastSeen();
         }
+        // Broadcast both: legacy 'hostChanged' and new 'hostTransferred'
         broadcastHostChange(room, oldHost, targetName);
         broadcastRoomState(room);
     }
 
-    /** Return true if auto-reveal conditions are met (check only, do not flip state). */
     public boolean shouldAutoReveal(String roomCode) {
         Room room = getRoom(roomCode);
         if (room == null) return false;
@@ -487,9 +369,7 @@ public class GameService {
         }
     }
 
-    /** Ensure a host exists; if current host is inactive for longer than limits, promote someone else.
-     *  softMs: advisory (no action), hardMs: demote & reassign.
-     */
+    /** Keep for completeness; not used by the new presence timers. */
     public void ensureHost(String roomCode, long softMs, long hardMs) {
         Room room = getRoom(roomCode);
         if (room == null) return;
@@ -561,32 +441,6 @@ public class GameService {
         return true;
     }
 
-    /** Names farthest from the average (only useful with ≥3 votes). */
-    public List<String> farthestFromAverageNames(Room room) {
-        Map<String, Double> nv = collectNumericVotes(room);
-        if (nv.size() < 3) return List.of();
-        OptionalDouble avgOpt = nv.values().stream().mapToDouble(Double::doubleValue).average();
-        if (avgOpt.isEmpty()) return List.of();
-        double avg = avgOpt.getAsDouble();
-
-        double maxDist = -1d;
-        Map<String, Double> dist = new LinkedHashMap<>();
-        for (Map.Entry<String, Double> e : nv.entrySet()) {
-            double d = Math.abs(e.getValue() - avg);
-            dist.put(e.getKey(), d);
-            if (d > maxDist) maxDist = d;
-        }
-        if (maxDist <= 0) return List.of();
-
-        final double eps = 1e-9;
-        List<String> out = new ArrayList<>();
-        for (Map.Entry<String, Double> e : dist.entrySet()) {
-            if (Math.abs(e.getValue() - maxDist) <= eps) out.add(e.getKey());
-        }
-        return out;
-    }
-
-    /** Collect numeric votes: active + participating, dedupe by name; specials (incl. ∞) ignored. */
     private Map<String, Double> collectNumericVotes(Room room) {
         Map<String, Double> out = new LinkedHashMap<>();
         if (room == null) return out;
@@ -639,6 +493,15 @@ public class GameService {
         });
     }
 
+    private void broadcastJson(Room room, Map<String, Object> payload) {
+        try {
+            String json = objectMapper.writeValueAsString(payload);
+            broadcastToRoom(room, json);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
     public void broadcastRoomState(Room room) {
         try {
             Map<String, Object> payload = new HashMap<>();
@@ -649,11 +512,13 @@ public class GameService {
             Map<String, Map<String, Object>> byName = new LinkedHashMap<>();
             for (Participant p : ordered) {
                 Map<String, Object> cur = byName.get(p.getName());
+                boolean away = pendingDisconnects.containsKey(key(room, p.getName()));
                 if (cur == null) {
                     cur = new HashMap<>();
                     cur.put("name", p.getName());
                     cur.put("vote", p.getVote());
                     cur.put("disconnected", !p.isActive());
+                    cur.put("away", away);                   // NEW: grace indicator for UI (💤)
                     cur.put("isHost", p.isHost());
                     cur.put("participating", p.isParticipating());
                     byName.put(p.getName(), cur);
@@ -662,6 +527,7 @@ public class GameService {
                     if (p.isHost()) cur.put("isHost", true);
                     if (p.isParticipating()) cur.put("participating", true);
                     if (p.isActive()) cur.put("disconnected", false);
+                    if (!away) cur.put("away", false);
                 }
             }
             payload.put("participants", new ArrayList<>(byName.values()));
@@ -718,17 +584,23 @@ public class GameService {
         }
     }
 
+    /** Broadcast both legacy and new event for host transfer (compat). */
     public void broadcastHostChange(Room room, String oldHostName, String newHostName) {
+        // Legacy event
         try {
-            Map<String, Object> payload = new HashMap<>();
-            payload.put("type", "hostChanged");
-            payload.put("oldHost", oldHostName);
-            payload.put("newHost", newHostName);
-            String json = objectMapper.writeValueAsString(payload);
-            broadcastToRoom(room, json);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+            Map<String, Object> legacy = new HashMap<>();
+            legacy.put("type", "hostChanged");
+            legacy.put("oldHost", oldHostName);
+            legacy.put("newHost", newHostName);
+            broadcastToRoom(room, objectMapper.writeValueAsString(legacy));
+        } catch (IOException ignored) {}
+
+        // New event used by current clients (toast logic)
+        Map<String, Object> modern = new HashMap<>();
+        modern.put("type", "hostTransferred");
+        modern.put("from", oldHostName);
+        modern.put("to", newHostName);
+        broadcastJson(room, modern);
     }
 
     private List<Participant> getOrderedParticipants(Room room) {
@@ -745,29 +617,47 @@ public class GameService {
     }
 
     // ========================================================================
-    //  DISCONNECTS / KICK / CLOSE
+    //  DISCONNECTS / KICK / CLOSE  (with 2s/5s grace + toasts)
     // ========================================================================
 
-    public void cancelPendingDisconnect(Room room, String participantName) {
+    /** Cancel both presence & host timers for this participant. */
+    private void cancelPresenceTimers(Room room, String participantName) {
         String k = key(room, participantName);
         ScheduledFuture<?> f = pendingDisconnects.remove(k);
         if (f != null) f.cancel(false);
+
+        ScheduledFuture<?> h = pendingHostTransfers.remove(k);
+        if (h != null) h.cancel(false);
     }
 
-    /** Standard disconnect (network hiccup, background tab): long grace. */
+    public void cancelPendingDisconnect(Room room, String participantName) {
+        cancelPresenceTimers(room, participantName);
+    }
+
+    /** Unexpected close → 2s leave toast + 5s host transfer. */
     public void scheduleDisconnect(Room room, String participantName) {
-        scheduleDisconnect(room, participantName, DISCONNECT_GRACE_MS);
+        schedulePresence(room, participantName, LEAVE_GRACE_MS, HOST_GRACE_UNEXPECTED_MS);
     }
 
-    /** Intentional leave (refresh/navigation): short grace. */
+    /** Intentional leave → immediate leave toast + 2s host transfer. */
     public void scheduleIntentionalDisconnect(Room room, String participantName) {
-        scheduleDisconnect(room, participantName, INTENTIONAL_GRACE_MS);
-    }
+        if (room == null || participantName == null) return;
 
-    /** Back-compat wrapper for older controllers. */
-    public void markLeftIntentionally(Room room, String participantName) {
-        // Intentional leave should not immediately reshuffle host; use short grace.
-        scheduleIntentionalDisconnect(room, participantName);
+        // Mark away=false and immediately mark inactive + broadcast toasts
+        cancelPresenceTimers(room, participantName);
+
+        // Leave toast immediately
+        broadcastParticipantLeft(room, participantName);
+
+        // Mark inactive and reflect in participant list
+        synchronized (room) {
+            Participant p = room.getParticipant(participantName);
+            if (p != null) p.setActive(false);
+        }
+        broadcastRoomState(room);
+
+        // Schedule host transfer after 2s (if still applicable)
+        scheduleHostTransfer(room, participantName, HOST_GRACE_INTENTIONAL_MS);
     }
 
     /** Back-compat wrapper used by GameWebSocketHandler (roomCode + name). */
@@ -778,29 +668,80 @@ public class GameService {
         }
     }
 
-    private void scheduleDisconnect(Room room, String participantName, long delayMs) {
+    /** Core scheduler for unexpected disconnects. Shows away:true within grace. */
+    private void schedulePresence(Room room, String participantName, long leaveDelayMs, long hostDelayMs) {
         if (room == null || participantName == null) return;
         String k = key(room, participantName);
 
-        // Replace any existing timer for this person
-        cancelPendingDisconnect(room, participantName);
+        // Replace any existing timers for this person
+        cancelPresenceTimers(room, participantName);
 
-        ScheduledFuture<?> f = scheduler.schedule(() -> {
+        // Mark as "away" now (client shows 💤); reflect in UI immediately.
+        // (We don't mutate Participant object; 'away' is derived from pendingDisconnects)
+        broadcastRoomState(room);
+
+        // After leave grace: mark inactive + leave toast + UI update
+        ScheduledFuture<?> leaveF = scheduler.schedule(() -> {
             try {
-                Participant participant = room.getParticipant(participantName);
-                if (participant != null) participant.setActive(false);
-
-                String newHostName = room.assignNewHostIfNecessary(participantName);
-                if (newHostName != null) {
-                    broadcastHostChange(room, participantName, newHostName);
+                synchronized (room) {
+                    Participant participant = room.getParticipant(participantName);
+                    if (participant != null) participant.setActive(false);
                 }
+                broadcastParticipantLeft(room, participantName);
                 broadcastRoomState(room);
             } finally {
                 pendingDisconnects.remove(k);
             }
+        }, leaveDelayMs, TimeUnit.MILLISECONDS);
+        pendingDisconnects.put(k, leaveF);
+
+        // Host transfer timer (independent, longer on unexpected close)
+        scheduleHostTransfer(room, participantName, hostDelayMs);
+    }
+
+    /** Transfer host after grace if still applicable (host did not return). */
+    private void scheduleHostTransfer(Room room, String leavingName, long delayMs) {
+        if (room == null || leavingName == null) return;
+        String k = key(room, leavingName);
+
+        ScheduledFuture<?> hostF = scheduler.schedule(() -> {
+            try {
+                String newHostName = null;
+                synchronized (room) {
+                    Participant host = room.getHost();
+                    // Only transfer if the leavingName is still the host (and most likely inactive)
+                    if (host != null && Objects.equals(host.getName(), leavingName)) {
+                        host.setHost(false);
+                        newHostName = room.assignNewHostIfNecessary(leavingName);
+                    }
+                }
+                if (newHostName != null) {
+                    broadcastHostChange(room, leavingName, newHostName);
+                    broadcastRoomState(room);
+                }
+            } finally {
+                pendingHostTransfers.remove(k);
+            }
         }, delayMs, TimeUnit.MILLISECONDS);
 
-        pendingDisconnects.put(k, f);
+        pendingHostTransfers.put(k, hostF);
+    }
+
+    /** Broadcast "participantLeft { name }". */
+    private void broadcastParticipantLeft(Room room, String name) {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("type", "participantLeft");
+        payload.put("name", name);
+        broadcastJson(room, payload);
+    }
+
+    /** Broadcast "participantRenamed { from, to }". */
+    private void broadcastParticipantRenamed(Room room, String from, String to) {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("type", "participantRenamed");
+        payload.put("from", from);
+        payload.put("to", to);
+        broadcastJson(room, payload);
     }
 
     public void kickParticipant(Room room, String targetName) {
@@ -831,7 +772,7 @@ public class GameService {
             try { s.close(new CloseStatus(4001, "Kicked")); } catch (IOException ignored) {}
         }
 
-        cancelPendingDisconnect(room, targetName);
+        cancelPresenceTimers(room, targetName);
         room.removeParticipant(targetName);
 
         String newHost = room.assignNewHostIfNecessary(targetName);
@@ -868,7 +809,7 @@ public class GameService {
             sessionToParticipantMap.remove(s);
         }
 
-        for (Participant p : new ArrayList<>(room.getParticipants())) cancelPendingDisconnect(room, p.getName());
+        for (Participant p : new ArrayList<>(room.getParticipants())) cancelPresenceTimers(room, p.getName());
         rooms.remove(room.getCode());
     }
 
@@ -916,16 +857,13 @@ public class GameService {
     //  MISC HELPERS
     // ========================================================================
 
-    /** Accept known sequence ids; normalize dash/dot variants; fallback to "fib.scrum". */
     private static String sanitizeSequenceId(String id) {
         if (id == null) return "fib.scrum";
         String s = id.trim().toLowerCase(Locale.ROOT);
-        // normalize common variants
         if (s.equals("fib-scrum")) s = "fib.scrum";
         if (s.equals("fib-enh"))   s = "fib.enh";
         if (s.equals("fib-math"))  s = "fib.math";
         if (s.equals("t-shirt"))   s = "tshirt";
-        // whitelist
         switch (s) {
             case "fib.scrum":
             case "fib.enh":
@@ -936,5 +874,32 @@ public class GameService {
             default:
                 return "fib.scrum";
         }
+    }
+
+    // ---------- extras used above ----------
+
+    /** Names farthest from the average (only useful with ≥3 votes). */
+    public List<String> farthestFromAverageNames(Room room) {
+        Map<String, Double> nv = collectNumericVotes(room);
+        if (nv.size() < 3) return List.of();
+        OptionalDouble avgOpt = nv.values().stream().mapToDouble(Double::doubleValue).average();
+        if (avgOpt.isEmpty()) return List.of();
+        double avg = avgOpt.getAsDouble();
+
+        double maxDist = -1d;
+        Map<String, Double> dist = new LinkedHashMap<>();
+        for (Map.Entry<String, Double> e : nv.entrySet()) {
+            double d = Math.abs(e.getValue() - avg);
+            dist.put(e.getKey(), d);
+            if (d > maxDist) maxDist = d;
+        }
+        if (maxDist <= 0) return List.of();
+
+        final double eps = 1e-9;
+        List<String> out = new ArrayList<>();
+        for (Map.Entry<String, Double> e : dist.entrySet()) {
+            if (Math.abs(e.getValue() - maxDist) <= eps) out.add(e.getKey());
+        }
+        return out;
     }
 }

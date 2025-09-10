@@ -30,7 +30,7 @@ public class SignalController {
         String name = gameService.getClientName(roomCode, cid);
         Room room = gameService.getRoom(roomCode);
         if (room != null && name != null) {
-            gameService.markLeftIntentionally(room, name);
+            gameService.scheduleIntentionalDisconnect(room, name);
             return ResponseEntity.accepted().build();
         }
         return ResponseEntity.noContent().build();
