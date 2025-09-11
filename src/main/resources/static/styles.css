@@ -712,41 +712,13 @@ body{padding-bottom:var(--footer-h)}
   opacity: 1;
 }
 
-/* Baseline: funktioniert überall (ohne color-mix/oklab) */
+/* Heat-colored result chips (participants list after reveal) */
 .vote-chip.heat{
-  --_h: var(--chip-heat-h, 120);                  /* 120=grün … 0=rot (vom JS gesetzt) */
-  /* Rahmen/Schrift in HSL – gute Unterstützung */
+  --_h: var(--chip-heat-h,120);
   border-color: hsl(var(--_h) 75% 55%);
   color:        hsl(var(--_h) 85% 62%);
-  /* Hintergrund als einfache HSLA-Transparenz */
-  background-color: hsla(var(--_h) 80% 50% / 0.12);
-  transition: background-color .15s ease, color .15s ease, border-color .15s ease;
+  background: color-mix(in oklab, hsl(var(--_h) 80% 50%) 14%, transparent);
 }
-
-/* Upgrade: wenn color-mix + oklab verfügbar ist, nutze es für schönere Töne */
-@supports (background: color-mix(in oklab, white, black)) {
-  .vote-chip.heat{
-    background: color-mix(in oklab, hsl(var(--_h) 80% 50%) 14%, transparent);
-  }
-}
-
-/* Dark Mode: etwas kräftigerer Alpha-Wert für bessere Lesbarkeit */
-@media (prefers-color-scheme: dark) {
-  .vote-chip.heat{
-    background-color: hsla(var(--_h) 80% 50% / 0.18);
-  }
-  @supports (background: color-mix(in oklab, white, black)) {
-    .vote-chip.heat{
-      background: color-mix(in oklab, hsl(var(--_h) 80% 50%) 18%, transparent);
-    }
-  }
-}
-
-/* High-contrast / Forced Colors: lass das OS entscheiden, nur Rahmen lassen */
-@media (forced-colors: active) {
-  .vote-chip.heat{
-    background: transparent;
-    color: CanvasText;
-    border-color: CanvasText;
-  }
+@supports not (color-mix(in oklab, white, black)){
+  .vote-chip.heat{ background: transparent; }
 }
