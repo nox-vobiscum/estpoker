@@ -107,7 +107,7 @@ strong{color:var(--text-strong)}
 .topic-text{display:inline-block;color:var(--text);padding:.15rem .45rem;border-radius:6px;background:var(--panel);border:1px solid var(--border);min-height:26px;line-height:1.3;font-size:.92rem}
 .topic-text a{color:inherit;text-decoration:none}
 .topic-text a:hover{text-decoration:underline}
-.topic-actions{display:flex;gap:6px}
+.topic-actions{display:flex;align-items:center;gap:6px}
 /* edit block */
 .topic-edit{display:grid;grid-template-columns:1fr max-content;gap:8px;align-items:center;margin:1.2rem 0 1rem;padding:8px 10px;background:var(--panel-2);border:1px solid var(--border);border-radius:10px}
 .topic-input{height:36px;border-radius:8px;border:1px solid var(--border);background:var(--panel);color:var(--text);padding:0 .75rem}
@@ -201,6 +201,9 @@ strong{color:var(--text-strong)}
 .icon-button:hover{background:var(--panel-2-hover);border-color:var(--accent);box-shadow:0 0 0 2px rgba(0,122,204,.12)}
 .icon-button:active{transform:translateY(1px) scale(.98)}
 :root[data-theme="light"] .icon-button:hover{box-shadow:0 0 0 2px rgba(37,99,235,.12)}
+.icon-button.neutral {display:inline-flex;align-items:center;justify-content:center;width:32px; height:32px;border:1px solid var(--outline-3);border-radius:10px;background:transparent;color:var(--text-2);line-height:1;}
+.icon-button.neutral:hover { border-color: var(--outline-4); }
+.icon-button.neutral:focus-visible { outline:2px solid var(--focus); outline-offset:2px; }
 
 /* ---------- Forms / landing ---------------------------------------------- */
 .landing-container{display:flex;flex-direction:column;align-items:center;min-height:90vh;padding:2rem;text-align:center;margin-top:6vh}

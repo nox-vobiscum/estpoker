@@ -713,9 +713,9 @@
       inp.value = state.topicLabel || '';
       setTimeout(() => { try { inp.focus(); inp.select(); } catch {} }, 0);
 
-      actions.innerHTML =
-        `<button id="topicSaveBtn" class="row-action host-only" type="button" title="${isDe() ? 'Speichern' : 'Save'}" aria-label="${isDe() ? 'Speichern' : 'Save'}"><span class="ra-icon">✅</span></button>
-         <button id="topicCancelEditBtn" class="row-action host-only" type="button" title="${isDe() ? 'Abbrechen' : 'Cancel'}" aria-label="${isDe() ? 'Abbrechen' : 'Cancel'}"><span class="ra-icon">❌</span></button>`;
+    actions.innerHTML =
+      `<button id="topicSaveBtn" class="icon-button neutral" type="button" title="${isDe() ? 'Speichern' : 'Save'}" aria-label="${isDe() ? 'Speichern' : 'Save'}">✅</button>
+      <button id="topicCancelEditBtn" class="icon-button neutral" type="button" title="${isDe() ? 'Abbrechen' : 'Cancel'}" aria-label="${isDe() ? 'Abbrechen' : 'Cancel'}">❌</button>`;
 
       const saveBtn = $('#topicSaveBtn');
       const cancelBtn = $('#topicCancelEditBtn');
