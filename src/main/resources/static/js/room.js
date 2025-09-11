@@ -356,12 +356,11 @@ function renderParticipants() {
       const li = document.createElement('li');
       li.className = 'participant-row';
 
-      // inactive = disconnected OR away
       const isInactive = !!p.disconnected || !!p.away;
       if (isInactive) li.classList.add('disconnected');
       if (p.isHost)    li.classList.add('is-host');
 
-      // left icon (role/status)
+      // Left icon (role/presence)
       const left = document.createElement('span');
       left.className = 'participant-icon' + (p.isHost ? ' host' : '');
       let icon = '👤';
@@ -370,79 +369,82 @@ function renderParticipants() {
       else if (isInactive)          icon = '💤';
       left.textContent = icon;
       left.setAttribute('aria-hidden', 'true');
-      if (isInactive) left.classList.add('inactive'); // subtle dim
+      if (isInactive) left.classList.add('inactive');       // slightly dim
       li.appendChild(left);
 
-      // name
+      // Name
       const name = document.createElement('span');
       name.className = 'name';
       name.textContent = p.name;
       li.appendChild(name);
 
-      // right area (pre/post vote)
+      // Right column (chips + actions)
       const right = document.createElement('div');
       right.className = 'row-right';
 
+      // --- CHIP COLUMN ------------------------------------------------------
       if (!state.votesRevealed) {
-        // PRE-VOTE
+        // Pre-vote: always render a *mini-chip* so the column width is stable
         if (p.observer) {
           const eye = document.createElement('span');
-          eye.className = 'status-icon observer';
+          eye.className = 'mini-chip observer';
           eye.textContent = '👁️';
           right.appendChild(eye);
         } else if (!p.disconnected && p.vote != null && String(p.vote) !== '') {
-          // has voted
-          const done = document.createElement('span');
-          done.className = 'status-icon done';
-          done.textContent = '✓';
-          right.appendChild(done);
-        } else if (!p.disconnected) {
-          // not voted yet -> neutral outline dash aligned to chip column
+          const ok = document.createElement('span');
+          ok.className = 'mini-chip done';
+          ok.textContent = '✓';
+          right.appendChild(ok);
+        } else {
+          // waiting / no vote yet
           const dash = document.createElement('span');
-          dash.className = 'vote-chip empty';
-          dash.textContent = '–';
+          dash.className = isInactive ? 'mini-chip' : 'mini-chip pending';
+          dash.textContent = isInactive ? '–' : '⏳';
           right.appendChild(dash);
         }
       } else {
-        // POST-VOTE
+        // Post-vote
         if (p.observer) {
-          // observers show subtle eye in chip column
           const eye = document.createElement('span');
-          eye.className = 'status-icon observer';
+          eye.className = 'mini-chip observer';
           eye.textContent = '👁️';
           right.appendChild(eye);
         } else {
-          const chip = document.createElement('span');
-          chip.className = 'vote-chip';
-
-          const noVote  = (p.vote == null || String(p.vote) === '');
-          const display = noVote ? '–' : String(p.vote);
-
+          // Inactive after reveal → always a neutral dash chip (no green)
           if (isInactive) {
-            // Inactive participants must NEVER look "green" → show grey outline dash
-            chip.textContent = '–';
-            chip.classList.add('empty');
+            const dash = document.createElement('span');
+            dash.className = 'mini-chip';
+            dash.textContent = '–';
+            right.appendChild(dash);
           } else {
-            chip.textContent = display;
+            const chip = document.createElement('span');
+            const noVote  = (p.vote == null || p.vote === '');
+            const display = noVote ? '–' : String(p.vote);
 
-            // style specials, but NOT infinity (∞ stays green like a number)
-            const isInfinity = (display === INFINITY_ || display === INFINITY_ALT);
-            const isSpecial  = SPECIALS.includes(display);
-            if (!isInfinity && isSpecial) chip.classList.add('special');
+            if (noVote) {
+              // Outline dash for "did not vote"
+              chip.className = 'mini-chip';
+              chip.textContent = '–';
+              right.appendChild(chip);
+            } else {
+              // Proper result chip (green for numbers, grey for specials)
+              chip.className = 'vote-chip';
+              chip.textContent = display;
 
-            // explicit empty after reveal → outline dash
-            if (noVote) chip.classList.add('empty');
+              const isInfinity = (display === INFINITY_ || display === INFINITY_ALT);
+              const isSpecial  = SPECIALS.includes(display);
+              if (!isInfinity && isSpecial) chip.classList.add('special');
 
-            // outlier highlight if provided by server
-            if (Array.isArray(state.outliers) && state.outliers.includes(p.name)) {
-              chip.classList.add('outlier');
+              if (Array.isArray(state.outliers) && state.outliers.includes(p.name)) {
+                chip.classList.add('outlier');
+              }
+              right.appendChild(chip);
             }
           }
-          right.appendChild(chip);
         }
       }
 
-      // host actions (only for non-host rows)
+      // --- ROW ACTIONS (always sit on the far right) ------------------------
       if (state.isHost && !p.isHost) {
         const makeHostBtn = document.createElement('button');
         makeHostBtn.className = 'row-action host';
@@ -473,9 +475,10 @@ function renderParticipants() {
 
     ul.replaceChildren(frag);
   } catch (e) {
-    console.error(TAG, 'renderParticipants failed', e);
+    console.error('[ROOM] renderParticipants failed', e);
   }
 }
+
 
 
   // ---------------- Cards ----------------
