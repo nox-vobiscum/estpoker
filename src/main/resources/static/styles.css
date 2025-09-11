@@ -527,3 +527,69 @@ body{padding-bottom:var(--footer-h)}
 @supports (-webkit-touch-callout:none){
   #liveParticipantList .row-right .row-action{ border-radius: 50%; }
 }
+
+/* ===== Fix 1: outline dash must NEVER be filled =========================== */
+/* Works both pre-vote and post-vote, and beats any earlier .vote-chip rule */
+#liveParticipantList .vote-chip.empty,
+.vote-chip.empty{
+  background: transparent !important;
+  border: 2px solid #475569 !important;   /* subtle slate border */
+  color: #cbd5e1 !important;
+  box-shadow: none !important;
+  font-weight: 600;
+}
+:root[data-theme="light"] #liveParticipantList .vote-chip.empty,
+:root[data-theme="light"] .vote-chip.empty{
+  border-color: #cfe0ff !important;
+  color: #0b1220 !important;
+}
+
+/* ===== Fix 2: compact, centered row-actions (emoji variant) =============== */
+#liveParticipantList .row-right > .row-action{
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 8px;
+  display: inline-grid;              /* perfect centering */
+  place-items: center;
+  box-shadow: 0 1px 0 rgba(0,0,0,.25);
+}
+#liveParticipantList .row-right > .row-action .ra-label{ display:none !important; }
+#liveParticipantList .row-right > .row-action .ra-icon{
+  font-size: 16px;
+  line-height: 1;
+  width: 1.1em; height: 1.1em;       /* avoid vertical wobble across platforms */
+}
+
+/* Colors aligned with your CI (slightly lighter than before) */
+#liveParticipantList .row-right > .row-action.host{
+  background: #274a85;               /* lighter blue */
+  border-color: #3b82f6;
+  color: #e8f0ff;
+}
+#liveParticipantList .row-right > .row-action.host:hover{
+  background: #2f58a0;
+  box-shadow: 0 0 0 2px rgba(59,130,246,.18);
+}
+#liveParticipantList .row-right > .row-action.kick{
+  background: #6a2121;               /* slightly lighter red */
+  border-color: #ef6666;
+  color: #ffe7e7;
+}
+#liveParticipantList .row-right > .row-action.kick:hover{
+  background: #7a2626;
+  box-shadow: 0 0 0 2px rgba(239,68,68,.18);
+}
+
+/* Make the first action hug the right edge */
+#liveParticipantList .row-right > .row-action:first-of-type{ margin-left:auto; }
+
+/* ===== Fix 3: inactive participants (non-italic, clearly dim) ============= */
+#liveParticipantList li.disconnected .name{
+  color: #9ca3af;     /* dimmer than active text */
+  font-style: normal; /* no italics */
+}
+:root[data-theme="light"] #liveParticipantList li.disconnected .name{
+  color: #6b7280;
+}
+#liveParticipantList li.disconnected .participant-icon{ opacity: .65; }
