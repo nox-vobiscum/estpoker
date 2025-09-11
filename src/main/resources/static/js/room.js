@@ -300,6 +300,13 @@ function shouldToastPresence(name, kind) {
     state.sequenceId = seqId;
     state.autoRevealEnabled = !!m.autoRevealEnabled;
 
+    // If the server broadcasts allowSpecials, accept it.
+// (No-op if backend doesn’t send this field.)
+if (Object.prototype.hasOwnProperty.call(m, 'allowSpecials')) {
+  state.allowSpecials = !!m.allowSpecials;
+}
+
+
   if (Object.prototype.hasOwnProperty.call(m, 'allowSpecials')) {
     state.allowSpecials = !!m.allowSpecials;
   }
@@ -939,15 +946,25 @@ function renderParticipants() {
 
     // host-only local toggles (client-side optimistic + server notify)
     document.addEventListener('ep:specials-toggle', (ev) => {
-      if (!state.isHost) return;
-      const on = !!(ev && ev.detail && ev.detail.on);
-      // optimistic local update
-      state.allowSpecials = on;
-      syncMenuFromState();
-      renderCards();
-      // inform server (room-wide)
-      send(`specials:${on}`);
-    });
+  if (!state.isHost) return;
+
+  // Read the DOM checkbox AFTER the click has settled (microtask) so
+  // we don’t rely on potentially stale event.detail or race conditions.
+  queueMicrotask(() => {
+    const el = document.getElementById('menuSpecialsToggle');
+    const on = (el ? !!el.checked
+                   : (ev && ev.detail && 'on' in ev.detail ? !!ev.detail.on : !state.allowSpecials));
+
+    // Optimistic local update
+    state.allowSpecials = on;
+    syncMenuFromState();
+    renderCards();
+
+    // Tell the server (room-wide)
+    try { send(`specials:${on}`); } catch {}
+  });
+});
+
 
     document.addEventListener('ep:hard-mode-toggle', (ev) => {
       if (!state.isHost) return;
