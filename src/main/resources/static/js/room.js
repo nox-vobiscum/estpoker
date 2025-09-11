@@ -643,108 +643,153 @@
   }
 
   // ---------------- Topic row ----------------
-  function renderTopic() {
-    const row = $('#topicRow');
-    if (!row) return;
+function renderTopic() {
+  const row = $('#topicRow'); if (!row) return;
 
-    // ensure we always have a display <span id="topicDisplay">
-    let disp = $('#topicDisplay');
-    if (!disp || disp.tagName !== 'SPAN') {
+  // Show/hide the whole row based on server flag
+  row.style.display = state.topicVisible ? '' : 'none';
+
+  // Get (or create) the display element (#topicDisplay), which is either a <span> (view) or <input> (edit)
+  let displayEl = row.querySelector('#topicDisplay');
+
+  // Ensure the actions container exists once
+  let actions = row.querySelector('.topic-actions');
+  if (!actions) {
+    actions = document.createElement('div');
+    actions.className = 'topic-actions';
+    row.appendChild(actions);
+  }
+
+  // Non-hosts: only see the text (no buttons)
+  if (!state.isHost) {
+    // Ensure a <span> exists for display mode
+    if (!displayEl || displayEl.tagName !== 'SPAN') {
       const span = document.createElement('span');
       span.id = 'topicDisplay';
       span.className = 'topic-text';
-      if (disp) disp.replaceWith(span); else row.insertBefore(span, row.firstChild ? row.firstChild.nextSibling : null);
-      disp = span;
+      if (displayEl) displayEl.replaceWith(span);
+      else row.insertBefore(span, row.firstChild ? row.firstChild.nextSibling : null);
+      displayEl = span;
     }
-
-    // visibility
-    row.style.display = state.topicVisible ? '' : 'none';
-
-    // content (when not editing)
-    if (!state.topicEditing) {
-      if (state.topicLabel && state.topicUrl) {
-        disp.innerHTML = `<a href="${encodeURI(state.topicUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(state.topicLabel)}</a>`;
-      } else if (state.topicLabel) {
-        disp.textContent = state.topicLabel;
-      } else {
-        disp.textContent = '–';
-      }
-    }
-
-    // actions (host-only)
-    const actions = row.querySelector('.topic-actions') || (() => {
-      const a = document.createElement('div');
-      a.className = 'topic-actions';
-      row.appendChild(a);
-      return a;
-    })();
-
-    if (!state.isHost) { actions.innerHTML = ''; return; }
-
-    if (!state.topicEditing) {
-      actions.innerHTML =
-        `<button id="topicEditBtn" class="row-action host-only" type="button" title="${isDe() ? 'Bearbeiten' : 'Edit'}" aria-label="${isDe() ? 'Bearbeiten' : 'Edit'}"><span class="ra-icon">✍️</span></button>
-         <button id="topicClearBtn" class="row-action kick host-only" type="button" title="${isDe() ? 'Feld leeren' : 'Clear'}" aria-label="${isDe() ? 'Feld leeren' : 'Clear'}"><span class="ra-icon">🗑️</span></button>`;
-
-      const editBtn = $('#topicEditBtn');
-      const clearBtn = $('#topicClearBtn');
-
-      if (editBtn) editBtn.addEventListener('click', beginTopicEdit);
-      if (clearBtn) clearBtn.addEventListener('click', () => {
-        send('topicSave:' + encodeURIComponent(''));
-        state.topicLabel = '';
-        state.topicUrl = null;
-        state.topicEditing = false;
-        renderTopic();
-      });
+    // Render content
+    if (state.topicLabel && state.topicUrl) {
+      displayEl.innerHTML = `<a href="${encodeURI(state.topicUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(state.topicLabel)}</a>`;
+    } else if (state.topicLabel) {
+      displayEl.textContent = state.topicLabel;
     } else {
-      // swap display <span> -> <input>
-      let inp = row.querySelector('input.topic-inline-input');
-      if (!inp) {
-        inp = document.createElement('input');
-        inp.type = 'text';
-        inp.className = 'topic-inline-input';
-        inp.placeholder = isDe()
-          ? 'JIRA-Link einfügen oder Key eingeben'
-          : 'Paste JIRA link or type key';
-        (disp).replaceWith(inp);
-        inp.id = 'topicDisplay';
-      }
-      inp.value = state.topicLabel || '';
-      setTimeout(() => { try { inp.focus(); inp.select(); } catch {} }, 0);
-
-    actions.innerHTML =
-      `<button id="topicSaveBtn" class="icon-button neutral" type="button" title="${isDe() ? 'Speichern' : 'Save'}" aria-label="${isDe() ? 'Speichern' : 'Save'}">✅</button>
-      <button id="topicCancelEditBtn" class="icon-button neutral" type="button" title="${isDe() ? 'Abbrechen' : 'Cancel'}" aria-label="${isDe() ? 'Abbrechen' : 'Cancel'}">❌</button>`;
-
-      const saveBtn = $('#topicSaveBtn');
-      const cancelBtn = $('#topicCancelEditBtn');
-
-      const doSave = () => {
-        const val = inp.value || '';
-        send('topicSave:' + encodeURIComponent(val));
-        state.topicEditing = false;
-        renderTopic();
-      };
-      const doCancel = () => {
-        state.topicEditing = false;
-        renderTopic();
-      };
-
-      if (saveBtn)  saveBtn.addEventListener('click', doSave);
-      if (cancelBtn) cancelBtn.addEventListener('click', doCancel);
-      inp.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') { e.preventDefault(); doSave(); }
-        if (e.key === 'Escape') { e.preventDefault(); doCancel(); }
-      });
+      displayEl.textContent = '–';
     }
+    actions.innerHTML = '';
+    return;
   }
 
-  function beginTopicEdit() {
-    if (!state.isHost) return;
-    state.topicEditing = true;
-    renderTopic();
+  // Host-only: switch between view/edit modes
+  if (!state.topicEditing) {
+    // Ensure a <span> for view mode
+    if (!displayEl || displayEl.tagName !== 'SPAN') {
+      const span = document.createElement('span');
+      span.id = 'topicDisplay';
+      span.className = 'topic-text';
+      if (displayEl) displayEl.replaceWith(span);
+      else row.insertBefore(span, row.firstChild ? row.firstChild.nextSibling : null);
+      displayEl = span;
+    }
+
+    // Render content
+    if (state.topicLabel && state.topicUrl) {
+      displayEl.innerHTML = `<a href="${encodeURI(state.topicUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(state.topicLabel)}</a>`;
+    } else if (state.topicLabel) {
+      displayEl.textContent = state.topicLabel;
+    } else {
+      displayEl.textContent = '–';
+    }
+
+    // ACTIONS in view mode: Edit + Clear (NOTE: icon-button, not row-action)
+    actions.innerHTML =
+      `<button id="topicEditBtn"
+               class="icon-button neutral"
+               type="button"
+               title="${isDe() ? 'Bearbeiten' : 'Edit'}"
+               aria-label="${isDe() ? 'Bearbeiten' : 'Edit'}">✍️</button>
+       <button id="topicClearBtn"
+               class="icon-button neutral"
+               type="button"
+               title="${isDe() ? 'Feld leeren' : 'Clear'}"
+               aria-label="${isDe() ? 'Feld leeren' : 'Clear'}">🗑️</button>`;
+
+    // Wire actions
+    const editBtn  = $('#topicEditBtn');
+    const clearBtn = $('#topicClearBtn');
+    if (editBtn)  editBtn.addEventListener('click', beginTopicEdit);
+    if (clearBtn) clearBtn.addEventListener('click', () => {
+      send('topicSave:' + encodeURIComponent(''));
+      state.topicLabel = '';
+      state.topicUrl = null;
+      state.topicEditing = false;
+      renderTopic();
+    });
+
+  } else {
+    // EDIT MODE: ensure an <input> replaces the span
+    if (!displayEl || displayEl.tagName !== 'INPUT') {
+      const inp = document.createElement('input');
+      inp.type = 'text';
+      inp.className = 'topic-inline-input';
+      inp.id = 'topicDisplay';
+      inp.placeholder = isDe()
+        ? 'JIRA-Link einfügen oder Key eingeben'
+        : 'Paste JIRA link or type key';
+      if (displayEl) displayEl.replaceWith(inp);
+      else row.insertBefore(inp, row.firstChild ? row.firstChild.nextSibling : null);
+      displayEl = inp;
+    }
+    displayEl.value = state.topicLabel || '';
+    setTimeout(() => { try { displayEl.focus(); displayEl.select(); } catch {} }, 0);
+
+    // ACTIONS in edit mode: Save + Cancel (icon-button)
+    actions.innerHTML =
+      `<button id="topicSaveBtn"
+               class="icon-button neutral"
+               type="button"
+               title="${isDe() ? 'Speichern' : 'Save'}"
+               aria-label="${isDe() ? 'Speichern' : 'Save'}">✅</button>
+       <button id="topicCancelEditBtn"
+               class="icon-button neutral"
+               type="button"
+               title="${isDe() ? 'Abbrechen' : 'Cancel'}"
+               aria-label="${isDe() ? 'Abbrechen' : 'Cancel'}">❌</button>`;
+
+    // Wire actions
+    const saveBtn   = $('#topicSaveBtn');
+    const cancelBtn = $('#topicCancelEditBtn');
+
+    const doSave = () => {
+      const val = displayEl.value || '';
+      send('topicSave:' + encodeURIComponent(val));
+      state.topicEditing = false;
+      renderTopic();
+    };
+    const doCancel = () => {
+      state.topicEditing = false;
+      renderTopic();
+    };
+
+    if (saveBtn)   saveBtn.addEventListener('click', doSave);
+    if (cancelBtn) cancelBtn.addEventListener('click', doCancel);
+    displayEl.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter')  { e.preventDefault(); doSave(); }
+      if (e.key === 'Escape') { e.preventDefault(); doCancel(); }
+    });
   }
+}
+
+function beginTopicEdit() {
+  if (!state.isHost) return;
+  state.topicEditing = true;
+  renderTopic();
+}
+
+
 
   // ---------------- Auto-reveal badge ----------------
   function renderAutoReveal() {
