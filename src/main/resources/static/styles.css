@@ -663,3 +663,33 @@ body{padding-bottom:var(--footer-h)}
   border-color: var(--chip-special-border, #cfe0ff) !important;
   color: var(--chip-special-text, #0b1220) !important;
 }
+
+/* Topic row: allow text to shrink and ellipsize inside a flex row */
+#topicRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* The text cell must be allowed to shrink (min-width:0) for ellipsis to kick in */
+#topicRow .topic-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The inline “show all” hint (only appears when truncated) */
+#topicOverflowHint.topic-more {
+  flex: 0 0 auto;
+  font-size: 0.9em;
+  opacity: 0.75;
+  cursor: help;        /* shows tooltip intent */
+  user-select: none;
+}
+
+/* Optional: subtle hover emphasis */
+#topicOverflowHint.topic-more:hover {
+  opacity: 0.95;
+}

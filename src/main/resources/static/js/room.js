@@ -642,17 +642,14 @@
     }
   }
 
-  // ---------------- Topic row ----------------
+ // ---------------- Topic row (with overflow hint) ----------------
 function renderTopic() {
   const row = $('#topicRow'); if (!row) return;
 
-  // Show/hide the whole row based on server flag
+  // Show/hide entire row
   row.style.display = state.topicVisible ? '' : 'none';
 
-  // Get (or create) the display element (#topicDisplay), which is either a <span> (view) or <input> (edit)
-  let displayEl = row.querySelector('#topicDisplay');
-
-  // Ensure the actions container exists once
+  // Ensure actions container exists once
   let actions = row.querySelector('.topic-actions');
   if (!actions) {
     actions = document.createElement('div');
@@ -660,31 +657,42 @@ function renderTopic() {
     row.appendChild(actions);
   }
 
-  // Non-hosts: only see the text (no buttons)
-  if (!state.isHost) {
-    // Ensure a <span> exists for display mode
-    if (!displayEl || displayEl.tagName !== 'SPAN') {
-      const span = document.createElement('span');
-      span.id = 'topicDisplay';
-      span.className = 'topic-text';
-      if (displayEl) displayEl.replaceWith(span);
-      else row.insertBefore(span, row.firstChild ? row.firstChild.nextSibling : null);
-      displayEl = span;
-    }
-    // Render content
-    if (state.topicLabel && state.topicUrl) {
-      displayEl.innerHTML = `<a href="${encodeURI(state.topicUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(state.topicLabel)}</a>`;
-    } else if (state.topicLabel) {
-      displayEl.textContent = state.topicLabel;
-    } else {
-      displayEl.textContent = '–';
-    }
-    actions.innerHTML = '';
-    return;
-  }
+  // Ensure #topicDisplay exists (SPAN in view mode, INPUT in edit mode)
+  let displayEl = row.querySelector('#topicDisplay');
 
-  // Host-only: switch between view/edit modes
-  if (!state.topicEditing) {
+  // Helper: set the content + tooltip on the display element (view mode)
+  const renderDisplayContent = (el) => {
+    if (state.topicLabel && state.topicUrl) {
+      el.innerHTML = `<a href="${encodeURI(state.topicUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(state.topicLabel)}</a>`;
+    } else if (state.topicLabel) {
+      el.textContent = state.topicLabel;
+    } else {
+      el.textContent = '–';
+    }
+    // Tooltip shows the full content (label + URL if present)
+    const full = [state.topicLabel || '', state.topicUrl || ''].filter(Boolean).join(' — ');
+    // Put title either on the <a> (if present) or on the container span
+    const link = el.querySelector && el.querySelector('a');
+    (link || el).setAttribute('title', full || '');
+  };
+
+  // Create (or reuse) the overflow hint right next to the text
+  let hint = row.querySelector('#topicOverflowHint');
+  const ensureHint = () => {
+    if (!hint) {
+      hint = document.createElement('span');
+      hint.id = 'topicOverflowHint';
+      hint.className = 'topic-more';
+      hint.textContent = isDe() ? '… (alles anzeigen)' : '… (show all)';
+      // Tooltip mirrors the full content too
+      hint.setAttribute('title', [state.topicLabel || '', state.topicUrl || ''].filter(Boolean).join(' — '));
+      // Insert right after the display element (and before actions)
+      // If displayEl is not yet in DOM, we’ll insert after we created it below.
+    }
+  };
+
+  // Non-hosts: view-only
+  if (!state.isHost) {
     // Ensure a <span> for view mode
     if (!displayEl || displayEl.tagName !== 'SPAN') {
       const span = document.createElement('span');
@@ -694,17 +702,34 @@ function renderTopic() {
       else row.insertBefore(span, row.firstChild ? row.firstChild.nextSibling : null);
       displayEl = span;
     }
+    renderDisplayContent(displayEl);
+    ensureHint();
+    if (!hint.isConnected) row.insertBefore(hint, actions);
 
-    // Render content
-    if (state.topicLabel && state.topicUrl) {
-      displayEl.innerHTML = `<a href="${encodeURI(state.topicUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(state.topicLabel)}</a>`;
-    } else if (state.topicLabel) {
-      displayEl.textContent = state.topicLabel;
-    } else {
-      displayEl.textContent = '–';
+    // No buttons for non-hosts
+    actions.innerHTML = '';
+
+    // Sync overflow now (and on resize via wireOnce listener)
+    requestAnimationFrame(syncTopicOverflow);
+    return;
+  }
+
+  // Host: switch view/edit modes
+  if (!state.topicEditing) {
+    // VIEW MODE (host)
+    if (!displayEl || displayEl.tagName !== 'SPAN') {
+      const span = document.createElement('span');
+      span.id = 'topicDisplay';
+      span.className = 'topic-text';
+      if (displayEl) displayEl.replaceWith(span);
+      else row.insertBefore(span, row.firstChild ? row.firstChild.nextSibling : null);
+      displayEl = span;
     }
+    renderDisplayContent(displayEl);
+    ensureHint();
+    if (!hint.isConnected) row.insertBefore(hint, actions);
 
-    // ACTIONS in view mode: Edit + Clear (NOTE: icon-button, not row-action)
+    // Host actions (icon-button, not row-action)
     actions.innerHTML =
       `<button id="topicEditBtn"
                class="icon-button neutral"
@@ -717,7 +742,6 @@ function renderTopic() {
                title="${isDe() ? 'Feld leeren' : 'Clear'}"
                aria-label="${isDe() ? 'Feld leeren' : 'Clear'}">🗑️</button>`;
 
-    // Wire actions
     const editBtn  = $('#topicEditBtn');
     const clearBtn = $('#topicClearBtn');
     if (editBtn)  editBtn.addEventListener('click', beginTopicEdit);
@@ -729,8 +753,9 @@ function renderTopic() {
       renderTopic();
     });
 
+    requestAnimationFrame(syncTopicOverflow);
   } else {
-    // EDIT MODE: ensure an <input> replaces the span
+    // EDIT MODE (host)
     if (!displayEl || displayEl.tagName !== 'INPUT') {
       const inp = document.createElement('input');
       inp.type = 'text';
@@ -746,7 +771,9 @@ function renderTopic() {
     displayEl.value = state.topicLabel || '';
     setTimeout(() => { try { displayEl.focus(); displayEl.select(); } catch {} }, 0);
 
-    // ACTIONS in edit mode: Save + Cancel (icon-button)
+    // In edit mode the overflow hint is hidden
+    if (hint) hint.style.display = 'none';
+
     actions.innerHTML =
       `<button id="topicSaveBtn"
                class="icon-button neutral"
@@ -759,7 +786,6 @@ function renderTopic() {
                title="${isDe() ? 'Abbrechen' : 'Cancel'}"
                aria-label="${isDe() ? 'Abbrechen' : 'Cancel'}">❌</button>`;
 
-    // Wire actions
     const saveBtn   = $('#topicSaveBtn');
     const cancelBtn = $('#topicCancelEditBtn');
 
@@ -783,13 +809,33 @@ function renderTopic() {
   }
 }
 
+// Keep as-is
 function beginTopicEdit() {
   if (!state.isHost) return;
   state.topicEditing = true;
   renderTopic();
 }
 
+// Detect overflow and toggle the “show all” hint
+function syncTopicOverflow() {
+  try {
+    const row  = $('#topicRow'); if (!row) return;
+    const el   = row.querySelector('#topicDisplay');
+    const hint = row.querySelector('#topicOverflowHint');
+    if (!el || !hint) return;
 
+    // Only care in view mode (SPAN). In edit mode we hide the hint.
+    const inViewMode = el && el.tagName === 'SPAN';
+    if (!inViewMode) { hint.style.display = 'none'; return; }
+
+    // Set the hint title to the full content (keeps it fresh)
+    hint.setAttribute('title', [state.topicLabel || '', state.topicUrl || ''].filter(Boolean).join(' — '));
+
+    // Overflow check: if content wider than box, show the hint
+    const over = el.scrollWidth > el.clientWidth + 1;
+    hint.style.display = over ? '' : 'none';
+  } catch {}
+}
 
   // ---------------- Auto-reveal badge ----------------
   function renderAutoReveal() {
@@ -1011,6 +1057,7 @@ function beginTopicEdit() {
   function wireOnce() {
     bindCopyLink();
     wireMenuEvents();
+    window.addEventListener('resize', () => requestAnimationFrame(syncTopicOverflow));
 
     // clicking empty topic row (host only) opens editor
     const row = $('#topicRow');
