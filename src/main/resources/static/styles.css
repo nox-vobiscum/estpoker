@@ -489,3 +489,41 @@ body{padding-bottom:var(--footer-h)}
 @supports (-webkit-touch-callout:none) {
   :root { --emoji-nudge-y: 0px; }
 }
+
+
+/* === Participant row: fix right column layout & centering === */
+#liveParticipantList .row-right{
+  /* Replace flex with 3-column grid:
+     [status chip/eye] [host-btn] [kick-btn]  */
+  display: grid !important;
+  grid-template-columns: 1fr max-content max-content;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Kill the old flex "push-right" margins, just in case */
+#liveParticipantList .row-right > .row-action:first-of-type,
+#liveParticipantList .row-right :where(.status-icon,.vote-chip) ~ .row-action:first-of-type{
+  margin-left: 0 !important;
+}
+
+/* Chips/Eyes stick to the left grid cell */
+#liveParticipantList .row-right :where(.status-icon,.vote-chip){
+  justify-self: start;
+}
+
+/* Buttons stick to the right cells, square & centered */
+#liveParticipantList .row-right .row-action{
+  width: 28px; height: 28px; padding: 0;
+  border-radius: 10px;
+  display: inline-grid; place-items: center;
+}
+#liveParticipantList .row-right .row-action .ra-icon{
+  width: 1em; height: 1em; line-height: 1; font-size: 17px;
+}
+#liveParticipantList .row-right .row-action + .row-action{ margin-left: 0; } /* grid gap handles spacing */
+
+/* iOS tweak keeps them round if dein @supports-Block aktiv ist */
+@supports (-webkit-touch-callout:none){
+  #liveParticipantList .row-right .row-action{ border-radius: 50%; }
+}

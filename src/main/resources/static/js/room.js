@@ -512,71 +512,75 @@
 
   // ---------------- Result bar ----------------
   function renderResultBar() {
-    // add "+♾️" suffix after reveal if any participant (non-observer) picked infinity
-    const hasInfinity = !!(
-      state.votesRevealed &&
-      Array.isArray(state.participants) &&
-      state.participants.some(
-        (p) => p && !p.observer && (p.vote === INFINITY_ || p.vote === INFINITY_ALT)
-      )
-    );
-    const inf = hasInfinity ? ' +♾️' : '';
+  // Was any non-observer vote == infinity?
+  const hasInfinity = !!(
+    state.votesRevealed &&
+    Array.isArray(state.participants) &&
+    state.participants.some(p => p && !p.observer && (p.vote === INFINITY_ || p.vote === INFINITY_ALT))
+  );
 
-    // average
-    const avgEl = $('#averageVote');
-    if (avgEl) {
-      avgEl.textContent = (state.averageVote != null) ? String(state.averageVote) + inf : 'N/A';
-    }
+  // helpers
+  const t = (v) => (v == null || v === '' ? null : String(v));
+  const withInf = (base) => (base != null ? base + (hasInfinity ? ' +♾️' : '') : (hasInfinity ? '♾️' : null));
 
-    // pre/post blocks toggle
-    const pre  = document.querySelector('.pre-vote');
-    const post = document.querySelector('.post-vote');
-    if (pre && post) {
-      pre.style.display  = state.votesRevealed ? 'none' : '';
-      post.style.display = state.votesRevealed ? '' : 'none';
-    }
+  // toggle pre/post blocks
+  const pre  = document.querySelector('.pre-vote');
+  const post = document.querySelector('.post-vote');
+  if (pre && post) {
+    pre.style.display  = state.votesRevealed ? 'none' : '';
+    post.style.display = state.votesRevealed ? '' : 'none';
+  }
 
-    const row        = $('#resultRow');
-    const avgWrap    = document.querySelector('#resultLabel .label-average');
-    const consEl     = document.querySelector('#resultLabel .label-consensus');
-    const medianWrap = $('#medianWrap');
-    const rangeWrap  = $('#rangeWrap');
-    const rangeSep   = $('#rangeSep');
+  const row        = $('#resultRow');
+  const avgWrap    = document.querySelector('#resultLabel .label-average');
+  const consEl     = document.querySelector('#resultLabel .label-consensus');
+  const medianWrap = $('#medianWrap');
+  const rangeWrap  = $('#rangeWrap');
+  const rangeSep   = $('#rangeSep');
+  const avgEl      = $('#averageVote');
 
-    if (row) {
-      if (state.consensus) {
-        row.classList.add('consensus');
-        if (avgWrap) avgWrap.hidden = true;
-        if (consEl) {
-          consEl.hidden = false;
-          consEl.textContent = isDe() ? '🎉 Konsens' : '🎉 Consensus';
-        }
-        const sep1 = document.querySelector('#resultRow .sep');
-        if (sep1) sep1.hidden = true;
-        if (medianWrap) medianWrap.hidden = true;
-        if (rangeSep)  rangeSep.hidden  = true;
-        if (rangeWrap) rangeWrap.hidden = true;
-      } else {
-        row.classList.remove('consensus');
-        if (avgWrap) avgWrap.hidden = false;
-        if (consEl)  consEl.hidden  = true;
+  // Average text
+  if (avgEl) {
+    const avgTxt = withInf(t(state.averageVote));
+    avgEl.textContent = avgTxt ?? (state.votesRevealed ? 'N/A' : ''); // pre-vote leer, post-vote N/A
+  }
+
+  // Consensus mode collapses to one label
+  if (row) {
+    if (state.consensus) {
+      row.classList.add('consensus');
+      if (avgWrap) avgWrap.hidden = true;
+      if (consEl) {
+        consEl.hidden = false;
+        consEl.textContent = isDe() ? '🎉 Konsens' : '🎉 Consensus';
       }
-    }
-
-    if (!state.consensus) {
-      if (medianWrap) {
-        const show = state.medianVote != null;
-        medianWrap.hidden = !show;
-        if (show) setText('#medianVote', String(state.medianVote) + inf);
-      }
-      if (rangeWrap && rangeSep) {
-        const show = state.range != null;
-        rangeWrap.hidden = !show;
-        rangeSep.hidden  = !show;
-        if (show) setText('#rangeVote', String(state.range) + inf);
-      }
+      const sep1 = document.querySelector('#resultRow .sep');
+      if (sep1) sep1.hidden = true;
+      if (medianWrap) medianWrap.hidden = true;
+      if (rangeSep)  rangeSep.hidden  = true;
+      if (rangeWrap) rangeWrap.hidden = true;
+      return; // nothing else to do
+    } else {
+      row.classList.remove('consensus');
+      if (avgWrap) avgWrap.hidden = false;
+      if (consEl)  consEl.hidden  = true;
     }
   }
+
+  // Median & Range (only when revealed and value exists)
+  if (medianWrap) {
+    const showM = state.votesRevealed && t(state.medianVote) != null;
+    medianWrap.hidden = !showM;
+    if (showM) setText('#medianVote', withInf(t(state.medianVote)));
+  }
+  if (rangeWrap && rangeSep) {
+    const showR = state.votesRevealed && t(state.range) != null;
+    rangeWrap.hidden = !showR;
+    rangeSep.hidden  = !showR;
+    if (showR) setText('#rangeVote', withInf(t(state.range)));
+  }
+}
+
 
   // ---------------- Topic row ----------------
   function renderTopic() {
