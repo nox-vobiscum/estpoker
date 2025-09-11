@@ -642,14 +642,14 @@
     }
   }
 
- // ---------------- Topic row (with overflow hint) ----------------
+ // ---------------- Topic row (ellipsis in text + separate “more” button) ----------------
 function renderTopic() {
   const row = $('#topicRow'); if (!row) return;
 
-  // Show/hide entire row
+  // Show/hide the whole row based on room state
   row.style.display = state.topicVisible ? '' : 'none';
 
-  // Ensure actions container exists once
+  // Ensure actions container exists (right side)
   let actions = row.querySelector('.topic-actions');
   if (!actions) {
     actions = document.createElement('div');
@@ -660,7 +660,7 @@ function renderTopic() {
   // Ensure #topicDisplay exists (SPAN in view mode, INPUT in edit mode)
   let displayEl = row.querySelector('#topicDisplay');
 
-  // Helper: set the content + tooltip on the display element (view mode)
+  // Helper: render label/url into the display element (view mode only)
   const renderDisplayContent = (el) => {
     if (state.topicLabel && state.topicUrl) {
       el.innerHTML = `<a href="${encodeURI(state.topicUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(state.topicLabel)}</a>`;
@@ -669,52 +669,48 @@ function renderTopic() {
     } else {
       el.textContent = '–';
     }
-    // Tooltip shows the full content (label + URL if present)
+    // Keep a tooltip with the full content on the link (if present) or the span
     const full = [state.topicLabel || '', state.topicUrl || ''].filter(Boolean).join(' — ');
-    // Put title either on the <a> (if present) or on the container span
     const link = el.querySelector && el.querySelector('a');
     (link || el).setAttribute('title', full || '');
   };
 
-  // Create (or reuse) the overflow hint right next to the text
+  // Create (or reuse) the compact "more" button that sits to the right of the text
   let hint = row.querySelector('#topicOverflowHint');
   const ensureHint = () => {
     if (!hint) {
-      hint = document.createElement('span');
-      hint.id = 'topicOverflowHint';
-      hint.className = 'topic-more';
-      hint.textContent = isDe() ? '… (alles anzeigen)' : '… (show all)';
-      // Tooltip mirrors the full content too
-      hint.setAttribute('title', [state.topicLabel || '', state.topicUrl || ''].filter(Boolean).join(' — '));
-      // Insert right after the display element (and before actions)
-      // If displayEl is not yet in DOM, we’ll insert after we created it below.
+      const btn = document.createElement('button');
+      btn.id = 'topicOverflowHint';
+      btn.type = 'button';
+      btn.className = 'topic-more-btn';             // styled as subtle text-button in CSS
+      btn.textContent = 'more';                     // label per request (always English)
+      btn.setAttribute('aria-label', 'Show full topic');
+      hint = btn;
     }
   };
 
-  // Non-hosts: view-only
+  // Non-hosts: view-only (SPAN + optional "more", no action buttons)
   if (!state.isHost) {
-    // Ensure a <span> for view mode
     if (!displayEl || displayEl.tagName !== 'SPAN') {
       const span = document.createElement('span');
       span.id = 'topicDisplay';
-      span.className = 'topic-text';
+      span.className = 'topic-text';               // CSS does the single-line + ellipsis
       if (displayEl) displayEl.replaceWith(span);
       else row.insertBefore(span, row.firstChild ? row.firstChild.nextSibling : null);
       displayEl = span;
     }
     renderDisplayContent(displayEl);
-    ensureHint();
-    if (!hint.isConnected) row.insertBefore(hint, actions);
 
-    // No buttons for non-hosts
+    ensureHint();
+    if (!hint.isConnected) row.insertBefore(hint, actions); // place between text and actions
+    // No actions for non-hosts
     actions.innerHTML = '';
 
-    // Sync overflow now (and on resize via wireOnce listener)
     requestAnimationFrame(syncTopicOverflow);
     return;
   }
 
-  // Host: switch view/edit modes
+  // Host: switch between VIEW and EDIT modes
   if (!state.topicEditing) {
     // VIEW MODE (host)
     if (!displayEl || displayEl.tagName !== 'SPAN') {
@@ -726,10 +722,11 @@ function renderTopic() {
       displayEl = span;
     }
     renderDisplayContent(displayEl);
+
     ensureHint();
     if (!hint.isConnected) row.insertBefore(hint, actions);
 
-    // Host actions (icon-button, not row-action)
+    // Host actions (use icon-button, not row-action)
     actions.innerHTML =
       `<button id="topicEditBtn"
                class="icon-button neutral"
@@ -771,7 +768,7 @@ function renderTopic() {
     displayEl.value = state.topicLabel || '';
     setTimeout(() => { try { displayEl.focus(); displayEl.select(); } catch {} }, 0);
 
-    // In edit mode the overflow hint is hidden
+    // Hide the "more" button while editing
     if (hint) hint.style.display = 'none';
 
     actions.innerHTML =
@@ -809,14 +806,14 @@ function renderTopic() {
   }
 }
 
-// Keep as-is
+// Toggle edit mode (host only)
 function beginTopicEdit() {
   if (!state.isHost) return;
   state.topicEditing = true;
   renderTopic();
 }
 
-// Detect overflow and toggle the “show all” hint
+// Check if text overflows the single-line box; if yes, show the "more" button
 function syncTopicOverflow() {
   try {
     const row  = $('#topicRow'); if (!row) return;
@@ -824,18 +821,23 @@ function syncTopicOverflow() {
     const hint = row.querySelector('#topicOverflowHint');
     if (!el || !hint) return;
 
-    // Only care in view mode (SPAN). In edit mode we hide the hint.
+    // Only in view mode (SPAN). Input has its own UX.
     const inViewMode = el && el.tagName === 'SPAN';
     if (!inViewMode) { hint.style.display = 'none'; return; }
 
-    // Set the hint title to the full content (keeps it fresh)
-    hint.setAttribute('title', [state.topicLabel || '', state.topicUrl || ''].filter(Boolean).join(' — '));
+    // Keep tooltip on the "more" button up to date with full content
+    const full = [state.topicLabel || '', state.topicUrl || ''].filter(Boolean).join(' — ');
+    hint.setAttribute('title', full);
 
-    // Overflow check: if content wider than box, show the hint
+    // True overflow => show the button
     const over = el.scrollWidth > el.clientWidth + 1;
     hint.style.display = over ? '' : 'none';
   } catch {}
 }
+
+// (Optional) ensure this runs on resize; if you already do this elsewhere, skip this:
+// window.addEventListener('resize', () => requestAnimationFrame(syncTopicOverflow));
+
 
   // ---------------- Auto-reveal badge ----------------
   function renderAutoReveal() {

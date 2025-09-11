@@ -693,3 +693,21 @@ body{padding-bottom:var(--footer-h)}
 #topicOverflowHint.topic-more:hover {
   opacity: 0.95;
 }
+
+#topicOverflowHint.topic-more-btn {
+  flex: 0 0 auto;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  margin-left: 0.25rem;    /* small nudge since "…" is now inside the text */
+  font: inherit;
+  font-size: 0.9em;
+  line-height: 1;
+  opacity: 0.8;
+  cursor: help;            /* indicates tooltip with full content */
+  text-decoration: underline dotted;
+}
+
+#topicOverflowHint.topic-more-btn:hover {
+  opacity: 1;
+}
