@@ -128,6 +128,39 @@
     return (now - last) > PRESENCE_TOAST_GRACE_MS;
   }
 
+
+  // ----- Presence guard (2s grace) ------------------------------------------
+const PRESENCE_GRACE_MS = 2000;
+const PRESENCE_KEY = (n) => 'ep-presence:' + encodeURIComponent(n);
+
+// Mark participant as "alive now"
+function markAlive(name) {
+  if (!name) return;
+  try { localStorage.setItem(PRESENCE_KEY(name), String(Date.now())); } catch {}
+}
+
+// Should we toast this presence event?
+// kind: 'left' | 'join'
+function shouldToastPresence(name, kind) {
+  if (!name) return false;
+  // never toast for myself
+  if (name === state.youName) return false;
+
+  let last = 0;
+  try { last = parseInt(localStorage.getItem(PRESENCE_KEY(name)) || '0', 10) || 0; } catch {}
+  const delta = Date.now() - last;
+
+  if (kind === 'left') {
+    // Only toast if we haven't seen this person "alive" within GRACE
+    return delta > PRESENCE_GRACE_MS;
+  }
+  if (kind === 'join') {
+    // Join: toast only if last "alive" is old enough
+    return delta > PRESENCE_GRACE_MS;
+  }
+  return true;
+}
+
   // ---------------- WebSocket ----------------
   function connectWS() {
     const u = wsUrl();
@@ -176,19 +209,21 @@
         break;
     }
       case 'participantJoined': {
-        const name = m.name || '';
-        if (shouldToastPresence(name, 'join')) {
-        showToast(isDe() ? `${name} ist beigetreten` : `${name} joined the room`);
-        }
-      break;
-    }
+  const name = m.name || '';
+  if (shouldToastPresence(name, 'join')) {
+    const msg = isDe() ? `${name} ist beigetreten` : `${name} joined the room`;
+    showToast(msg);
+  }
+  break;
+}
       case 'participantLeft': {
-        const name = m.name || '';
-        if (shouldToastPresence(name, 'left')) {
-        showToast(isDe() ? `${name} hat den Raum verlassen` : `${name} left the room`);
-      }
-      break;
-    }
+  const name = m.name || '';
+  if (shouldToastPresence(name, 'left')) {
+    const msg = isDe() ? `${name} hat den Raum verlassen` : `${name} left the room`;
+    showToast(msg);
+  }
+  break;
+}
       case 'participantRenamed': {
         const from = m.from || '', to = m.to || '';
         if (from !== state.youName) { // rename-self ist ohnehin sichtbar
@@ -282,6 +317,13 @@
     renderResultBar();
     renderTopic();
     renderAutoReveal();
+
+    try {
+  (state.participants || []).forEach(p => {
+    if (p && !p.disconnected) markAlive(p.name);
+  });
+} catch {}
+
     requestAnimationFrame(() => { syncMenuFromState(); syncSequenceInMenu(); });
 
     if (!document.documentElement.hasAttribute('data-ready')) {
@@ -290,134 +332,146 @@
   }
 
   // ---------------- Participants ----------------
-  function isIdle(p) {
-    if (!p || p.disconnected) return false;
-    if (typeof p.idleMs === 'number') return p.idleMs >= IDLE_MS_THRESHOLD;
-    if (p.away === true) return true;
-    return false;
-  }
+  // Participant is considered idle if server flags it or client marks "away"
+function isIdle(p) {
+  if (!p || p.disconnected) return false;
+  if (typeof p.idleMs === 'number') return p.idleMs >= IDLE_MS_THRESHOLD;
+  if (p.away === true) return true;
+  return false;
+}
 
-  function renderParticipants() {
-    const ul = $('#liveParticipantList'); if (!ul) return;
-    try {
-      const frag = document.createDocumentFragment();
-      (state.participants || []).forEach(p => {
-        if (!p || !p.name) return;
+function renderParticipants() {
+  const ul = $('#liveParticipantList'); if (!ul) return;
+  try {
+    const frag = document.createDocumentFragment();
 
-        const li = document.createElement('li');
-        li.className = 'participant-row';
-        const isInactive = !!p.disconnected || !!p.away;
-        if (isInactive) li.classList.add('disconnected');
-        if (p.isHost)    li.classList.add('is-host');
+    (state.participants || []).forEach(p => {
+      if (!p || !p.name) return;
 
-        const left = document.createElement('span');
-        left.className = 'participant-icon' + (p.isHost ? ' host' : '');
-        // left icon
-        let icon = '👤';
-        if (p.isHost)                 icon = '👑';
-        else if (p.observer === true) icon = '👁️';
-        else if (isInactive)          icon = '💤';
-        left.textContent = icon;
-        left.setAttribute('aria-hidden', 'true');
-        if (isInactive) left.classList.add('inactive'); // slight dim
-        li.appendChild(left);
+      const li = document.createElement('li');
+      li.className = 'participant-row';
 
-        // name
-        const name = document.createElement('span');
-        name.className = 'name';
-        name.textContent = p.name;
-        li.appendChild(name);
+      // inactive = disconnected OR away
+      const isInactive = !!p.disconnected || !!p.away;
+      if (isInactive) li.classList.add('disconnected');
+      if (p.isHost)    li.classList.add('is-host');
 
-        // right area
-        const right = document.createElement('div');
-        right.className = 'row-right';
+      // left icon (role/status)
+      const left = document.createElement('span');
+      left.className = 'participant-icon' + (p.isHost ? ' host' : '');
+      let icon = '👤';
+      if (p.isHost)                 icon = '👑';
+      else if (p.observer === true) icon = '👁️';
+      else if (isInactive)          icon = '💤';
+      left.textContent = icon;
+      left.setAttribute('aria-hidden', 'true');
+      if (isInactive) left.classList.add('inactive'); // subtle dim
+      li.appendChild(left);
 
-        if (!state.votesRevealed) {
-          // pre-vote: show observer eye, otherwise ✓ for voted, otherwise outline dash
-          if (p.observer) {
-            const eye = document.createElement('span');
-            eye.className = 'status-icon observer';
-            eye.textContent = '👁️';
-            right.appendChild(eye);
-          } else if (!p.disconnected && p.vote != null && String(p.vote) !== '') {
-            const done = document.createElement('span');
-            done.className = 'status-icon done';
-            done.textContent = '✓';
-            right.appendChild(done);
-          } else if (!p.disconnected) {
-            const dash = document.createElement('span');
-            dash.className = 'vote-chip empty';
-            dash.textContent = '–';
-            right.appendChild(dash);
-          }
+      // name
+      const name = document.createElement('span');
+      name.className = 'name';
+      name.textContent = p.name;
+      li.appendChild(name);
+
+      // right area (pre/post vote)
+      const right = document.createElement('div');
+      right.className = 'row-right';
+
+      if (!state.votesRevealed) {
+        // PRE-VOTE
+        if (p.observer) {
+          const eye = document.createElement('span');
+          eye.className = 'status-icon observer';
+          eye.textContent = '👁️';
+          right.appendChild(eye);
+        } else if (!p.disconnected && p.vote != null && String(p.vote) !== '') {
+          // has voted
+          const done = document.createElement('span');
+          done.className = 'status-icon done';
+          done.textContent = '✓';
+          right.appendChild(done);
+        } else if (!p.disconnected) {
+          // not voted yet -> neutral outline dash aligned to chip column
+          const dash = document.createElement('span');
+          dash.className = 'vote-chip empty';
+          dash.textContent = '–';
+          right.appendChild(dash);
+        }
+      } else {
+        // POST-VOTE
+        if (p.observer) {
+          // observers show subtle eye in chip column
+          const eye = document.createElement('span');
+          eye.className = 'status-icon observer';
+          eye.textContent = '👁️';
+          right.appendChild(eye);
         } else {
-          // post-vote: chips aligned with result column
-          if (p.observer) {
-            const eye = document.createElement('span');
-            eye.className = 'status-icon observer';
-            eye.textContent = '👁️';
-            right.appendChild(eye);
+          const chip = document.createElement('span');
+          chip.className = 'vote-chip';
+
+          const noVote  = (p.vote == null || String(p.vote) === '');
+          const display = noVote ? '–' : String(p.vote);
+
+          if (isInactive) {
+            // Inactive participants must NEVER look "green" → show grey outline dash
+            chip.textContent = '–';
+            chip.classList.add('empty');
           } else {
-            const chip = document.createElement('span');
-            chip.className = 'vote-chip';
+            chip.textContent = display;
 
-            const noVote = (p.vote == null || p.vote === '');
-            const display = noVote ? '–' : String(p.vote);
+            // style specials, but NOT infinity (∞ stays green like a number)
+            const isInfinity = (display === INFINITY_ || display === INFINITY_ALT);
+            const isSpecial  = SPECIALS.includes(display);
+            if (!isInfinity && isSpecial) chip.classList.add('special');
 
-            // Inactive: always show grey outline dash (never green)
-            if (isInactive) {
-              chip.textContent = '–';
-              chip.classList.add('empty');
-              right.appendChild(chip);
-            } else {
-              chip.textContent = display;
+            // explicit empty after reveal → outline dash
+            if (noVote) chip.classList.add('empty');
 
-              const isInfinity = (display === INFINITY_ || display === INFINITY_ALT);
-              const isSpecial  = SPECIALS.includes(display);
-              if (!isInfinity && isSpecial) chip.classList.add('special');
-              if (noVote) chip.classList.add('empty');
-
-              if (Array.isArray(state.outliers) && state.outliers.includes(p.name)) {
-                chip.classList.add('outlier');
-              }
-              right.appendChild(chip);
+            // outlier highlight if provided by server
+            if (Array.isArray(state.outliers) && state.outliers.includes(p.name)) {
+              chip.classList.add('outlier');
             }
           }
+          right.appendChild(chip);
         }
+      }
 
-        // host row actions
-        if (state.isHost && !p.isHost) {
-          const makeHostBtn = document.createElement('button');
-          makeHostBtn.className = 'row-action host';
-          makeHostBtn.type = 'button';
-          makeHostBtn.setAttribute('aria-label', isDe() ? 'Zum Host machen' : 'Make host');
-          makeHostBtn.innerHTML = '<span class="ra-icon">👑</span>';
-          makeHostBtn.addEventListener('click', () => {
-            const q = isDe() ? `Host-Rolle an ${p.name} übertragen?` : `Transfer host role to ${p.name}?`;
-            if (confirm(q)) send('makeHost:' + encodeURIComponent(p.name));
-          });
-          right.appendChild(makeHostBtn);
+      // host actions (only for non-host rows)
+      if (state.isHost && !p.isHost) {
+        const makeHostBtn = document.createElement('button');
+        makeHostBtn.className = 'row-action host';
+        makeHostBtn.type = 'button';
+        makeHostBtn.setAttribute('aria-label', isDe() ? 'Zum Host machen' : 'Make host');
+        makeHostBtn.innerHTML = '<span class="ra-icon">👑</span>';
+        makeHostBtn.addEventListener('click', () => {
+          const q = isDe() ? `Host-Rolle an ${p.name} übertragen?` : `Transfer host role to ${p.name}?`;
+          if (confirm(q)) send('makeHost:' + encodeURIComponent(p.name));
+        });
+        right.appendChild(makeHostBtn);
 
-          const kickBtn = document.createElement('button');
-          kickBtn.className = 'row-action kick';
-          kickBtn.type = 'button';
-          kickBtn.setAttribute('aria-label', isDe() ? 'Teilnehmer entfernen' : 'Kick participant');
-          kickBtn.innerHTML = '<span class="ra-icon">❌</span>';
-          kickBtn.addEventListener('click', () => {
-            const q = isDe() ? `${p.name} wirklich entfernen?` : `Remove ${p.name}?`;
-            if (confirm(q)) send('kick:' + encodeURIComponent(p.name));
-          });
-          right.appendChild(kickBtn);
-        }
+        const kickBtn = document.createElement('button');
+        kickBtn.className = 'row-action kick';
+        kickBtn.type = 'button';
+        kickBtn.setAttribute('aria-label', isDe() ? 'Teilnehmer entfernen' : 'Kick participant');
+        kickBtn.innerHTML = '<span class="ra-icon">❌</span>';
+        kickBtn.addEventListener('click', () => {
+          const q = isDe() ? `${p.name} wirklich entfernen?` : `Remove ${p.name}?`;
+          if (confirm(q)) send('kick:' + encodeURIComponent(p.name));
+        });
+        right.appendChild(kickBtn);
+      }
 
-        li.appendChild(right);
-        frag.appendChild(li);
-      });
-      ul.replaceChildren(frag);
-    } catch (e) {
-      console.error(TAG, 'renderParticipants failed', e);
-    }
+      li.appendChild(right);
+      frag.appendChild(li);
+    });
+
+    ul.replaceChildren(frag);
+  } catch (e) {
+    console.error(TAG, 'renderParticipants failed', e);
   }
+}
+
 
   // ---------------- Cards ----------------
   function mySelectedValue() {
