@@ -138,6 +138,37 @@
     return delta > PRESENCE_GRACE_MS;
   }
 
+  // Wrap long text for native title tooltips by injecting \n
+function wrapForTitle(text, max = 44) {
+  const words = String(text || '').trim().split(/\s+/);
+  const out = [];
+  let line = '';
+
+  for (let w of words) {
+    // break very long tokens/URLs at common boundaries (/, -, _ , .)
+    if (w.length > max) {
+      w = w
+        .replace(/(?<=\/)/g, '\n')
+        .replace(/(?<=-)/g, '\n')
+        .replace(/(?<=_)/g, '\n')
+        .replace(/(?<=\.)/g, '\n');
+    }
+    for (const chunk of w.split('\n')) {
+      if (!chunk) continue;
+      const need = (line ? line.length + 1 : 0) + chunk.length;
+      if (need > max) {
+        if (line) out.push(line);
+        line = chunk;
+      } else {
+        line += (line ? ' ' : '') + chunk;
+      }
+    }
+  }
+  if (line) out.push(line);
+  return out.join('\n'); // ← echte Zeilenumbrüche im native title
+}
+
+
   // ---------------- WebSocket ----------------
   function connectWS() {
     const u = wsUrl();
@@ -674,7 +705,7 @@ function renderTopic() {
     // Keep a tooltip with the full content on the link (if present) or the span
     const full = [state.topicLabel || '', state.topicUrl || ''].filter(Boolean).join(' — ');
     const link = el.querySelector && el.querySelector('a');
-    (link || el).setAttribute('title', full || '');
+    (link || el).setAttribute('title', wrapForTitle(full, 44));
   };
 
   // Create (or reuse) the compact "more" button that sits to the right of the text
@@ -709,6 +740,8 @@ function renderTopic() {
     actions.innerHTML = '';
 
     requestAnimationFrame(syncTopicOverflow);
+    const full = [state.topicLabel || '', state.topicUrl || ''].filter(Boolean).join(' — ');
+    hint.setAttribute('title', wrapForTitle(full, 44))
     return;
   }
 
