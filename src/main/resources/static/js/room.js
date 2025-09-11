@@ -524,7 +524,7 @@ function numericDeckFromState() {
 // Tweak to taste. If no pivot hit, a mild gamma skew keeps lower values greener for longer.
 const PIVOT_BY_SEQUENCE = {
   'fib.enh': 13,
-  'fib.scrum': 8,
+  'fib.scrum': 13,
   'fib.math': 13,
   'pow2': 32,
   // 'tshirt': non-numeric → no heat
