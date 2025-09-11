@@ -13,7 +13,6 @@
   const SPECIALS = ['❓', '💬', '☕'];
   const INFINITY_ = '♾️';
   const INFINITY_ALT = '∞'; // backward-compat
-
   const IDLE_MS_THRESHOLD = 900_000; // 15min
 
   // script dataset / URL params
@@ -115,51 +114,27 @@
     document.body.classList.toggle('is-host', !!state.isHost);
   }
 
-  // ---- Presence toast guard (2s grace; never for yourself) -----------------
-  const PRESENCE_TOAST_GRACE_MS = 2000;
-  const _presenceToastSeen = new Map();
+  // ----- Presence guard (2s grace; never self-toast) ------------------------
+  const PRESENCE_GRACE_MS = 2000;
+  const PRESENCE_KEY = (n) => 'ep-presence:' + encodeURIComponent(n);
+
+  // Mark participant as "alive now"
+  function markAlive(name) {
+    if (!name) return;
+    try { localStorage.setItem(PRESENCE_KEY(name), String(Date.now())); } catch {}
+  }
+
+  // Should we toast this presence event? kind: 'left' | 'join'
   function shouldToastPresence(name, kind) {
     if (!name) return false;
     if (name === state.youName) return false; // never self-toast
-    const key = `${kind}:${name}`;
-    const now = Date.now();
-    const last = _presenceToastSeen.get(key) || 0;
-    _presenceToastSeen.set(key, now);
-    return (now - last) > PRESENCE_TOAST_GRACE_MS;
-  }
 
-
-  // ----- Presence guard (2s grace) ------------------------------------------
-const PRESENCE_GRACE_MS = 2000;
-const PRESENCE_KEY = (n) => 'ep-presence:' + encodeURIComponent(n);
-
-// Mark participant as "alive now"
-function markAlive(name) {
-  if (!name) return;
-  try { localStorage.setItem(PRESENCE_KEY(name), String(Date.now())); } catch {}
-}
-
-// Should we toast this presence event?
-// kind: 'left' | 'join'
-function shouldToastPresence(name, kind) {
-  if (!name) return false;
-  // never toast for myself
-  if (name === state.youName) return false;
-
-  let last = 0;
-  try { last = parseInt(localStorage.getItem(PRESENCE_KEY(name)) || '0', 10) || 0; } catch {}
-  const delta = Date.now() - last;
-
-  if (kind === 'left') {
-    // Only toast if we haven't seen this person "alive" within GRACE
+    let last = 0;
+    try { last = parseInt(localStorage.getItem(PRESENCE_KEY(name)) || '0', 10) || 0; } catch {}
+    const delta = Date.now() - last;
+    // For both join/left: only toast if last activity is older than grace
     return delta > PRESENCE_GRACE_MS;
   }
-  if (kind === 'join') {
-    // Join: toast only if last "alive" is old enough
-    return delta > PRESENCE_GRACE_MS;
-  }
-  return true;
-}
 
   // ---------------- WebSocket ----------------
   function connectWS() {
@@ -207,28 +182,25 @@ function shouldToastPresence(name, kind) {
         state.hardRedirect = m.redirect || '/';
         try { state.ws && state.ws.close(4001, 'Kicked'); } catch {}
         break;
-    }
+      }
       case 'participantJoined': {
-  const name = m.name || '';
-  if (shouldToastPresence(name, 'join')) {
-    const msg = isDe() ? `${name} ist beigetreten` : `${name} joined the room`;
-    showToast(msg);
-  }
-  break;
-}
+        const name = m.name || '';
+        if (shouldToastPresence(name, 'join')) {
+          showToast(isDe() ? `${name} ist beigetreten` : `${name} joined the room`);
+        }
+        break;
+      }
       case 'participantLeft': {
-  const name = m.name || '';
-  if (shouldToastPresence(name, 'left')) {
-    const msg = isDe() ? `${name} hat den Raum verlassen` : `${name} left the room`;
-    showToast(msg);
-  }
-  break;
-}
+        const name = m.name || '';
+        if (shouldToastPresence(name, 'left')) {
+          showToast(isDe() ? `${name} hat den Raum verlassen` : `${name} left the room`);
+        }
+        break;
+      }
       case 'participantRenamed': {
         const from = m.from || '', to = m.to || '';
-        if (from !== state.youName) { // rename-self ist ohnehin sichtbar
-          const msg = isDe() ? `${from} heißt jetzt ${to}` : `${from} is now ${to}`;
-          showToast(msg);
+        if (from !== state.youName) {
+          showToast(isDe() ? `${from} heißt jetzt ${to}` : `${from} is now ${to}`);
         }
         break;
       }
@@ -249,244 +221,252 @@ function shouldToastPresence(name, kind) {
   }
 
   function applyVoteUpdate(m) {
-    // --- Deck / cards -------------------------------------------------------
-    const seqId = normalizeSeq(m.sequenceId || state.sequenceId || 'fib.scrum');
-
-    // Server flags we respect
-    const specialsOff = (m.specialsOff === true) || (m.specialsEnabled === false);
-    state.allowSpecials = !specialsOff; // keep menu/cards in sync
-
-    if (Array.isArray(m.cards) && m.cards.length) {
-      // Trust server order entirely
-      let deck = m.cards.slice();
-
-      // Keep ♾️ only for fib.enh
-      if (seqId !== 'fib.enh') deck = deck.filter(c => c !== INFINITY_ && c !== INFINITY_ALT);
-
-      // Enforce specials OFF if server says so
-      if (specialsOff) deck = deck.filter(c => !SPECIALS.includes(c));
-
-      state.cards = deck;
-    } else {
-      // Fallback for older servers:
-      // Start from the last known deck and enforce current rules.
-      let deck = Array.isArray(state.cards) ? state.cards.slice() : [];
-      if (seqId !== 'fib.enh') deck = deck.filter(c => c !== INFINITY_ && c !== INFINITY_ALT);
-      if (specialsOff) deck = deck.filter(c => !SPECIALS.includes(c));
-      state.cards = deck;
-    }
-
-    // --- Core state ---------------------------------------------------------
-    state.votesRevealed = !!m.votesRevealed;
-    state.averageVote   = (m.hasOwnProperty('averageVote') ? m.averageVote : null);
-    state.medianVote    = (m.hasOwnProperty('medianVote')  ? m.medianVote  : null);
-    state.range         = (m.hasOwnProperty('range')       ? m.range       : null);
-    state.consensus     = !!m.consensus;
-    state.outliers      = Array.isArray(m.outliers) ? m.outliers : [];
-
-    // --- Participants -------------------------------------------------------
-    const raw = Array.isArray(m.participants) ? m.participants : [];
-    state.participants = raw.map(p => ({
-      name:           p?.name ?? '',
-      vote:           (p?.vote ?? null),
-      disconnected:   !!p?.disconnected,
-      away:           !!p?.away,
-      isHost:         !!p?.isHost,
-      participating:  (p?.participating !== false),
-      observer:       (p?.participating === false)
-    }));
-
-    // --- Topic / flags ------------------------------------------------------
-    state.sequenceId = seqId;
-    state.autoRevealEnabled = !!m.autoRevealEnabled;
-
-    // If the server broadcasts allowSpecials, accept it.
-// (No-op if backend doesn’t send this field.)
-if (Object.prototype.hasOwnProperty.call(m, 'allowSpecials')) {
-  state.allowSpecials = !!m.allowSpecials;
-}
-
-
-  if (Object.prototype.hasOwnProperty.call(m, 'allowSpecials')) {
-    state.allowSpecials = !!m.allowSpecials;
-  }
-
-
-    if (m.hasOwnProperty('topicVisible')) state.topicVisible = !!m.topicVisible;
-    if (m.hasOwnProperty('topicLabel'))   state.topicLabel   = m.topicLabel || '';
-    if (m.hasOwnProperty('topicUrl'))     state.topicUrl     = m.topicUrl || null;
-
-    // who am I
-    const me = state.participants.find(p => p && p.name === state.youName);
-    state.isHost = !!(me && me.isHost);
-    state._hostKnown = true;
-    if (me && me.vote != null) state._optimisticVote = null;
-
-    // render
-    syncHostClass();
-    renderParticipants();
-    renderCards();
-    renderResultBar();
-    renderTopic();
-    renderAutoReveal();
-
     try {
-  (state.participants || []).forEach(p => {
-    if (p && !p.disconnected) markAlive(p.name);
-  });
-} catch {}
+      // --- sequence id ---
+      const seqId = normalizeSeq(m.sequenceId || state.sequenceId || 'fib.scrum');
 
-    requestAnimationFrame(() => { syncMenuFromState(); syncSequenceInMenu(); });
+      // --- specials & deck (robust gegen Server-Varianten) ---
+      // Server kann schicken:
+      //  (A) m.specials = ["❓","💬","☕"]  -> Specials EIN (explizite Liste)
+      //      m.specials = []              -> Specials AUS (explizit leer)
+      //  (B) m.allowSpecials = true|false -> Boolean-Schalter
+      //  (C) Legacy: m.specialsOff / m.specialsEnabled
+      //  (D) nichts -> Client-Status beibehalten
+      let specialsList = null;      // wenn null: Deck-Specials unverändert lassen
+      let allowFromServer = null;   // wenn null: allowSpecials nicht anfassen
 
-    if (!document.documentElement.hasAttribute('data-ready')) {
-      document.documentElement.setAttribute('data-ready', '1');
+      if (Array.isArray(m.specials)) {
+        specialsList = m.specials.slice();
+        allowFromServer = specialsList.length > 0;
+      }
+      if (typeof m.allowSpecials === 'boolean') {
+        allowFromServer = m.allowSpecials;
+        if (specialsList === null) specialsList = m.allowSpecials ? SPECIALS.slice() : [];
+      }
+      if (typeof m.specialsOff === 'boolean') {
+        allowFromServer = !m.specialsOff;
+        if (specialsList === null) specialsList = (!m.specialsOff) ? SPECIALS.slice() : [];
+      }
+      if (typeof m.specialsEnabled === 'boolean') {
+        allowFromServer = m.specialsEnabled;
+        if (specialsList === null) specialsList = m.specialsEnabled ? SPECIALS.slice() : [];
+      }
+
+      if (typeof allowFromServer === 'boolean') {
+        state.allowSpecials = allowFromServer;
+      }
+
+      // Basis: Server-Deck, sonst bisheriges Deck
+      let deck = Array.isArray(m.cards) ? m.cards.slice() : (Array.isArray(state.cards) ? state.cards.slice() : []);
+
+      // Infinity nur bei fib.enh erlauben
+      if (seqId !== 'fib.enh') {
+        deck = deck.filter(c => c !== INFINITY_ && c !== INFINITY_ALT);
+      }
+
+      // Wenn der Server eine Specials-Liste mitgibt (oder explizit „leer“),
+      // dann Deck-Specials exakt daran ausrichten:
+      if (specialsList !== null) {
+        deck = deck.filter(c => !SPECIALS.includes(c)).concat(specialsList);
+      }
+      state.cards = deck;
+
+      // --- Core state ---
+      state.votesRevealed = !!m.votesRevealed;
+      state.averageVote   = (m.hasOwnProperty('averageVote') ? m.averageVote : null);
+      state.medianVote    = (m.hasOwnProperty('medianVote')  ? m.medianVote  : null);
+      state.range         = (m.hasOwnProperty('range')       ? m.range       : null);
+      state.consensus     = !!m.consensus;
+      state.outliers      = Array.isArray(m.outliers) ? m.outliers : [];
+
+      // --- Participants ---
+      const raw = Array.isArray(m.participants) ? m.participants : [];
+      state.participants = raw.map(p => ({
+        name:           p?.name ?? '',
+        vote:           (p?.vote ?? null),
+        disconnected:   !!p?.disconnected,
+        away:           !!p?.away,
+        isHost:         !!p?.isHost,
+        participating:  (p?.participating !== false),
+        observer:       (p?.participating === false)
+      }));
+
+      // --- Topic / flags ---
+      state.sequenceId = seqId;
+      state.autoRevealEnabled = !!m.autoRevealEnabled;
+
+      if (m.hasOwnProperty('topicVisible')) state.topicVisible = !!m.topicVisible;
+      if (m.hasOwnProperty('topicLabel'))   state.topicLabel   = m.topicLabel || '';
+      if (m.hasOwnProperty('topicUrl'))     state.topicUrl     = m.topicUrl || null;
+
+      // who am I
+      const me = state.participants.find(p => p && p.name === state.youName);
+      state.isHost = !!(me && me.isHost);
+      state._hostKnown = true;
+      if (me && me.vote != null) state._optimisticVote = null;
+
+      // render
+      syncHostClass();
+      renderParticipants();
+      renderCards();
+      renderResultBar();
+      renderTopic();
+      renderAutoReveal();
+
+      // presence freshness → dämpft irrtümliche leave/join-toasts
+      try {
+        (state.participants || []).forEach(p => {
+          if (p && !p.disconnected) markAlive(p.name);
+        });
+      } catch {}
+
+      requestAnimationFrame(() => { syncMenuFromState(); syncSequenceInMenu(); });
+
+      if (!document.documentElement.hasAttribute('data-ready')) {
+        document.documentElement.setAttribute('data-ready', '1');
+      }
+    } catch (e) {
+      console.error(TAG, 'applyVoteUpdate failed', e);
     }
   }
 
   // ---------------- Participants ----------------
-  // Participant is considered idle if server flags it or client marks "away"
-function isIdle(p) {
-  if (!p || p.disconnected) return false;
-  if (typeof p.idleMs === 'number') return p.idleMs >= IDLE_MS_THRESHOLD;
-  if (p.away === true) return true;
-  return false;
-}
+  function isIdle(p) {
+    if (!p || p.disconnected) return false;
+    if (typeof p.idleMs === 'number') return p.idleMs >= IDLE_MS_THRESHOLD;
+    if (p.away === true) return true;
+    return false;
+  }
 
-function renderParticipants() {
-  const ul = $('#liveParticipantList'); if (!ul) return;
-  try {
-    const frag = document.createDocumentFragment();
+  function renderParticipants() {
+    const ul = $('#liveParticipantList'); if (!ul) return;
+    try {
+      const frag = document.createDocumentFragment();
 
-    (state.participants || []).forEach(p => {
-      if (!p || !p.name) return;
+      (state.participants || []).forEach(p => {
+        if (!p || !p.name) return;
 
-      const li = document.createElement('li');
-      li.className = 'participant-row';
+        const li = document.createElement('li');
+        li.className = 'participant-row';
 
-      const isInactive = !!p.disconnected || !!p.away;
-      if (isInactive) li.classList.add('disconnected');
-      if (p.isHost)    li.classList.add('is-host');
+        const isInactive = !!p.disconnected || !!p.away;
+        if (isInactive) li.classList.add('disconnected');
+        if (p.isHost)    li.classList.add('is-host');
 
-      // Left icon (role/presence)
-      const left = document.createElement('span');
-      left.className = 'participant-icon' + (p.isHost ? ' host' : '');
-      let icon = '👤';
-      if (p.isHost)                 icon = '👑';
-      else if (p.observer === true) icon = '👁️';
-      else if (isInactive)          icon = '💤';
-      left.textContent = icon;
-      left.setAttribute('aria-hidden', 'true');
-      if (isInactive) left.classList.add('inactive');       // slightly dim
-      li.appendChild(left);
+        // Left icon (role/presence)
+        const left = document.createElement('span');
+        left.className = 'participant-icon' + (p.isHost ? ' host' : '');
+        let icon = '👤';
+        if (p.isHost)                 icon = '👑';
+        else if (p.observer === true) icon = '👁️';
+        else if (isInactive)          icon = '💤';
+        left.textContent = icon;
+        left.setAttribute('aria-hidden', 'true');
+        if (isInactive) left.classList.add('inactive');  // slightly dim
+        li.appendChild(left);
 
-      // Name
-      const name = document.createElement('span');
-      name.className = 'name';
-      name.textContent = p.name;
-      li.appendChild(name);
+        // Name
+        const name = document.createElement('span');
+        name.className = 'name';
+        name.textContent = p.name;
+        li.appendChild(name);
 
-      // Right column (chips + actions)
-      const right = document.createElement('div');
-      right.className = 'row-right';
+        // Right column (chips + actions)
+        const right = document.createElement('div');
+        right.className = 'row-right';
 
-      // --- CHIP COLUMN ------------------------------------------------------
-      if (!state.votesRevealed) {
-        // Pre-vote: always render a *mini-chip* so the column width is stable
-        if (p.observer) {
-          const eye = document.createElement('span');
-          eye.className = 'mini-chip observer';
-          eye.textContent = '👁️';
-          right.appendChild(eye);
-        } else if (!p.disconnected && p.vote != null && String(p.vote) !== '') {
-          const ok = document.createElement('span');
-          ok.className = 'mini-chip done';
-          ok.textContent = '✓';
-          right.appendChild(ok);
-        } else {
-          // waiting / no vote yet
-          const dash = document.createElement('span');
-          dash.className = isInactive ? 'mini-chip' : 'mini-chip pending';
-          dash.textContent = isInactive ? '–' : '⏳';
-          right.appendChild(dash);
-        }
-      } else {
-        // Post-vote
-        if (p.observer) {
-          const eye = document.createElement('span');
-          eye.className = 'mini-chip observer';
-          eye.textContent = '👁️';
-          right.appendChild(eye);
-        } else {
-          // Inactive after reveal → always a neutral dash chip (no green)
-          if (isInactive) {
-            const dash = document.createElement('span');
-            dash.className = 'mini-chip';
-            dash.textContent = '–';
-            right.appendChild(dash);
+        // --- CHIP COLUMN ----------------------------------------------------
+        if (!state.votesRevealed) {
+          // Pre-vote: always render a *mini-chip* so the column width is stable
+          if (p.observer) {
+            const eye = document.createElement('span');
+            eye.className = 'mini-chip observer';
+            eye.textContent = '👁️';
+            right.appendChild(eye);
+          } else if (!p.disconnected && p.vote != null && String(p.vote) !== '') {
+            const ok = document.createElement('span');
+            ok.className = 'mini-chip done';
+            ok.textContent = '✓';
+            right.appendChild(ok);
           } else {
-            const chip = document.createElement('span');
-            const noVote  = (p.vote == null || p.vote === '');
-            const display = noVote ? '–' : String(p.vote);
-
-            if (noVote) {
-              // Outline dash for "did not vote"
-              chip.className = 'mini-chip';
-              chip.textContent = '–';
-              right.appendChild(chip);
+            const dash = document.createElement('span');
+            dash.className = isInactive ? 'mini-chip' : 'mini-chip pending';
+            dash.textContent = isInactive ? '–' : '⏳';
+            right.appendChild(dash);
+          }
+        } else {
+          // Post-vote
+          if (p.observer) {
+            const eye = document.createElement('span');
+            eye.className = 'mini-chip observer';
+            eye.textContent = '👁️';
+            right.appendChild(eye);
+          } else {
+            if (isInactive) {
+              const dash = document.createElement('span');
+              dash.className = 'mini-chip';
+              dash.textContent = '–';
+              right.appendChild(dash);
             } else {
-              // Proper result chip (green for numbers, grey for specials)
-              chip.className = 'vote-chip';
-              chip.textContent = display;
+              const chip = document.createElement('span');
+              const noVote  = (p.vote == null || p.vote === '');
+              const display = noVote ? '–' : String(p.vote);
 
-              const isInfinity = (display === INFINITY_ || display === INFINITY_ALT);
-              const isSpecial  = SPECIALS.includes(display);
-              if (!isInfinity && isSpecial) chip.classList.add('special');
+              if (noVote) {
+                chip.className = 'mini-chip';
+                chip.textContent = '–';
+                right.appendChild(chip);
+              } else {
+                chip.className = 'vote-chip';
+                chip.textContent = display;
 
-              if (Array.isArray(state.outliers) && state.outliers.includes(p.name)) {
-                chip.classList.add('outlier');
+                const isInfinity = (display === INFINITY_ || display === INFINITY_ALT);
+                const isSpecial  = SPECIALS.includes(display);
+                if (!isInfinity && isSpecial) chip.classList.add('special');
+
+                if (Array.isArray(state.outliers) && state.outliers.includes(p.name)) {
+                  chip.classList.add('outlier');
+                }
+                right.appendChild(chip);
               }
-              right.appendChild(chip);
             }
           }
         }
-      }
 
-      // --- ROW ACTIONS (always sit on the far right) ------------------------
-      if (state.isHost && !p.isHost) {
-        const makeHostBtn = document.createElement('button');
-        makeHostBtn.className = 'row-action host';
-        makeHostBtn.type = 'button';
-        makeHostBtn.setAttribute('aria-label', isDe() ? 'Zum Host machen' : 'Make host');
-        makeHostBtn.innerHTML = '<span class="ra-icon">👑</span>';
-        makeHostBtn.addEventListener('click', () => {
-          const q = isDe() ? `Host-Rolle an ${p.name} übertragen?` : `Transfer host role to ${p.name}?`;
-          if (confirm(q)) send('makeHost:' + encodeURIComponent(p.name));
-        });
-        right.appendChild(makeHostBtn);
+        // --- ROW ACTIONS (far right) ---------------------------------------
+        if (state.isHost && !p.isHost) {
+          const makeHostBtn = document.createElement('button');
+          makeHostBtn.className = 'row-action host';
+          makeHostBtn.type = 'button';
+          makeHostBtn.setAttribute('aria-label', isDe() ? 'Zum Host machen' : 'Make host');
+          makeHostBtn.innerHTML = '<span class="ra-icon">👑</span>';
+          makeHostBtn.addEventListener('click', () => {
+            const q = isDe() ? `Host-Rolle an ${p.name} übertragen?` : `Transfer host role to ${p.name}?`;
+            if (confirm(q)) send('makeHost:' + encodeURIComponent(p.name));
+          });
+          right.appendChild(makeHostBtn);
 
-        const kickBtn = document.createElement('button');
-        kickBtn.className = 'row-action kick';
-        kickBtn.type = 'button';
-        kickBtn.setAttribute('aria-label', isDe() ? 'Teilnehmer entfernen' : 'Kick participant');
-        kickBtn.innerHTML = '<span class="ra-icon">❌</span>';
-        kickBtn.addEventListener('click', () => {
-          const q = isDe() ? `${p.name} wirklich entfernen?` : `Remove ${p.name}?`;
-          if (confirm(q)) send('kick:' + encodeURIComponent(p.name));
-        });
-        right.appendChild(kickBtn);
-      }
+          const kickBtn = document.createElement('button');
+          kickBtn.className = 'row-action kick';
+          kickBtn.type = 'button';
+          kickBtn.setAttribute('aria-label', isDe() ? 'Teilnehmer entfernen' : 'Kick participant');
+          kickBtn.innerHTML = '<span class="ra-icon">❌</span>';
+          kickBtn.addEventListener('click', () => {
+            const q = isDe() ? `${p.name} wirklich entfernen?` : `Remove ${p.name}?`;
+            if (confirm(q)) send('kick:' + encodeURIComponent(p.name));
+          });
+          right.appendChild(kickBtn);
+        }
 
-      li.appendChild(right);
-      frag.appendChild(li);
-    });
+        li.appendChild(right);
+        frag.appendChild(li);
+      });
 
-    ul.replaceChildren(frag);
-  } catch (e) {
-    console.error('[ROOM] renderParticipants failed', e);
+      ul.replaceChildren(frag);
+    } catch (e) {
+      console.error('[ROOM] renderParticipants failed', e);
+    }
   }
-}
-
-
 
   // ---------------- Cards ----------------
   function mySelectedValue() {
@@ -507,163 +487,160 @@ function renderParticipants() {
     const elig = state.participants.filter(p => p && !p.observer && !p.disconnected);
     if (!elig.length) return false;
     return elig.every(p => p.vote != null && String(p.vote) !== '');
-    }
+  }
 
   function renderCards() {
-  const grid = $('#cardGrid'); if (!grid) return;
-  grid.innerHTML = '';
+    const grid = $('#cardGrid'); if (!grid) return;
+    grid.innerHTML = '';
 
-  const me = state.participants.find(pp => pp.name === state.youName);
-  const isObserver = !!(me && me.observer);
-  const disabled = state.votesRevealed || isObserver;
+    const me = state.participants.find(pp => pp.name === state.youName);
+    const isObserver = !!(me && me.observer);
+    const disabled = state.votesRevealed || isObserver;
 
-  // Split deck into numeric vs. specials
-  const deckSpecialsFromState = (state.cards || []).filter(v => SPECIALS.includes(v));
-  const deckNumbers           = (state.cards || []).filter(v => !SPECIALS.includes(v));
+    // Split deck into numeric vs. specials
+    const deckSpecialsFromState = (state.cards || []).filter(v => SPECIALS.includes(v));
+    const deckNumbers           = (state.cards || []).filter(v => !SPECIALS.includes(v));
 
-  // Robust fallback: if the deck doesn't carry specials, use our default SPECIALS
-  // (and dedupe against numbers just in case).
-  const specialsCandidate = deckSpecialsFromState.length ? deckSpecialsFromState : SPECIALS.slice();
-  const specialsDedupe = [...new Set(specialsCandidate.filter(s => !deckNumbers.includes(s)))];
+    // Robust fallback: if the deck doesn't carry specials, use default SPECIALS
+    // (and dedupe against numbers just in case).
+    const specialsCandidate = deckSpecialsFromState.length ? deckSpecialsFromState : SPECIALS.slice();
+    const specialsDedupe = [...new Set(specialsCandidate.filter(s => !deckNumbers.includes(s)))];
 
-  // Honor host toggle: if off => show none
-  const specials = state.allowSpecials ? specialsDedupe : [];
+    // Honor host toggle
+    const specials = state.allowSpecials ? specialsDedupe : [];
 
-  const selectedVal = mySelectedValue();
+    const selectedVal = mySelectedValue();
 
-  function addCardButton(val) {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    const label = String(val);
-    btn.textContent = label;
+    function addCardButton(val) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      const label = String(val);
+      btn.textContent = label;
 
-    // Make infinity slightly larger
-    if (label === INFINITY_ || label === INFINITY_ALT) btn.classList.add('card-infinity');
+      if (label === INFINITY_ || label === INFINITY_ALT) btn.classList.add('card-infinity');
 
-    if (disabled) btn.disabled = true;
-    if (selectedVal != null && String(selectedVal) === label) btn.classList.add('selected');
+      if (disabled) btn.disabled = true;
+      if (selectedVal != null && String(selectedVal) === label) btn.classList.add('selected');
 
-    btn.addEventListener('click', () => {
-      if (btn.disabled) return;
-      state._optimisticVote = label;
-      grid.querySelectorAll('button').forEach(b => b.classList.remove('selected'));
-      btn.classList.add('selected');
-      send(`vote:${state.youName}:${label}`);
-    });
+      btn.addEventListener('click', () => {
+        if (btn.disabled) return;
+        state._optimisticVote = label;
+        grid.querySelectorAll('button').forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+        send(`vote:${state.youName}:${label}`);
+      });
 
-    grid.appendChild(btn);
-  }
+      grid.appendChild(btn);
+    }
 
-  // Render numeric cards
-  deckNumbers.forEach(addCardButton);
+    // Render numeric cards
+    deckNumbers.forEach(addCardButton);
 
-  // Break line before specials (only if any)
-  if (specials.length) {
-    const br = document.createElement('div');
-    br.className = 'grid-break';
-    br.setAttribute('aria-hidden', 'true');
-    grid.appendChild(br);
-    specials.forEach(addCardButton);
-  }
+    // Break line before specials (only if any)
+    if (specials.length) {
+      const br = document.createElement('div');
+      br.className = 'grid-break';
+      br.setAttribute('aria-hidden', 'true');
+      grid.appendChild(br);
+      specials.forEach(addCardButton);
+    }
 
-  // CTA buttons logic (unchanged)
-  const revealBtn = $('#revealButton');
-  const resetBtn  = $('#resetButton');
-  const hardGateOK = !state.hardMode || allEligibleVoted();
+    // CTA buttons logic
+    const revealBtn = $('#revealButton');
+    const resetBtn  = $('#resetButton');
+    const hardGateOK = !state.hardMode || allEligibleVoted();
 
-  const showReveal = (!state.votesRevealed && state.isHost);
-  const showReset  = (state.votesRevealed && state.isHost);
+    const showReveal = (!state.votesRevealed && state.isHost);
+    const showReset  = (state.votesRevealed && state.isHost);
 
-  if (revealBtn) {
-    revealBtn.style.display = showReveal ? '' : 'none';
-    revealBtn.hidden = !showReveal;
-    revealBtn.disabled = !hardGateOK;
-    if (!hardGateOK) {
-      revealBtn.setAttribute('title', isDe() ? 'Es haben noch nicht alle ihre Schätzung abgegeben' : 'Not everyone has voted yet');
-      revealBtn.setAttribute('aria-disabled', 'true');
-    } else {
-      revealBtn.removeAttribute('title');
-      revealBtn.removeAttribute('aria-disabled');
+    if (revealBtn) {
+      revealBtn.style.display = showReveal ? '' : 'none';
+      revealBtn.hidden = !showReveal;
+      revealBtn.disabled = !hardGateOK;
+      if (!hardGateOK) {
+        revealBtn.setAttribute('title', isDe() ? 'Es haben noch nicht alle ihre Schätzung abgegeben' : 'Not everyone has voted yet');
+        revealBtn.setAttribute('aria-disabled', 'true');
+      } else {
+        revealBtn.removeAttribute('title');
+        revealBtn.removeAttribute('aria-disabled');
+      }
+    }
+    if (resetBtn) {
+      resetBtn.style.display = showReset ? '' : 'none';
+      resetBtn.hidden = !showReset;
     }
   }
-  if (resetBtn) {
-    resetBtn.style.display = showReset ? '' : 'none';
-    resetBtn.hidden = !showReset;
-  }
-}
-
 
   // ---------------- Result bar ----------------
   function renderResultBar() {
-  // Was any non-observer vote == infinity?
-  const hasInfinity = !!(
-    state.votesRevealed &&
-    Array.isArray(state.participants) &&
-    state.participants.some(p => p && !p.observer && (p.vote === INFINITY_ || p.vote === INFINITY_ALT))
-  );
+    // Was any non-observer vote == infinity?
+    const hasInfinity = !!(
+      state.votesRevealed &&
+      Array.isArray(state.participants) &&
+      state.participants.some(p => p && !p.observer && (p.vote === INFINITY_ || p.vote === INFINITY_ALT))
+    );
 
-  // helpers
-  const t = (v) => (v == null || v === '' ? null : String(v));
-  const withInf = (base) => (base != null ? base + (hasInfinity ? ' +♾️' : '') : (hasInfinity ? '♾️' : null));
+    // helpers
+    const t = (v) => (v == null || v === '' ? null : String(v));
+    const withInf = (base) => (base != null ? base + (hasInfinity ? ' +♾️' : '') : (hasInfinity ? '♾️' : null));
 
-  // toggle pre/post blocks
-  const pre  = document.querySelector('.pre-vote');
-  const post = document.querySelector('.post-vote');
-  if (pre && post) {
-    pre.style.display  = state.votesRevealed ? 'none' : '';
-    post.style.display = state.votesRevealed ? '' : 'none';
-  }
+    // toggle pre/post blocks
+    const pre  = document.querySelector('.pre-vote');
+    const post = document.querySelector('.post-vote');
+    if (pre && post) {
+      pre.style.display  = state.votesRevealed ? 'none' : '';
+      post.style.display = state.votesRevealed ? '' : 'none';
+    }
 
-  const row        = $('#resultRow');
-  const avgWrap    = document.querySelector('#resultLabel .label-average');
-  const consEl     = document.querySelector('#resultLabel .label-consensus');
-  const medianWrap = $('#medianWrap');
-  const rangeWrap  = $('#rangeWrap');
-  const rangeSep   = $('#rangeSep');
-  const avgEl      = $('#averageVote');
+    const row        = $('#resultRow');
+    const avgWrap    = document.querySelector('#resultLabel .label-average');
+    const consEl     = document.querySelector('#resultLabel .label-consensus');
+    const medianWrap = $('#medianWrap');
+    const rangeWrap  = $('#rangeWrap');
+    const rangeSep   = $('#rangeSep');
+    const avgEl      = $('#averageVote');
 
-  // Average text
-  if (avgEl) {
-    const avgTxt = withInf(t(state.averageVote));
-    avgEl.textContent = avgTxt ?? (state.votesRevealed ? 'N/A' : ''); // pre-vote leer, post-vote N/A
-  }
+    // Average text
+    if (avgEl) {
+      const avgTxt = withInf(t(state.averageVote));
+      avgEl.textContent = avgTxt ?? (state.votesRevealed ? 'N/A' : '');
+    }
 
-  // Consensus mode collapses to one label
-  if (row) {
-    if (state.consensus) {
-      row.classList.add('consensus');
-      if (avgWrap) avgWrap.hidden = true;
-      if (consEl) {
-        consEl.hidden = false;
-        consEl.textContent = isDe() ? '🎉 Konsens' : '🎉 Consensus';
+    // Consensus mode collapses to one label
+    if (row) {
+      if (state.consensus) {
+        row.classList.add('consensus');
+        if (avgWrap) avgWrap.hidden = true;
+        if (consEl) {
+          consEl.hidden = false;
+          consEl.textContent = isDe() ? '🎉 Konsens' : '🎉 Consensus';
+        }
+        const sep1 = document.querySelector('#resultRow .sep');
+        if (sep1) sep1.hidden = true;
+        if (medianWrap) medianWrap.hidden = true;
+        if (rangeSep)  rangeSep.hidden  = true;
+        if (rangeWrap) rangeWrap.hidden = true;
+        return;
+      } else {
+        row.classList.remove('consensus');
+        if (avgWrap) avgWrap.hidden = false;
+        if (consEl)  consEl.hidden  = true;
       }
-      const sep1 = document.querySelector('#resultRow .sep');
-      if (sep1) sep1.hidden = true;
-      if (medianWrap) medianWrap.hidden = true;
-      if (rangeSep)  rangeSep.hidden  = true;
-      if (rangeWrap) rangeWrap.hidden = true;
-      return; // nothing else to do
-    } else {
-      row.classList.remove('consensus');
-      if (avgWrap) avgWrap.hidden = false;
-      if (consEl)  consEl.hidden  = true;
+    }
+
+    // Median & Range (only when revealed and value exists)
+    if (medianWrap) {
+      const showM = state.votesRevealed && t(state.medianVote) != null;
+      medianWrap.hidden = !showM;
+      if (showM) setText('#medianVote', withInf(t(state.medianVote)));
+    }
+    if (rangeWrap && rangeSep) {
+      const showR = state.votesRevealed && t(state.range) != null;
+      rangeWrap.hidden = !showR;
+      rangeSep.hidden  = !showR;
+      if (showR) setText('#rangeVote', withInf(t(state.range)));
     }
   }
-
-  // Median & Range (only when revealed and value exists)
-  if (medianWrap) {
-    const showM = state.votesRevealed && t(state.medianVote) != null;
-    medianWrap.hidden = !showM;
-    if (showM) setText('#medianVote', withInf(t(state.medianVote)));
-  }
-  if (rangeWrap && rangeSep) {
-    const showR = state.votesRevealed && t(state.range) != null;
-    rangeWrap.hidden = !showR;
-    rangeSep.hidden  = !showR;
-    if (showR) setText('#rangeVote', withInf(t(state.range)));
-  }
-}
-
 
   // ---------------- Topic row ----------------
   function renderTopic() {
@@ -946,25 +923,23 @@ function renderParticipants() {
 
     // host-only local toggles (client-side optimistic + server notify)
     document.addEventListener('ep:specials-toggle', (ev) => {
-  if (!state.isHost) return;
+      if (!state.isHost) return;
 
-  // Read the DOM checkbox AFTER the click has settled (microtask) so
-  // we don’t rely on potentially stale event.detail or race conditions.
-  queueMicrotask(() => {
-    const el = document.getElementById('menuSpecialsToggle');
-    const on = (el ? !!el.checked
-                   : (ev && ev.detail && 'on' in ev.detail ? !!ev.detail.on : !state.allowSpecials));
+      // Read the DOM checkbox AFTER the click has settled (microtask)
+      queueMicrotask(() => {
+        const el = document.getElementById('menuSpecialsToggle');
+        const on = (el ? !!el.checked
+                       : (ev && ev.detail && 'on' in ev.detail ? !!ev.detail.on : !state.allowSpecials));
 
-    // Optimistic local update
-    state.allowSpecials = on;
-    syncMenuFromState();
-    renderCards();
+        // Optimistic local update
+        state.allowSpecials = on;
+        syncMenuFromState();
+        renderCards();
 
-    // Tell the server (room-wide)
-    try { send(`specials:${on}`); } catch {}
-  });
-});
-
+        // Tell the server (room-wide)
+        try { send(`specials:${on}`); } catch {}
+      });
+    });
 
     document.addEventListener('ep:hard-mode-toggle', (ev) => {
       if (!state.isHost) return;
@@ -976,7 +951,6 @@ function renderParticipants() {
   }
 
   // ---------------- Misc helpers ----------------
-  // was numeric-looking for chip styling: infinity counts as numeric here
   function isDisplaySpecialChip(s) {
     if (s == null) return true; // treat empty as special-ish (dash)
     const t = String(s).trim();
