@@ -88,6 +88,8 @@
     } catch {}
   })();
 
+  let _topicOverflowResizeBound = false;
+
   // ---------------- Helpers ----------------
   function normalizeSeq(id) {
     if (!id) return 'fib.scrum';
@@ -1039,6 +1041,37 @@ function syncTopicOverflow() {
       renderCards();
     });
   }
+
+  function wireOnce() {
+  bindCopyLink();
+  wireMenuEvents();
+
+  // clicking empty topic row (host only) opens editor
+  const row = $('#topicRow');
+  if (row) {
+    row.addEventListener('click', (e) => {
+      if (!state.isHost || state.topicEditing) return;
+      if (state.topicLabel) return;
+      if (e.target.closest('button,a,input')) return;
+      beginTopicEdit();
+    });
+  }
+
+  // NEW: keep the overflow hint in sync on window resizes (bind once)
+  if (!_topicOverflowResizeBound) {
+    window.addEventListener('resize', () => requestAnimationFrame(syncTopicOverflow));
+    _topicOverflowResizeBound = true;
+  }
+
+  // NO 'intentionalLeave' on beforeunload anymore (grace will handle refresh/close)
+  window.addEventListener('pageshow', () => {
+    document.dispatchEvent(new CustomEvent('ep:request-sync', { detail: { room: state.roomCode } }));
+    if (!state.connected && (!state.ws || state.ws.readyState !== 1)) connectWS();
+  });
+
+  syncSequenceInMenu();
+}
+
 
   // ---------------- Misc helpers ----------------
   function isDisplaySpecialChip(s) {
