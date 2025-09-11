@@ -523,8 +523,8 @@ function numericDeckFromState() {
 // Optional pivot per sequence: which label should feel ~yellow (middle of the gradient).
 // Tweak to taste. If no pivot hit, a mild gamma skew keeps lower values greener for longer.
 const PIVOT_BY_SEQUENCE = {
-  'fib.enh': 20,
-  'fib.scrum': 13,
+  'fib.enh': 13,
+  'fib.scrum': 8,
   'fib.math': 13,
   'pow2': 32,
   // 'tshirt': non-numeric → no heat
