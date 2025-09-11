@@ -85,12 +85,10 @@
 
         <!-- Variant 3: long+short labels + separate consensus label -->
         <span id="resultLabel" class="label">
-          <span class="label-average">
-            <span class="label-long" th:text="#{label.average}" data-i18n="label.average">Ø Average:</span>
-            <span class="label-short" aria-hidden="true">Ø</span>
-          </span>
+          <span class="label-average" th:text="#{label.average}" data-i18n="label.average">Average:</span>
           <span class="label-consensus" hidden>🎉 Consensus</span>
         </span>
+
 
         <span id="averageVote" class="value">–</span>
 

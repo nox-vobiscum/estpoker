@@ -371,10 +371,7 @@ li{margin-bottom:.4rem;line-height:1.5;font-size:1rem}
 .average-label{font-size:.85rem;margin-top:1rem}
 .average-label #averageVote{font-size:.85rem;font-weight:600;opacity:0;animation:avgIn 240ms ease forwards}
 @keyframes avgIn{to{opacity:1}}
-#resultLabel .label-short{display:none}
 @media (max-width:420px){
-  #resultLabel .label-long{display:none}
-  #resultLabel .label-short{display:inline}
 }
 .average-label.consensus{color:var(--ok);font-weight:700}
 .average-label.consensus #averageVote{font-weight:800}
