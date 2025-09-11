@@ -39,7 +39,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     private final Map<String, Conn> bySession = new ConcurrentHashMap<>();
 
     /** Hard host reassignment threshold (kept in sync with service logic – currently 15 min). */
-    private static final long HOST_INACTIVE_MS = 900_000L;
+    private static final long HOST_INACTIVE_MS = 3_600_000L;
 
     private static boolean parseOn(String s) {
         if (s == null) return false;

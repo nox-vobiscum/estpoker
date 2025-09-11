@@ -13,7 +13,7 @@
   const SPECIALS = ['❓', '💬', '☕'];
   const INFINITY_ = '♾️';
   const INFINITY_ALT = '∞'; // backward-compat
-  const IDLE_MS_THRESHOLD = 900_000; // 15min
+  const IDLE_MS_THRESHOLD = 3_600_000; // 60min
 
   // script dataset / URL params
   const scriptEl = document.querySelector('script[src*="/js/room.js"]');
