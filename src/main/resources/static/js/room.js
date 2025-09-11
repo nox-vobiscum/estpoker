@@ -356,160 +356,215 @@
   }
 
   // ---------------- Participants ----------------
-  function renderParticipants() {
-    const ul = $('#liveParticipantList'); if (!ul) return;
-    try {
-      const frag = document.createDocumentFragment();
+ // ---------------- Participants ----------------
+function renderParticipants() {
+  const ul = $('#liveParticipantList'); if (!ul) return;
+  try {
+    const frag = document.createDocumentFragment();
 
-      // derive numeric deck order (for heat hue mapping)
-      const deckNumbers = (state.cards || []).filter(v =>
-        !SPECIALS.includes(v) && v !== INFINITY_ && v !== INFINITY_ALT
-      );
-      const lastIdx = Math.max(deckNumbers.length - 1, 1);
+    (state.participants || []).forEach(p => {
+      if (!p || !p.name) return;
 
-      const hueForValue = (val) => {
-        // specials: no heat
-        if (SPECIALS.includes(val)) return null;
-        // infinity: always red
-        if (val === INFINITY_ || val === INFINITY_ALT) return 0;
-        const i = deckNumbers.indexOf(val);
-        if (i < 0) return null; // unknown -> neutral
-        const t = i / lastIdx;          // 0..1
-        const hue = Math.round(120 * (1 - t)); // 120=green → 0=red
-        return hue;
-      };
+      const li = document.createElement('li');
+      li.className = 'participant-row';
 
-      (state.participants || []).forEach(p => {
-        if (!p || !p.name) return;
+      const isInactive = !!p.disconnected || !!p.away;
+      if (isInactive) li.classList.add('disconnected');
+      if (p.isHost)    li.classList.add('is-host');
 
-        const li = document.createElement('li');
-        li.className = 'participant-row';
+      // Left icon (role/presence)
+      const left = document.createElement('span');
+      left.className = 'participant-icon' + (p.isHost ? ' host' : '');
+      let icon = '👤';
+      if (p.isHost)                 icon = '👑';
+      else if (p.observer === true) icon = '👁️';
+      else if (isInactive)          icon = '💤';
+      left.textContent = icon;
+      left.setAttribute('aria-hidden', 'true');
+      if (isInactive) left.classList.add('inactive');
+      li.appendChild(left);
 
-        const isInactive = !!p.disconnected || !!p.away;
-        if (isInactive) li.classList.add('disconnected');
-        if (p.isHost)    li.classList.add('is-host');
+      // Name
+      const name = document.createElement('span');
+      name.className = 'name';
+      name.textContent = p.name;
+      li.appendChild(name);
 
-        // left icon
-        const left = document.createElement('span');
-        left.className = 'participant-icon' + (p.isHost ? ' host' : '');
-        let icon = '👤';
-        if (p.isHost)                 icon = '👑';
-        else if (p.observer === true) icon = '👁️';
-        else if (isInactive)          icon = '💤';
-        left.textContent = icon;
-        left.setAttribute('aria-hidden', 'true');
-        if (isInactive) left.classList.add('inactive');
-        li.appendChild(left);
+      // Right column (chips + actions)
+      const right = document.createElement('div');
+      right.className = 'row-right';
 
-        // name
-        const name = document.createElement('span');
-        name.className = 'name';
-        name.textContent = p.name;
-        li.appendChild(name);
-
-        // right column
-        const right = document.createElement('div');
-        right.className = 'row-right';
-
-        // chips
-        if (!state.votesRevealed) {
-          if (p.observer) {
-            const eye = document.createElement('span');
-            eye.className = 'mini-chip observer';
-            eye.textContent = '👁️';
-            right.appendChild(eye);
-          } else if (!p.disconnected && p.vote != null && String(p.vote) !== '') {
-            const ok = document.createElement('span');
-            ok.className = 'mini-chip done';
-            ok.textContent = '✓';
-            right.appendChild(ok);
-          } else {
-            const dash = document.createElement('span');
-            dash.className = isInactive ? 'mini-chip' : 'mini-chip pending';
-            dash.textContent = isInactive ? '–' : '⏳';
-            right.appendChild(dash);
-          }
+      // Chips
+      if (!state.votesRevealed) {
+        // Pre-vote: render a stable mini-chip
+        if (p.observer) {
+          const eye = document.createElement('span');
+          eye.className = 'mini-chip observer';
+          eye.textContent = '👁️';
+          right.appendChild(eye);
+        } else if (!p.disconnected && p.vote != null && String(p.vote) !== '') {
+          const ok = document.createElement('span');
+          ok.className = 'mini-chip done';
+          ok.textContent = '✓';
+          right.appendChild(ok);
         } else {
-          if (p.observer) {
-            const eye = document.createElement('span');
-            eye.className = 'mini-chip observer';
-            eye.textContent = '👁️';
-            right.appendChild(eye);
+          const dash = document.createElement('span');
+          dash.className = isInactive ? 'mini-chip' : 'mini-chip pending';
+          dash.textContent = isInactive ? '–' : '⏳';
+          right.appendChild(dash);
+        }
+      } else {
+        // Post-vote
+        if (p.observer) {
+          const eye = document.createElement('span');
+          eye.className = 'mini-chip observer';
+          eye.textContent = '👁️';
+          right.appendChild(eye);
+        } else if (isInactive) {
+          const dash = document.createElement('span');
+          dash.className = 'mini-chip';
+          dash.textContent = '–';
+          right.appendChild(dash);
+        } else {
+          const chip = document.createElement('span');
+          const noVote  = (p.vote == null || p.vote === '');
+          const display = noVote ? '–' : String(p.vote);
+
+          if (noVote) {
+            chip.className = 'mini-chip';
+            chip.textContent = '–';
+            right.appendChild(chip);
           } else {
-            if (isInactive) {
-              const dash = document.createElement('span');
-              dash.className = 'mini-chip';
-              dash.textContent = '–';
-              right.appendChild(dash);
-            } else {
-              const chip = document.createElement('span');
-              const noVote  = (p.vote == null || p.vote === '');
-              const display = noVote ? '–' : String(p.vote);
+            chip.className = 'vote-chip';
+            chip.textContent = display;
 
-              if (noVote) {
-                chip.className = 'mini-chip';
-                chip.textContent = '–';
-                right.appendChild(chip);
-              } else {
-                chip.className = 'vote-chip';
-                chip.textContent = display;
+            const isInfinity = (display === INFINITY_ || display === INFINITY_ALT);
+            const isSpecial  = SPECIALS.includes(display);
 
-                const isInfinity = (display === INFINITY_ || display === INFINITY_ALT);
-                const isSpecial  = SPECIALS.includes(display);
-                if (!isInfinity && isSpecial) chip.classList.add('special');
+            // Specials keep their special styling (not heat-colored)
+            if (!isInfinity && isSpecial) chip.classList.add('special');
 
-                // outlier highlight stays as before
-                if (Array.isArray(state.outliers) && state.outliers.includes(p.name)) {
-                  chip.classList.add('outlier');
-                }
-
-                // NEW: heat color for numeric values & infinity (not for specials)
-                const hue = hueForValue(display);
-                if (hue != null) {
-                  chip.classList.add('heat'); // CSS target
-                  chip.style.setProperty('--chip-heat-h', String(hue));
-                }
-
-                right.appendChild(chip);
+            // Heat color for numeric & infinity
+            if (!isSpecial) {
+              const hue = heatHueForLabel(display);
+              if (hue != null) {
+                chip.classList.add('heat');
+                chip.style.setProperty('--chip-heat-h', String(hue));
               }
             }
+
+            // Outlier badge (as before)
+            if (Array.isArray(state.outliers) && state.outliers.includes(p.name)) {
+              chip.classList.add('outlier');
+            }
+
+            right.appendChild(chip);
           }
         }
+      }
 
-        // actions (far right)
-        if (state.isHost && !p.isHost) {
-          const makeHostBtn = document.createElement('button');
-          makeHostBtn.className = 'row-action host';
-          makeHostBtn.type = 'button';
-          makeHostBtn.setAttribute('aria-label', isDe() ? 'Zum Host machen' : 'Make host');
-          makeHostBtn.innerHTML = '<span class="ra-icon">👑</span>';
-          makeHostBtn.addEventListener('click', () => {
-            const q = isDe() ? `Host-Rolle an ${p.name} übertragen?` : `Transfer host role to ${p.name}?`;
-            if (confirm(q)) send('makeHost:' + encodeURIComponent(p.name));
-          });
-          right.appendChild(makeHostBtn);
+      // Row actions (host → can makeHost / kick non-hosts)
+      if (state.isHost && !p.isHost) {
+        const makeHostBtn = document.createElement('button');
+        makeHostBtn.className = 'row-action host';
+        makeHostBtn.type = 'button';
+        makeHostBtn.setAttribute('aria-label', isDe() ? 'Zum Host machen' : 'Make host');
+        makeHostBtn.innerHTML = '<span class="ra-icon">👑</span>';
+        makeHostBtn.addEventListener('click', () => {
+          const q = isDe() ? `Host-Rolle an ${p.name} übertragen?` : `Transfer host role to ${p.name}?`;
+          if (confirm(q)) send('makeHost:' + encodeURIComponent(p.name));
+        });
+        right.appendChild(makeHostBtn);
 
-          const kickBtn = document.createElement('button');
-          kickBtn.className = 'row-action kick';
-          kickBtn.type = 'button';
-          kickBtn.setAttribute('aria-label', isDe() ? 'Teilnehmer entfernen' : 'Kick participant');
-          kickBtn.innerHTML = '<span class="ra-icon">❌</span>';
-          kickBtn.addEventListener('click', () => {
-            const q = isDe() ? `${p.name} wirklich entfernen?` : `Remove ${p.name}?`;
-            if (confirm(q)) send('kick:' + encodeURIComponent(p.name));
-          });
-          right.appendChild(kickBtn);
-        }
+        const kickBtn = document.createElement('button');
+        kickBtn.className = 'row-action kick';
+        kickBtn.type = 'button';
+        kickBtn.setAttribute('aria-label', isDe() ? 'Teilnehmer entfernen' : 'Kick participant');
+        kickBtn.innerHTML = '<span class="ra-icon">❌</span>';
+        kickBtn.addEventListener('click', () => {
+          const q = isDe() ? `${p.name} wirklich entfernen?` : `Remove ${p.name}?`;
+          if (confirm(q)) send('kick:' + encodeURIComponent(p.name));
+        });
+        right.appendChild(kickBtn);
+      }
 
-        li.appendChild(right);
-        frag.appendChild(li);
-      });
+      li.appendChild(right);
+      frag.appendChild(li);
+    });
 
-      ul.replaceChildren(frag);
-    } catch (e) {
-      console.error('[ROOM] renderParticipants failed', e);
+    ul.replaceChildren(frag);
+  } catch (e) {
+    console.error('[ROOM] renderParticipants failed', e);
+  }
+}
+
+
+// --- Heat hue helpers (put these once near your other helpers, OUTSIDE the function) ---
+// Parse a label like "½", "0", "13", "100" or "♾️/∞" into a number.
+// Returns: number, +Infinity, or null (if not numeric-like).
+function parseVoteNumber(label) {
+  if (label == null) return null;
+  const s = String(label).trim();
+  if (s === '♾️' || s === '♾' || s === '∞') return Infinity;
+  if (s === '½' || s === '1/2') return 0.5;
+  const num = Number(s.replace(',', '.'));
+  return Number.isFinite(num) ? num : null;
+}
+
+// Extract ascending numeric deck for the current sequence (ignore specials).
+function numericDeckFromState() {
+  const nums = (state.cards || [])
+    .map(parseVoteNumber)
+    .filter(v => v !== null && v !== undefined && !Number.isNaN(v));
+  const uniq = [...new Set(nums)].sort((a, b) => (a === b ? 0 : a < b ? -1 : 1));
+  return uniq;
+}
+
+// Optional pivot per sequence: which label should feel ~yellow (middle of the gradient).
+// Tweak to taste. If no pivot hit, a mild gamma skew keeps lower values greener for longer.
+const PIVOT_BY_SEQUENCE = {
+  'fib.enh': 13,
+  'fib.scrum': 8,
+  'fib.math': 13,
+  'pow2': 32,
+  // 'tshirt': non-numeric → no heat
+};
+
+// Map a numeric label to a hue (120→0deg = green→red), skewed by pivot/gamma.
+function heatHueForLabel(label) {
+  const deck = numericDeckFromState();
+  if (!deck.length) return null;
+
+  const v = parseVoteNumber(label);
+  if (v == null) return null; // specials / non-numeric → no heat
+
+  // Find exact index, else insertion point, else clamp to last.
+  let idx = deck.findIndex(x => Object.is(x, v));
+  if (idx < 0) {
+    idx = deck.findIndex(x => x > v);
+    if (idx < 0) idx = deck.length - 1;
+  }
+
+  const max = Math.max(1, deck.length - 1);
+  let t = idx / max; // 0..1
+
+  // Skew so that the chosen pivot sits ≈ 0.5 (yellow).
+  const pivotLabel = PIVOT_BY_SEQUENCE[state.sequenceId || ''] ?? null;
+  let gamma = 1.25; // mild default if no pivot
+  if (pivotLabel != null) {
+    const pivIdx = deck.findIndex(x => Object.is(x, pivotLabel));
+    if (pivIdx > 0) {
+      const p = Math.min(0.999, Math.max(0.001, pivIdx / max)); // avoid log(0)
+      const g = Math.log(0.5) / Math.log(p);                     // p^g = 0.5 → g
+      if (Number.isFinite(g) && g > 0) gamma = g;
     }
   }
+
+  t = Math.pow(t, gamma);                // keep lower half greener for longer
+  const hue = 120 - (t * 120);           // 120=green → 0=red
+  return Math.round(Math.max(0, Math.min(120, hue)));
+}
+
 
   // ---------------- Cards ----------------
   function mySelectedValue() {
