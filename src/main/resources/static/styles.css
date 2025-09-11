@@ -734,7 +734,7 @@ body{padding-bottom:var(--footer-h)}
     border-color: hsl(var(--_h) 70% 40%);
     color:        hsl(var(--_h) 55% 22%);
     /* more background tint (still pastel), mixed towards white */
-    background: color-mix(in oklab, hsl(var(--_h) 75% 60%) 36%, white);
+    background: color-mix(in oklab, hsl(var(--_h) 75% 60%) 42%, white);
     /* tiny inner line to sharpen edges on white UIs */
     box-shadow: inset 0 0 0 1px hsl(var(--_h) 55% 35% / .25);
   }
