@@ -722,3 +722,30 @@ body{padding-bottom:var(--footer-h)}
 @supports not (color-mix(in oklab, white, black)){
   .vote-chip.heat{ background: transparent; }
 }
+
+/* Base (dark mode stays as-is)
+   .vote-chip.heat is already defined in your CSS */
+
+/* --- Light mode overrides: stronger fill + darker text/border --- */
+@media (prefers-color-scheme: light) {
+  .vote-chip.heat{
+    --_h: var(--chip-heat-h,120);
+    /* darker border & text for contrast on light bg */
+    border-color: hsl(var(--_h) 70% 40%);
+    color:        hsl(var(--_h) 55% 22%);
+    /* more background tint (still pastel), mixed towards white */
+    background: color-mix(in oklab, hsl(var(--_h) 75% 60%) 36%, white);
+    /* tiny inner line to sharpen edges on white UIs */
+    box-shadow: inset 0 0 0 1px hsl(var(--_h) 55% 35% / .25);
+  }
+}
+
+/* Fallback if color-mix is not supported (older browsers) */
+@supports not (color-mix(in oklab, white, black)) {
+  @media (prefers-color-scheme: light) {
+    .vote-chip.heat{
+      /* soft solid fill; still readable */
+      background: hsl(var(--_h) 65% 88% / .65);
+    }
+  }
+}
