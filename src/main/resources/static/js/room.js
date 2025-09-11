@@ -261,13 +261,23 @@
 
       const li = document.createElement('li');
       li.className = 'participant-row';
-      if (p.disconnected) li.classList.add('disconnected');
-      if (p.isHost)       li.classList.add('is-host');
+      const isInactive = !!p.disconnected || !!p.away;
+      if (isInactive) li.classList.add('disconnected');
+      if (p.isHost)    li.classList.add('is-host');
 
       const left = document.createElement('span');
       left.className = 'participant-icon' + (p.isHost ? ' host' : '');
-      left.textContent = p.isHost ? '👑' : '👤';
+      // choose icon
+      let icon = '👤';
+      if (p.isHost)                 icon = '👑';
+      else if (p.observer === true) icon = '👁️';
+      else if (isInactive)          icon = '💤';       // <- NEW: reliable sleep
+      left.textContent = icon;
       left.setAttribute('aria-hidden', 'true');
+
+      // NEW: slightly dim the icon too when inactive
+      if (isInactive) left.classList.add('inactive');
+
       li.appendChild(left);
 
       const name = document.createElement('span');

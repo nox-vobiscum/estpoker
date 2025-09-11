@@ -474,3 +474,9 @@ body{padding-bottom:var(--footer-h)}
 
 /* Disabled reveal button visual */
 .button[disabled]{opacity:.6;cursor:not-allowed;filter:saturate(.85)}
+
+/* Inactive row: ensure the name text actually dims */
+#liveParticipantList li.disconnected .name { color: var(--inactive-fg); }
+
+/* And tone down the left icon a bit */
+#liveParticipantList li.disconnected .participant-icon { opacity: .85; }
