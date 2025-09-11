@@ -292,18 +292,6 @@ public class GameService {
     }
 }
 
-// room-wide UI flags
-private final Map<String, Boolean> specialsEnabledByRoom = new ConcurrentHashMap<>();
-private boolean isSpecialsEnabled(Room room) {
-    return specialsEnabledByRoom.getOrDefault(room.getCode(), Boolean.TRUE);
-}
-public void setSpecialsEnabled(String roomCode, boolean enabled) {
-    Room room = getOrCreateRoom(roomCode);
-    specialsEnabledByRoom.put(room.getCode(), enabled);
-    broadcastRoomState(room);
-}
-
-
     public void setObserver(String roomCode, String nameOrCid, boolean observer) {
         Room room = getOrCreateRoom(roomCode);
         synchronized (room) {
@@ -605,7 +593,7 @@ public void setSpecialsEnabled(String roomCode, boolean enabled) {
             payload.put("topicUrl", room.getTopicUrl());
             payload.put("topicVisible", room.isTopicVisible());
 
-            payload.put("specialsEnabled", isSpecialsEnabled(room));
+            payload.put("specialsEnabled", room.isAllowSpecials());
 
             String json = objectMapper.writeValueAsString(payload);
             broadcastToRoom(room, json);

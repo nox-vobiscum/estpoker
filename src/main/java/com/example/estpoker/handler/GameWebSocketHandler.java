@@ -18,6 +18,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.Locale;
 
 /**
  * WebSocket handler for /gameSocket.
@@ -39,6 +40,15 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
 
     /** Hard host reassignment threshold (kept in sync with service logic – currently 15 min). */
     private static final long HOST_INACTIVE_MS = 900_000L;
+
+    private static boolean parseOn(String s) {
+        if (s == null) return false;
+        switch (s.trim().toLowerCase(Locale.ROOT)) {
+        case "1": case "true": case "on": case "yes": case "y":  return true;
+        case "0": case "false": case "off": case "no": case "n": return false;
+        default: return Boolean.parseBoolean(s);
+        }
+    }
 
     public GameWebSocketHandler(GameService gameService) {
         this.gameService = gameService;
@@ -166,17 +176,17 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                 }
                 return;
             }
-
+        
             // ----------------------------------------------------------------------------
             // SPECIALS toggle (host) – room-wide
             // ----------------------------------------------------------------------------
             if (payload.startsWith("specials:")) {
-            if (!isHost(roomCode, c.name)) return;
-            boolean on = Boolean.parseBoolean(payload.substring("specials:".length()));
-            gameService.setSpecialsEnabled(roomCode, on);
-            return;
+                if (!isHost(roomCode, c.name)) return;
+                boolean on = parseOn(payload.substring("specials:".length()));
+                gameService.setAllowSpecials(roomCode, on);
+                return;
             }
-        
+
             // ----------------------------------------------------------------------------
             // SEQUENCE change (host)
             // ----------------------------------------------------------------------------
