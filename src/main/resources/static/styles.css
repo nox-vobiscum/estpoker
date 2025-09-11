@@ -712,9 +712,9 @@ body{padding-bottom:var(--footer-h)}
   opacity: 1;
 }
 
-/* Heat-colored result chips (participants list after reveal) */
+/* ───── Heat-colored chips: base (dark / default) ───── */
 .vote-chip.heat{
-  --_h: var(--chip-heat-h,120);
+  --_h: var(--chip-heat-h,120);                 /* 120 = green → 0 = red */
   border-color: hsl(var(--_h) 75% 55%);
   color:        hsl(var(--_h) 85% 62%);
   background: color-mix(in oklab, hsl(var(--_h) 80% 50%) 14%, transparent);
@@ -723,56 +723,36 @@ body{padding-bottom:var(--footer-h)}
   .vote-chip.heat{ background: transparent; }
 }
 
-/* Base (dark mode stays as-is)
-   .vote-chip.heat is already defined in your CSS */
-
-/* --- Light mode overrides: stronger fill + darker text/border --- */
+/* ───── Light mode: darker text + stronger pastel fill for readability ───── */
 @media (prefers-color-scheme: light) {
-  .vote-chip.heat{
-    --_h: var(--chip-heat-h,120);
-    /* darker border & text for contrast on light bg */
-    border-color: hsl(var(--_h) 70% 40%);
-    color:        hsl(var(--_h) 55% 22%);
-    /* more background tint (still pastel), mixed towards white */
-    background: color-mix(in oklab, hsl(var(--_h) 75% 60%) 42%, white);
-    /* tiny inner line to sharpen edges on white UIs */
-    box-shadow: inset 0 0 0 1px hsl(var(--_h) 55% 35% / .25);
-  }
-}
-
-/* Fallback if color-mix is not supported (older browsers) */
-@supports not (color-mix(in oklab, white, black)) {
-  @media (prefers-color-scheme: light) {
-    .vote-chip.heat{
-      /* soft solid fill; still readable */
-      background: hsl(var(--_h) 65% 88% / .65);
-    }
-  }
-}
-
-/* --- Light theme readability tweaks for result chips --- */
-@media (prefers-color-scheme: light) {
-  /* use a dark, neutral text color; slightly bolder for legibility */
+  /* neutral text for all chips in light mode */
   .vote-chip,
   .participant-row .mini-chip {
-    color: #0f172a;        /* slate-900-ish */
+    color: #0f172a;             /* dark slate */
     font-weight: 600;
   }
 
-  /* heat-colored numeric chips: color lives in ring + gentle fill, text stays dark */
+  /* heat chips get color in ring + soft tint, text stays dark */
   .vote-chip.heat{
-    --_h: var(--chip-heat-h,120);                 /* 120=green … 0=red (set in JS) */
-    color: #0f172a;                                /* dark neutral text */
-    border-color: hsl(var(--_h) 70% 45% / .95);    /* stronger ring in light mode */
+    --_h: var(--chip-heat-h,120);
+    color: #0f172a;                                 /* keep text dark */
+    border-color: hsl(var(--_h) 72% 42%);           /* stronger ring */
     background: color-mix(in oklab,
-                          hsl(var(--_h) 85% 55%) 18%,
-                          white);                  /* soft tint behind dark text */
+                          hsl(var(--_h) 80% 58%) 36%,
+                          white);                   /* readable pastel */
+    box-shadow: inset 0 0 0 1px hsl(var(--_h) 50% 34% / .25); /* crisper edge */
   }
 
-  /* Fallback for browsers without color-mix */
-  @supports not (color-mix(in oklab, white, black)) {
+  /* specials bleiben neutral; falls du sie färbst, nimm eigene Klasse */
+  .vote-chip.special { color: #0f172a; }
+}
+
+/* Light-mode fallback, falls color-mix fehlt */
+@supports not (color-mix(in oklab, white, black)) {
+  @media (prefers-color-scheme: light) {
     .vote-chip.heat{
-      background: hsl(var(--_h) 90% 92%);          /* pale tint, still readable */
+      background: hsl(var(--_h) 90% 90%);          /* blasse, aber sichtbare Fläche */
     }
   }
 }
+
