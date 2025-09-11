@@ -872,28 +872,41 @@ public class GameService {
         }
     }
 
-    /** Names farthest from the average (only useful with ≥3 votes). */
-    public List<String> farthestFromAverageNames(Room room) {
-        Map<String, Double> nv = collectNumericVotes(room);
-        if (nv.size() < 3) return List.of();
-        OptionalDouble avgOpt = nv.values().stream().mapToDouble(Double::doubleValue).average();
-        if (avgOpt.isEmpty()) return List.of();
-        double avg = avgOpt.getAsDouble();
+    // Mindestens so viele numerische Stimmen nötig, um mehrere (gleich weit entfernte) Outlier zu markieren
+private static final int MIN_VOTERS_FOR_TIED_OUTLIERS = 5;
 
-        double maxDist = -1d;
-        Map<String, Double> dist = new LinkedHashMap<>();
-        for (Map.Entry<String, Double> e : nv.entrySet()) {
-            double d = Math.abs(e.getValue() - avg);
-            dist.put(e.getKey(), d);
-            if (d > maxDist) maxDist = d;
-        }
-        if (maxDist <= 0) return List.of();
+/** 
+ * Names farthest from the average (numeric votes only, ≥3 voters required).
+ * - If there is a single clear farthest voter → return that one.
+ * - If several voters are tied for farthest → only return them when there are ≥ MIN_VOTERS_FOR_TIED_OUTLIERS
+ *   numeric voters; otherwise return an empty list (no outliers).
+ */
+public List<String> farthestFromAverageNames(Room room) {
+    Map<String, Double> nv = collectNumericVotes(room);
+    int n = nv.size();
+    if (n < 3) return List.of();
 
-        final double eps = 1e-9;
-        List<String> out = new ArrayList<>();
-        for (Map.Entry<String, Double> e : dist.entrySet()) {
-            if (Math.abs(e.getValue() - maxDist) <= eps) out.add(e.getKey());
-        }
-        return out;
+    OptionalDouble avgOpt = nv.values().stream().mapToDouble(Double::doubleValue).average();
+    if (avgOpt.isEmpty()) return List.of();
+    double avg = avgOpt.getAsDouble();
+
+    double maxDist = -1d;
+    Map<String, Double> dist = new LinkedHashMap<>();
+    for (Map.Entry<String, Double> e : nv.entrySet()) {
+        double d = Math.abs(e.getValue() - avg);
+        dist.put(e.getKey(), d);
+        if (d > maxDist) maxDist = d;
     }
+    if (maxDist <= 0) return List.of(); // komplett gleich → keine Outlier
+
+    final double eps = 1e-9;
+    List<String> tied = new ArrayList<>();
+    for (Map.Entry<String, Double> e : dist.entrySet()) {
+        if (Math.abs(e.getValue() - maxDist) <= eps) tied.add(e.getKey());
+    }
+
+    if (tied.size() == 1) return tied;                     // genau ein klarer Outlier
+    return (n >= MIN_VOTERS_FOR_TIED_OUTLIERS) ? tied : List.of(); // mehrere: erst ab n >= 5
+}
+
 }
