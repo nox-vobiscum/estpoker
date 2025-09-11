@@ -88,6 +88,7 @@
     } catch {}
   })();
 
+  // one-time binding guard
   let _topicOverflowResizeBound = false;
 
   // ---------------- Helpers ----------------
@@ -120,54 +121,48 @@
   const PRESENCE_GRACE_MS = 2000;
   const PRESENCE_KEY = (n) => 'ep-presence:' + encodeURIComponent(n);
 
-  // Mark participant as "alive now"
   function markAlive(name) {
     if (!name) return;
     try { localStorage.setItem(PRESENCE_KEY(name), String(Date.now())); } catch {}
   }
 
-  // Should we toast this presence event? kind: 'left' | 'join'
   function shouldToastPresence(name, kind) {
     if (!name) return false;
-    if (name === state.youName) return false; // never self-toast
-
+    if (name === state.youName) return false;
     let last = 0;
     try { last = parseInt(localStorage.getItem(PRESENCE_KEY(name)) || '0', 10) || 0; } catch {}
     const delta = Date.now() - last;
-    // For both join/left: only toast if last activity is older than grace
     return delta > PRESENCE_GRACE_MS;
   }
 
   // Wrap long text for native title tooltips by injecting \n
-function wrapForTitle(text, max = 44) {
-  const words = String(text || '').trim().split(/\s+/);
-  const out = [];
-  let line = '';
-
-  for (let w of words) {
-    // break very long tokens/URLs at common boundaries (/, -, _ , .)
-    if (w.length > max) {
-      w = w
-        .replace(/(?<=\/)/g, '\n')
-        .replace(/(?<=-)/g, '\n')
-        .replace(/(?<=_)/g, '\n')
-        .replace(/(?<=\.)/g, '\n');
-    }
-    for (const chunk of w.split('\n')) {
-      if (!chunk) continue;
-      const need = (line ? line.length + 1 : 0) + chunk.length;
-      if (need > max) {
-        if (line) out.push(line);
-        line = chunk;
-      } else {
-        line += (line ? ' ' : '') + chunk;
+  function wrapForTitle(text, max = 44) {
+    const words = String(text || '').trim().split(/\s+/);
+    const out = [];
+    let line = '';
+    for (let w of words) {
+      // break very long tokens/URLs at common boundaries (/, -, _, .)
+      if (w.length > max) {
+        w = w
+          .replace(/(?<=\/)/g, '\n')
+          .replace(/(?<=-)/g, '\n')
+          .replace(/(?<=_)/g, '\n')
+          .replace(/(?<=\.)/g, '\n');
+      }
+      for (const chunk of w.split('\n')) {
+        if (!chunk) continue;
+        const need = (line ? line.length + 1 : 0) + chunk.length;
+        if (need > max) {
+          if (line) out.push(line);
+          line = chunk;
+        } else {
+          line += (line ? ' ' : '') + chunk;
+        }
       }
     }
+    if (line) out.push(line);
+    return out.join('\n');
   }
-  if (line) out.push(line);
-  return out.join('\n'); // ← echte Zeilenumbrüche im native title
-}
-
 
   // ---------------- WebSocket ----------------
   function connectWS() {
@@ -258,15 +253,15 @@ function wrapForTitle(text, max = 44) {
       // --- sequence id ---
       const seqId = normalizeSeq(m.sequenceId || state.sequenceId || 'fib.scrum');
 
-      // --- specials & deck (robust gegen Server-Varianten) ---
-      // Server kann schicken:
-      //  (A) m.specials = ["❓","💬","☕"]  -> Specials EIN (explizite Liste)
-      //      m.specials = []              -> Specials AUS (explizit leer)
-      //  (B) m.allowSpecials = true|false -> Boolean-Schalter
+      // --- specials & deck (be robust across server variants) ---
+      // Server may send:
+      //  (A) m.specials = ["❓","💬","☕"]  -> specials ON (explicit list)
+      //      m.specials = []              -> specials OFF (explicit empty)
+      //  (B) m.allowSpecials = true|false -> boolean switch
       //  (C) Legacy: m.specialsOff / m.specialsEnabled
-      //  (D) nichts -> Client-Status beibehalten
-      let specialsList = null;      // wenn null: Deck-Specials unverändert lassen
-      let allowFromServer = null;   // wenn null: allowSpecials nicht anfassen
+      //  (D) nothing -> keep client state
+      let specialsList = null;      // if null: don't touch specials in deck
+      let allowFromServer = null;   // if null: don't touch state.allowSpecials
 
       if (Array.isArray(m.specials)) {
         specialsList = m.specials.slice();
@@ -284,27 +279,25 @@ function wrapForTitle(text, max = 44) {
         allowFromServer = m.specialsEnabled;
         if (specialsList === null) specialsList = m.specialsEnabled ? SPECIALS.slice() : [];
       }
-
       if (typeof allowFromServer === 'boolean') {
         state.allowSpecials = allowFromServer;
       }
 
-      // Basis: Server-Deck, sonst bisheriges Deck
+      // Base deck: server deck or current one
       let deck = Array.isArray(m.cards) ? m.cards.slice() : (Array.isArray(state.cards) ? state.cards.slice() : []);
 
-      // Infinity nur bei fib.enh erlauben
+      // Infinity only for fib.enh
       if (seqId !== 'fib.enh') {
         deck = deck.filter(c => c !== INFINITY_ && c !== INFINITY_ALT);
       }
 
-      // Wenn der Server eine Specials-Liste mitgibt (oder explizit „leer“),
-      // dann Deck-Specials exakt daran ausrichten:
+      // Align deck specials to server's explicit list (including empty)
       if (specialsList !== null) {
         deck = deck.filter(c => !SPECIALS.includes(c)).concat(specialsList);
       }
       state.cards = deck;
 
-      // --- Core state ---
+      // --- core flags ---
       state.votesRevealed = !!m.votesRevealed;
       state.averageVote   = (m.hasOwnProperty('averageVote') ? m.averageVote : null);
       state.medianVote    = (m.hasOwnProperty('medianVote')  ? m.medianVote  : null);
@@ -312,7 +305,7 @@ function wrapForTitle(text, max = 44) {
       state.consensus     = !!m.consensus;
       state.outliers      = Array.isArray(m.outliers) ? m.outliers : [];
 
-      // --- Participants ---
+      // --- participants ---
       const raw = Array.isArray(m.participants) ? m.participants : [];
       state.participants = raw.map(p => ({
         name:           p?.name ?? '',
@@ -324,10 +317,9 @@ function wrapForTitle(text, max = 44) {
         observer:       (p?.participating === false)
       }));
 
-      // --- Topic / flags ---
+      // --- topic / misc ---
       state.sequenceId = seqId;
       state.autoRevealEnabled = !!m.autoRevealEnabled;
-
       if (m.hasOwnProperty('topicVisible')) state.topicVisible = !!m.topicVisible;
       if (m.hasOwnProperty('topicLabel'))   state.topicLabel   = m.topicLabel || '';
       if (m.hasOwnProperty('topicUrl'))     state.topicUrl     = m.topicUrl || null;
@@ -346,7 +338,7 @@ function wrapForTitle(text, max = 44) {
       renderTopic();
       renderAutoReveal();
 
-      // presence freshness → dämpft irrtümliche leave/join-toasts
+      // presence freshness
       try {
         (state.participants || []).forEach(p => {
           if (p && !p.disconnected) markAlive(p.name);
@@ -364,17 +356,28 @@ function wrapForTitle(text, max = 44) {
   }
 
   // ---------------- Participants ----------------
-  function isIdle(p) {
-    if (!p || p.disconnected) return false;
-    if (typeof p.idleMs === 'number') return p.idleMs >= IDLE_MS_THRESHOLD;
-    if (p.away === true) return true;
-    return false;
-  }
-
   function renderParticipants() {
     const ul = $('#liveParticipantList'); if (!ul) return;
     try {
       const frag = document.createDocumentFragment();
+
+      // derive numeric deck order (for heat hue mapping)
+      const deckNumbers = (state.cards || []).filter(v =>
+        !SPECIALS.includes(v) && v !== INFINITY_ && v !== INFINITY_ALT
+      );
+      const lastIdx = Math.max(deckNumbers.length - 1, 1);
+
+      const hueForValue = (val) => {
+        // specials: no heat
+        if (SPECIALS.includes(val)) return null;
+        // infinity: always red
+        if (val === INFINITY_ || val === INFINITY_ALT) return 0;
+        const i = deckNumbers.indexOf(val);
+        if (i < 0) return null; // unknown -> neutral
+        const t = i / lastIdx;          // 0..1
+        const hue = Math.round(120 * (1 - t)); // 120=green → 0=red
+        return hue;
+      };
 
       (state.participants || []).forEach(p => {
         if (!p || !p.name) return;
@@ -386,7 +389,7 @@ function wrapForTitle(text, max = 44) {
         if (isInactive) li.classList.add('disconnected');
         if (p.isHost)    li.classList.add('is-host');
 
-        // Left icon (role/presence)
+        // left icon
         const left = document.createElement('span');
         left.className = 'participant-icon' + (p.isHost ? ' host' : '');
         let icon = '👤';
@@ -395,22 +398,21 @@ function wrapForTitle(text, max = 44) {
         else if (isInactive)          icon = '💤';
         left.textContent = icon;
         left.setAttribute('aria-hidden', 'true');
-        if (isInactive) left.classList.add('inactive');  // slightly dim
+        if (isInactive) left.classList.add('inactive');
         li.appendChild(left);
 
-        // Name
+        // name
         const name = document.createElement('span');
         name.className = 'name';
         name.textContent = p.name;
         li.appendChild(name);
 
-        // Right column (chips + actions)
+        // right column
         const right = document.createElement('div');
         right.className = 'row-right';
 
-        // --- CHIP COLUMN ----------------------------------------------------
+        // chips
         if (!state.votesRevealed) {
-          // Pre-vote: always render a *mini-chip* so the column width is stable
           if (p.observer) {
             const eye = document.createElement('span');
             eye.className = 'mini-chip observer';
@@ -428,7 +430,6 @@ function wrapForTitle(text, max = 44) {
             right.appendChild(dash);
           }
         } else {
-          // Post-vote
           if (p.observer) {
             const eye = document.createElement('span');
             eye.className = 'mini-chip observer';
@@ -457,16 +458,25 @@ function wrapForTitle(text, max = 44) {
                 const isSpecial  = SPECIALS.includes(display);
                 if (!isInfinity && isSpecial) chip.classList.add('special');
 
+                // outlier highlight stays as before
                 if (Array.isArray(state.outliers) && state.outliers.includes(p.name)) {
                   chip.classList.add('outlier');
                 }
+
+                // NEW: heat color for numeric values & infinity (not for specials)
+                const hue = hueForValue(display);
+                if (hue != null) {
+                  chip.classList.add('heat'); // CSS target
+                  chip.style.setProperty('--chip-heat-h', String(hue));
+                }
+
                 right.appendChild(chip);
               }
             }
           }
         }
 
-        // --- ROW ACTIONS (far right) ---------------------------------------
+        // actions (far right)
         if (state.isHost && !p.isHost) {
           const makeHostBtn = document.createElement('button');
           makeHostBtn.className = 'row-action host';
@@ -509,13 +519,6 @@ function wrapForTitle(text, max = 44) {
     return null;
   }
 
-  function isSpecialOrEmpty(s) {
-    if (s == null) return true;
-    const t = String(s).trim();
-    if (t === '' || t === INFINITY_ || t === INFINITY_ALT || SPECIALS.includes(t)) return true;
-    return isNaN(Number(t));
-  }
-
   function allEligibleVoted() {
     const elig = state.participants.filter(p => p && !p.observer && !p.disconnected);
     if (!elig.length) return false;
@@ -530,16 +533,15 @@ function wrapForTitle(text, max = 44) {
     const isObserver = !!(me && me.observer);
     const disabled = state.votesRevealed || isObserver;
 
-    // Split deck into numeric vs. specials
+    // split deck
     const deckSpecialsFromState = (state.cards || []).filter(v => SPECIALS.includes(v));
     const deckNumbers           = (state.cards || []).filter(v => !SPECIALS.includes(v));
 
-    // Robust fallback: if the deck doesn't carry specials, use default SPECIALS
-    // (and dedupe against numbers just in case).
+    // robust fallback for specials
     const specialsCandidate = deckSpecialsFromState.length ? deckSpecialsFromState : SPECIALS.slice();
     const specialsDedupe = [...new Set(specialsCandidate.filter(s => !deckNumbers.includes(s)))];
 
-    // Honor host toggle
+    // honor host toggle
     const specials = state.allowSpecials ? specialsDedupe : [];
 
     const selectedVal = mySelectedValue();
@@ -560,16 +562,17 @@ function wrapForTitle(text, max = 44) {
         state._optimisticVote = label;
         grid.querySelectorAll('button').forEach(b => b.classList.remove('selected'));
         btn.classList.add('selected');
+        // name in the payload is ignored server-side (CID binding), kept for BC
         send(`vote:${state.youName}:${label}`);
       });
 
       grid.appendChild(btn);
     }
 
-    // Render numeric cards
+    // numeric first
     deckNumbers.forEach(addCardButton);
 
-    // Break line before specials (only if any)
+    // break before specials
     if (specials.length) {
       const br = document.createElement('div');
       br.className = 'grid-break';
@@ -606,18 +609,15 @@ function wrapForTitle(text, max = 44) {
 
   // ---------------- Result bar ----------------
   function renderResultBar() {
-    // Was any non-observer vote == infinity?
     const hasInfinity = !!(
       state.votesRevealed &&
       Array.isArray(state.participants) &&
       state.participants.some(p => p && !p.observer && (p.vote === INFINITY_ || p.vote === INFINITY_ALT))
     );
 
-    // helpers
     const t = (v) => (v == null || v === '' ? null : String(v));
     const withInf = (base) => (base != null ? base + (hasInfinity ? ' +♾️' : '') : (hasInfinity ? '♾️' : null));
 
-    // toggle pre/post blocks
     const pre  = document.querySelector('.pre-vote');
     const post = document.querySelector('.post-vote');
     if (pre && post) {
@@ -633,13 +633,11 @@ function wrapForTitle(text, max = 44) {
     const rangeSep   = $('#rangeSep');
     const avgEl      = $('#averageVote');
 
-    // Average text
     if (avgEl) {
       const avgTxt = withInf(t(state.averageVote));
       avgEl.textContent = avgTxt ?? (state.votesRevealed ? 'N/A' : '');
     }
 
-    // Consensus mode collapses to one label
     if (row) {
       if (state.consensus) {
         row.classList.add('consensus');
@@ -661,7 +659,6 @@ function wrapForTitle(text, max = 44) {
       }
     }
 
-    // Median & Range (only when revealed and value exists)
     if (medianWrap) {
       const showM = state.votesRevealed && t(state.medianVote) != null;
       medianWrap.hidden = !showM;
@@ -675,226 +672,192 @@ function wrapForTitle(text, max = 44) {
     }
   }
 
- // ---------------- Topic row (ellipsis in text + separate “more” button) ----------------
-function renderTopic() {
-  const row = $('#topicRow'); if (!row) return;
+  // ---------------- Topic row (ellipsis in text + separate “more” button) ----------------
+  function renderTopic() {
+    const row = $('#topicRow'); if (!row) return;
 
-  // Show/hide the whole row based on room state
-  row.style.display = state.topicVisible ? '' : 'none';
+    // show/hide whole row
+    row.style.display = state.topicVisible ? '' : 'none';
 
-  // Ensure actions container exists (right side)
-  let actions = row.querySelector('.topic-actions');
-  if (!actions) {
-    actions = document.createElement('div');
-    actions.className = 'topic-actions';
-    row.appendChild(actions);
-  }
+    // ensure actions container (right side)
+    let actions = row.querySelector('.topic-actions');
+    if (!actions) {
+      actions = document.createElement('div');
+      actions.className = 'topic-actions';
+      row.appendChild(actions);
+    }
 
-  // Ensure #topicDisplay exists (SPAN in view mode, INPUT in edit mode)
-  let displayEl = row.querySelector('#topicDisplay');
+    // ensure #topicDisplay exists (SPAN in view mode, INPUT in edit mode)
+    let displayEl = row.querySelector('#topicDisplay');
 
-  // Helper: render label/url into the display element (view mode only)
-  const renderDisplayContent = (el) => {
-    if (state.topicLabel && state.topicUrl) {
-      el.innerHTML = `<a href="${encodeURI(state.topicUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(state.topicLabel)}</a>`;
-    } else if (state.topicLabel) {
-      el.textContent = state.topicLabel;
+    // helper: fill the display element in view mode
+    const renderDisplayContent = (el) => {
+      if (state.topicLabel && state.topicUrl) {
+        el.innerHTML = `<a href="${encodeURI(state.topicUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(state.topicLabel)}</a>`;
+      } else if (state.topicLabel) {
+        el.textContent = state.topicLabel;
+      } else {
+        el.textContent = '–';
+      }
+      const full = [state.topicLabel || '', state.topicUrl || ''].filter(Boolean).join(' — ');
+      const link = el.querySelector && el.querySelector('a');
+      (link || el).setAttribute('title', wrapForTitle(full, 44));
+    };
+
+    // create (or reuse) the compact “more” button
+    let hint = row.querySelector('#topicOverflowHint');
+    const ensureHint = () => {
+      if (!hint) {
+        const btn = document.createElement('button');
+        btn.id = 'topicOverflowHint';
+        btn.type = 'button';
+        btn.className = 'topic-more-btn';
+        btn.textContent = 'more';
+        btn.setAttribute('aria-label', 'Show full topic');
+        hint = btn;
+      }
+    };
+
+    // Non-hosts: view-only
+    if (!state.isHost) {
+      if (!displayEl || displayEl.tagName !== 'SPAN') {
+        const span = document.createElement('span');
+        span.id = 'topicDisplay';
+        span.className = 'topic-text';
+        if (displayEl) displayEl.replaceWith(span);
+        else row.insertBefore(span, row.firstChild ? row.firstChild.nextSibling : null);
+        displayEl = span;
+      }
+      renderDisplayContent(displayEl);
+
+      ensureHint();
+      if (!hint.isConnected) row.insertBefore(hint, actions);
+      actions.innerHTML = '';
+
+      requestAnimationFrame(syncTopicOverflow);
+      const full = [state.topicLabel || '', state.topicUrl || ''].filter(Boolean).join(' — ');
+      hint.setAttribute('title', wrapForTitle(full, 44));
+      return;
+    }
+
+    // Host view/edit modes
+    if (!state.topicEditing) {
+      // VIEW
+      if (!displayEl || displayEl.tagName !== 'SPAN') {
+        const span = document.createElement('span');
+        span.id = 'topicDisplay';
+        span.className = 'topic-text';
+        if (displayEl) displayEl.replaceWith(span);
+        else row.insertBefore(span, row.firstChild ? row.firstChild.nextSibling : null);
+        displayEl = span;
+      }
+      renderDisplayContent(displayEl);
+
+      ensureHint();
+      if (!hint.isConnected) row.insertBefore(hint, actions);
+
+      actions.innerHTML =
+        `<button id="topicEditBtn"
+                 class="icon-button neutral"
+                 type="button"
+                 title="${isDe() ? 'Bearbeiten' : 'Edit'}"
+                 aria-label="${isDe() ? 'Bearbeiten' : 'Edit'}">✍️</button>
+         <button id="topicClearBtn"
+                 class="icon-button neutral"
+                 type="button"
+                 title="${isDe() ? 'Feld leeren' : 'Clear'}"
+                 aria-label="${isDe() ? 'Feld leeren' : 'Clear'}">🗑️</button>`;
+
+      const editBtn  = $('#topicEditBtn');
+      const clearBtn = $('#topicClearBtn');
+      if (editBtn)  editBtn.addEventListener('click', beginTopicEdit);
+      if (clearBtn) clearBtn.addEventListener('click', () => {
+        send('topicSave:' + encodeURIComponent(''));
+        state.topicLabel = '';
+        state.topicUrl = null;
+        state.topicEditing = false;
+        renderTopic();
+      });
+
+      requestAnimationFrame(syncTopicOverflow);
     } else {
-      el.textContent = '–';
+      // EDIT
+      if (!displayEl || displayEl.tagName !== 'INPUT') {
+        const inp = document.createElement('input');
+        inp.type = 'text';
+        inp.className = 'topic-inline-input';
+        inp.id = 'topicDisplay';
+        inp.placeholder = isDe()
+          ? 'JIRA-Link einfügen oder Key eingeben'
+          : 'Paste JIRA link or type key';
+        if (displayEl) displayEl.replaceWith(inp);
+        else row.insertBefore(inp, row.firstChild ? row.firstChild.nextSibling : null);
+        displayEl = inp;
+      }
+      displayEl.value = state.topicLabel || '';
+      setTimeout(() => { try { displayEl.focus(); displayEl.select(); } catch {} }, 0);
+
+      if (hint) hint.style.display = 'none';
+
+      actions.innerHTML =
+        `<button id="topicSaveBtn"
+                 class="icon-button neutral"
+                 type="button"
+                 title="${isDe() ? 'Speichern' : 'Save'}"
+                 aria-label="${isDe() ? 'Speichern' : 'Save'}">✅</button>
+         <button id="topicCancelEditBtn"
+                 class="icon-button neutral"
+                 type="button"
+                 title="${isDe() ? 'Abbrechen' : 'Cancel'}"
+                 aria-label="${isDe() ? 'Abbrechen' : 'Cancel'}">❌</button>`;
+
+      const saveBtn   = $('#topicSaveBtn');
+      const cancelBtn = $('#topicCancelEditBtn');
+
+      const doSave = () => {
+        const val = displayEl.value || '';
+        send('topicSave:' + encodeURIComponent(val));
+        state.topicEditing = false;
+        renderTopic();
+      };
+      const doCancel = () => {
+        state.topicEditing = false;
+        renderTopic();
+      };
+
+      if (saveBtn)   saveBtn.addEventListener('click', doSave);
+      if (cancelBtn) cancelBtn.addEventListener('click', doCancel);
+      displayEl.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter')  { e.preventDefault(); doSave(); }
+        if (e.key === 'Escape') { e.preventDefault(); doCancel(); }
+      });
     }
-    // Keep a tooltip with the full content on the link (if present) or the span
-    const full = [state.topicLabel || '', state.topicUrl || ''].filter(Boolean).join(' — ');
-    const link = el.querySelector && el.querySelector('a');
-    (link || el).setAttribute('title', wrapForTitle(full, 44));
-  };
-
-  // Create (or reuse) the compact "more" button that sits to the right of the text
-  let hint = row.querySelector('#topicOverflowHint');
-  const ensureHint = () => {
-    if (!hint) {
-      const btn = document.createElement('button');
-      btn.id = 'topicOverflowHint';
-      btn.type = 'button';
-      btn.className = 'topic-more-btn';             // styled as subtle text-button in CSS
-      btn.textContent = 'more';                     // label per request (always English)
-      btn.setAttribute('aria-label', 'Show full topic');
-      hint = btn;
-    }
-  };
-
-  function buildTopicTitle() {
-  const parts = [];
-  if (state.topicLabel) parts.push(state.topicLabel);
-  if (state.topicUrl)   parts.push(state.topicUrl);
-  // try newline; browsers that don't support it will just render as spaces
-  let full = parts.join('\n— ');
-  const MAX = 800;
-  if (full.length > MAX) full = full.slice(0, MAX - 1) + '…';
-  return full;
-  hint.setAttribute('title', buildTopicTitle());
-}
-
-
-if (state.topicLabel && state.topicUrl) {
-  el.innerHTML = `<a href="${encodeURI(state.topicUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(state.topicLabel)}</a>`;
-} else if (state.topicLabel) {
-  el.textContent = state.topicLabel;
-} else {
-  el.textContent = '–';
-}
-// put title on the link if present, else on the span
-const link = el.querySelector && el.querySelector('a');
-(link || el).setAttribute('title', buildTopicTitle());
-
-
-  // Non-hosts: view-only (SPAN + optional "more", no action buttons)
-  if (!state.isHost) {
-    if (!displayEl || displayEl.tagName !== 'SPAN') {
-      const span = document.createElement('span');
-      span.id = 'topicDisplay';
-      span.className = 'topic-text';               // CSS does the single-line + ellipsis
-      if (displayEl) displayEl.replaceWith(span);
-      else row.insertBefore(span, row.firstChild ? row.firstChild.nextSibling : null);
-      displayEl = span;
-    }
-    renderDisplayContent(displayEl);
-
-    ensureHint();
-    if (!hint.isConnected) row.insertBefore(hint, actions); // place between text and actions
-    // No actions for non-hosts
-    actions.innerHTML = '';
-
-    requestAnimationFrame(syncTopicOverflow);
-    const full = [state.topicLabel || '', state.topicUrl || ''].filter(Boolean).join(' — ');
-    hint.setAttribute('title', wrapForTitle(full, 44))
-    return;
   }
 
-  // Host: switch between VIEW and EDIT modes
-  if (!state.topicEditing) {
-    // VIEW MODE (host)
-    if (!displayEl || displayEl.tagName !== 'SPAN') {
-      const span = document.createElement('span');
-      span.id = 'topicDisplay';
-      span.className = 'topic-text';
-      if (displayEl) displayEl.replaceWith(span);
-      else row.insertBefore(span, row.firstChild ? row.firstChild.nextSibling : null);
-      displayEl = span;
-    }
-    renderDisplayContent(displayEl);
-
-    ensureHint();
-    if (!hint.isConnected) row.insertBefore(hint, actions);
-
-    // Host actions (use icon-button, not row-action)
-    actions.innerHTML =
-      `<button id="topicEditBtn"
-               class="icon-button neutral"
-               type="button"
-               title="${isDe() ? 'Bearbeiten' : 'Edit'}"
-               aria-label="${isDe() ? 'Bearbeiten' : 'Edit'}">✍️</button>
-       <button id="topicClearBtn"
-               class="icon-button neutral"
-               type="button"
-               title="${isDe() ? 'Feld leeren' : 'Clear'}"
-               aria-label="${isDe() ? 'Feld leeren' : 'Clear'}">🗑️</button>`;
-
-    const editBtn  = $('#topicEditBtn');
-    const clearBtn = $('#topicClearBtn');
-    if (editBtn)  editBtn.addEventListener('click', beginTopicEdit);
-    if (clearBtn) clearBtn.addEventListener('click', () => {
-      send('topicSave:' + encodeURIComponent(''));
-      state.topicLabel = '';
-      state.topicUrl = null;
-      state.topicEditing = false;
-      renderTopic();
-    });
-
-    requestAnimationFrame(syncTopicOverflow);
-  } else {
-    // EDIT MODE (host)
-    if (!displayEl || displayEl.tagName !== 'INPUT') {
-      const inp = document.createElement('input');
-      inp.type = 'text';
-      inp.className = 'topic-inline-input';
-      inp.id = 'topicDisplay';
-      inp.placeholder = isDe()
-        ? 'JIRA-Link einfügen oder Key eingeben'
-        : 'Paste JIRA link or type key';
-      if (displayEl) displayEl.replaceWith(inp);
-      else row.insertBefore(inp, row.firstChild ? row.firstChild.nextSibling : null);
-      displayEl = inp;
-    }
-    displayEl.value = state.topicLabel || '';
-    setTimeout(() => { try { displayEl.focus(); displayEl.select(); } catch {} }, 0);
-
-    // Hide the "more" button while editing
-    if (hint) hint.style.display = 'none';
-
-    actions.innerHTML =
-      `<button id="topicSaveBtn"
-               class="icon-button neutral"
-               type="button"
-               title="${isDe() ? 'Speichern' : 'Save'}"
-               aria-label="${isDe() ? 'Speichern' : 'Save'}">✅</button>
-       <button id="topicCancelEditBtn"
-               class="icon-button neutral"
-               type="button"
-               title="${isDe() ? 'Abbrechen' : 'Cancel'}"
-               aria-label="${isDe() ? 'Abbrechen' : 'Cancel'}">❌</button>`;
-
-    const saveBtn   = $('#topicSaveBtn');
-    const cancelBtn = $('#topicCancelEditBtn');
-
-    const doSave = () => {
-      const val = displayEl.value || '';
-      send('topicSave:' + encodeURIComponent(val));
-      state.topicEditing = false;
-      renderTopic();
-    };
-    const doCancel = () => {
-      state.topicEditing = false;
-      renderTopic();
-    };
-
-    if (saveBtn)   saveBtn.addEventListener('click', doSave);
-    if (cancelBtn) cancelBtn.addEventListener('click', doCancel);
-    displayEl.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter')  { e.preventDefault(); doSave(); }
-      if (e.key === 'Escape') { e.preventDefault(); doCancel(); }
-    });
+  function beginTopicEdit() {
+    if (!state.isHost) return;
+    state.topicEditing = true;
+    renderTopic();
   }
-}
 
-// Toggle edit mode (host only)
-function beginTopicEdit() {
-  if (!state.isHost) return;
-  state.topicEditing = true;
-  renderTopic();
-}
+  function syncTopicOverflow() {
+    try {
+      const row  = $('#topicRow'); if (!row) return;
+      const el   = row.querySelector('#topicDisplay');
+      const hint = row.querySelector('#topicOverflowHint');
+      if (!el || !hint) return;
 
-// Check if text overflows the single-line box; if yes, show the "more" button
-function syncTopicOverflow() {
-  try {
-    const row  = $('#topicRow'); if (!row) return;
-    const el   = row.querySelector('#topicDisplay');
-    const hint = row.querySelector('#topicOverflowHint');
-    if (!el || !hint) return;
+      // only in view mode
+      const inViewMode = el && el.tagName === 'SPAN';
+      if (!inViewMode) { hint.style.display = 'none'; return; }
 
-    // Only in view mode (SPAN). Input has its own UX.
-    const inViewMode = el && el.tagName === 'SPAN';
-    if (!inViewMode) { hint.style.display = 'none'; return; }
+      const full = [state.topicLabel || '', state.topicUrl || ''].filter(Boolean).join(' — ');
+      hint.setAttribute('title', full);
 
-    // Keep tooltip on the "more" button up to date with full content
-    const full = [state.topicLabel || '', state.topicUrl || ''].filter(Boolean).join(' — ');
-    hint.setAttribute('title', full);
-
-    // True overflow => show the button
-    const over = el.scrollWidth > el.clientWidth + 1;
-    hint.style.display = over ? '' : 'none';
-  } catch {}
-}
-
+      const over = el.scrollWidth > el.clientWidth + 1;
+      hint.style.display = over ? '' : 'none';
+    } catch {}
+  }
 
   // ---------------- Auto-reveal badge ----------------
   function renderAutoReveal() {
@@ -1038,7 +1001,7 @@ function syncTopicOverflow() {
     btn.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handle(); } });
   }
 
-  // ---------------- Menu events ----------------
+  // ---------------- Menu & lifecycle events ----------------
   function wireMenuEvents() {
     document.addEventListener('ep:close-room', () => {
       if (!state.isHost) return;
@@ -1071,22 +1034,15 @@ function syncTopicOverflow() {
       send(`participation:${estimating}`);
     });
 
-    // host-only local toggles (client-side optimistic + server notify)
-    document.addEventListener('ep:specials-toggle', (ev) => {
+    // host-only: specials toggle (client optimistic + server notify)
+    document.addEventListener('ep:specials-toggle', () => {
       if (!state.isHost) return;
-
-      // Read the DOM checkbox AFTER the click has settled (microtask)
       queueMicrotask(() => {
         const el = document.getElementById('menuSpecialsToggle');
-        const on = (el ? !!el.checked
-                       : (ev && ev.detail && 'on' in ev.detail ? !!ev.detail.on : !state.allowSpecials));
-
-        // Optimistic local update
-        state.allowSpecials = on;
+        const on = el ? !!el.checked : !state.allowSpecials;
+        state.allowSpecials = on;          // optimistic
         syncMenuFromState();
         renderCards();
-
-        // Tell the server (room-wide)
         try { send(`specials:${on}`); } catch {}
       });
     });
@@ -1101,53 +1057,8 @@ function syncTopicOverflow() {
   }
 
   function wireOnce() {
-  bindCopyLink();
-  wireMenuEvents();
-
-  // clicking empty topic row (host only) opens editor
-  const row = $('#topicRow');
-  if (row) {
-    row.addEventListener('click', (e) => {
-      if (!state.isHost || state.topicEditing) return;
-      if (state.topicLabel) return;
-      if (e.target.closest('button,a,input')) return;
-      beginTopicEdit();
-    });
-  }
-
-  // NEW: keep the overflow hint in sync on window resizes (bind once)
-  if (!_topicOverflowResizeBound) {
-    window.addEventListener('resize', () => requestAnimationFrame(syncTopicOverflow));
-    _topicOverflowResizeBound = true;
-  }
-
-  // NO 'intentionalLeave' on beforeunload anymore (grace will handle refresh/close)
-  window.addEventListener('pageshow', () => {
-    document.dispatchEvent(new CustomEvent('ep:request-sync', { detail: { room: state.roomCode } }));
-    if (!state.connected && (!state.ws || state.ws.readyState !== 1)) connectWS();
-  });
-
-  syncSequenceInMenu();
-}
-
-
-  // ---------------- Misc helpers ----------------
-  function isDisplaySpecialChip(s) {
-    if (s == null) return true; // treat empty as special-ish (dash)
-    const t = String(s).trim();
-    // only real specials are styled as "special", infinity is NOT
-    return ['❓','💬','☕'].includes(t);
-  }
-
-  function escapeHtml(s) {
-    return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  }
-
-  // ---------------- Wire & boot ----------------
-  function wireOnce() {
     bindCopyLink();
     wireMenuEvents();
-    window.addEventListener('resize', () => requestAnimationFrame(syncTopicOverflow));
 
     // clicking empty topic row (host only) opens editor
     const row = $('#topicRow');
@@ -1160,7 +1071,13 @@ function syncTopicOverflow() {
       });
     }
 
-    // NO 'intentionalLeave' on beforeunload anymore (grace will handle refresh/close)
+    // keep the overflow hint in sync on window resizes (bind once)
+    if (!_topicOverflowResizeBound) {
+      window.addEventListener('resize', () => requestAnimationFrame(syncTopicOverflow));
+      _topicOverflowResizeBound = true;
+    }
+
+    // NO 'intentionalLeave' on beforeunload anymore
     window.addEventListener('pageshow', () => {
       document.dispatchEvent(new CustomEvent('ep:request-sync', { detail: { room: state.roomCode } }));
       if (!state.connected && (!state.ws || state.ws.readyState !== 1)) connectWS();
@@ -1169,6 +1086,12 @@ function syncTopicOverflow() {
     syncSequenceInMenu();
   }
 
+  // ---------------- Misc helpers ----------------
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+
+  // ---------------- Boot ----------------
   function boot() { wireOnce(); syncHostClass(); connectWS(); }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();

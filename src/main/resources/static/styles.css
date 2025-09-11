@@ -711,3 +711,14 @@ body{padding-bottom:var(--footer-h)}
 #topicOverflowHint.topic-more-btn:hover {
   opacity: 1;
 }
+
+/* Heat-colored result chips (participants list after reveal) */
+.vote-chip.heat{
+  --_h: var(--chip-heat-h,120);
+  border-color: hsl(var(--_h) 75% 55%);
+  color:        hsl(var(--_h) 85% 62%);
+  background: color-mix(in oklab, hsl(var(--_h) 80% 50%) 14%, transparent);
+}
+@supports not (color-mix(in oklab, white, black)){
+  .vote-chip.heat{ background: transparent; }
+}
