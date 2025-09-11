@@ -480,3 +480,12 @@ body{padding-bottom:var(--footer-h)}
 
 /* And tone down the left icon a bit */
 #liveParticipantList li.disconnected .participant-icon { opacity: .85; }
+
+/* Fine-tune emoji vertical centering in row-action pills */
+#liveParticipantList .row-right .row-action .ra-icon{
+  display: inline-flex;align-items: center;justify-content: center;width: 1.2em;height: 1.2em;line-height: 1;transform: translateY(var(--emoji-nudge-y, -0.5px));}
+
+/* Safari/iOS renders emoji already centered – zero-out the nudge there */
+@supports (-webkit-touch-callout:none) {
+  :root { --emoji-nudge-y: 0px; }
+}

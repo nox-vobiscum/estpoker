@@ -115,6 +115,19 @@
     document.body.classList.toggle('is-host', !!state.isHost);
   }
 
+  // ---- Presence toast guard (2s grace; never for yourself) -----------------
+  const PRESENCE_TOAST_GRACE_MS = 2000;
+  const _presenceToastSeen = new Map();
+  function shouldToastPresence(name, kind) {
+    if (!name) return false;
+    if (name === state.youName) return false; // never self-toast
+    const key = `${kind}:${name}`;
+    const now = Date.now();
+    const last = _presenceToastSeen.get(key) || 0;
+    _presenceToastSeen.set(key, now);
+    return (now - last) > PRESENCE_TOAST_GRACE_MS;
+  }
+
   // ---------------- WebSocket ----------------
   function connectWS() {
     const u = wsUrl();
@@ -161,17 +174,27 @@
         state.hardRedirect = m.redirect || '/';
         try { state.ws && state.ws.close(4001, 'Kicked'); } catch {}
         break;
-      }
+    }
+      case 'participantJoined': {
+        const name = m.name || '';
+        if (shouldToastPresence(name, 'join')) {
+        showToast(isDe() ? `${name} ist beigetreten` : `${name} joined the room`);
+        }
+      break;
+    }
       case 'participantLeft': {
         const name = m.name || '';
-        const msg = isDe() ? `${name} hat den Raum verlassen` : `${name} left the room`;
-        showToast(msg);
-        break;
+        if (shouldToastPresence(name, 'left')) {
+        showToast(isDe() ? `${name} hat den Raum verlassen` : `${name} left the room`);
       }
+      break;
+    }
       case 'participantRenamed': {
         const from = m.from || '', to = m.to || '';
-        const msg = isDe() ? `${from} heißt jetzt ${to}` : `${from} is now ${to}`;
-        showToast(msg);
+        if (from !== state.youName) { // rename-self ist ohnehin sichtbar
+          const msg = isDe() ? `${from} heißt jetzt ${to}` : `${from} is now ${to}`;
+          showToast(msg);
+        }
         break;
       }
       case 'hostTransferred': {
@@ -191,58 +214,80 @@
   }
 
   function applyVoteUpdate(m) {
-  const seqId = normalizeSeq(m.sequenceId || state.sequenceId || 'fib.scrum');
-  const specials = (Array.isArray(m.specials) && m.specials.length) ? m.specials.slice() : SPECIALS.slice();
+    // --- Deck / cards -------------------------------------------------------
+    const seqId = normalizeSeq(m.sequenceId || state.sequenceId || 'fib.scrum');
 
-  let base = Array.isArray(m.cards) ? m.cards.slice() : [];
-  base = base.filter(c => !specials.includes(c));
-  if (seqId !== 'fib.enh') base = base.filter(c => c !== INFINITY_ && c !== INFINITY_ALT);
-  state.cards = base.concat(specials);
+    // Server flags we respect
+    const specialsOff = (m.specialsOff === true) || (m.specialsEnabled === false);
+    state.allowSpecials = !specialsOff; // keep menu/cards in sync
 
-  state.votesRevealed = !!m.votesRevealed;
-  state.averageVote   = (m.hasOwnProperty('averageVote') ? m.averageVote : null);
-  state.medianVote    = (m.hasOwnProperty('medianVote') ? m.medianVote  : null);
-  state.range         = (m.hasOwnProperty('range')      ? m.range       : null);
-  state.consensus     = !!m.consensus;
-  state.outliers      = Array.isArray(m.outliers) ? m.outliers : [];
+    if (Array.isArray(m.cards) && m.cards.length) {
+      // Trust server order entirely
+      let deck = m.cards.slice();
 
-  const raw = Array.isArray(m.participants) ? m.participants : [];
-  state.participants = raw.map(p => ({
-    name:           p?.name ?? '',
-    vote:           (p?.vote ?? null),
-    disconnected:   !!p?.disconnected,
-    away:           !!p?.away,
-    isHost:         !!p?.isHost,
-    participating:  (p?.participating !== false),
-    observer:       (p?.participating === false)
-  }));
+      // Keep ♾️ only for fib.enh
+      if (seqId !== 'fib.enh') deck = deck.filter(c => c !== INFINITY_ && c !== INFINITY_ALT);
 
-  state.sequenceId = seqId;
-  state.autoRevealEnabled = !!m.autoRevealEnabled;
+      // Enforce specials OFF if server says so
+      if (specialsOff) deck = deck.filter(c => !SPECIALS.includes(c));
 
-  if (m.hasOwnProperty('topicVisible')) state.topicVisible = !!m.topicVisible;
-  if (m.hasOwnProperty('topicLabel'))   state.topicLabel   = m.topicLabel || '';
-  if (m.hasOwnProperty('topicUrl'))     state.topicUrl     = m.topicUrl || null;
+      state.cards = deck;
+    } else {
+      // Fallback for older servers:
+      // Start from the last known deck and enforce current rules.
+      let deck = Array.isArray(state.cards) ? state.cards.slice() : [];
+      if (seqId !== 'fib.enh') deck = deck.filter(c => c !== INFINITY_ && c !== INFINITY_ALT);
+      if (specialsOff) deck = deck.filter(c => !SPECIALS.includes(c));
+      state.cards = deck;
+    }
 
-  const me = state.participants.find(p => p && p.name === state.youName);
-  state.isHost = !!(me && me.isHost);
-  state._hostKnown = true;
-  if (me && me.vote != null) state._optimisticVote = null;
+    // --- Core state ---------------------------------------------------------
+    state.votesRevealed = !!m.votesRevealed;
+    state.averageVote   = (m.hasOwnProperty('averageVote') ? m.averageVote : null);
+    state.medianVote    = (m.hasOwnProperty('medianVote')  ? m.medianVote  : null);
+    state.range         = (m.hasOwnProperty('range')       ? m.range       : null);
+    state.consensus     = !!m.consensus;
+    state.outliers      = Array.isArray(m.outliers) ? m.outliers : [];
 
-  syncHostClass();
-  renderParticipants();
-  renderCards();
-  renderResultBar();
-  renderTopic();
-  renderAutoReveal();
-  requestAnimationFrame(() => { syncMenuFromState(); syncSequenceInMenu(); });
+    // --- Participants -------------------------------------------------------
+    const raw = Array.isArray(m.participants) ? m.participants : [];
+    state.participants = raw.map(p => ({
+      name:           p?.name ?? '',
+      vote:           (p?.vote ?? null),
+      disconnected:   !!p?.disconnected,
+      away:           !!p?.away,
+      isHost:         !!p?.isHost,
+      participating:  (p?.participating !== false),
+      observer:       (p?.participating === false)
+    }));
 
-  if (!document.documentElement.hasAttribute('data-ready')) {
-    document.documentElement.setAttribute('data-ready', '1');
+    // --- Topic / flags ------------------------------------------------------
+    state.sequenceId = seqId;
+    state.autoRevealEnabled = !!m.autoRevealEnabled;
+
+    if (m.hasOwnProperty('topicVisible')) state.topicVisible = !!m.topicVisible;
+    if (m.hasOwnProperty('topicLabel'))   state.topicLabel   = m.topicLabel || '';
+    if (m.hasOwnProperty('topicUrl'))     state.topicUrl     = m.topicUrl || null;
+
+    // who am I
+    const me = state.participants.find(p => p && p.name === state.youName);
+    state.isHost = !!(me && me.isHost);
+    state._hostKnown = true;
+    if (me && me.vote != null) state._optimisticVote = null;
+
+    // render
+    syncHostClass();
+    renderParticipants();
+    renderCards();
+    renderResultBar();
+    renderTopic();
+    renderAutoReveal();
+    requestAnimationFrame(() => { syncMenuFromState(); syncSequenceInMenu(); });
+
+    if (!document.documentElement.hasAttribute('data-ready')) {
+      document.documentElement.setAttribute('data-ready', '1');
+    }
   }
-}
-
-
 
   // ---------------- Participants ----------------
   function isIdle(p) {
@@ -253,115 +298,126 @@
   }
 
   function renderParticipants() {
-  const ul = $('#liveParticipantList'); if (!ul) return;
-  try {
-    const frag = document.createDocumentFragment();
-    (state.participants || []).forEach(p => {
-      if (!p || !p.name) return;
+    const ul = $('#liveParticipantList'); if (!ul) return;
+    try {
+      const frag = document.createDocumentFragment();
+      (state.participants || []).forEach(p => {
+        if (!p || !p.name) return;
 
-      const li = document.createElement('li');
-      li.className = 'participant-row';
-      const isInactive = !!p.disconnected || !!p.away;
-      if (isInactive) li.classList.add('disconnected');
-      if (p.isHost)    li.classList.add('is-host');
+        const li = document.createElement('li');
+        li.className = 'participant-row';
+        const isInactive = !!p.disconnected || !!p.away;
+        if (isInactive) li.classList.add('disconnected');
+        if (p.isHost)    li.classList.add('is-host');
 
-      const left = document.createElement('span');
-      left.className = 'participant-icon' + (p.isHost ? ' host' : '');
-      // choose icon
-      let icon = '👤';
-      if (p.isHost)                 icon = '👑';
-      else if (p.observer === true) icon = '👁️';
-      else if (isInactive)          icon = '💤';       // <- NEW: reliable sleep
-      left.textContent = icon;
-      left.setAttribute('aria-hidden', 'true');
+        const left = document.createElement('span');
+        left.className = 'participant-icon' + (p.isHost ? ' host' : '');
+        // left icon
+        let icon = '👤';
+        if (p.isHost)                 icon = '👑';
+        else if (p.observer === true) icon = '👁️';
+        else if (isInactive)          icon = '💤';
+        left.textContent = icon;
+        left.setAttribute('aria-hidden', 'true');
+        if (isInactive) left.classList.add('inactive'); // slight dim
+        li.appendChild(left);
 
-      // NEW: slightly dim the icon too when inactive
-      if (isInactive) left.classList.add('inactive');
+        // name
+        const name = document.createElement('span');
+        name.className = 'name';
+        name.textContent = p.name;
+        li.appendChild(name);
 
-      li.appendChild(left);
+        // right area
+        const right = document.createElement('div');
+        right.className = 'row-right';
 
-      const name = document.createElement('span');
-      name.className = 'name';
-      name.textContent = p.name;
-      li.appendChild(name);
-
-      const right = document.createElement('div');
-      right.className = 'row-right';
-
-      if (!state.votesRevealed) {
-        if (p.observer) {
-          const eye = document.createElement('span');
-          eye.className = 'status-icon observer';
-          eye.textContent = '👁️';
-          right.appendChild(eye);
-        } else if (!p.disconnected && p.vote != null && String(p.vote) !== '') {
-          const done = document.createElement('span');
-          done.className = 'status-icon done';
-          done.textContent = '✓';
-          right.appendChild(done);
-        } else if (!p.disconnected) {
-          const dash = document.createElement('span');
-          dash.className = 'vote-chip empty';
-          dash.textContent = '–';
-          right.appendChild(dash);
-        }
-      } else {
-        if (p.observer) {
-          const eye = document.createElement('span');
-          eye.className = 'status-icon observer';
-          eye.textContent = '👁️';
-          right.appendChild(eye);
-        } else {
-          const chip = document.createElement('span');
-          chip.className = 'vote-chip';
-          const display = (p.vote == null || p.vote === '') ? '–' : String(p.vote);
-          chip.textContent = display;
-
-          const isInfinity = (display === INFINITY_ || display === INFINITY_ALT);
-          const isSpecial  = SPECIALS.includes(display);
-          if (!isInfinity && isSpecial) chip.classList.add('special');
-
-          if (Array.isArray(state.outliers) && state.outliers.includes(p.name)) {
-            chip.classList.add('outlier');
+        if (!state.votesRevealed) {
+          // pre-vote: show observer eye, otherwise ✓ for voted, otherwise outline dash
+          if (p.observer) {
+            const eye = document.createElement('span');
+            eye.className = 'status-icon observer';
+            eye.textContent = '👁️';
+            right.appendChild(eye);
+          } else if (!p.disconnected && p.vote != null && String(p.vote) !== '') {
+            const done = document.createElement('span');
+            done.className = 'status-icon done';
+            done.textContent = '✓';
+            right.appendChild(done);
+          } else if (!p.disconnected) {
+            const dash = document.createElement('span');
+            dash.className = 'vote-chip empty';
+            dash.textContent = '–';
+            right.appendChild(dash);
           }
-          right.appendChild(chip);
+        } else {
+          // post-vote: chips aligned with result column
+          if (p.observer) {
+            const eye = document.createElement('span');
+            eye.className = 'status-icon observer';
+            eye.textContent = '👁️';
+            right.appendChild(eye);
+          } else {
+            const chip = document.createElement('span');
+            chip.className = 'vote-chip';
+
+            const noVote = (p.vote == null || p.vote === '');
+            const display = noVote ? '–' : String(p.vote);
+
+            // Inactive: always show grey outline dash (never green)
+            if (isInactive) {
+              chip.textContent = '–';
+              chip.classList.add('empty');
+              right.appendChild(chip);
+            } else {
+              chip.textContent = display;
+
+              const isInfinity = (display === INFINITY_ || display === INFINITY_ALT);
+              const isSpecial  = SPECIALS.includes(display);
+              if (!isInfinity && isSpecial) chip.classList.add('special');
+              if (noVote) chip.classList.add('empty');
+
+              if (Array.isArray(state.outliers) && state.outliers.includes(p.name)) {
+                chip.classList.add('outlier');
+              }
+              right.appendChild(chip);
+            }
+          }
         }
-      }
 
-      if (state.isHost && !p.isHost) {
-        const makeHostBtn = document.createElement('button');
-        makeHostBtn.className = 'row-action host';
-        makeHostBtn.type = 'button';
-        makeHostBtn.setAttribute('aria-label', isDe() ? 'Zum Host machen' : 'Make host');
-        makeHostBtn.innerHTML = '<span class="ra-icon">👑</span>';
-        makeHostBtn.addEventListener('click', () => {
-          const q = isDe() ? `Host-Rolle an ${p.name} übertragen?` : `Transfer host role to ${p.name}?`;
-          if (confirm(q)) send('makeHost:' + encodeURIComponent(p.name));
-        });
-        right.appendChild(makeHostBtn);
+        // host row actions
+        if (state.isHost && !p.isHost) {
+          const makeHostBtn = document.createElement('button');
+          makeHostBtn.className = 'row-action host';
+          makeHostBtn.type = 'button';
+          makeHostBtn.setAttribute('aria-label', isDe() ? 'Zum Host machen' : 'Make host');
+          makeHostBtn.innerHTML = '<span class="ra-icon">👑</span>';
+          makeHostBtn.addEventListener('click', () => {
+            const q = isDe() ? `Host-Rolle an ${p.name} übertragen?` : `Transfer host role to ${p.name}?`;
+            if (confirm(q)) send('makeHost:' + encodeURIComponent(p.name));
+          });
+          right.appendChild(makeHostBtn);
 
-        const kickBtn = document.createElement('button');
-        kickBtn.className = 'row-action kick';
-        kickBtn.type = 'button';
-        kickBtn.setAttribute('aria-label', isDe() ? 'Teilnehmer entfernen' : 'Kick participant');
-        kickBtn.innerHTML = '<span class="ra-icon">❌</span>';
-        kickBtn.addEventListener('click', () => {
-          const q = isDe() ? `${p.name} wirklich entfernen?` : `Remove ${p.name}?`;
-          if (confirm(q)) send('kick:' + encodeURIComponent(p.name));
-        });
-        right.appendChild(kickBtn);
-      }
+          const kickBtn = document.createElement('button');
+          kickBtn.className = 'row-action kick';
+          kickBtn.type = 'button';
+          kickBtn.setAttribute('aria-label', isDe() ? 'Teilnehmer entfernen' : 'Kick participant');
+          kickBtn.innerHTML = '<span class="ra-icon">❌</span>';
+          kickBtn.addEventListener('click', () => {
+            const q = isDe() ? `${p.name} wirklich entfernen?` : `Remove ${p.name}?`;
+            if (confirm(q)) send('kick:' + encodeURIComponent(p.name));
+          });
+          right.appendChild(kickBtn);
+        }
 
-      li.appendChild(right);
-      frag.appendChild(li);
-    });
-    ul.replaceChildren(frag);
-  } catch (e) {
-    console.error(TAG, 'renderParticipants failed', e);
+        li.appendChild(right);
+        frag.appendChild(li);
+      });
+      ul.replaceChildren(frag);
+    } catch (e) {
+      console.error(TAG, 'renderParticipants failed', e);
+    }
   }
-}
-
-
 
   // ---------------- Cards ----------------
   function mySelectedValue() {
@@ -372,17 +428,17 @@
   }
 
   function isSpecialOrEmpty(s) {
-  if (s == null) return true;
-  const t = String(s).trim();
-  if (t === '' || t === INFINITY_ || t === INFINITY_ALT || SPECIALS.includes(t)) return true;
-  return isNaN(Number(t));
-}
+    if (s == null) return true;
+    const t = String(s).trim();
+    if (t === '' || t === INFINITY_ || t === INFINITY_ALT || SPECIALS.includes(t)) return true;
+    return isNaN(Number(t));
+  }
 
   function allEligibleVoted() {
     const elig = state.participants.filter(p => p && !p.observer && !p.disconnected);
     if (!elig.length) return false;
     return elig.every(p => p.vote != null && String(p.vote) !== '');
-  }
+    }
 
   function renderCards() {
     const grid = $('#cardGrid'); if (!grid) return;
@@ -392,6 +448,8 @@
     const isObserver = !!(me && me.observer);
     const disabled = state.votesRevealed || isObserver;
 
+    // Split current deck into numbers + specials. We then suppress specials
+    // for all clients when allowSpecials=false (server or optimistic host toggle).
     const specialsAll = state.cards.filter(v => SPECIALS.includes(v));
     const numbers = state.cards.filter(v => !SPECIALS.includes(v));
     const specials = state.allowSpecials ? specialsAll : [];
@@ -405,7 +463,7 @@
       btn.textContent = label;
 
       if (label === INFINITY_ || label === INFINITY_ALT) btn.classList.add('card-infinity');
-      
+
       if (disabled) btn.disabled = true;
       if (selectedVal != null && String(selectedVal) === label) btn.classList.add('selected');
 
@@ -453,178 +511,176 @@
   }
 
   // ---------------- Result bar ----------------
-function renderResultBar() {
-  // add "+♾️" suffix after reveal if any participant (non-observer) picked infinity
-  const hasInfinity = !!(
-    state.votesRevealed &&
-    Array.isArray(state.participants) &&
-    state.participants.some(
-      (p) => p && !p.observer && (p.vote === INFINITY_ || p.vote === INFINITY_ALT)
-    )
-  );
-  const inf = hasInfinity ? ' +♾️' : '';
+  function renderResultBar() {
+    // add "+♾️" suffix after reveal if any participant (non-observer) picked infinity
+    const hasInfinity = !!(
+      state.votesRevealed &&
+      Array.isArray(state.participants) &&
+      state.participants.some(
+        (p) => p && !p.observer && (p.vote === INFINITY_ || p.vote === INFINITY_ALT)
+      )
+    );
+    const inf = hasInfinity ? ' +♾️' : '';
 
-  // average
-  const avgEl = $('#averageVote');
-  if (avgEl) {
-    avgEl.textContent = (state.averageVote != null) ? String(state.averageVote) + inf : 'N/A';
-  }
+    // average
+    const avgEl = $('#averageVote');
+    if (avgEl) {
+      avgEl.textContent = (state.averageVote != null) ? String(state.averageVote) + inf : 'N/A';
+    }
 
-  // pre/post blocks toggle
-  const pre  = document.querySelector('.pre-vote');
-  const post = document.querySelector('.post-vote');
-  if (pre && post) {
-    pre.style.display  = state.votesRevealed ? 'none' : '';
-    post.style.display = state.votesRevealed ? '' : 'none';
-  }
+    // pre/post blocks toggle
+    const pre  = document.querySelector('.pre-vote');
+    const post = document.querySelector('.post-vote');
+    if (pre && post) {
+      pre.style.display  = state.votesRevealed ? 'none' : '';
+      post.style.display = state.votesRevealed ? '' : 'none';
+    }
 
-  const row        = $('#resultRow');
-  const avgWrap    = document.querySelector('#resultLabel .label-average');
-  const consEl     = document.querySelector('#resultLabel .label-consensus');
-  const medianWrap = $('#medianWrap');
-  const rangeWrap  = $('#rangeWrap');
-  const rangeSep   = $('#rangeSep');
+    const row        = $('#resultRow');
+    const avgWrap    = document.querySelector('#resultLabel .label-average');
+    const consEl     = document.querySelector('#resultLabel .label-consensus');
+    const medianWrap = $('#medianWrap');
+    const rangeWrap  = $('#rangeWrap');
+    const rangeSep   = $('#rangeSep');
 
-  if (row) {
-    if (state.consensus) {
-      row.classList.add('consensus');
-      if (avgWrap) avgWrap.hidden = true;
-      if (consEl) {
-        consEl.hidden = false;
-        consEl.textContent = isDe() ? '🎉 Konsens' : '🎉 Consensus';
+    if (row) {
+      if (state.consensus) {
+        row.classList.add('consensus');
+        if (avgWrap) avgWrap.hidden = true;
+        if (consEl) {
+          consEl.hidden = false;
+          consEl.textContent = isDe() ? '🎉 Konsens' : '🎉 Consensus';
+        }
+        const sep1 = document.querySelector('#resultRow .sep');
+        if (sep1) sep1.hidden = true;
+        if (medianWrap) medianWrap.hidden = true;
+        if (rangeSep)  rangeSep.hidden  = true;
+        if (rangeWrap) rangeWrap.hidden = true;
+      } else {
+        row.classList.remove('consensus');
+        if (avgWrap) avgWrap.hidden = false;
+        if (consEl)  consEl.hidden  = true;
       }
-      const sep1 = document.querySelector('#resultRow .sep');
-      if (sep1) sep1.hidden = true;
-      if (medianWrap) medianWrap.hidden = true;
-      if (rangeSep)  rangeSep.hidden  = true;
-      if (rangeWrap) rangeWrap.hidden = true;
-    } else {
-      row.classList.remove('consensus');
-      if (avgWrap) avgWrap.hidden = false;
-      if (consEl)  consEl.hidden  = true;
+    }
+
+    if (!state.consensus) {
+      if (medianWrap) {
+        const show = state.medianVote != null;
+        medianWrap.hidden = !show;
+        if (show) setText('#medianVote', String(state.medianVote) + inf);
+      }
+      if (rangeWrap && rangeSep) {
+        const show = state.range != null;
+        rangeWrap.hidden = !show;
+        rangeSep.hidden  = !show;
+        if (show) setText('#rangeVote', String(state.range) + inf);
+      }
     }
   }
-
-  if (!state.consensus) {
-    if (medianWrap) {
-      const show = state.medianVote != null;
-      medianWrap.hidden = !show;
-      if (show) setText('#medianVote', String(state.medianVote) + inf);
-    }
-    if (rangeWrap && rangeSep) {
-      const show = state.range != null;
-      rangeWrap.hidden = !show;
-      rangeSep.hidden  = !show;
-      if (show) setText('#rangeVote', String(state.range) + inf);
-    }
-  }
-}
-
 
   // ---------------- Topic row ----------------
   function renderTopic() {
-  const row = $('#topicRow');
-  if (!row) return;
+    const row = $('#topicRow');
+    if (!row) return;
 
-  // ensure we always have a display <span id="topicDisplay">
-  let disp = $('#topicDisplay');
-  if (!disp || disp.tagName !== 'SPAN') {
-    const span = document.createElement('span');
-    span.id = 'topicDisplay';
-    span.className = 'topic-text';
-    if (disp) disp.replaceWith(span); else row.insertBefore(span, row.firstChild ? row.firstChild.nextSibling : null);
-    disp = span;
-  }
+    // ensure we always have a display <span id="topicDisplay">
+    let disp = $('#topicDisplay');
+    if (!disp || disp.tagName !== 'SPAN') {
+      const span = document.createElement('span');
+      span.id = 'topicDisplay';
+      span.className = 'topic-text';
+      if (disp) disp.replaceWith(span); else row.insertBefore(span, row.firstChild ? row.firstChild.nextSibling : null);
+      disp = span;
+    }
 
-  // visibility
-  row.style.display = state.topicVisible ? '' : 'none';
+    // visibility
+    row.style.display = state.topicVisible ? '' : 'none';
 
-  // content (when not editing)
-  if (!state.topicEditing) {
-    if (state.topicLabel && state.topicUrl) {
-      disp.innerHTML = `<a href="${encodeURI(state.topicUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(state.topicLabel)}</a>`;
-    } else if (state.topicLabel) {
-      disp.textContent = state.topicLabel;
+    // content (when not editing)
+    if (!state.topicEditing) {
+      if (state.topicLabel && state.topicUrl) {
+        disp.innerHTML = `<a href="${encodeURI(state.topicUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(state.topicLabel)}</a>`;
+      } else if (state.topicLabel) {
+        disp.textContent = state.topicLabel;
+      } else {
+        disp.textContent = '–';
+      }
+    }
+
+    // actions (host-only)
+    const actions = row.querySelector('.topic-actions') || (() => {
+      const a = document.createElement('div');
+      a.className = 'topic-actions';
+      row.appendChild(a);
+      return a;
+    })();
+
+    if (!state.isHost) { actions.innerHTML = ''; return; }
+
+    if (!state.topicEditing) {
+      actions.innerHTML =
+        `<button id="topicEditBtn" class="row-action host-only" type="button" title="${isDe() ? 'Bearbeiten' : 'Edit'}" aria-label="${isDe() ? 'Bearbeiten' : 'Edit'}"><span class="ra-icon">✍️</span></button>
+         <button id="topicClearBtn" class="row-action kick host-only" type="button" title="${isDe() ? 'Feld leeren' : 'Clear'}" aria-label="${isDe() ? 'Feld leeren' : 'Clear'}"><span class="ra-icon">🗑️</span></button>`;
+
+      const editBtn = $('#topicEditBtn');
+      const clearBtn = $('#topicClearBtn');
+
+      if (editBtn) editBtn.addEventListener('click', beginTopicEdit);
+      if (clearBtn) clearBtn.addEventListener('click', () => {
+        send('topicSave:' + encodeURIComponent(''));
+        state.topicLabel = '';
+        state.topicUrl = null;
+        state.topicEditing = false;
+        renderTopic();
+      });
     } else {
-      disp.textContent = '–';
+      // swap display <span> -> <input>
+      let inp = row.querySelector('input.topic-inline-input');
+      if (!inp) {
+        inp = document.createElement('input');
+        inp.type = 'text';
+        inp.className = 'topic-inline-input';
+        inp.placeholder = isDe()
+          ? 'JIRA-Link einfügen oder Key eingeben'
+          : 'Paste JIRA link or type key';
+        (disp).replaceWith(inp);
+        inp.id = 'topicDisplay';
+      }
+      inp.value = state.topicLabel || '';
+      setTimeout(() => { try { inp.focus(); inp.select(); } catch {} }, 0);
+
+      actions.innerHTML =
+        `<button id="topicSaveBtn" class="row-action host-only" type="button" title="${isDe() ? 'Speichern' : 'Save'}" aria-label="${isDe() ? 'Speichern' : 'Save'}"><span class="ra-icon">✅</span></button>
+         <button id="topicCancelEditBtn" class="row-action host-only" type="button" title="${isDe() ? 'Abbrechen' : 'Cancel'}" aria-label="${isDe() ? 'Abbrechen' : 'Cancel'}"><span class="ra-icon">❌</span></button>`;
+
+      const saveBtn = $('#topicSaveBtn');
+      const cancelBtn = $('#topicCancelEditBtn');
+
+      const doSave = () => {
+        const val = inp.value || '';
+        send('topicSave:' + encodeURIComponent(val));
+        state.topicEditing = false;
+        renderTopic();
+      };
+      const doCancel = () => {
+        state.topicEditing = false;
+        renderTopic();
+      };
+
+      if (saveBtn)  saveBtn.addEventListener('click', doSave);
+      if (cancelBtn) cancelBtn.addEventListener('click', doCancel);
+      inp.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); doSave(); }
+        if (e.key === 'Escape') { e.preventDefault(); doCancel(); }
+      });
     }
   }
 
-  // actions (host-only)
-  const actions = row.querySelector('.topic-actions') || (() => {
-    const a = document.createElement('div');
-    a.className = 'topic-actions';
-    row.appendChild(a);
-    return a;
-  })();
-
-  if (!state.isHost) { actions.innerHTML = ''; return; }
-
-  if (!state.topicEditing) {
-    actions.innerHTML =
-      `<button id="topicEditBtn" class="row-action host-only" type="button" title="${isDe() ? 'Bearbeiten' : 'Edit'}" aria-label="${isDe() ? 'Bearbeiten' : 'Edit'}"><span class="ra-icon">✍️</span></button>
-       <button id="topicClearBtn" class="row-action kick host-only" type="button" title="${isDe() ? 'Feld leeren' : 'Clear'}" aria-label="${isDe() ? 'Feld leeren' : 'Clear'}"><span class="ra-icon">🗑️</span></button>`;
-
-    const editBtn = $('#topicEditBtn');
-    const clearBtn = $('#topicClearBtn');
-
-    if (editBtn) editBtn.addEventListener('click', beginTopicEdit);
-    if (clearBtn) clearBtn.addEventListener('click', () => {
-      send('topicSave:' + encodeURIComponent(''));
-      state.topicLabel = '';
-      state.topicUrl = null;
-      state.topicEditing = false;
-      renderTopic();
-    });
-  } else {
-    // swap display <span> -> <input>
-    let inp = row.querySelector('input.topic-inline-input');
-    if (!inp) {
-      inp = document.createElement('input');
-      inp.type = 'text';
-      inp.className = 'topic-inline-input';
-      inp.placeholder = isDe()
-        ? 'JIRA-Link einfügen oder Key eingeben'
-        : 'Paste JIRA link or type key';
-      disp.replaceWith(inp);
-      inp.id = 'topicDisplay';
-    }
-    inp.value = state.topicLabel || '';
-    setTimeout(() => { try { inp.focus(); inp.select(); } catch {} }, 0);
-
-    actions.innerHTML =
-      `<button id="topicSaveBtn" class="row-action host-only" type="button" title="${isDe() ? 'Speichern' : 'Save'}" aria-label="${isDe() ? 'Speichern' : 'Save'}"><span class="ra-icon">✅</span></button>
-       <button id="topicCancelEditBtn" class="row-action host-only" type="button" title="${isDe() ? 'Abbrechen' : 'Cancel'}" aria-label="${isDe() ? 'Abbrechen' : 'Cancel'}"><span class="ra-icon">❌</span></button>`;
-
-    const saveBtn = $('#topicSaveBtn');
-    const cancelBtn = $('#topicCancelEditBtn');
-
-    const doSave = () => {
-      const val = inp.value || '';
-      send('topicSave:' + encodeURIComponent(val));
-      state.topicEditing = false;
-      renderTopic();
-    };
-    const doCancel = () => {
-      state.topicEditing = false;
-      renderTopic();
-    };
-
-    if (saveBtn)  saveBtn.addEventListener('click', doSave);
-    if (cancelBtn) cancelBtn.addEventListener('click', doCancel);
-    inp.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') { e.preventDefault(); doSave(); }
-      if (e.key === 'Escape') { e.preventDefault(); doCancel(); }
-    });
+  function beginTopicEdit() {
+    if (!state.isHost) return;
+    state.topicEditing = true;
+    renderTopic();
   }
-}
-
-function beginTopicEdit() {
-  if (!state.isHost) return;
-  state.topicEditing = true;
-  renderTopic();
-}
-
 
   // ---------------- Auto-reveal badge ----------------
   function renderAutoReveal() {
@@ -672,25 +728,24 @@ function beginTopicEdit() {
   }
 
   function syncSequenceInMenu() {
-  const root = $('#menuSeqChoice'); if (!root) return;
+    const root = $('#menuSeqChoice'); if (!root) return;
 
-  root.querySelectorAll('input[type="radio"][name="menu-seq"]').forEach(r => {
-    const shouldDisable = state._hostKnown ? !state.isHost : false;
-    r.disabled = !!shouldDisable;
-    r.setAttribute('aria-disabled', String(!!shouldDisable));
-    const lab = r.closest('label');
-    if (lab) lab.classList.toggle('disabled', !!shouldDisable);
-  });
+    root.querySelectorAll('input[type="radio"][name="menu-seq"]').forEach(r => {
+      const shouldDisable = state._hostKnown ? !state.isHost : false;
+      r.disabled = !!shouldDisable;
+      r.setAttribute('aria-disabled', String(!!shouldDisable));
+      const lab = r.closest('label');
+      if (lab) lab.classList.toggle('disabled', !!shouldDisable);
+    });
 
-  const esc = (s) => (window.CSS && typeof CSS.escape === 'function') ? CSS.escape(s) : String(s).replace(/"/g, '\\"');
+    const esc = (s) => (window.CSS && typeof CSS.escape === 'function') ? CSS.escape(s) : String(s).replace(/"/g, '\\"');
 
-  const id = state.sequenceId || '';
-  const sel =
-    root.querySelector(`input[type="radio"][name="menu-seq"][value="${esc(id)}"]`) ||
-    root.querySelector(`input[type="radio"][name="menu-seq"][value="${esc(id.replace('.', '-'))}"]`);
-  if (sel) { sel.checked = true; sel.setAttribute('aria-checked', 'true'); }
-}
-
+    const id = state.sequenceId || '';
+    const sel =
+      root.querySelector(`input[type="radio"][name="menu-seq"][value="${esc(id)}"]`) ||
+      root.querySelector(`input[type="radio"][name="menu-seq"][value="${esc(id.replace('.', '-'))}"]`);
+    if (sel) { sel.checked = true; sel.setAttribute('aria-checked', 'true'); }
+  }
 
   document.addEventListener('ep:menu-open', () => { syncMenuFromState(); syncSequenceInMenu(); });
 
@@ -802,17 +857,17 @@ function beginTopicEdit() {
       send(`participation:${estimating}`);
     });
 
-    // host-only local toggles (client-side only right now)
+    // host-only local toggles (client-side optimistic + server notify)
     document.addEventListener('ep:specials-toggle', (ev) => {
-    if (!state.isHost) return;
+      if (!state.isHost) return;
       const on = !!(ev && ev.detail && ev.detail.on);
-    // optimistic local update
+      // optimistic local update
       state.allowSpecials = on;
       syncMenuFromState();
       renderCards();
-    // inform server (room-wide)
+      // inform server (room-wide)
       send(`specials:${on}`);
-  });
+    });
 
     document.addEventListener('ep:hard-mode-toggle', (ev) => {
       if (!state.isHost) return;
@@ -832,38 +887,37 @@ function beginTopicEdit() {
     return ['❓','💬','☕'].includes(t);
   }
 
-
   function escapeHtml(s) {
     return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   }
 
-// ---------------- Wire & boot ----------------
-function wireOnce() {
-  bindCopyLink();
-  wireMenuEvents();
+  // ---------------- Wire & boot ----------------
+  function wireOnce() {
+    bindCopyLink();
+    wireMenuEvents();
 
-  // clicking empty topic row (host only) opens editor
-  const row = $('#topicRow');
-  if (row) {
-    row.addEventListener('click', (e) => {
-      if (!state.isHost || state.topicEditing) return;
-      if (state.topicLabel) return;
-      if (e.target.closest('button,a,input')) return;
-      beginTopicEdit();
+    // clicking empty topic row (host only) opens editor
+    const row = $('#topicRow');
+    if (row) {
+      row.addEventListener('click', (e) => {
+        if (!state.isHost || state.topicEditing) return;
+        if (state.topicLabel) return;
+        if (e.target.closest('button,a,input')) return;
+        beginTopicEdit();
+      });
+    }
+
+    // NO 'intentionalLeave' on beforeunload anymore (grace will handle refresh/close)
+    window.addEventListener('pageshow', () => {
+      document.dispatchEvent(new CustomEvent('ep:request-sync', { detail: { room: state.roomCode } }));
+      if (!state.connected && (!state.ws || state.ws.readyState !== 1)) connectWS();
     });
+
+    syncSequenceInMenu();
   }
 
-  // NO 'intentionalLeave' on beforeunload anymore (grace will handle refresh/close)
-  window.addEventListener('pageshow', () => {
-    document.dispatchEvent(new CustomEvent('ep:request-sync', { detail: { room: state.roomCode } }));
-    if (!state.connected && (!state.ws || state.ws.readyState !== 1)) connectWS();
-  });
-
-  syncSequenceInMenu();
-}
-
-function boot() { wireOnce(); syncHostClass(); connectWS(); }
-if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
-else boot();
+  function boot() { wireOnce(); syncHostClass(); connectWS(); }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+  else boot();
 
 })();
