@@ -722,6 +722,31 @@ function renderTopic() {
     }
   };
 
+  function buildTopicTitle() {
+  const parts = [];
+  if (state.topicLabel) parts.push(state.topicLabel);
+  if (state.topicUrl)   parts.push(state.topicUrl);
+  // try newline; browsers that don't support it will just render as spaces
+  let full = parts.join('\n— ');
+  const MAX = 800;
+  if (full.length > MAX) full = full.slice(0, MAX - 1) + '…';
+  return full;
+  hint.setAttribute('title', buildTopicTitle());
+}
+
+
+if (state.topicLabel && state.topicUrl) {
+  el.innerHTML = `<a href="${encodeURI(state.topicUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(state.topicLabel)}</a>`;
+} else if (state.topicLabel) {
+  el.textContent = state.topicLabel;
+} else {
+  el.textContent = '–';
+}
+// put title on the link if present, else on the span
+const link = el.querySelector && el.querySelector('a');
+(link || el).setAttribute('title', buildTopicTitle());
+
+
   // Non-hosts: view-only (SPAN + optional "more", no action buttons)
   if (!state.isHost) {
     if (!displayEl || displayEl.tagName !== 'SPAN') {
