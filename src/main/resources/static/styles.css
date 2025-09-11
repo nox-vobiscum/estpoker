@@ -749,3 +749,30 @@ body{padding-bottom:var(--footer-h)}
     }
   }
 }
+
+/* --- Light theme readability tweaks for result chips --- */
+@media (prefers-color-scheme: light) {
+  /* use a dark, neutral text color; slightly bolder for legibility */
+  .vote-chip,
+  .participant-row .mini-chip {
+    color: #0f172a;        /* slate-900-ish */
+    font-weight: 600;
+  }
+
+  /* heat-colored numeric chips: color lives in ring + gentle fill, text stays dark */
+  .vote-chip.heat{
+    --_h: var(--chip-heat-h,120);                 /* 120=green … 0=red (set in JS) */
+    color: #0f172a;                                /* dark neutral text */
+    border-color: hsl(var(--_h) 70% 45% / .95);    /* stronger ring in light mode */
+    background: color-mix(in oklab,
+                          hsl(var(--_h) 85% 55%) 18%,
+                          white);                  /* soft tint behind dark text */
+  }
+
+  /* Fallback for browsers without color-mix */
+  @supports not (color-mix(in oklab, white, black)) {
+    .vote-chip.heat{
+      background: hsl(var(--_h) 90% 92%);          /* pale tint, still readable */
+    }
+  }
+}
