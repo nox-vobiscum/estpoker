@@ -835,9 +835,6 @@ function syncTopicOverflow() {
   } catch {}
 }
 
-// (Optional) ensure this runs on resize; if you already do this elsewhere, skip this:
-// window.addEventListener('resize', () => requestAnimationFrame(syncTopicOverflow));
-
 
   // ---------------- Auto-reveal badge ----------------
   function renderAutoReveal() {
