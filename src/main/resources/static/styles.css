@@ -628,3 +628,35 @@ body{padding-bottom:var(--footer-h)}
 
 /* Ensure the middle column keeps vertical rhythm */
 .row-right{ display:flex; align-items:center; gap:6px; min-height:1.8rem; }
+
+
+/* === Status "pending" (⏳) wie Observer/Dash: dezenter, grauer Outline-Chip === */
+/* Überschreibt die frühere gelbe Warnfarbe */
+#liveParticipantList .row-right .status-icon.pending{
+  /* gleiche Breite/Geometrie wie Chips */
+  inline-size: var(--vote-chip-width);
+  padding: .15rem .35rem;
+  border-radius: 8px;
+
+  /* dezente Outline */
+  background: transparent;
+  border: 1.5px solid rgba(148,163,184,.35) !important;
+  box-shadow: none;
+
+  /* neutrale, graue Schrift/Iconfarbe */
+  color: var(--text-dim) !important;
+  opacity: 1;               /* nicht halbtransparent */
+  line-height: 1.2;
+
+  /* sorgt plattformübergreifend fürs Zentrieren des Emojis */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",system-ui,sans-serif;
+}
+
+/* Light-Theme-Kontrast anpassen – identisch zu Observer/Dash */
+:root[data-theme="light"] #liveParticipantList .row-right .status-icon.pending{
+  border-color: var(--chip-special-border, #cfe0ff) !important;
+  color: var(--chip-special-text, #0b1220) !important;
+}
