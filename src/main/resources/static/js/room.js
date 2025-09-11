@@ -300,6 +300,11 @@ function shouldToastPresence(name, kind) {
     state.sequenceId = seqId;
     state.autoRevealEnabled = !!m.autoRevealEnabled;
 
+  if (Object.prototype.hasOwnProperty.call(m, 'allowSpecials')) {
+    state.allowSpecials = !!m.allowSpecials;
+  }
+
+
     if (m.hasOwnProperty('topicVisible')) state.topicVisible = !!m.topicVisible;
     if (m.hasOwnProperty('topicLabel'))   state.topicLabel   = m.topicLabel || '';
     if (m.hasOwnProperty('topicUrl'))     state.topicUrl     = m.topicUrl || null;
@@ -495,74 +500,88 @@ function renderParticipants() {
     }
 
   function renderCards() {
-    const grid = $('#cardGrid'); if (!grid) return;
-    grid.innerHTML = '';
+  const grid = $('#cardGrid'); if (!grid) return;
+  grid.innerHTML = '';
 
-    const me = state.participants.find(pp => pp.name === state.youName);
-    const isObserver = !!(me && me.observer);
-    const disabled = state.votesRevealed || isObserver;
+  const me = state.participants.find(pp => pp.name === state.youName);
+  const isObserver = !!(me && me.observer);
+  const disabled = state.votesRevealed || isObserver;
 
-    // Split current deck into numbers + specials. We then suppress specials
-    // for all clients when allowSpecials=false (server or optimistic host toggle).
-    const specialsAll = state.cards.filter(v => SPECIALS.includes(v));
-    const numbers = state.cards.filter(v => !SPECIALS.includes(v));
-    const specials = state.allowSpecials ? specialsAll : [];
+  // Split deck into numeric vs. specials
+  const deckSpecialsFromState = (state.cards || []).filter(v => SPECIALS.includes(v));
+  const deckNumbers           = (state.cards || []).filter(v => !SPECIALS.includes(v));
 
-    const selectedVal = mySelectedValue();
+  // Robust fallback: if the deck doesn't carry specials, use our default SPECIALS
+  // (and dedupe against numbers just in case).
+  const specialsCandidate = deckSpecialsFromState.length ? deckSpecialsFromState : SPECIALS.slice();
+  const specialsDedupe = [...new Set(specialsCandidate.filter(s => !deckNumbers.includes(s)))];
 
-    function addCardButton(val) {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      const label = String(val);
-      btn.textContent = label;
+  // Honor host toggle: if off => show none
+  const specials = state.allowSpecials ? specialsDedupe : [];
 
-      if (label === INFINITY_ || label === INFINITY_ALT) btn.classList.add('card-infinity');
+  const selectedVal = mySelectedValue();
 
-      if (disabled) btn.disabled = true;
-      if (selectedVal != null && String(selectedVal) === label) btn.classList.add('selected');
+  function addCardButton(val) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    const label = String(val);
+    btn.textContent = label;
 
-      btn.addEventListener('click', () => {
-        if (btn.disabled) return;
-        state._optimisticVote = label;
-        grid.querySelectorAll('button').forEach(b => b.classList.remove('selected'));
-        btn.classList.add('selected');
-        send(`vote:${state.youName}:${label}`);
-      });
+    // Make infinity slightly larger
+    if (label === INFINITY_ || label === INFINITY_ALT) btn.classList.add('card-infinity');
 
-      grid.appendChild(btn);
-    }
+    if (disabled) btn.disabled = true;
+    if (selectedVal != null && String(selectedVal) === label) btn.classList.add('selected');
 
-    numbers.forEach(addCardButton);
-    if (specials.length) {
-      const br = document.createElement('div'); br.className = 'grid-break'; br.setAttribute('aria-hidden', 'true'); grid.appendChild(br);
-      specials.forEach(addCardButton);
-    }
+    btn.addEventListener('click', () => {
+      if (btn.disabled) return;
+      state._optimisticVote = label;
+      grid.querySelectorAll('button').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      send(`vote:${state.youName}:${label}`);
+    });
 
-    const revealBtn = $('#revealButton');
-    const resetBtn = $('#resetButton');
+    grid.appendChild(btn);
+  }
 
-    const hardGateOK = !state.hardMode || allEligibleVoted();
+  // Render numeric cards
+  deckNumbers.forEach(addCardButton);
 
-    const showReveal = (!state.votesRevealed && state.isHost);
-    const showReset = (state.votesRevealed && state.isHost);
+  // Break line before specials (only if any)
+  if (specials.length) {
+    const br = document.createElement('div');
+    br.className = 'grid-break';
+    br.setAttribute('aria-hidden', 'true');
+    grid.appendChild(br);
+    specials.forEach(addCardButton);
+  }
 
-    if (revealBtn) {
-      revealBtn.style.display = showReveal ? '' : 'none';
-      revealBtn.hidden = !showReveal;
-      revealBtn.disabled = !hardGateOK;
-      if (!hardGateOK) {
-        revealBtn.setAttribute('title', isDe() ? 'Es haben noch nicht alle ihre Schätzung abgegeben' : 'Not everyone has voted yet');
-        revealBtn.setAttribute('aria-disabled', 'true');
-      } else {
-        revealBtn.removeAttribute('title');
-        revealBtn.removeAttribute('aria-disabled');
-      }
-    }
-    if (resetBtn) {
-      resetBtn.style.display = showReset ? '' : 'none';
-      resetBtn.hidden = !showReset;
+  // CTA buttons logic (unchanged)
+  const revealBtn = $('#revealButton');
+  const resetBtn  = $('#resetButton');
+  const hardGateOK = !state.hardMode || allEligibleVoted();
+
+  const showReveal = (!state.votesRevealed && state.isHost);
+  const showReset  = (state.votesRevealed && state.isHost);
+
+  if (revealBtn) {
+    revealBtn.style.display = showReveal ? '' : 'none';
+    revealBtn.hidden = !showReveal;
+    revealBtn.disabled = !hardGateOK;
+    if (!hardGateOK) {
+      revealBtn.setAttribute('title', isDe() ? 'Es haben noch nicht alle ihre Schätzung abgegeben' : 'Not everyone has voted yet');
+      revealBtn.setAttribute('aria-disabled', 'true');
+    } else {
+      revealBtn.removeAttribute('title');
+      revealBtn.removeAttribute('aria-disabled');
     }
   }
+  if (resetBtn) {
+    resetBtn.style.display = showReset ? '' : 'none';
+    resetBtn.hidden = !showReset;
+  }
+}
+
 
   // ---------------- Result bar ----------------
   function renderResultBar() {
