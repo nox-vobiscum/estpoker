@@ -305,102 +305,104 @@
   }
 
   function applyVoteUpdate(m) {
-    try {
-      // --- sequence id ---
-      const seqId = normalizeSeq(m.sequenceId || state.sequenceId || 'fib.scrum');
+  try {
+    const has = (obj, k) => Object.prototype.hasOwnProperty.call(obj || {}, k);
 
-      // --- specials & deck (be robust across server variants) ---
-      // Server may send:
-      //  (A) m.specials = ["❓","💬","☕"]  -> specials ON (explicit list)
-      //      m.specials = []              -> specials OFF (explicit empty)
-      //  (B) m.allowSpecials = true|false -> boolean switch
-      //  (C) Legacy: m.specialsOff / m.specialsEnabled
-      //  (D) nothing -> keep client state
-      let specialsList = null;      // if null: don't touch specials in deck
-      let allowFromServer = null;   // if null: don't touch state.allowSpecials
-
-      if (Array.isArray(m.specials)) {
-        specialsList = m.specials.slice();
-        allowFromServer = specialsList.length > 0;
-      }
-      if (typeof m.allowSpecials === 'boolean') {
-        allowFromServer = m.allowSpecials;
-        if (specialsList === null) specialsList = m.allowSpecials ? SPECIALS.slice() : [];
-      }
-      if (typeof m.specialsOff === 'boolean') {
-        allowFromServer = !m.specialsOff;
-        if (specialsList === null) specialsList = (!m.specialsOff) ? SPECIALS.slice() : [];
-      }
-      if (typeof m.specialsEnabled === 'boolean') {
-        allowFromServer = m.specialsEnabled;
-        if (specialsList === null) specialsList = m.specialsEnabled ? SPECIALS.slice() : [];
-      }
-      if (typeof allowFromServer === 'boolean') {
-        state.allowSpecials = allowFromServer;
-      }
-
-      // Base deck: server deck or current one
-      let deck = Array.isArray(m.cards) ? m.cards.slice() : (Array.isArray(state.cards) ? state.cards.slice() : []);
-
-      // Infinity only for fib.enh
-      if (seqId !== 'fib.enh') {
-        deck = deck.filter(c => c !== INFINITY_ && c !== INFINITY_ALT);
-      }
-
-      // Align deck specials to server's explicit list (including empty)
-      if (specialsList !== null) {
-        deck = deck.filter(c => !SPECIALS.includes(c)).concat(specialsList);
-      }
-      state.cards = deck;
-
-      // --- core flags ---
-      state.votesRevealed = !!m.votesRevealed;
-      state.averageVote   = (m.hasOwnProperty('averageVote') ? m.averageVote : null);
-      state.medianVote    = (m.hasOwnProperty('medianVote')  ? m.medianVote  : null);
-      state.range         = (m.hasOwnProperty('range')       ? m.range       : null);
-      state.consensus     = !!m.consensus;
-      state.outliers      = Array.isArray(m.outliers) ? m.outliers : [];
-
-      // --- participants ---
-      const raw = Array.isArray(m.participants) ? m.participants : [];
-      state.participants = raw.map(p => ({
-        name:           p?.name ?? '',
-        vote:           (p?.vote ?? null),
-        disconnected:   !!p?.disconnected,
-        away:           !!p?.away,
-        isHost:         !!p?.isHost,
-        participating:  (p?.participating !== false),
-        observer:       (p?.participating === false)
-      }));
-
-      // --- topic / misc ---
-      state.sequenceId = seqId;
-      state.autoRevealEnabled = !!m.autoRevealEnabled;
-      if (m.hasOwnProperty('topicVisible')) state.topicVisible = !!m.topicVisible;
-      if (m.hasOwnProperty('topicLabel'))   state.topicLabel   = m.topicLabel || '';
-      if (m.hasOwnProperty('topicUrl'))     state.topicUrl     = m.topicUrl || null;
-
-      // who am I
-      const me = state.participants.find(p => p && p.name === state.youName);
-      state.isHost = !!(me && me.isHost);
-      state._hostKnown = true;
-      if (me && me.vote != null) state._optimisticVote = null;
-
-    try {
-      (state.participants || []).forEach(p => { if (p && !p.disconnected) markAlive(p.name); });
-    } catch {}
-
-    const sig = renderSigFromState();
-    if (sig === state._lastRenderSig) {
-      requestAnimationFrame(() => { syncMenuFromState(); syncSequenceInMenu(); });
-      if (!document.documentElement.hasAttribute('data-ready')) {
-        document.documentElement.setAttribute('data-ready', '1');
-      }
-      return;
+    // --- sequence id (normalize but only update if present) ---
+    if (has(m, 'sequenceId')) {
+      state.sequenceId = normalizeSeq(m.sequenceId);
+    } else if (!state.sequenceId) {
+      state.sequenceId = 'fib.scrum';
     }
-    state._lastRenderSig = sig;
 
-    // render
+    // --- specials & deck (robust across server variants) ---
+    const SPECIALS_SET = new Set(SPECIALS);
+    let specialsList = null;    // explicit list (incl. empty) → forces deck specials
+    let allowFromServer = null; // explicit boolean for allowSpecials
+
+    if (has(m, 'specials') && Array.isArray(m.specials)) {
+      specialsList = m.specials.slice();
+      allowFromServer = specialsList.length > 0;
+    }
+    if (has(m, 'allowSpecials')) {
+      allowFromServer = !!m.allowSpecials;
+      if (specialsList === null) specialsList = allowFromServer ? SPECIALS.slice() : [];
+    }
+    if (has(m, 'specialsOff')) {
+      allowFromServer = !m.specialsOff;
+      if (specialsList === null) specialsList = (!m.specialsOff) ? SPECIALS.slice() : [];
+    }
+    if (has(m, 'specialsEnabled')) {
+      allowFromServer = !!m.specialsEnabled;
+      if (specialsList === null) specialsList = m.specialsEnabled ? SPECIALS.slice() : [];
+    }
+    if (allowFromServer !== null) state.allowSpecials = allowFromServer;
+
+    // Base deck: use server deck if provided, else keep current
+    let deck = has(m, 'cards') && Array.isArray(m.cards) ? m.cards.slice()
+              : Array.isArray(state.cards) ? state.cards.slice()
+              : [];
+
+    // Infinity only for fib.enh
+    const seqId = state.sequenceId || 'fib.scrum';
+    if (seqId !== 'fib.enh') {
+      deck = deck.filter(c => c !== INFINITY_ && c !== INFINITY_ALT);
+    }
+
+    // Align specials if server sent an explicit list (including empty)
+    if (specialsList !== null) {
+      deck = deck.filter(c => !SPECIALS_SET.has(c)).concat(specialsList);
+    }
+    state.cards = deck;
+
+    // --- core flags / stats (only overwrite if present) ---
+    if (has(m, 'votesRevealed')) state.votesRevealed = !!m.votesRevealed;
+    if (has(m, 'averageVote'))   state.averageVote   = m.averageVote;
+    if (has(m, 'medianVote'))    state.medianVote    = m.medianVote;
+    if (has(m, 'range'))         state.range         = m.range;
+    if (has(m, 'consensus'))     state.consensus     = !!m.consensus;
+    if (has(m, 'outliers') && Array.isArray(m.outliers)) state.outliers = m.outliers.slice();
+
+    if (has(m, 'autoRevealEnabled')) state.autoRevealEnabled = !!m.autoRevealEnabled;
+
+    // --- topic / misc (only if present) ---
+    if (has(m, 'topicVisible')) state.topicVisible = !!m.topicVisible;
+    if (has(m, 'topicLabel'))   state.topicLabel   = m.topicLabel || '';
+    if (has(m, 'topicUrl'))     state.topicUrl     = m.topicUrl || null;
+
+    // --- participants (preserve previous vote if omitted) ---
+    if (has(m, 'participants') && Array.isArray(m.participants)) {
+      const prevByName = Object.fromEntries((state.participants || []).map(p => [p.name, p]));
+      state.participants = m.participants.map(p => {
+        const name = p?.name || '';
+        const prev = prevByName[name];
+
+        const vote = has(p, 'vote') ? (p.vote ?? null)
+                    : prev ? (prev.vote ?? null)
+                    : null;
+
+        return {
+          name,
+          vote,
+          disconnected: has(p, 'disconnected') ? !!p.disconnected : !!prev?.disconnected,
+          away:         has(p, 'away')         ? !!p.away         : !!prev?.away,
+          isHost:       has(p, 'isHost')       ? !!p.isHost       : !!prev?.isHost,
+          // default: participating unless explicitly false
+          participating: has(p, 'participating') ? (p.participating !== false)
+                        : (prev ? (prev.participating !== false) : true),
+          observer:       has(p, 'participating') ? (p.participating === false)
+                        : (prev ? prev.observer : false)
+        };
+      });
+    }
+
+    // who am I (re-evaluate host)
+    const me = state.participants.find(p => p && p.name === state.youName);
+    state.isHost = !!(me && me.isHost);
+    state._hostKnown = true;
+    if (me && me.vote != null) state._optimisticVote = null;
+
+    // --- render (unchanged) ---
     syncHostClass();
     renderParticipants();
     renderCards();
@@ -408,22 +410,20 @@
     renderTopic();
     renderAutoReveal();
 
-      // presence freshness
-      try {
-        (state.participants || []).forEach(p => {
-          if (p && !p.disconnected) markAlive(p.name);
-        });
-      } catch {}
+    // presence freshness
+    try {
+      (state.participants || []).forEach(p => { if (p && !p.disconnected) markAlive(p.name); });
+    } catch {}
 
-      requestAnimationFrame(() => { syncMenuFromState(); syncSequenceInMenu(); });
-
-      if (!document.documentElement.hasAttribute('data-ready')) {
-        document.documentElement.setAttribute('data-ready', '1');
-      }
-    } catch (e) {
-      console.error(TAG, 'applyVoteUpdate failed', e);
+    requestAnimationFrame(() => { syncMenuFromState(); syncSequenceInMenu(); });
+    if (!document.documentElement.hasAttribute('data-ready')) {
+      document.documentElement.setAttribute('data-ready', '1');
     }
+  } catch (e) {
+    console.error('[ROOM] applyVoteUpdate failed', e);
   }
+}
+
 
   // ---------------- Participants ----------------
   function renderParticipants() {
