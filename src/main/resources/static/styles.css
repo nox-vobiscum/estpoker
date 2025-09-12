@@ -773,3 +773,29 @@ body.light .vote-chip.heat,
     background: hsl(var(--_h) 90% 90%);
   }
 }
+
+/* --- iOS-safe centering for participant row actions (minimal patch) ------ */
+/* Zentriert 👑/❌ zuverlässig, ohne Chips/Abstände zu verändern */
+#liveParticipantList .row-right { gap: 6px; }
+
+#liveParticipantList .row-action{
+  display: inline-grid;         /* echtes Centering */
+  place-items: center;
+  width: 28px; height: 28px;
+  padding: 0;
+  line-height: 1;
+}
+#liveParticipantList .row-action .ra-icon{
+  width: 1em; height: 1em; line-height: 1;
+}
+
+/* Erstes Action-Icon bleibt ganz rechts – wie gehabt */
+#liveParticipantList .row-right > .row-action:first-of-type{ margin-left: auto; }
+#liveParticipantList .row-right :where(.status-icon,.vote-chip,.mini-chip)
+  ~ .row-action:first-of-type{ margin-left: auto; }
+
+/* iOS: größere runde Touch-Ziele, Emoji minimal größer */
+@supports (-webkit-touch-callout:none){
+  #liveParticipantList .row-action{ width: 40px; height: 40px; border-radius: 50%; }
+  #liveParticipantList .row-action .ra-icon{ font-size: 20px; }
+}
