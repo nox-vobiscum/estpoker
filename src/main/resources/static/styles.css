@@ -799,3 +799,7 @@ body.light .vote-chip.heat,
   #liveParticipantList .row-action{ width: 40px; height: 40px; border-radius: 50%; }
   #liveParticipantList .row-action .ra-icon{ font-size: 20px; }
 }
+
+/* Stop re-animations while revealed (after first render) */
+.no-chip-anim .vote-chip { animation: none !important; }
+.no-chip-anim .average-label #averageVote { animation: none !important; }

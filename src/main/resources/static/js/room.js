@@ -50,6 +50,8 @@
 
   // ---------------- State (client) ----------------
   const state = {
+    _lastRenderSig: null,      // dedupe signature
+    _chipAnimShown: false,     // first post-reveal animation already shown?
     roomCode: ds.room || url.searchParams.get('roomCode') || 'demo',
     youName: ds.participant || url.searchParams.get('participantName') || 'Guest',
     cid: null,
@@ -276,6 +278,32 @@
     }
   }
 
+  function renderSigFromState() {
+    const P = (state.participants || [])
+      .map(p => ({
+        n: p?.name || '',
+        v: (p?.vote ?? ''),
+        o: !!p?.observer,
+        d: !!p?.disconnected
+      }))
+      .sort((a, b) => a.n.localeCompare(b.n));
+
+    return JSON.stringify({
+      r: !!state.votesRevealed,
+      a: state.averageVote ?? null,
+      m: state.medianVote ?? null,
+      g: state.range ?? null,
+      c: !!state.consensus,
+      s: state.sequenceId || '',
+      ar: !!state.autoRevealEnabled,
+      tv: !!state.topicVisible,
+      tl: state.topicLabel || '',
+      tu: state.topicUrl || null,
+      sp: !!state.allowSpecials,
+      P
+    });
+  }
+
   function applyVoteUpdate(m) {
     try {
       // --- sequence id ---
@@ -358,13 +386,27 @@
       state._hostKnown = true;
       if (me && me.vote != null) state._optimisticVote = null;
 
-      // render
-      syncHostClass();
-      renderParticipants();
-      renderCards();
-      renderResultBar();
-      renderTopic();
-      renderAutoReveal();
+    try {
+      (state.participants || []).forEach(p => { if (p && !p.disconnected) markAlive(p.name); });
+    } catch {}
+
+    const sig = renderSigFromState();
+    if (sig === state._lastRenderSig) {
+      requestAnimationFrame(() => { syncMenuFromState(); syncSequenceInMenu(); });
+      if (!document.documentElement.hasAttribute('data-ready')) {
+        document.documentElement.setAttribute('data-ready', '1');
+      }
+      return;
+    }
+    state._lastRenderSig = sig;
+
+    // render
+    syncHostClass();
+    renderParticipants();
+    renderCards();
+    renderResultBar();
+    renderTopic();
+    renderAutoReveal();
 
       // presence freshness
       try {
@@ -691,6 +733,19 @@
 
   // ---------------- Result bar ----------------
 function renderResultBar() {
+  
+  if (state.votesRevealed) {
+  if (state._chipAnimShown) {
+    document.body.classList.add('no-chip-anim');
+  } else {
+    document.body.classList.remove('no-chip-anim');
+    state._chipAnimShown = true;
+  }
+} else {
+  document.body.classList.remove('no-chip-anim');
+  state._chipAnimShown = false;
+}
+  
   const hasInfinity = !!(
     state.votesRevealed &&
     Array.isArray(state.participants) &&
