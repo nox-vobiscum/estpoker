@@ -1,10 +1,9 @@
-/* === styles.css (emoji variant, compact, copy-paste) =======================
-   Focus:
-   - Stable centered row-action emoji buttons (👑 / ❌)
-   - Mobile sticky reveal above footer without covering content
-   - Inputs readable in dark & light
-   - Inactive participants (💤) dimmed, not italic
-   - Result chips: equal width; ♾️ green, ❓/💬/☕ grey; observer/dash outlined
+/* === styles.css v43 (compact, emoji-friendly) ==============================
+   Fokus:
+   - iOS-stabile Participant-Zeilen (Emoji + Chips zentriert, konstante Höhen)
+   - Menü/Buttons/Inputs unverändert
+   - Sticky-CTA & Footer wie gehabt
+   - Keine Breaking-Änderungen am Look; nur Kollisionen/Doppelungen bereinigt
 ============================================================================= */
 
 /* ---------- Theme tokens (dark default) ---------------------------------- */
@@ -20,7 +19,7 @@
 
   /* footer + sticky CTA spacing */
   --footer-h:68px;
-  --cta-offset:8px;   /* vertical gap between CTA and footer on mobile */
+  --cta-offset:8px;
 
   /* cards */
   --card-min-desktop:46px; --card-max-desktop:84px;
@@ -45,8 +44,8 @@
   /* inactive text color (dark) */
   --inactive-fg:#8c949f;
 
-  /* input tokens (dark default) */
-  --field-bg:#1f2937;                 /* slate-800-ish */
+  /* inputs (dark) */
+  --field-bg:#1f2937;
   --field-border:rgba(255,255,255,.16);
   --field-fg:#e5e7eb;
   --field-placeholder:rgba(255,255,255,.45);
@@ -66,10 +65,8 @@
 
   --switch-off-track:#d2d6de; --switch-off-border:#b8bec9;
 
-  /* inactive text color (light) */
   --inactive-fg:#9ca3af;
 
-  /* inputs (light) */
   --field-bg:#fff;
   --field-border:rgba(0,0,0,.20);
   --field-fg:#111827;
@@ -91,10 +88,10 @@ body.menu-open{overflow:hidden}
 h1{color:var(--text-strong);margin-bottom:2rem;font-size:1.1rem}
 h2{color:var(--text-strong);margin:1.2rem 0 .8rem;font-size:.98rem}
 strong{color:var(--text-strong)}
-.app-title { display:flex; align-items:center; gap:.5rem; justify-content:flex-start; }
+.app-title{display:flex;align-items:center;gap:.5rem;justify-content:flex-start}
 .app-title .logo{border-radius:6px;vertical-align:middle}
-.page-landing .app-title { justify-content:center; text-align:center; }
-@media (max-width:560px){.app-title { justify-content:center; text-align:center; }}
+.page-landing .app-title{justify-content:center;text-align:center}
+@media (max-width:560px){.app-title{justify-content:center;text-align:center}}
 
 /* header info */
 .main-info{display:grid;grid-template-columns:max-content 1fr;column-gap:10px;row-gap:6px;align-items:center;margin-bottom:1.2rem}
@@ -203,47 +200,33 @@ strong{color:var(--text-strong)}
 .icon-button:hover{background:var(--panel-2-hover);border-color:var(--accent);box-shadow:0 0 0 2px rgba(0,122,204,.12)}
 .icon-button:active{transform:translateY(1px) scale(.98)}
 :root[data-theme="light"] .icon-button:hover{box-shadow:0 0 0 2px rgba(37,99,235,.12)}
-.icon-button.neutral {display:inline-flex;align-items:center;justify-content:center;width:32px; height:32px;border:1px solid var(--outline-3);border-radius:10px;background:transparent;color:var(--text-2);line-height:1;}
-.icon-button.neutral:hover { border-color: var(--outline-4); }
-.icon-button.neutral:focus-visible { outline:2px solid var(--focus); outline-offset:2px; }
+.icon-button.neutral{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border:1px solid var(--outline-3);border-radius:10px;background:transparent;color:var(--text-2);line-height:1}
+.icon-button.neutral:hover{border-color:var(--outline-4)}
+.icon-button.neutral:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
 
 /* ---------- Forms / landing ---------------------------------------------- */
 .landing-container{display:flex;flex-direction:column;align-items:center;min-height:90vh;padding:2rem;text-align:center;margin-top:6vh}
 .join-form{display:flex;flex-direction:column;align-items:center;gap:1rem;width:100%}
 .form-row{display:flex;flex-direction:column;gap:1rem;width:100%;max-width:400px}
 .form-field{width:100%}
-.landing-container .join-form .form-row:first-of-type { margin-top: 10px; }
+.landing-container .join-form .form-row:first-of-type{margin-top:10px}
 
-/* Inputs: use theme tokens so text never becomes white-on-white */
+/* Inputs */
 input[type="text"],input[type="search"],input[type="email"],input[type="url"],
-input[type="password"],input[type="number"],input[type="tel"],
-textarea,select{
-  display:block;width:100%;
-  height:auto;min-height:var(--h-input);
-  padding:.55rem .75rem;border-radius:10px;
-  background:var(--field-bg); color:var(--field-fg);
-  border:1px solid var(--field-border);
-  box-shadow:inset 0 1px 0 rgba(0,0,0,.05);
-  -webkit-appearance:none; appearance:none;
+input[type="password"],input[type="number"],input[type="tel"],textarea,select{
+  display:block;width:100%;height:auto;min-height:var(--h-input);
+  padding:.55rem .75rem;border-radius:10px;background:var(--field-bg);color:var(--field-fg);
+  border:1px solid var(--field-border);box-shadow:inset 0 1px 0 rgba(0,0,0,.05);
+  -webkit-appearance:none;appearance:none;
   transition:background-color .15s,border-color .15s,box-shadow .15s,color .15s;
 }
 input::placeholder,textarea::placeholder{color:var(--field-placeholder)}
-input:focus,textarea:focus,select:focus{
-  outline:none; border-color:var(--field-focus);
-  box-shadow:0 0 0 3px color-mix(in srgb, var(--field-focus) 35%, transparent);
-}
-input[disabled],textarea[disabled],select[disabled],
-input[readonly],textarea[readonly]{opacity:.7;cursor:not-allowed}
-
-/* Fight Safari/iOS autofill & tap highlights */
+input:focus,textarea:focus,select:focus{outline:none;border-color:var(--field-focus);box-shadow:0 0 0 3px color-mix(in srgb, var(--field-focus) 35%, transparent)}
+input[disabled],textarea[disabled],select[disabled],input[readonly],textarea[readonly]{opacity:.7;cursor:not-allowed}
 input:-webkit-autofill,textarea:-webkit-autofill,select:-webkit-autofill{
-  -webkit-text-fill-color:var(--field-fg);
-  -webkit-box-shadow:0 0 0 1000px var(--field-bg) inset;
-  transition:background-color 9999s ease-out 0s;
+  -webkit-text-fill-color:var(--field-fg);-webkit-box-shadow:0 0 0 1000px var(--field-bg) inset;transition:background-color 9999s ease-out 0s;
 }
-:root[data-theme="dark"] input,:root[data-theme="dark"] textarea,:root[data-theme="dark"] select{
-  -webkit-tap-highlight-color:rgba(255,255,255,.08);
-}
+:root[data-theme="dark"] input,:root[data-theme="dark"] textarea,:root[data-theme="dark"] select{ -webkit-tap-highlight-color:rgba(255,255,255,.08) }
 
 /* ---------- Buttons ------------------------------------------------------- */
 .button{margin-top:1.2rem;height:var(--h-button);padding:0 1.2rem;background:var(--accent);color:#fff;border:none;border-radius:var(--radius);cursor:pointer;font-size:1rem;transition:transform 120ms,filter 180ms,box-shadow 180ms,background 180ms;box-shadow:var(--shadow)}
@@ -254,7 +237,7 @@ input:-webkit-autofill,textarea:-webkit-autofill,select:-webkit-autofill{
 button.shake{animation:shake .4s}
 
 /* ---------- Cards --------------------------------------------------------- */
-.card-grid{display:grid;grid-template-columns:repeat(auto-fit, minmax(var(--card-min-desktop), var(--card-max-desktop)));gap:8px;margin:1rem 0}
+.card-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(var(--card-min-desktop),var(--card-max-desktop)));gap:8px;margin:1rem 0}
 .card-grid.fixed4{grid-template-columns:repeat(4,minmax(var(--card-min-desktop),var(--card-max-desktop)))}
 .card-grid button{display:inline-block;padding:.55rem .6rem;margin:.35rem;background:var(--panel);border:1px solid var(--border);border-radius:10px;cursor:pointer;transition:transform .15s,box-shadow .2s,background .2s,border-color .2s;font-size:clamp(1.05rem,2.2vw,1.3rem);text-align:center;color:var(--text);position:relative;aspect-ratio:5/3}
 .card-grid button:hover{background:var(--panel-hover);transform:translateY(-1px);box-shadow:0 0 10px rgba(0,122,204,.35);border-color:#4a4a4a}
@@ -264,53 +247,49 @@ button.selected{background:#163a52 !important;color:#fff !important;font-weight:
 .card-grid button:disabled{opacity:.55;cursor:not-allowed;filter:grayscale(35%);background:var(--panel-2);border-color:var(--border);box-shadow:none;transform:none !important}
 .card-grid button:disabled:hover{background:var(--panel-2);border-color:var(--border);box-shadow:none;transform:none}
 
-/* ---------- Participants -------------------------------------------------- */
+/* ---------- Participants (iOS-friendly, konsolidiert) --------------------- */
 ul{list-style:none;padding:0;margin:0}
 li{margin-bottom:.4rem;line-height:1.5;font-size:1rem}
-#liveParticipantList .participant-row{display:grid;grid-template-columns:var(--icon-col-width) 1fr 1fr;align-items:center;column-gap:.4rem;margin-bottom:.4rem;padding:6px 8px;border-bottom:1px solid var(--border);border-radius:6px}
+
+#liveParticipantList{list-style:none;margin:0;padding:0}
+#liveParticipantList .participant-row{
+  display:grid;grid-template-columns:28px 1fr auto;align-items:center;gap:10px;
+  padding:8px 12px;border-radius:10px;border-bottom:1px solid var(--border);margin-bottom:.4rem;
+}
 #liveParticipantList .participant-row.is-host{background:rgba(0,122,204,.08);outline:1px solid rgba(0,122,204,.22)}
 :root[data-theme="light"] #liveParticipantList .participant-row.is-host{background:#e8f1ff;outline-color:rgba(37,99,235,.35)}
 
-.participant-icon{width:var(--icon-col-width);display:inline-flex;justify-content:center;align-items:center;line-height:1}
+.participant-icon{width:28px;height:28px;display:inline-flex;align-items:center;justify-content:center;line-height:1}
 .participant-icon.host{font-size:1.1rem}
-.name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;color:var(--text)}
+.name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text);line-height:1.2}
 
-/* Inactive/Disconnected row: no italics, clearly dimmed */
-#liveParticipantList li.disconnected{
-  font-style:normal;
-  color:var(--inactive-fg);
-}
-
-/* right column layout */
-.row-right{display:flex;align-items:center;gap:6px;width:100%}
+/* right column: chips + actions */
+.row-right{display:inline-flex;align-items:center;gap:8px}
 .row-right > .row-action:first-of-type{margin-left:auto}
-.row-right :where(.status-icon,.vote-chip) ~ .row-action:first-of-type{margin-left:auto}
-.row-right .row-action + .row-action{margin-left:8px}
+.row-right :where(.status-icon,.vote-chip,.mini-chip) ~ .row-action:first-of-type{margin-left:auto}
 
-/* pre-vote status icons */
+/* Inactive/Disconnected */
+#liveParticipantList li.disconnected{font-style:normal;color:var(--inactive-fg)}
+#liveParticipantList li.disconnected .name{color:var(--inactive-fg)}
+#liveParticipantList li.disconnected .participant-icon{opacity:.85}
+
+/* Pre-vote status icons */
 .status-icon{font-size:1rem;line-height:1;display:inline-flex;align-items:center}
 .status-icon.done{color:var(--ok);filter:drop-shadow(0 0 2px rgba(76,175,80,.6))}
-.status-icon.pending{color:var(--warn);opacity:.95}
-/* Observer (👁️) as subtle outline chip so it aligns to chip column */
-#liveParticipantList .status-icon.observer{
+.status-icon.pending{
   display:inline-flex;align-items:center;justify-content:center;
-  inline-size:var(--vote-chip-width);
-  padding:.15rem .35rem;border-radius:8px;
-  background:transparent;color:var(--text-dim);
-  border:1.5px solid rgba(148,163,184,.35);box-shadow:none;line-height:1.2;
+  inline-size:var(--vote-chip-width);padding:.15rem .35rem;border-radius:8px;
+  background:transparent;border:1.5px solid rgba(148,163,184,.35) !important;box-shadow:none;
+  color:var(--text-dim) !important;opacity:1;line-height:1.2;
+  font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",system-ui,sans-serif;
 }
-:root[data-theme="light"] #liveParticipantList .status-icon.observer{
-  border-color:var(--chip-special-border,#cfe0ff);
-  color:var(--chip-special-text,#0b1220);
-}
+:root[data-theme="light"] .status-icon.pending{border-color:var(--chip-special-border,#cfe0ff) !important;color:var(--chip-special-text,#0b1220) !important}
 
 /* Equal-width result chips */
 .vote-chip{
   display:inline-flex;align-items:center;justify-content:center;
-  inline-size:var(--vote-chip-width);
-  padding:.15rem .35rem;border-radius:8px;background:#185a33;color:#fff;font-weight:700;
-  border:2px solid #2b7a4a;box-shadow:0 0 6px rgba(24,90,51,.45);font-size:.95rem;line-height:1.2;text-align:center;
-  font-variant-numeric:tabular-nums;
+  inline-size:var(--vote-chip-width);padding:.15rem .35rem;border-radius:8px;background:#185a33;color:#fff;font-weight:700;
+  border:2px solid #2b7a4a;box-shadow:0 0 6px rgba(24,90,51,.45);font-size:.95rem;line-height:1.2;text-align:center;font-variant-numeric:tabular-nums;
   opacity:0;transform:translateY(6px);animation:chipIn 220ms ease forwards
 }
 .vote-chip.special{background:#2a2f3a;border-color:#475569;box-shadow:none;color:#cbd5e1}
@@ -319,63 +298,53 @@ li{margin-bottom:.4rem;line-height:1.5;font-size:1rem}
 .vote-chip.outlier{box-shadow:0 0 0 3px rgba(255,213,79,.22), inset 0 0 0 1px rgba(255,213,79,.55)}
 :root[data-theme="light"] .vote-chip.outlier{box-shadow:0 0 0 3px rgba(255,213,79,.28), inset 0 0 0 1px rgba(234,179,8,.55)}
 
-/* "no vote" — transparent outline chip */
-.vote-chip.empty{
-  background:transparent !important;
-  border:2px solid #475569 !important;
-  color:#cbd5e1 !important;
-  box-shadow:none !important;
-  font-weight:600;
-}
-:root[data-theme="light"] .vote-chip.empty{
-  border-color:var(--chip-special-border,#cfe0ff) !important;
-  color:var(--chip-special-text,#0b1220) !important;
-}
+/* "no vote" outline chip */
+.vote-chip.empty{background:transparent !important;border:2px solid #475569 !important;color:#cbd5e1 !important;box-shadow:none !important;font-weight:600}
+:root[data-theme="light"] .vote-chip.empty{border-color:#cfe0ff !important;color:#0b1220 !important}
 
-/* ---------- Row-action emoji pills (Make host / Kick) --------------------- */
-/* Base pill: fixed square, emoji truly centered across engines */
+/* Mini outline chip (observer, tick, pending, dash) */
+.mini-chip{
+  display:inline-flex;align-items:center;justify-content:center;
+  inline-size:var(--vote-chip-width);height:1.6rem;padding:.15rem .35rem;border-radius:8px;
+  background:transparent;border:1.5px solid rgba(148,163,184,.35);color:var(--text-dim);
+  font-weight:700;font-size:.95rem;line-height:1.2;font-variant-numeric:tabular-nums;
+  font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",system-ui,sans-serif;
+}
+:root[data-theme="light"] .mini-chip{border-color:var(--chip-special-border,#cfe0ff);color:var(--chip-special-text,#0b1220)}
+.mini-chip.done{border-color:rgba(34,197,94,.45);color:var(--ok)}
+.mini-chip.pending{border-color:rgba(234,179,8,.45)}
+
+/* Row-action emoji pills (Make host / Kick) */
 .row-action{
-  display:grid; place-items:center; gap:0;
-  width:28px; height:28px; padding:0; border-radius:10px;
-  background:var(--panel-2); border:1px solid var(--border); color:var(--text);
-  cursor:pointer; font-size:17px; line-height:1;
-  -webkit-tap-highlight-color:transparent;
+  display:inline-flex;align-items:center;justify-content:center;
+  width:32px;height:32px;padding:0;border-radius:8px;background:var(--panel-2);border:1px solid var(--border);color:var(--text);
+  cursor:pointer;font-size:17px;line-height:1;-webkit-tap-highlight-color:transparent;
   transition:background 180ms,border-color 180ms,box-shadow 180ms,transform 120ms;
   font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",system-ui,sans-serif;
 }
 .row-action .ra-label{display:none !important}
-.row-action .ra-icon{display:grid;place-items:center;width:1em;height:1em;line-height:1}
-
-/* Host/Kick colors tuned to CI (slightly brighter than base) */
-.row-action.host{background:#274a85;border-color:#3b82f6;color:#e8f0ff}
-.row-action.kick{background:#6a2121;border-color:#ef6666;color:#ffe7e7}
+.row-action .ra-icon{display:inline-flex;align-items:center;justify-content:center;width:1.1em;height:1.1em;line-height:1}
 .row-action:hover{background:var(--panel-2-hover);border-color:var(--accent);box-shadow:0 0 0 2px rgba(0,122,204,.12)}
-.row-action.host:hover{background:#2f58a0;box-shadow:0 0 0 2px rgba(59,130,246,.18)}
-.row-action.kick:hover{background:#7a2626;box-shadow:0 0 0 2px rgba(239,68,68,.18)}
 .row-action:active{transform:translateY(1px) scale(.98)}
 .row-action:disabled{opacity:.6;cursor:not-allowed}
+/* Colors */
+.row-action.host{background:#274a85;border-color:#3b82f6;color:#e8f0ff}
+.row-action.host:hover{background:#2f58a0;box-shadow:0 0 0 2px rgba(59,130,246,.18)}
+.row-action.kick{background:#6a2121;border-color:#ef6666;color:#ffe7e7}
+.row-action.kick:hover{background:#7a2626;box-shadow:0 0 0 2px rgba(239,68,68,.18)}
 
-/* iOS touch tweaks for bigger touch targets */
+/* iOS touch tweaks: bigger, round pills */
 @supports (-webkit-touch-callout:none){
-  #liveParticipantList .row-action{
-    width:40px;height:40px;border-radius:50%;
-    -webkit-appearance:none;appearance:none;background-clip:padding-box;
-  }
+  #liveParticipantList .row-action{width:40px;height:40px;border-radius:50%;-webkit-appearance:none;appearance:none;background-clip:padding-box}
   #liveParticipantList .row-action .ra-icon{width:1.25em;height:1.25em;font-size:20px}
-  #liveParticipantList .row-action.host{border-color:rgba(59,130,246,.60);box-shadow:0 1px 6px rgba(59,130,246,.25)}
-  #liveParticipantList .row-action.kick{border-color:rgba(239,68,68,.60);box-shadow:0 1px 6px rgba(239,68,68,.25)}
-  #liveParticipantList .row-right > .row-action:first-of-type{margin-left:auto}
-  #liveParticipantList .row-right :where(.status-icon,.vote-chip) ~ .row-action:first-of-type{margin-left:auto}
+  #liveParticipantList .row-right{gap:6px}
 }
-@media (max-width:600px) and (-webkit-touch-callout:none){#liveParticipantList .row-right{gap:6px}}
 
 /* ---------- Results / average -------------------------------------------- */
 .pre-vote{margin-top:var(--pre-vote-margin-desktop)}
 .average-label{font-size:.85rem;margin-top:1rem}
 .average-label #averageVote{font-size:.85rem;font-weight:600;opacity:0;animation:avgIn 240ms ease forwards}
 @keyframes avgIn{to{opacity:1}}
-@media (max-width:420px){
-}
 .average-label.consensus{color:var(--ok);font-weight:700}
 .average-label.consensus #averageVote{font-weight:800}
 .consensus-row{white-space:nowrap}
@@ -387,7 +356,7 @@ li{margin-bottom:.4rem;line-height:1.5;font-size:1rem}
 .toast{position:fixed;top:20px;right:20px;background:rgba(51,51,51,.95);color:#fff;padding:12px 20px;border-radius:10px;z-index:9999;font-size:14px;box-shadow:var(--shadow);transform:translateY(-10px);opacity:0;animation:fadein 220ms ease forwards,fadeout 400ms ease 2400ms forwards}
 @keyframes fadein{to{opacity:.95;transform:translateY(0)}}@keyframes fadeout{to{opacity:0}}
 
-/* ---------- QR overlay (optional) ---------------------------------------- */
+/* ---------- QR overlay ---------------------------------------------------- */
 .qr-overlay{position:fixed;inset:0;z-index:1200}
 .qr-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(2px)}
 :root[data-theme="light"] .qr-backdrop{background:rgba(0,0,0,.35)}
@@ -404,15 +373,14 @@ li{margin-bottom:.4rem;line-height:1.5;font-size:1rem}
 .app-footer{position:fixed;left:0;right:0;bottom:0;background:var(--panel);color:var(--text-dim);border-top:1px solid var(--border);text-align:center;padding:8px 12px;font-size:.82rem;line-height:1.2;z-index:4;-webkit-user-select:none;user-select:none}
 .app-footer a{color:inherit;text-decoration:underline;text-underline-offset:2px}
 
-/* reserve space so content never sits under the footer */
+/* Reserve space so content never sits under the footer */
 body{padding-bottom:var(--footer-h)}
-/* add extra room for sticky CTA on short viewports/mobile */
 .container{padding-bottom:max(24px, calc(var(--footer-h) + 48px))}
 
+/* Mobile: sticky CTA above footer */
 @media (max-width:600px){
   .app-footer{font-size:.62rem;padding:6px 10px;margin-top:50px}
   body{padding-bottom:calc(var(--footer-h) + 72px)}
-  /* tighter CTA-to-footer gap & guaranteed content bottom space */
   #revealButton,#resetButton{
     position:fixed;left:16px;right:16px;
     bottom:calc(var(--cta-offset) + var(--footer-h) + env(safe-area-inset-bottom));
@@ -427,7 +395,7 @@ body{padding-bottom:var(--footer-h)}
 .truncate-1{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .no-horizontal-scroll{overflow-x:hidden !important}
 
-/* Clickable topic row (host-only; added via JS with .editable) */
+/* Clickable topic row (host-only) */
 .topic-row.editable{cursor:pointer}
 .topic-row.editable:hover{background:rgba(148,163,184,.08);border-radius:6px}
 
@@ -440,7 +408,7 @@ body{padding-bottom:var(--footer-h)}
   #medianWrap .label,#rangeWrap .label{margin-right:.25rem}
 }
 
-/* ===== Menu compact sizing (kept) ======================================== */
+/* ===== Menu compact sizing (unchanged visual) ============================ */
 .menu-panel{font-size:.92rem}
 .menu-header h3{font-size:1.05rem;margin:6px 8px 8px}
 .section-title{margin:16px 8px 4px;font-size:.96rem;font-weight:600;opacity:.9}
@@ -450,7 +418,7 @@ body{padding-bottom:var(--footer-h)}
 .choice-btn{padding:6px 10px}
 .menu-choice.vertical .radio-row{padding:6px 8px}
 
-/* Extra compact variant */
+/* Extra compact variant (small screens) */
 .menu-panel{font-size:.88rem}
 .menu-header h3{font-size:1.02rem;margin:6px 8px 6px}
 .section-title{margin:14px 8px 2px;font-size:.92rem;font-weight:600;letter-spacing:.01em;opacity:.9}
@@ -478,298 +446,45 @@ body{padding-bottom:var(--footer-h)}
 /* Disabled reveal button visual */
 .button[disabled]{opacity:.6;cursor:not-allowed;filter:saturate(.85)}
 
-/* Inactive row: ensure the name text actually dims */
-#liveParticipantList li.disconnected .name { color: var(--inactive-fg); }
+/* Topic overflow helper (ellipsis) */
+#topicRow{display:flex;align-items:center;gap:.5rem}
+#topicRow .topic-text{flex:1 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#topicOverflowHint.topic-more{flex:0 0 auto;font-size:.9em;opacity:.75;cursor:help;user-select:none}
+#topicOverflowHint.topic-more:hover{opacity:.95}
+#topicOverflowHint.topic-more-btn{flex:0 0 auto;background:transparent;border:0;padding:0;margin-left:.25rem;font:inherit;font-size:.9em;line-height:1;opacity:.8;cursor:help;text-decoration:underline dotted}
+#topicOverflowHint.topic-more-btn:hover{opacity:1}
 
-/* And tone down the left icon a bit */
-#liveParticipantList li.disconnected .participant-icon { opacity: .85; }
-
-/* Fine-tune emoji vertical centering in row-action pills */
-#liveParticipantList .row-right .row-action .ra-icon{
-  display: inline-flex;align-items: center;justify-content: center;width: 1.2em;height: 1.2em;line-height: 1;transform: translateY(var(--emoji-nudge-y, -0.5px));}
-
-/* Safari/iOS renders emoji already centered – zero-out the nudge there */
-@supports (-webkit-touch-callout:none) {
-  :root { --emoji-nudge-y: 0px; }
-}
-
-
-/* === Participant row: fix right column layout & centering === */
-#liveParticipantList .row-right{
-  /* Replace flex with 3-column grid:
-     [status chip/eye] [host-btn] [kick-btn]  */
-  display: grid !important;
-  grid-template-columns: 1fr max-content max-content;
-  align-items: center;
-  gap: 8px;
-}
-
-/* Kill the old flex "push-right" margins, just in case */
-#liveParticipantList .row-right > .row-action:first-of-type,
-#liveParticipantList .row-right :where(.status-icon,.vote-chip) ~ .row-action:first-of-type{
-  margin-left: 0 !important;
-}
-
-/* Chips/Eyes stick to the left grid cell */
-#liveParticipantList .row-right :where(.status-icon,.vote-chip){
-  justify-self: start;
-}
-
-/* Buttons stick to the right cells, square & centered */
-#liveParticipantList .row-right .row-action{
-  width: 28px; height: 28px; padding: 0;
-  border-radius: 10px;
-  display: inline-grid; place-items: center;
-}
-#liveParticipantList .row-right .row-action .ra-icon{
-  width: 1em; height: 1em; line-height: 1; font-size: 17px;
-}
-#liveParticipantList .row-right .row-action + .row-action{ margin-left: 0; } /* grid gap handles spacing */
-
-/* iOS tweak keeps them round if dein @supports-Block aktiv ist */
-@supports (-webkit-touch-callout:none){
-  #liveParticipantList .row-right .row-action{ border-radius: 50%; }
-}
-
-/* ===== Fix 1: outline dash must NEVER be filled =========================== */
-/* Works both pre-vote and post-vote, and beats any earlier .vote-chip rule */
-#liveParticipantList .vote-chip.empty,
-.vote-chip.empty{
-  background: transparent !important;
-  border: 2px solid #475569 !important;   /* subtle slate border */
-  color: #cbd5e1 !important;
-  box-shadow: none !important;
-  font-weight: 600;
-}
-:root[data-theme="light"] #liveParticipantList .vote-chip.empty,
-:root[data-theme="light"] .vote-chip.empty{
-  border-color: #cfe0ff !important;
-  color: #0b1220 !important;
-}
-
-/* ===== Fix 2: compact, centered row-actions (emoji variant) =============== */
-#liveParticipantList .row-right > .row-action{
-  width: 28px;
-  height: 28px;
-  padding: 0;
-  border-radius: 8px;
-  display: inline-grid;              /* perfect centering */
-  place-items: center;
-  box-shadow: 0 1px 0 rgba(0,0,0,.25);
-}
-#liveParticipantList .row-right > .row-action .ra-label{ display:none !important; }
-#liveParticipantList .row-right > .row-action .ra-icon{
-  font-size: 16px;
-  line-height: 1;
-  width: 1.1em; height: 1.1em;       /* avoid vertical wobble across platforms */
-}
-
-/* Colors aligned with your CI (slightly lighter than before) */
-#liveParticipantList .row-right > .row-action.host{
-  background: #274a85;               /* lighter blue */
-  border-color: #3b82f6;
-  color: #e8f0ff;
-}
-#liveParticipantList .row-right > .row-action.host:hover{
-  background: #2f58a0;
-  box-shadow: 0 0 0 2px rgba(59,130,246,.18);
-}
-#liveParticipantList .row-right > .row-action.kick{
-  background: #6a2121;               /* slightly lighter red */
-  border-color: #ef6666;
-  color: #ffe7e7;
-}
-#liveParticipantList .row-right > .row-action.kick:hover{
-  background: #7a2626;
-  box-shadow: 0 0 0 2px rgba(239,68,68,.18);
-}
-
-/* Make the first action hug the right edge */
-#liveParticipantList .row-right > .row-action:first-of-type{ margin-left:auto; }
-
-/* ===== Fix 3: inactive participants (non-italic, clearly dim) ============= */
-#liveParticipantList li.disconnected .name{
-  color: #9ca3af;     /* dimmer than active text */
-  font-style: normal; /* no italics */
-}
-:root[data-theme="light"] #liveParticipantList li.disconnected .name{
-  color: #6b7280;
-}
-#liveParticipantList li.disconnected .participant-icon{ opacity: .65; }
-
-/* === Mini outline chip for non-numeric states (pre/post vote) ============== */
-/* Used for: observer 👁️, voted ✓, pending ⏳, and "no vote" – (also when inactive) */
-.mini-chip{
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  inline-size: var(--vote-chip-width);  /* aligns perfectly with .vote-chip */
-  height: 1.6rem;
-  padding: .15rem .35rem;
-  border-radius: 8px;
-  background: transparent;
-  border: 1.5px solid rgba(148,163,184,.35);
-  color: var(--text-dim);
-  font-weight: 700;
-  font-size: .95rem;
-  line-height: 1.2;
-  font-variant-numeric: tabular-nums;
-  font-family: "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",system-ui,sans-serif;
-}
-:root[data-theme="light"] .mini-chip{
-  border-color: var(--chip-special-border, #cfe0ff);
-  color: var(--chip-special-text, #0b1220);
-}
-/* Optional gentle accents */
-.mini-chip.done   { border-color: rgba(34,197,94,.45); color: var(--ok); }
-.mini-chip.pending{ border-color: rgba(234,179,8,.45); }
-
-/* Keep row-actions hard-right, even if only a chip is present */
-.row-right > .row-action:first-of-type{ margin-left:auto; }
-/* Also push when any chip/mini-chip exists */
-.row-right :where(.vote-chip,.mini-chip,.status-icon) ~ .row-action:first-of-type{ margin-left:auto; }
-
-/* Ensure the middle column keeps vertical rhythm */
-.row-right{ display:flex; align-items:center; gap:6px; min-height:1.8rem; }
-
-
-/* === Status "pending" (⏳) wie Observer/Dash: dezenter, grauer Outline-Chip === */
-/* Überschreibt die frühere gelbe Warnfarbe */
-#liveParticipantList .row-right .status-icon.pending{
-  /* gleiche Breite/Geometrie wie Chips */
-  inline-size: var(--vote-chip-width);
-  padding: .15rem .35rem;
-  border-radius: 8px;
-
-  /* dezente Outline */
-  background: transparent;
-  border: 1.5px solid rgba(148,163,184,.35) !important;
-  box-shadow: none;
-
-  /* neutrale, graue Schrift/Iconfarbe */
-  color: var(--text-dim) !important;
-  opacity: 1;               /* nicht halbtransparent */
-  line-height: 1.2;
-
-  /* sorgt plattformübergreifend fürs Zentrieren des Emojis */
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-family: "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",system-ui,sans-serif;
-}
-
-/* Light-Theme-Kontrast anpassen – identisch zu Observer/Dash */
-:root[data-theme="light"] #liveParticipantList .row-right .status-icon.pending{
-  border-color: var(--chip-special-border, #cfe0ff) !important;
-  color: var(--chip-special-text, #0b1220) !important;
-}
-
-/* Topic row: allow text to shrink and ellipsize inside a flex row */
-#topicRow {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-/* The text cell must be allowed to shrink (min-width:0) for ellipsis to kick in */
-#topicRow .topic-text {
-  flex: 1 1 auto;
-  min-width: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* The inline “show all” hint (only appears when truncated) */
-#topicOverflowHint.topic-more {
-  flex: 0 0 auto;
-  font-size: 0.9em;
-  opacity: 0.75;
-  cursor: help;        /* shows tooltip intent */
-  user-select: none;
-}
-
-/* Optional: subtle hover emphasis */
-#topicOverflowHint.topic-more:hover {
-  opacity: 0.95;
-}
-
-#topicOverflowHint.topic-more-btn {
-  flex: 0 0 auto;
-  background: transparent;
-  border: 0;
-  padding: 0;
-  margin-left: 0.25rem;    /* small nudge since "…" is now inside the text */
-  font: inherit;
-  font-size: 0.9em;
-  line-height: 1;
-  opacity: 0.8;
-  cursor: help;            /* indicates tooltip with full content */
-  text-decoration: underline dotted;
-}
-
-#topicOverflowHint.topic-more-btn:hover {
-  opacity: 1;
-}
-
-/* ───── Heat-colored chips: base (dark / default) ───── */
+/* Heat-colored chips */
 .vote-chip.heat{
-  --_h: var(--chip-heat-h,120);                 /* 120 = green → 0 = red */
+  --_h: var(--chip-heat-h,120);
   border-color: hsl(var(--_h) 75% 55%);
   color:        hsl(var(--_h) 85% 62%);
   background: color-mix(in oklab, hsl(var(--_h) 80% 50%) 14%, transparent);
 }
-@supports not (color-mix(in oklab, white, black)){
-  .vote-chip.heat{ background: transparent; }
-}
+@supports not (color-mix(in oklab, white, black)){ .vote-chip.heat{ background: transparent } }
 
-/* ───── Light mode: darker text + stronger pastel fill (good contrast) ───── */
 @media (prefers-color-scheme: light) {
-  .vote-chip,
-  .participant-row .mini-chip {
-    color: #0f172a;             /* dark neutral text */
-    font-weight: 600;
-  }
+  .vote-chip, .participant-row .mini-chip{ color:#0f172a; font-weight:600 }
   .vote-chip.heat{
     --_h: var(--chip-heat-h,120);
-    color: #0f172a;                                 /* keep text dark */
-    border-color: hsl(var(--_h) 72% 42%);           /* stronger ring on light */
-    background: color-mix(in oklab,
-                          hsl(var(--_h) 80% 58%) 36%,
-                          white);                   /* readable pastel */
+    color:#0f172a; border-color:hsl(var(--_h) 72% 42%);
+    background: color-mix(in oklab, hsl(var(--_h) 80% 58%) 36%, white);
     box-shadow: inset 0 0 0 1px hsl(var(--_h) 50% 34% / .25);
   }
 }
-@supports not (color-mix(in oklab, white, black)) {
-  @media (prefers-color-scheme: light) {
-    .vote-chip.heat{ background: hsl(var(--_h) 90% 90%); }
-  }
+@supports not (color-mix(in oklab, white, black)){
+  @media (prefers-color-scheme: light){ .vote-chip.heat{ background:hsl(var(--_h) 90% 90%) } }
 }
-
-/* ───── Optional: class-driven Light overrides (work even if OS is Dark) ───── */
-/* Falls du <html class="light"> oder <body class="light"> (oder data-theme="light") setzt */
-html.light .vote-chip,
-body.light .vote-chip,
-:root[data-theme="light"] .vote-chip,
-html.light .participant-row .mini-chip,
-body.light .participant-row .mini-chip,
-:root[data-theme="light"] .participant-row .mini-chip {
-  color: #0f172a;
-  font-weight: 600;
+html.light .vote-chip, body.light .vote-chip, :root[data-theme="light"] .vote-chip,
+html.light .participant-row .mini-chip, body.light .participant-row .mini-chip, :root[data-theme="light"] .participant-row .mini-chip{
+  color:#0f172a; font-weight:600
 }
-html.light .vote-chip.heat,
-body.light .vote-chip.heat,
-:root[data-theme="light"] .vote-chip.heat{
+html.light .vote-chip.heat, body.light .vote-chip.heat, :root[data-theme="light"] .vote-chip.heat{
   --_h: var(--chip-heat-h,120);
-  color: #0f172a;
-  border-color: hsl(var(--_h) 72% 42%);
+  color:#0f172a; border-color:hsl(var(--_h) 72% 42%);
   background: color-mix(in oklab, hsl(var(--_h) 80% 58%) 36%, white);
   box-shadow: inset 0 0 0 1px hsl(var(--_h) 50% 34% / .25);
 }
-@supports not (color-mix(in oklab, white, black)) {
-  html.light .vote-chip.heat,
-  body.light .vote-chip.heat,
-  :root[data-theme="light"] .vote-chip.heat{
-    background: hsl(var(--_h) 90% 90%);
-  }
+@supports not (color-mix(in oklab, white, black)){
+  html.light .vote-chip.heat, body.light .vote-chip.heat, :root[data-theme="light"] .vote-chip.heat{ background:hsl(var(--_h) 90% 90%) }
 }
