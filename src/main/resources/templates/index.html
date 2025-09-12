@@ -9,7 +9,7 @@
   <div class="container">
     <h1 class="app-title">
       <img src="/favicon.svg" alt="" width="24" height="24" class="logo">
-      <span th:text="#{ui.heading}">RBS' Estimation Poker</span>
+      <span th:text="#{ui.heading}" data-i18n="ui.heading">RBS' Estimation Poker</span>
     </h1>
 
     <!-- Join form -->
@@ -23,12 +23,16 @@
         <input id="roomInput" name="roomCode" type="text" maxlength="40" autocapitalize="none" spellcheck="false" required placeholder="team-alpha">
       </div>
       <div class="form-actions">
-        <button class="button" type="submit" th:text="#{button.join}">Join</button>
+        <button class="button" type="submit"
+                th:text="#{button.join}"
+                th:attr="title=#{button.join},aria-label=#{button.join}"
+                data-i18n-attr="title:button.join;aria-label:button.join">Join</button>
       </div>
     </form>
   </div>
 
   <script>
+  // Keep a tiny helper for restoring last used values and basic validation
   (function(){
     const form  = document.getElementById('joinForm');
     const nameI = document.getElementById('nameInput');

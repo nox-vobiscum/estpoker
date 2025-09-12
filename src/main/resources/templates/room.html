@@ -37,10 +37,10 @@
     <div id="topicRow" class="topic-row" style="display:none;">
       <span class="topic-label" aria-hidden="true">📝</span>
 
-      <!-- Anzeige -->
+      <!-- Display mode -->
       <span id="topicDisplay" class="topic-text">–</span>
 
-      <!-- Edit (ersetzt Anzeige im Edit-Mode) -->
+      <!-- Edit input (replaces display while in edit mode) -->
       <input id="topicInput"
              class="topic-input"
              type="text"
@@ -50,14 +50,14 @@
              placeholder="Paste JIRA link or type key (e.g., RBSEP-123)…" />
 
       <div class="topic-actions">
-        <!-- Primär: Anzeige-Modus = ✍️ ; Edit-Modus = ✅ -->
+        <!-- Primary action: view mode ✍️ ; edit mode ✅ -->
         <button id="topicPrimaryBtn" class="row-action host-only" type="button"
                 data-i18n-attr="title:button.editTopic;aria-label:button.editTopic"
                 title="Edit" aria-label="Edit">
           <span class="ra-icon" id="topicPrimaryIcon">✍️</span>
         </button>
 
-        <!-- Sekundär: Anzeige-Modus = 🗑️ ; Edit-Modus = ❌ -->
+        <!-- Secondary action: view mode 🗑️ ; edit mode ❌ -->
         <button id="topicSecondaryBtn" class="row-action host-only" type="button"
                 data-i18n-attr="title:button.clearTopic;aria-label:button.clearTopic"
                 title="Clear" aria-label="Clear">
@@ -66,18 +66,20 @@
       </div>
     </div>
 
-    <!-- Pre-Vote: cards + (host) reveal -->
+    <!-- Pre-vote: cards + (host) reveal -->
     <div class="pre-vote">
       <div class="card-grid" id="cardGrid"></div>
 
       <div class="vote-actions">
         <button type="button" id="revealButton" class="button" style="display:none;"
                 th:text="#{button.reveal}" data-i18n="button.reveal"
+                th:attr="title=#{button.reveal},aria-label=#{button.reveal}"
+                data-i18n-attr="title:button.reveal;aria-label:button.reveal"
                 onclick="revealCards()"></button>
       </div>
     </div>
 
-    <!-- Post-Vote -->
+    <!-- Post-vote -->
     <div class="post-vote" style="display:none;">
       <p id="resultRow"
          class="average-label consensus-row"
@@ -88,7 +90,6 @@
           <span class="label-average" th:text="#{label.average}" data-i18n="label.average">Average:</span>
           <span class="label-consensus" hidden>🎉 Consensus</span>
         </span>
-
 
         <span id="averageVote" class="value">–</span>
 
@@ -109,11 +110,13 @@
 
       <button type="button" id="resetButton" class="button" style="display:none;"
               th:text="#{button.reset}" data-i18n="button.reset"
+              th:attr="title=#{button.reset},aria-label=#{button.reset}"
+              data-i18n-attr="title:button.reset;aria-label:button.reset"
               onclick="resetRoom()"></button>
     </div>
   </div>
 
-  <!-- room connector (verwende deine aktuelle Version; ggf. v-Param anheben, wenn JS gecached bleibt) -->
+  <!-- Room connector (use your current version; bump v-param if client caches JS) -->
   <script defer th:src="@{/js/room.js?v=38}"
           th:attr="data-participant=${participantName},data-room=${roomCode}"></script>
   <script defer src="/js/ws-probe.js"></script>

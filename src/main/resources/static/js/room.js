@@ -9,6 +9,34 @@
     if (el) el.textContent = v ?? '';
   };
 
+  // ---------------- i18n helpers (lightweight) ----------------
+  // Cache for messages loaded from /i18n/messages
+  const MSG = Object.create(null);
+
+  // Read a message key either from cache, or from a <meta name="msg.KEY">, or fall back
+  function t(key, fallback) {
+    try {
+      if (key && Object.prototype.hasOwnProperty.call(MSG, key)) return MSG[key];
+      const meta = document.head && document.head.querySelector(`meta[name="msg.${key}"]`);
+      if (meta && typeof meta.content === 'string' && meta.content.length) return meta.content;
+    } catch {}
+    return fallback;
+  }
+
+  // Prefetch message map (non-blocking). Works with I18nController (/i18n/messages).
+  async function preloadMessages() {
+    const lang = isDe() ? 'de' : 'en';
+    try {
+      const res = await fetch(`/i18n/messages?lang=${encodeURIComponent(lang)}`, { credentials: 'same-origin' });
+      if (res.ok) {
+        const data = await res.json();
+        if (data && typeof data === 'object') Object.assign(MSG, data);
+      }
+    } catch {
+      /* keep graceful fallbacks via <meta> and hardcoded text */
+    }
+  }
+
   // ---------------- Constants ----------------
   const SPECIALS = ['❓', '💬', '☕'];
   const INFINITY_ = '♾️';
@@ -356,215 +384,207 @@
   }
 
   // ---------------- Participants ----------------
- // ---------------- Participants ----------------
-function renderParticipants() {
-  const ul = $('#liveParticipantList'); if (!ul) return;
-  try {
-    const frag = document.createDocumentFragment();
+  function renderParticipants() {
+    const ul = $('#liveParticipantList'); if (!ul) return;
+    try {
+      const frag = document.createDocumentFragment();
 
-    (state.participants || []).forEach(p => {
-      if (!p || !p.name) return;
+      (state.participants || []).forEach(p => {
+        if (!p || !p.name) return;
 
-      const li = document.createElement('li');
-      li.className = 'participant-row';
+        const li = document.createElement('li');
+        li.className = 'participant-row';
 
-      const isInactive = !!p.disconnected || !!p.away;
-      if (isInactive) li.classList.add('disconnected');
-      if (p.isHost)    li.classList.add('is-host');
+        const isInactive = !!p.disconnected || !!p.away;
+        if (isInactive) li.classList.add('disconnected');
+        if (p.isHost)    li.classList.add('is-host');
 
-      // Left icon (role/presence)
-      const left = document.createElement('span');
-      left.className = 'participant-icon' + (p.isHost ? ' host' : '');
-      let icon = '👤';
-      if (p.isHost)                 icon = '👑';
-      else if (p.observer === true) icon = '👁️';
-      else if (isInactive)          icon = '💤';
-      left.textContent = icon;
-      left.setAttribute('aria-hidden', 'true');
-      if (isInactive) left.classList.add('inactive');
-      li.appendChild(left);
+        // Left icon (role/presence)
+        const left = document.createElement('span');
+        left.className = 'participant-icon' + (p.isHost ? ' host' : '');
+        let icon = '👤';
+        if (p.isHost)                 icon = '👑';
+        else if (p.observer === true) icon = '👁️';
+        else if (isInactive)          icon = '💤';
+        left.textContent = icon;
+        left.setAttribute('aria-hidden', 'true');
+        if (isInactive) left.classList.add('inactive');
+        li.appendChild(left);
 
-      // Name
-      const name = document.createElement('span');
-      name.className = 'name';
-      name.textContent = p.name;
-      li.appendChild(name);
+        // Name
+        const name = document.createElement('span');
+        name.className = 'name';
+        name.textContent = p.name;
+        li.appendChild(name);
 
-      // Right column (chips + actions)
-      const right = document.createElement('div');
-      right.className = 'row-right';
+        // Right column (chips + actions)
+        const right = document.createElement('div');
+        right.className = 'row-right';
 
-      // Chips
-      if (!state.votesRevealed) {
-        // Pre-vote: render a stable mini-chip
-        if (p.observer) {
-          const eye = document.createElement('span');
-          eye.className = 'mini-chip observer';
-          eye.textContent = '👁️';
-          right.appendChild(eye);
-        } else if (!p.disconnected && p.vote != null && String(p.vote) !== '') {
-          const ok = document.createElement('span');
-          ok.className = 'mini-chip done';
-          ok.textContent = '✓';
-          right.appendChild(ok);
-        } else {
-          const dash = document.createElement('span');
-          dash.className = isInactive ? 'mini-chip' : 'mini-chip pending';
-          dash.textContent = isInactive ? '–' : '⏳';
-          right.appendChild(dash);
-        }
-      } else {
-        // Post-vote
-        if (p.observer) {
-          const eye = document.createElement('span');
-          eye.className = 'mini-chip observer';
-          eye.textContent = '👁️';
-          right.appendChild(eye);
-        } else if (isInactive) {
-          const dash = document.createElement('span');
-          dash.className = 'mini-chip';
-          dash.textContent = '–';
-          right.appendChild(dash);
-        } else {
-          const chip = document.createElement('span');
-          const noVote  = (p.vote == null || p.vote === '');
-          const display = noVote ? '–' : String(p.vote);
-
-          if (noVote) {
-            chip.className = 'mini-chip';
-            chip.textContent = '–';
-            right.appendChild(chip);
+        // Chips
+        if (!state.votesRevealed) {
+          // Pre-vote: render a stable mini-chip
+          if (p.observer) {
+            const eye = document.createElement('span');
+            eye.className = 'mini-chip observer';
+            eye.textContent = '👁️';
+            right.appendChild(eye);
+          } else if (!p.disconnected && p.vote != null && String(p.vote) !== '') {
+            const ok = document.createElement('span');
+            ok.className = 'mini-chip done';
+            ok.textContent = '✓';
+            right.appendChild(ok);
           } else {
-            chip.className = 'vote-chip';
-            chip.textContent = display;
+            const dash = document.createElement('span');
+            dash.className = isInactive ? 'mini-chip' : 'mini-chip pending';
+            dash.textContent = isInactive ? '–' : '⏳';
+            right.appendChild(dash);
+          }
+        } else {
+          // Post-vote
+          if (p.observer) {
+            const eye = document.createElement('span');
+            eye.className = 'mini-chip observer';
+            eye.textContent = '👁️';
+            right.appendChild(eye);
+          } else if (isInactive) {
+            const dash = document.createElement('span');
+            dash.className = 'mini-chip';
+            dash.textContent = '–';
+            right.appendChild(dash);
+          } else {
+            const chip = document.createElement('span');
+            const noVote  = (p.vote == null || p.vote === '');
+            const display = noVote ? '–' : String(p.vote);
 
-            const isInfinity = (display === INFINITY_ || display === INFINITY_ALT);
-            const isSpecial  = SPECIALS.includes(display);
+            if (noVote) {
+              chip.className = 'mini-chip';
+              chip.textContent = '–';
+              right.appendChild(chip);
+            } else {
+              chip.className = 'vote-chip';
+              chip.textContent = display;
 
-            // Specials keep their special styling (not heat-colored)
-            if (!isInfinity && isSpecial) chip.classList.add('special');
+              const isInfinity = (display === INFINITY_ || display === INFINITY_ALT);
+              const isSpecial  = SPECIALS.includes(display);
 
-            // Heat color for numeric & infinity
-            if (!isSpecial) {
-              const hue = heatHueForLabel(display);
-              if (hue != null) {
-                chip.classList.add('heat');
-                chip.style.setProperty('--chip-heat-h', String(hue));
+              // Specials keep their special styling (not heat-colored)
+              if (!isInfinity && isSpecial) chip.classList.add('special');
+
+              // Heat color for numeric & infinity
+              if (!isSpecial) {
+                const hue = heatHueForLabel(display);
+                if (hue != null) {
+                  chip.classList.add('heat');
+                  chip.style.setProperty('--chip-heat-h', String(hue));
+                }
               }
-            }
 
-            // Outlier badge (as before)
-            if (Array.isArray(state.outliers) && state.outliers.includes(p.name)) {
-              chip.classList.add('outlier');
-            }
+              // Outlier badge
+              if (Array.isArray(state.outliers) && state.outliers.includes(p.name)) {
+                chip.classList.add('outlier');
+              }
 
-            right.appendChild(chip);
+              right.appendChild(chip);
+            }
           }
         }
-      }
 
-      // Row actions (host → can makeHost / kick non-hosts)
-      if (state.isHost && !p.isHost) {
-        const makeHostBtn = document.createElement('button');
-        makeHostBtn.className = 'row-action host';
-        makeHostBtn.type = 'button';
-        makeHostBtn.setAttribute('aria-label', isDe() ? 'Zum Host machen' : 'Make host');
-        makeHostBtn.innerHTML = '<span class="ra-icon">👑</span>';
-        makeHostBtn.addEventListener('click', () => {
-          const q = isDe() ? `Host-Rolle an ${p.name} übertragen?` : `Transfer host role to ${p.name}?`;
-          if (confirm(q)) send('makeHost:' + encodeURIComponent(p.name));
-        });
-        right.appendChild(makeHostBtn);
+        // Row actions (host → can makeHost / kick non-hosts)
+        if (state.isHost && !p.isHost) {
+          const makeHostBtn = document.createElement('button');
+          makeHostBtn.className = 'row-action host';
+          makeHostBtn.type = 'button';
+          const labelMakeHost = t('action.makeHost', isDe() ? 'Zum Host machen' : 'Make host');
+          makeHostBtn.setAttribute('aria-label', labelMakeHost);
+          makeHostBtn.setAttribute('title', labelMakeHost);
+          makeHostBtn.innerHTML = '<span class="ra-icon">👑</span>';
+          makeHostBtn.addEventListener('click', () => {
+            const q = isDe() ? `Host-Rolle an ${p.name} übertragen?` : `Transfer host role to ${p.name}?`;
+            if (confirm(q)) send('makeHost:' + encodeURIComponent(p.name));
+          });
+          right.appendChild(makeHostBtn);
 
-        const kickBtn = document.createElement('button');
-        kickBtn.className = 'row-action kick';
-        kickBtn.type = 'button';
-        kickBtn.setAttribute('aria-label', isDe() ? 'Teilnehmer entfernen' : 'Kick participant');
-        kickBtn.innerHTML = '<span class="ra-icon">❌</span>';
-        kickBtn.addEventListener('click', () => {
-          const q = isDe() ? `${p.name} wirklich entfernen?` : `Remove ${p.name}?`;
-          if (confirm(q)) send('kick:' + encodeURIComponent(p.name));
-        });
-        right.appendChild(kickBtn);
-      }
+          const kickBtn = document.createElement('button');
+          kickBtn.className = 'row-action kick';
+          kickBtn.type = 'button';
+          const labelKick = t('action.kick', isDe() ? 'Teilnehmer entfernen' : 'Kick participant');
+          kickBtn.setAttribute('aria-label', labelKick);
+          kickBtn.setAttribute('title', labelKick);
+          kickBtn.innerHTML = '<span class="ra-icon">❌</span>';
+          kickBtn.addEventListener('click', () => {
+            const q = isDe() ? `${p.name} wirklich entfernen?` : `Remove ${p.name}?`;
+            if (confirm(q)) send('kick:' + encodeURIComponent(p.name));
+          });
+          right.appendChild(kickBtn);
+        }
 
-      li.appendChild(right);
-      frag.appendChild(li);
-    });
+        li.appendChild(right);
+        frag.appendChild(li);
+      });
 
-    ul.replaceChildren(frag);
-  } catch (e) {
-    console.error('[ROOM] renderParticipants failed', e);
-  }
-}
-
-
-// --- Heat hue helpers (put these once near your other helpers, OUTSIDE the function) ---
-// Parse a label like "½", "0", "13", "100" or "♾️/∞" into a number.
-// Returns: number, +Infinity, or null (if not numeric-like).
-function parseVoteNumber(label) {
-  if (label == null) return null;
-  const s = String(label).trim();
-  if (s === '♾️' || s === '♾' || s === '∞') return Infinity;
-  if (s === '½' || s === '1/2') return 0.5;
-  const num = Number(s.replace(',', '.'));
-  return Number.isFinite(num) ? num : null;
-}
-
-// Extract ascending numeric deck for the current sequence (ignore specials).
-function numericDeckFromState() {
-  const nums = (state.cards || [])
-    .map(parseVoteNumber)
-    .filter(v => v !== null && v !== undefined && !Number.isNaN(v));
-  const uniq = [...new Set(nums)].sort((a, b) => (a === b ? 0 : a < b ? -1 : 1));
-  return uniq;
-}
-
-// Optional pivot per sequence: which label should feel ~yellow (middle of the gradient).
-// Tweak to taste. If no pivot hit, a mild gamma skew keeps lower values greener for longer.
-const PIVOT_BY_SEQUENCE = {
-  'fib.enh': 13,
-  'fib.scrum': 13,
-  'fib.math': 13,
-  'pow2': 32,
-  // 'tshirt': non-numeric → no heat
-};
-
-// Map a numeric label to a hue (120→0deg = green→red), skewed by pivot/gamma.
-function heatHueForLabel(label) {
-  const deck = numericDeckFromState();
-  if (!deck.length) return null;
-
-  const v = parseVoteNumber(label);
-  if (v == null) return null; // specials / non-numeric → no heat
-
-  // Find exact index, else insertion point, else clamp to last.
-  let idx = deck.findIndex(x => Object.is(x, v));
-  if (idx < 0) {
-    idx = deck.findIndex(x => x > v);
-    if (idx < 0) idx = deck.length - 1;
-  }
-
-  const max = Math.max(1, deck.length - 1);
-  let t = idx / max; // 0..1
-
-  // Skew so that the chosen pivot sits ≈ 0.5 (yellow).
-  const pivotLabel = PIVOT_BY_SEQUENCE[state.sequenceId || ''] ?? null;
-  let gamma = 1.25; // mild default if no pivot
-  if (pivotLabel != null) {
-    const pivIdx = deck.findIndex(x => Object.is(x, pivotLabel));
-    if (pivIdx > 0) {
-      const p = Math.min(0.999, Math.max(0.001, pivIdx / max)); // avoid log(0)
-      const g = Math.log(0.5) / Math.log(p);                     // p^g = 0.5 → g
-      if (Number.isFinite(g) && g > 0) gamma = g;
+      ul.replaceChildren(frag);
+    } catch (e) {
+      console.error('[ROOM] renderParticipants failed', e);
     }
   }
 
-  t = Math.pow(t, gamma);                // keep lower half greener for longer
-  const hue = 120 - (t * 120);           // 120=green → 0=red
-  return Math.round(Math.max(0, Math.min(120, hue)));
-}
+  // --- Heat hue helpers ------------------------------------------------------
+  function parseVoteNumber(label) {
+    if (label == null) return null;
+    const s = String(label).trim();
+    if (s === '♾️' || s === '♾' || s === '∞') return Infinity;
+    if (s === '½' || s === '1/2') return 0.5;
+    const num = Number(s.replace(',', '.'));
+    return Number.isFinite(num) ? num : null;
+  }
 
+  function numericDeckFromState() {
+    const nums = (state.cards || [])
+      .map(parseVoteNumber)
+      .filter(v => v !== null && v !== undefined && !Number.isNaN(v));
+    const uniq = [...new Set(nums)].sort((a, b) => (a === b ? 0 : a < b ? -1 : 1));
+    return uniq;
+  }
+
+  const PIVOT_BY_SEQUENCE = {
+    'fib.enh': 13,
+    'fib.scrum': 13,
+    'fib.math': 13,
+    'pow2': 32,
+  };
+
+  function heatHueForLabel(label) {
+    const deck = numericDeckFromState();
+    if (!deck.length) return null;
+
+    const v = parseVoteNumber(label);
+    if (v == null) return null;
+
+    let idx = deck.findIndex(x => Object.is(x, v));
+    if (idx < 0) {
+      idx = deck.findIndex(x => x > v);
+      if (idx < 0) idx = deck.length - 1;
+    }
+
+    const max = Math.max(1, deck.length - 1);
+    let t = idx / max; // 0..1
+
+    const pivotLabel = PIVOT_BY_SEQUENCE[state.sequenceId || ''] ?? null;
+    let gamma = 1.25; // mild default if no pivot
+    if (pivotLabel != null) {
+      const pivIdx = deck.findIndex(x => Object.is(x, pivotLabel));
+      if (pivIdx > 0) {
+        const p = Math.min(0.999, Math.max(0.001, pivIdx / max));
+        const g = Math.log(0.5) / Math.log(p);
+        if (Number.isFinite(g) && g > 0) gamma = g;
+      }
+    }
+
+    t = Math.pow(t, gamma);
+    const hue = 120 - (t * 120); // 120=green → 0=red
+    return Math.round(Math.max(0, Math.min(120, hue)));
+  }
 
   // ---------------- Cards ----------------
   function mySelectedValue() {
@@ -648,12 +668,19 @@ function heatHueForLabel(label) {
       revealBtn.style.display = showReveal ? '' : 'none';
       revealBtn.hidden = !showReveal;
       revealBtn.disabled = !hardGateOK;
+
       if (!hardGateOK) {
-        revealBtn.setAttribute('title', isDe() ? 'Es haben noch nicht alle ihre Schätzung abgegeben' : 'Not everyone has voted yet');
+        const gateMsg = t('reveal.gate', isDe()
+          ? 'Es haben noch nicht alle ihre Schätzung abgegeben'
+          : 'Not everyone has voted yet');
+        revealBtn.setAttribute('title', gateMsg);
         revealBtn.setAttribute('aria-disabled', 'true');
+        revealBtn.setAttribute('aria-label', gateMsg);
       } else {
+        // Restore base label (room.html already sets i18n title; we remove explicit blocker title)
         revealBtn.removeAttribute('title');
         revealBtn.removeAttribute('aria-disabled');
+        // Keep aria-label as provided by room.html (button.reveal)
       }
     }
     if (resetBtn) {
@@ -670,7 +697,7 @@ function heatHueForLabel(label) {
       state.participants.some(p => p && !p.observer && (p.vote === INFINITY_ || p.vote === INFINITY_ALT))
     );
 
-    const t = (v) => (v == null || v === '' ? null : String(v));
+    const tstr = (v) => (v == null || v === '' ? null : String(v));
     const withInf = (base) => (base != null ? base + (hasInfinity ? ' +♾️' : '') : (hasInfinity ? '♾️' : null));
 
     const pre  = document.querySelector('.pre-vote');
@@ -689,7 +716,7 @@ function heatHueForLabel(label) {
     const avgEl      = $('#averageVote');
 
     if (avgEl) {
-      const avgTxt = withInf(t(state.averageVote));
+      const avgTxt = withInf(tstr(state.averageVote));
       avgEl.textContent = avgTxt ?? (state.votesRevealed ? 'N/A' : '');
     }
 
@@ -715,19 +742,19 @@ function heatHueForLabel(label) {
     }
 
     if (medianWrap) {
-      const showM = state.votesRevealed && t(state.medianVote) != null;
+      const showM = state.votesRevealed && tstr(state.medianVote) != null;
       medianWrap.hidden = !showM;
-      if (showM) setText('#medianVote', withInf(t(state.medianVote)));
+      if (showM) setText('#medianVote', withInf(tstr(state.medianVote)));
     }
     if (rangeWrap && rangeSep) {
-      const showR = state.votesRevealed && t(state.range) != null;
+      const showR = state.votesRevealed && tstr(state.range) != null;
       rangeWrap.hidden = !showR;
       rangeSep.hidden  = !showR;
-      if (showR) setText('#rangeVote', withInf(t(state.range)));
+      if (showR) setText('#rangeVote', withInf(tstr(state.range)));
     }
   }
 
-  // ---------------- Topic row (ellipsis in text + separate “more” button) ----------------
+  // ---------------- Topic row ----------------
   function renderTopic() {
     const row = $('#topicRow'); if (!row) return;
 
@@ -767,8 +794,11 @@ function heatHueForLabel(label) {
         btn.id = 'topicOverflowHint';
         btn.type = 'button';
         btn.className = 'topic-more-btn';
-        btn.textContent = 'more';
-        btn.setAttribute('aria-label', 'Show full topic');
+        btn.textContent = isDe() ? 'mehr' : 'more';
+        const lab = isDe() ? 'Vollständiges Thema anzeigen' : 'Show full topic';
+        const label = t('topic.more', lab); // optional key; falls nicht vorhanden → fallback
+        btn.setAttribute('aria-label', label);
+        btn.setAttribute('title', label);
         hint = btn;
       }
     };
@@ -792,6 +822,7 @@ function heatHueForLabel(label) {
       requestAnimationFrame(syncTopicOverflow);
       const full = [state.topicLabel || '', state.topicUrl || ''].filter(Boolean).join(' — ');
       hint.setAttribute('title', wrapForTitle(full, 44));
+      hint.setAttribute('aria-label', t('topic.more', isDe() ? 'Vollständiges Thema anzeigen' : 'Show full topic'));
       return;
     }
 
@@ -811,17 +842,20 @@ function heatHueForLabel(label) {
       ensureHint();
       if (!hint.isConnected) row.insertBefore(hint, actions);
 
+      const titleEdit  = t('button.editTopic',  isDe() ? 'Bearbeiten'   : 'Edit');
+      const titleClear = t('button.clearTopic', isDe() ? 'Feld leeren'  : 'Clear');
+
       actions.innerHTML =
         `<button id="topicEditBtn"
                  class="icon-button neutral"
                  type="button"
-                 title="${isDe() ? 'Bearbeiten' : 'Edit'}"
-                 aria-label="${isDe() ? 'Bearbeiten' : 'Edit'}">✍️</button>
+                 title="${escapeHtml(titleEdit)}"
+                 aria-label="${escapeHtml(titleEdit)}">✍️</button>
          <button id="topicClearBtn"
                  class="icon-button neutral"
                  type="button"
-                 title="${isDe() ? 'Feld leeren' : 'Clear'}"
-                 aria-label="${isDe() ? 'Feld leeren' : 'Clear'}">🗑️</button>`;
+                 title="${escapeHtml(titleClear)}"
+                 aria-label="${escapeHtml(titleClear)}">🗑️</button>`;
 
       const editBtn  = $('#topicEditBtn');
       const clearBtn = $('#topicClearBtn');
@@ -854,17 +888,20 @@ function heatHueForLabel(label) {
 
       if (hint) hint.style.display = 'none';
 
+      const titleSave   = t('button.saveTopic', isDe() ? 'Speichern'  : 'Save');
+      const titleCancel = t('button.cancel',    isDe() ? 'Abbrechen'  : 'Cancel');
+
       actions.innerHTML =
         `<button id="topicSaveBtn"
                  class="icon-button neutral"
                  type="button"
-                 title="${isDe() ? 'Speichern' : 'Save'}"
-                 aria-label="${isDe() ? 'Speichern' : 'Save'}">✅</button>
+                 title="${escapeHtml(titleSave)}"
+                 aria-label="${escapeHtml(titleSave)}">✅</button>
          <button id="topicCancelEditBtn"
                  class="icon-button neutral"
                  type="button"
-                 title="${isDe() ? 'Abbrechen' : 'Cancel'}"
-                 aria-label="${isDe() ? 'Abbrechen' : 'Cancel'}">❌</button>`;
+                 title="${escapeHtml(titleCancel)}"
+                 aria-label="${escapeHtml(titleCancel)}">❌</button>`;
 
       const saveBtn   = $('#topicSaveBtn');
       const cancelBtn = $('#topicCancelEditBtn');
@@ -908,6 +945,7 @@ function heatHueForLabel(label) {
 
       const full = [state.topicLabel || '', state.topicUrl || ''].filter(Boolean).join(' — ');
       hint.setAttribute('title', full);
+      hint.setAttribute('aria-label', t('topic.more', isDe() ? 'Vollständiges Thema anzeigen' : 'Show full topic'));
 
       const over = el.scrollWidth > el.clientWidth + 1;
       hint.style.display = over ? '' : 'none';
@@ -984,7 +1022,7 @@ function heatHueForLabel(label) {
   // ---------------- Global actions ----------------
   function revealCards() {
     if (state.hardMode && !allEligibleVoted()) {
-      showToast(isDe() ? 'Erst aufdecken, wenn alle gewählt haben.' : 'Reveal only after everyone voted.');
+      showToast(t('reveal.gate', isDe() ? 'Erst aufdecken, wenn alle gewählt haben.' : 'Reveal only after everyone voted.'));
       return;
     }
     send('revealCards');
@@ -996,14 +1034,14 @@ function heatHueForLabel(label) {
   // ---------------- Toast & copy helpers ----------------
   function showToast(msg, ms = 2600) {
     try {
-      const t = document.createElement('div');
-      t.className = 'toast';
-      t.textContent = msg;
-      document.body.appendChild(t);
+      const tEl = document.createElement('div');
+      tEl.className = 'toast';
+      tEl.textContent = msg;
+      document.body.appendChild(tEl);
       // force reflow for CSS animation
       // eslint-disable-next-line no-unused-expressions
-      t.offsetHeight;
-      setTimeout(() => t.remove(), ms + 600);
+      tEl.offsetHeight;
+      setTimeout(() => tEl.remove(), ms + 600);
     } catch {}
   }
 
@@ -1041,13 +1079,14 @@ function heatHueForLabel(label) {
     const btn = candidates[0];
     if (!btn) return;
 
-    const okMsg = isDe() ? 'Link kopiert' : 'Link copied';
-    const failMsg = isDe() ? 'Kopieren fehlgeschlagen' : 'Copy failed';
+    const okMsg   = t('copy.ok',   isDe() ? 'Link kopiert' : 'Link copied');
+    const failMsg = t('copy.fail', isDe() ? 'Kopieren fehlgeschlagen' : 'Copy failed');
 
     async function handle() {
       const ok = await copyText(inviteUrl());
       const prev = btn.getAttribute('title');
       btn.setAttribute('title', ok ? okMsg : failMsg);
+      btn.setAttribute('aria-label', ok ? okMsg : failMsg);
       showToast(ok ? okMsg : failMsg);
       if (prev != null) setTimeout(() => btn.setAttribute('title', prev), 2200);
       else setTimeout(() => btn.removeAttribute('title'), 2200);
@@ -1147,7 +1186,7 @@ function heatHueForLabel(label) {
   }
 
   // ---------------- Boot ----------------
-  function boot() { wireOnce(); syncHostClass(); connectWS(); }
+  function boot() { preloadMessages(); wireOnce(); syncHostClass(); connectWS(); }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();
 

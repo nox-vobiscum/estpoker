@@ -10,7 +10,7 @@
   <div class="container landing-container" th:with="rc=${roomCode != null ? roomCode : param.roomCode}">
     <h1 class="app-title">
       <img src="/favicon.svg" alt="" width="24" height="24" class="logo">
-      <span th:text="#{ui.heading}">RBS' Estimation Poker</span>
+      <span th:text="#{ui.heading}" data-i18n="ui.heading">RBS' Estimation Poker</span>
     </h1>
 
     <!-- Message with 1 parameter; allows HTML via utext -->
@@ -29,7 +29,10 @@
         </div>
       </div>
       <div class="form-actions">
-        <button type="submit" class="button" th:text="#{button.join}">Join</button>
+        <button type="submit" class="button"
+                th:text="#{button.join}"
+                th:attr="title=#{button.join},aria-label=#{button.join}"
+                data-i18n-attr="title:button.join;aria-label:button.join">Join</button>
       </div>
     </form>
   </div>
