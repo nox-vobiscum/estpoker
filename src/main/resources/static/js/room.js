@@ -690,69 +690,86 @@
   }
 
   // ---------------- Result bar ----------------
-  function renderResultBar() {
-    const hasInfinity = !!(
-      state.votesRevealed &&
-      Array.isArray(state.participants) &&
-      state.participants.some(p => p && !p.observer && (p.vote === INFINITY_ || p.vote === INFINITY_ALT))
-    );
+function renderResultBar() {
+  const hasInfinity = !!(
+    state.votesRevealed &&
+    Array.isArray(state.participants) &&
+    state.participants.some(p => p && !p.observer && (p.vote === INFINITY_ || p.vote === INFINITY_ALT))
+  );
 
-    const tstr = (v) => (v == null || v === '' ? null : String(v));
-    const withInf = (base) => (base != null ? base + (hasInfinity ? ' +♾️' : '') : (hasInfinity ? '♾️' : null));
+  const toStr  = (v) => (v == null || v === '' ? null : String(v));
+  const withInf = (base) => (base != null ? base + (hasInfinity ? ' +♾️' : '') : (hasInfinity ? '♾️' : null));
 
-    const pre  = document.querySelector('.pre-vote');
-    const post = document.querySelector('.post-vote');
-    if (pre && post) {
-      pre.style.display  = state.votesRevealed ? 'none' : '';
-      post.style.display = state.votesRevealed ? '' : 'none';
-    }
+  // Toggle pre/post sections
+  const pre  = document.querySelector('.pre-vote');
+  const post = document.querySelector('.post-vote');
+  if (pre && post) {
+    pre.style.display  = state.votesRevealed ? 'none' : '';
+    post.style.display = state.votesRevealed ? '' : 'none';
+  }
 
-    const row        = $('#resultRow');
-    const avgWrap    = document.querySelector('#resultLabel .label-average');
-    const consEl     = document.querySelector('#resultLabel .label-consensus');
-    const medianWrap = $('#medianWrap');
-    const rangeWrap  = $('#rangeWrap');
-    const rangeSep   = $('#rangeSep');
-    const avgEl      = $('#averageVote');
+  const row        = $('#resultRow');
+  const avgWrap    = document.querySelector('#resultLabel .label-average');
+  const consEl     = document.querySelector('#resultLabel .label-consensus');
+  const medianWrap = $('#medianWrap');
+  const rangeWrap  = $('#rangeWrap');
+  const rangeSep   = $('#rangeSep'); // separator before Range
+  const avgEl      = $('#averageVote');
 
-    if (avgEl) {
-      const avgTxt = withInf(tstr(state.averageVote));
-      avgEl.textContent = avgTxt ?? (state.votesRevealed ? 'N/A' : '');
-    }
+  // Localized "🎉 Consensus" label via <meta>, fallback de/en
+  const CONS_LABEL =
+    document.querySelector('meta[name="msg.label.consensus"]')?.content
+    || (isDe() ? '🎉 Konsens' : '🎉 Consensus');
 
-    if (row) {
-      if (state.consensus) {
-        row.classList.add('consensus');
-        if (avgWrap) avgWrap.hidden = true;
-        if (consEl) {
-          consEl.hidden = false;
-          consEl.textContent = isDe() ? '🎉 Konsens' : '🎉 Consensus';
-        }
-        const sep1 = document.querySelector('#resultRow .sep');
-        if (sep1) sep1.hidden = true;
-        if (medianWrap) medianWrap.hidden = true;
-        if (rangeSep)  rangeSep.hidden  = true;
-        if (rangeWrap) rangeWrap.hidden = true;
-        return;
-      } else {
-        row.classList.remove('consensus');
-        if (avgWrap) avgWrap.hidden = false;
-        if (consEl)  consEl.hidden  = true;
-      }
-    }
+  // First separator between Average and Median (prefer explicit id)
+  const medianSep  = document.getElementById('medianSep')
+                  || document.querySelector('#resultRow .sep');
 
-    if (medianWrap) {
-      const showM = state.votesRevealed && tstr(state.medianVote) != null;
-      medianWrap.hidden = !showM;
-      if (showM) setText('#medianVote', withInf(tstr(state.medianVote)));
-    }
-    if (rangeWrap && rangeSep) {
-      const showR = state.votesRevealed && tstr(state.range) != null;
-      rangeWrap.hidden = !showR;
-      rangeSep.hidden  = !showR;
-      if (showR) setText('#rangeVote', withInf(tstr(state.range)));
+  // Average
+  if (avgEl) {
+    const avgTxt = withInf(toStr(state.averageVote));
+    avgEl.textContent = avgTxt ?? (state.votesRevealed ? 'N/A' : '');
+  }
+
+  // Consensus mode: hide everything but the label
+  if (row) {
+    if (state.consensus) {
+      row.classList.add('consensus');
+      if (avgWrap) avgWrap.hidden = true;
+      if (consEl) { consEl.hidden = false; consEl.textContent = CONS_LABEL; }
+      if (medianSep) { medianSep.hidden = true; medianSep.setAttribute('aria-hidden', 'true'); }
+      if (medianWrap) medianWrap.hidden = true;
+      if (rangeSep)  rangeSep.hidden  = true;
+      if (rangeWrap) rangeWrap.hidden = true;
+      return;
+    } else {
+      row.classList.remove('consensus');
+      if (avgWrap) avgWrap.hidden = false;
+      if (consEl)  consEl.hidden  = true;
     }
   }
+
+  // Median + its separator (deterministic)
+  let showMedian = false;
+  if (medianWrap) {
+    showMedian = state.votesRevealed && toStr(state.medianVote) != null;
+    medianWrap.hidden = !showMedian;
+    if (showMedian) setText('#medianVote', withInf(toStr(state.medianVote)));
+  }
+  if (medianSep) {
+    medianSep.hidden = !showMedian;
+    medianSep.setAttribute('aria-hidden', String(!showMedian));
+  }
+
+  // Range + second separator
+  if (rangeWrap && rangeSep) {
+    const showRange = state.votesRevealed && toStr(state.range) != null;
+    rangeWrap.hidden = !showRange;
+    rangeSep.hidden  = !showRange;
+    if (showRange) setText('#rangeVote', withInf(toStr(state.range)));
+  }
+}
+
 
   // ---------------- Topic row ----------------
   function renderTopic() {
