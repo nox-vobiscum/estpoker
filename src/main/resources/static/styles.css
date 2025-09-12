@@ -770,37 +770,3 @@ body.light .vote-chip.heat,
     background: hsl(var(--_h) 90% 90%);
   }
 }
-
-
-/* ===== Compact menu (experimental) ===== */
-/* Default: normal Größe */
-:root {
-  --menu-scale: 1;
-  --menu-base-width: 360px; /* anpassen, falls dein Panel breiter/schmäler ist */
-}
-
-/* Toggle: body.menu-compact -> skaliert auf 70% (≈30% kleiner) */
-body.menu-compact {
-  --menu-scale: .7;
-}
-
-/* Panel-Breite wirklich verkleinern (Layout) */
-#appMenuOverlay .menu-panel {
-  width: calc(var(--menu-base-width) * var(--menu-scale));
-  /* optional: innenabstand leicht skalieren, wenn du padding auf dem Panel hast */
-  padding: calc(var(--menu-scale) * 16px);
-}
-
-/* Inhalt visuell skalieren, damit Typo/Icons/Abstände konsistent mit schrumpfen */
-#appMenuOverlay .menu-panel > :first-child {
-  transform: scale(var(--menu-scale));
-  transform-origin: top right; /* Menü bleibt rechts „angedockt“ */
-}
-
-/* Klickflächen nicht *zu* klein machen (optional, wenn’s sich zu fummelig anfühlt) */
-/* min 40–44px sind UX-Standards – hier testweise auf 36px begrenzt */
-#appMenuOverlay .menu-item,
-#appMenuOverlay .switch,
-#appMenuOverlay .icon-button {
-  min-height: calc(44px * var(--menu-scale)); /* bei .7 ≈ 30px – ggf. auf 36–40 erhöhen */
-}
