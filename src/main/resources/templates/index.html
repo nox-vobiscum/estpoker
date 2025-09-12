@@ -15,16 +15,23 @@
     <!-- Join form -->
     <form id="joinForm" class="join-form" action="/room" method="get" novalidate>
       <div class="form-row">
-        <label for="nameInput"><span class="mi-icon" aria-hidden="true">👤</span><span th:text="#{label.yourName}">Your name</span></label>
+        <label for="nameInput">
+          <span class="mi-icon" aria-hidden="true">👤</span>
+          <span th:text="#{label.yourName}" data-i18n="label.yourName">Your name</span>
+        </label>
         <input id="nameInput" name="participantName" type="text" maxlength="40" autocomplete="name" required placeholder="Jane Doe">
       </div>
       <div class="form-row">
-        <label for="roomInput"><span class="mi-icon" aria-hidden="true">🆔</span><span th:text="#{label.roomCode}">Room code / name</span></label>
+        <label for="roomInput">
+          <span class="mi-icon" aria-hidden="true">🆔</span>
+          <span th:text="#{label.roomCode}" data-i18n="label.roomCode">Room code / name</span>
+        </label>
         <input id="roomInput" name="roomCode" type="text" maxlength="40" autocapitalize="none" spellcheck="false" required placeholder="team-alpha">
       </div>
       <div class="form-actions">
         <button class="button" type="submit"
                 th:text="#{button.join}"
+                data-i18n="button.join"
                 th:attr="title=#{button.join},aria-label=#{button.join}"
                 data-i18n-attr="title:button.join;aria-label:button.join">Join</button>
       </div>
@@ -32,7 +39,6 @@
   </div>
 
   <script>
-  // Keep a tiny helper for restoring last used values and basic validation
   (function(){
     const form  = document.getElementById('joinForm');
     const nameI = document.getElementById('nameInput');

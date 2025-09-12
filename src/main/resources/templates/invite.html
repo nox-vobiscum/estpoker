@@ -13,9 +13,12 @@
       <span th:text="#{ui.heading}" data-i18n="ui.heading">RBS' Estimation Poker</span>
     </h1>
 
-    <!-- Message with 1 parameter; allows HTML via utext -->
+    <!-- Dynamic message: provide initial SSR and attributes for re-render on language switch -->
     <p class="hint"
-       th:utext="#{invite.heading(${rc})}">
+       id="inviteHeading"
+       th:utext="#{invite.heading(${rc})}"
+       data-i18n-dyn="invite.heading"
+       th:attr="data-arg0=${rc}">
       You’ve been invited to room <strong>demo</strong>.
     </p>
 
@@ -23,7 +26,7 @@
       <input type="hidden" name="roomCode" th:value="${rc}">
       <div class="form-row">
         <div class="form-field">
-          <label for="participantName" th:text="#{label.yourName}">Your name</label>
+          <label for="participantName" th:text="#{label.yourName}" data-i18n="label.yourName">Your name</label>
           <input type="text" id="participantName" name="participantName"
                  th:value="${param.participantName != null ? param.participantName : participantName}">
         </div>
@@ -31,14 +34,13 @@
       <div class="form-actions">
         <button type="submit" class="button"
                 th:text="#{button.join}"
+                data-i18n="button.join"
                 th:attr="title=#{button.join},aria-label=#{button.join}"
                 data-i18n-attr="title:button.join;aria-label:button.join">Join</button>
       </div>
     </form>
   </div>
 
-  <!-- Footer include (centralized) -->
   <div th:replace="~{fragments/footer :: footer}"></div>
-
 </body>
 </html>

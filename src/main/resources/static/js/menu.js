@@ -1,12 +1,8 @@
-/* menu.js v37 — i18n-driven tooltips; native titles; sequence tips; hard/soft toggle; specials toggle
-   - Tooltips now prefer messages from /i18n/messages (messages*.properties) with graceful fallbacks.
-   - Uses existing labels (aria) from HTML; only enhances titles/tooltips dynamically.
-   - Theme persistence: writes both 'estpoker-theme' (legacy) and 'ep-theme'.
-*/
+/* menu.js v38 — i18n-driven tooltips + dynamic messages (index/invite) */
 (() => {
   'use strict';
-  window.__epMenuVer = 'v37';
-  console.info('[menu] v37 loaded');
+  window.__epMenuVer = 'v38';
+  console.info('[menu] v38 loaded');
 
   const $  = (s, r = document) => r.querySelector(s);
   const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
@@ -40,56 +36,43 @@
   const themeSystem = $('#themeSystem');
   const closeBtn    = $('#closeRoomBtn');
 
-  /* ---------- language helpers ---------- */
   const isDe = () => (document.documentElement.lang || 'en').toLowerCase().startsWith('de');
   const getLang = () => (isDe() ? 'de' : 'en');
 
-  /* ---------- i18n store & helpers ---------- */
+  /* ---------- i18n store ---------- */
   const MSG = Object.create(null);
 
-  // Safe formatter for `{0}`, `{name}` placeholders.
   function formatMsg(str, params) {
     if (!str || !params) return str;
     return String(str).replace(/\{(\w+)\}/g, (_, k) => {
-      // numeric index or named
-      if (params.hasOwnProperty(k)) return params[k];
-      const idx = Number(k);
-      return Number.isFinite(idx) && params[idx] != null ? params[idx] : `{${k}}`;
+      if (Object.prototype.hasOwnProperty.call(params, k)) return params[k];
+      const i = Number(k);
+      return Number.isFinite(i) && params[i] != null ? params[i] : `{${k}}`;
     });
   }
-
-  // Read a message key from cache; fall back to provided default if missing.
   function t(key, fallback, params) {
     let s = (key && Object.prototype.hasOwnProperty.call(MSG, key)) ? MSG[key] : undefined;
     if (s == null) s = fallback;
     return params ? formatMsg(s, params) : s;
   }
-
   async function fetchMessages(code) {
     const res = await fetch(`/i18n/messages?lang=${encodeURIComponent(code)}`, { credentials: 'same-origin' });
     if (!res.ok) throw new Error(`i18n HTTP ${res.status}`);
-    const data = await res.json();
-    if (data && typeof data === 'object') Object.assign(MSG, data);
+    Object.assign(MSG, await res.json());
     return MSG;
   }
 
-  /* ---------- Menu open/close ---------- */
+  /* ---------- open/close ---------- */
+  const isMenuOpen = () => overlay && !overlay.classList.contains('hidden');
   function setMenuButtonState(open) {
     if (!btnOpen) return;
     btnOpen.textContent = open ? '✕' : '☰';
     const de = isDe();
-    // Use short labels from bundles if available
+    const labelOpen  = t('menu.open',  de ? 'Menü öffnen'   : 'Open menu');
+    const labelClose = t('menu.close', de ? 'Menü schließen' : 'Close menu');
     btnOpen.setAttribute('aria-expanded', open ? 'true' : 'false');
-    btnOpen.setAttribute(
-      'aria-label',
-      open ? t('menu.close', de ? 'Menü schließen' : 'Close menu')
-           : t('menu.open',  de ? 'Menü öffnen'   : 'Open menu')
-    );
-    btnOpen.setAttribute(
-      'title',
-      open ? t('menu.close', de ? 'Menü schließen' : 'Close menu')
-           : t('menu.open',  de ? 'Menü öffnen'   : 'Open menu')
-    );
+    btnOpen.setAttribute('aria-label', open ? labelClose : labelOpen);
+    btnOpen.setAttribute('title',       open ? labelClose : labelOpen);
   }
   function forceRowLayout() {
     $$('.menu-item.switch').forEach((row) => {
@@ -114,11 +97,10 @@
   function openMenu(){ if (!overlay) return; overlay.classList.remove('hidden'); overlay.setAttribute('aria-hidden','false'); setMenuButtonState(true); forceRowLayout(); }
   function closeMenu(){ if (!overlay) return; overlay.classList.add('hidden');    overlay.setAttribute('aria-hidden','true');  setMenuButtonState(false); btnOpen?.focus?.(); }
   btnOpen?.addEventListener('click', () => (isMenuOpen() ? closeMenu() : openMenu()));
-  const isMenuOpen = () => overlay && !overlay.classList.contains('hidden');
   backdrop?.addEventListener('click', (e) => { if (e.target.hasAttribute('data-close')) closeMenu(); });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && isMenuOpen()) closeMenu(); });
 
-  /* ---------- i18n → apply to DOM ---------- */
+  /* ---------- apply messages to DOM ---------- */
   function setFlagsFor(code) {
     if (!flagA || !flagB) return;
     if (code === 'de') { flagA.src = '/flags/de.svg'; flagB.src = '/flags/at.svg'; }
@@ -136,12 +118,10 @@
     } catch (e) { console.warn('[menu] stripLangParam failed', e); }
   }
   function applyMessages(map, root = document) {
-    // Apply text content for [data-i18n]
     $$('[data-i18n]', root).forEach((el) => {
       const key = el.getAttribute('data-i18n');
       if (key && map[key] != null) el.textContent = map[key];
     });
-    // Apply attributes declared in data-i18n-attr="attr:key;attr:key"
     $$('[data-i18n-attr]', root).forEach((el) => {
       const spec = el.getAttribute('data-i18n-attr'); if (!spec) return;
       spec.split(';').forEach(pair => {
@@ -153,9 +133,25 @@
     });
   }
 
+  // NEW: dynamic message support for elements with data-i18n-dyn
+  function applyDynamicMessages(root = document) {
+    $$('[data-i18n-dyn]', root).forEach((el) => {
+      const key = el.getAttribute('data-i18n-dyn');
+      const tmpl = key ? MSG[key] : null;
+      if (!tmpl) return;
+      // Collect numbered args: data-arg0, data-arg1, ...
+      const params = {};
+      Object.entries(el.dataset).forEach(([k, v]) => {
+        if (/^arg\d+$/.test(k)) params[Number(k.slice(3))] = v;
+        // Also allow named params: any data-* except i18nDyn/argN
+        else if (k !== 'i18nDyn') params[k] = v;
+      });
+      el.innerHTML = formatMsg(tmpl, params);
+    });
+  }
+
   /* ---------- Titles / tooltips ---------- */
   function setThemeTooltips(code) {
-    // Prefer dedicated title.* keys, fall back to simple labels.
     const titleLight  = t('title.theme.light',  code === 'de' ? 'Design: Hell'   : 'Theme: Light');
     const titleDark   = t('title.theme.dark',   code === 'de' ? 'Design: Dunkel' : 'Theme: Dark');
     const titleSystem = t('title.theme.system', code === 'de' ? 'Design: System' : 'Theme: System');
@@ -164,41 +160,25 @@
     apply(themeDark,   titleDark);
     apply(themeSystem, titleSystem);
   }
-
   function setFunctionalTooltips(code) {
     const de = (code === 'de');
-    // Prefer bundle keys; keep descriptive fallbacks
     const T = {
-      auto : t('hint.autoreveal',    de ? 'Automatisch aufdecken, sobald alle geschätzt haben'
-                                        : 'Automatically reveal once everyone voted'),
-      topic: t('hint.topic.toggle',  de ? 'Ticket/Story-Zeile ein- oder ausblenden'
-                                        : 'Show or hide the Ticket/Story row'),
-      specials: t('hint.specials',   de ? 'Spezialkarten erlauben (❓ 💬 ☕)'
-                                        : 'Allow special cards (❓ 💬 ☕)'),
-      hard : t('hint.hardmode',      de ? 'Nur aufdecken, wenn alle gewählt haben'
-                                        : 'Reveal only when everyone voted'),
-      part : t('hint.participation', de ? 'Zwischen Schätzer:in und Beobachter:in umschalten'
-                                        : 'Toggle between estimator and observer'),
-      // For the language row, use title.lang.to with the next language as {0}
-      lang : t('title.lang.to',      de ? 'Sprache wechseln → {0}' : 'Switch language → {0}',
-                                        {0: de ? 'English' : 'Deutsch'}),
-      // For the red close button, prefer room.close.hint for a full sentence
-      close: t('room.close.hint',    de ? 'Schließt diesen Raum für alle und kehrt zur Startseite zurück.'
-                                        : 'Closes this room for all participants and returns to the start page.')
+      auto : t('hint.autoreveal',    de ? 'Automatisch aufdecken, sobald alle geschätzt haben' : 'Automatically reveal once everyone voted'),
+      topic: t('hint.topic.toggle',  de ? 'Ticket/Story-Zeile ein- oder ausblenden'            : 'Show or hide the Ticket/Story row'),
+      specials: t('hint.specials',   de ? 'Spezialkarten erlauben (❓ 💬 ☕)'                   : 'Allow special cards (❓ 💬 ☕)'),
+      hard : t('hint.hardmode',      de ? 'Nur aufdecken, wenn alle gewählt haben'             : 'Reveal only when everyone voted'),
+      part : t('hint.participation', de ? 'Zwischen Schätzer:in und Beobachter:in umschalten'  : 'Toggle between estimator and observer'),
+      lang : t('title.lang.to',      de ? 'Sprache wechseln → {0}'                             : 'Switch language → {0}', {0: de ? 'English' : 'Deutsch'}),
+      close: t('room.close.hint',    de ? 'Schließt diesen Raum für alle und kehrt zur Startseite zurück.' : 'Closes this room for all participants and returns to the start page.')
     };
-
     rowLang?.setAttribute('title', T.lang);
     rowAuto?.setAttribute('title', T.auto);
     rowTopic?.setAttribute('title', T.topic);
     rowSpecials?.setAttribute('title', T.specials);
     rowHard?.setAttribute('title', T.hard);
     rowPart?.setAttribute('title', T.part);
-    if (closeBtn) {
-      closeBtn.setAttribute('title', T.close);
-      // aria-label stays the short action label from HTML/i18n; title carries the long hint
-    }
+    if (closeBtn) closeBtn.setAttribute('title', T.close);
   }
-
   function setCloseBtnLabel(code) {
     if (!closeBtn) return;
     const labelEl = closeBtn.querySelector('.truncate-1') || closeBtn;
@@ -216,9 +196,9 @@
       setFlagsFor(to);
       if (langLabel) langLabel.textContent = (to === 'de') ? 'Deutsch' : 'English';
 
-      // Load messages, then apply all dynamic bits
       await fetchMessages(to);
       applyMessages(MSG, document);
+      applyDynamicMessages(document);     // <-- NEW
       stripLangParamFromUrl();
 
       setThemeTooltips(to);
@@ -230,7 +210,6 @@
     } catch (err) {
       console.warn('[i18n] switch failed:', err);
       stripLangParamFromUrl();
-      // Even if fetching failed, still update non-i18n-dependent bits
       setThemeTooltips(to);
       setFunctionalTooltips(to);
       setCloseBtnLabel(to);
@@ -250,7 +229,6 @@
     try {
       if (mode === 'system') document.documentElement.removeAttribute('data-theme');
       else                   document.documentElement.setAttribute('data-theme', mode);
-      // Persist under both keys (legacy + new)
       localStorage.setItem('estpoker-theme', mode);
       localStorage.setItem('ep-theme', mode);
       const setPressed = (btn, on) => btn && btn.setAttribute('aria-pressed', on ? 'true' : 'false');
@@ -263,7 +241,7 @@
   themeDark?.addEventListener('click',   () => applyTheme('dark'));
   themeSystem?.addEventListener('click', () => applyTheme('system'));
 
-  /* ---------- Switch rows: full-row clickable ---------- */
+  /* ---------- Switch rows ---------- */
   function reflectAriaChecked(inputEl, rowEl) {
     if (!inputEl) return;
     const v = inputEl.checked ? 'true' : 'false';
@@ -298,7 +276,7 @@
     document.dispatchEvent(new CustomEvent('ep:close-room'));
   });
 
-  /* ---------- Sequence radios: titles + change ---------- */
+  /* ---------- Sequence radios ---------- */
   const SPECIALS = new Set(['?', '❓', '💬', '☕', '∞']);
   const SEQ_FALLBACKS = {
     'fib.scrum': [0, 1, 2, 3, 5, 8, 13, 20, 40, 100],
@@ -335,8 +313,6 @@
     }
     return SEQ_FALLBACKS;
   }
-
-  // Enable/disable radios based on host state (robust against host transfer)
   function radiosSetEnabled(isHost){
     if (!seqRoot) return;
     const inputs = Array.from(seqRoot.querySelectorAll('input[type="radio"][name="menu-seq"]'));
@@ -360,15 +336,12 @@
 
   async function initSequenceTooltips() {
     if (!seqRoot) return;
-
-    // Initial disabled until the page decides (avoids test flakiness)
     $$('input[type="radio"][name="menu-seq"]', seqRoot).forEach(r => {
       r.disabled = true;
       r.setAttribute('aria-disabled', 'true');
       r.closest('label')?.classList.add('disabled');
       r.closest('label')?.setAttribute('aria-disabled', 'true');
     });
-
     const seqMap = await fetchSequences();
     $$('label.radio-row', seqRoot).forEach(label => {
       const input = $('input[type="radio"]', label);
@@ -376,12 +349,9 @@
       const id = input.value;
       const arr = seqMap[id] || SEQ_FALLBACKS[id] || [];
       const tip = previewFromArray(arr);
-      label.setAttribute('title', tip); // native title for quick preview
+      label.setAttribute('title', tip);
     });
-
-    // Re-apply enabled state now that DOM is stable
     updateSeqRadiosEnabledFromBody();
-
     seqRoot.addEventListener('change', (e) => {
       const r = e.target && e.target.closest('input[type="radio"][name="menu-seq"]');
       if (!r || r.disabled) return;
@@ -392,7 +362,6 @@
 
   /* ---------- init ---------- */
   (async function init() {
-    // Apply saved theme
     const savedTheme = localStorage.getItem('estpoker-theme') || localStorage.getItem('ep-theme');
     if (savedTheme) applyTheme(savedTheme);
 
@@ -401,10 +370,10 @@
     if (langLabel) langLabel.textContent = (code === 'de') ? 'Deutsch' : 'English';
     stripLangParamFromUrl();
 
-    // Load messages first so we can use them for titles
     try {
       await fetchMessages(code);
       applyMessages(MSG, document);
+      applyDynamicMessages(document);   // <-- NEW
     } catch (e) {
       console.warn('[menu] initial i18n apply failed', e);
     }
