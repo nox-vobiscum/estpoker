@@ -872,7 +872,7 @@ body.light .vote-chip.heat,
   color: var(--text);
 }
 .kb-body ul{ margin: .25rem 0 0 .9rem; padding: 0; }
-.kb-body li{ margin: .25rem 0; }
+.kb-body li{ margin: .25rem 0;font-size: 0.75rem; }
 
 /* Hover/active affordances */
 .kb:hover{ border-color: var(--accent); }
