@@ -427,17 +427,15 @@
     console.error('[ROOM] applyVoteUpdate failed', e);
   }
 
-  if (!Array.isArray(state.participants) || state.participants.length === 0) {
-  state.participants = [{
+  if (Array.isArray(state.participants) &&
+    !state.participants.some(p => p && p.name === state.youName)) {
+  state.participants.unshift({
     name: state.youName || 'You',
-    vote: null,
-    disconnected: false,
-    away: false,
-    isHost: !!state.isHost,
-    participating: true,
-    observer: false
-  }];
+    vote: null, disconnected:false, away:false,
+    isHost: !!state.isHost, participating:true, observer:false
+  });
 }
+
 }
 
 
