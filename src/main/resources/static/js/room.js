@@ -203,10 +203,13 @@
     state.ws = s;
 
     s.onopen = () => {
-      state.connected = true;
-      try { send('rename:' + encodeURIComponent(state.youName)); } catch {}
-      heartbeat();
+    state.connected = true;
+    try { send('rename:' + encodeURIComponent(state.youName)); } catch {}
+    try { send('requestSync'); } catch {}
+    setTimeout(() => { try { send('requestSync'); } catch {} }, 400); // Retry, if race
+    heartbeat();
     };
+
     s.onclose = (ev) => {
       state.connected = false; stopHeartbeat();
       if (state.hardRedirect) { location.href = state.hardRedirect; return; }
@@ -423,6 +426,18 @@
   } catch (e) {
     console.error('[ROOM] applyVoteUpdate failed', e);
   }
+
+  if (!Array.isArray(state.participants) || state.participants.length === 0) {
+  state.participants = [{
+    name: state.youName || 'You',
+    vote: null,
+    disconnected: false,
+    away: false,
+    isHost: !!state.isHost,
+    participating: true,
+    observer: false
+  }];
+}
 }
 
 
