@@ -114,6 +114,10 @@
               data-i18n-attr="title:button.reset;aria-label:button.reset"
               onclick="resetRoom()"></button>
     </div>
+
+    <div th:replace="~{fragments/kbase :: kbase}"></div>
+    <th:block th:replace="~{fragments/kbase :: kbase-js}"></th:block>
+
   </div>
 
   <!-- Room connector (use your current version; bump v-param if client caches JS) -->

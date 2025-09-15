@@ -747,7 +747,6 @@ body{padding-bottom:var(--footer-h)}
 }
 
 /* ───── Optional: class-driven Light overrides (work even if OS is Dark) ───── */
-/* Falls du <html class="light"> oder <body class="light"> (oder data-theme="light") setzt */
 html.light .vote-chip,
 body.light .vote-chip,
 :root[data-theme="light"] .vote-chip,
@@ -775,11 +774,10 @@ body.light .vote-chip.heat,
 }
 
 /* --- iOS-safe centering for participant row actions (minimal patch) ------ */
-/* Zentriert 👑/❌ zuverlässig, ohne Chips/Abstände zu verändern */
 #liveParticipantList .row-right { gap: 6px; }
 
 #liveParticipantList .row-action{
-  display: inline-grid;         /* echtes Centering */
+  display: inline-grid;
   place-items: center;
   width: 28px; height: 28px;
   padding: 0;
@@ -789,12 +787,10 @@ body.light .vote-chip.heat,
   width: 1em; height: 1em; line-height: 1;
 }
 
-/* Erstes Action-Icon bleibt ganz rechts – wie gehabt */
 #liveParticipantList .row-right > .row-action:first-of-type{ margin-left: auto; }
 #liveParticipantList .row-right :where(.status-icon,.vote-chip,.mini-chip)
   ~ .row-action:first-of-type{ margin-left: auto; }
 
-/* iOS: größere runde Touch-Ziele, Emoji minimal größer */
 @supports (-webkit-touch-callout:none){
   #liveParticipantList .row-action{ width: 40px; height: 40px; border-radius: 50%; }
   #liveParticipantList .row-action .ra-icon{ font-size: 20px; }
@@ -809,5 +805,75 @@ body.light .vote-chip.heat,
 .no-chip-anim .average-label #averageVote {
   animation: none !important;
   opacity: 1 !important;
-  transform: none !important; /* falls die Anim. noch translateY setzte */
+  transform: none !important;
 }
+
+/* Knowledge bites – compact, safe-bottom spacing, mobile friendly */
+.knowledge-bites{
+  margin-top: 1.25rem;
+  padding-bottom: max(24px, calc(var(--footer-h) + var(--cta-offset, 8px) + env(safe-area-inset-bottom)));
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding-inline: 12px;
+  padding-block: 10px;
+}
+
+.container .knowledge-bites{
+  padding-bottom: 8px;
+}
+@media (max-width:600px){
+  .container .knowledge-bites{ padding-bottom: 12px; }
+}
+
+/* Smaller headline */
+.knowledge-bites > h2{
+  margin: .25rem 0 .5rem;
+  font-size: .95rem;
+  color: var(--text-strong);
+  text-align: center;
+}
+
+/* Cards */
+.kb{
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel-2);
+  margin: 8px 0;
+  overflow: clip;
+}
+
+/* Smaller summary, two-line feel with preview */
+.kb > summary{
+  display: flex;
+  align-items: baseline;
+  gap: .5rem;
+  padding: 8px 10px;
+  cursor: pointer;
+  list-style: none;
+}
+.kb > summary::-webkit-details-marker{ display:none; }
+
+.kb-title{ font-size: .90rem; font-weight: 600; color: var(--text-strong); }
+.kb-preview{
+  font-size: .80rem;
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Smaller body text */
+.kb-body{
+  padding: 8px 10px 10px;
+  font-size: .88rem;
+  line-height: 1.45;
+  color: var(--text);
+}
+.kb-body ul{ margin: .25rem 0 0 .9rem; padding: 0; }
+.kb-body li{ margin: .25rem 0; }
+
+/* Hover/active affordances */
+.kb:hover{ border-color: var(--accent); }
+.kb[open] > summary{ background: var(--panel-2-hover); }
