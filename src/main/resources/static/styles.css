@@ -4,7 +4,7 @@
    - Mobile sticky reveal above footer without covering content
    - Inputs readable in dark & light
    - Inactive participants (💤) dimmed, not italic
-   - Result chips: equal width; ♾️ green, ❓/💬/☕ grey; observer/dash outlined
+   - Result chips: equal width; ♾️ green, ❓/💬/☕ grey; spectator/dash outlined
 ============================================================================= */
 
 /* ---------- Theme tokens (dark default) ---------------------------------- */
@@ -291,15 +291,15 @@ li{margin-bottom:.4rem;line-height:1.5;font-size:1rem}
 .status-icon{font-size:1rem;line-height:1;display:inline-flex;align-items:center}
 .status-icon.done{color:var(--ok);filter:drop-shadow(0 0 2px rgba(76,175,80,.6))}
 .status-icon.pending{color:var(--warn);opacity:.95}
-/* Observer (👁️) as subtle outline chip so it aligns to chip column */
-#liveParticipantList .status-icon.observer{
+/* spectator (👁️) as subtle outline chip so it aligns to chip column */
+#liveParticipantList .status-icon.spectator{
   display:inline-flex;align-items:center;justify-content:center;
   inline-size:var(--vote-chip-width);
   padding:.15rem .35rem;border-radius:8px;
   background:transparent;color:var(--text-dim);
   border:1.5px solid rgba(148,163,184,.35);box-shadow:none;line-height:1.2;
 }
-:root[data-theme="light"] #liveParticipantList .status-icon.observer{
+:root[data-theme="light"] #liveParticipantList .status-icon.spectator{
   border-color:var(--chip-special-border,#cfe0ff);
   color:var(--chip-special-text,#0b1220);
 }
@@ -598,7 +598,7 @@ body{padding-bottom:var(--footer-h)}
 #liveParticipantList li.disconnected .participant-icon{ opacity: .65; }
 
 /* === Mini outline chip for non-numeric states (pre/post vote) ============== */
-/* Used for: observer 👁️, voted ✓, pending ⏳, and "no vote" – (also when inactive) */
+/* Used for: spectator 👁️, voted ✓, pending ⏳, and "no vote" – (also when inactive) */
 .mini-chip{
   display:inline-flex;
   align-items:center;
@@ -633,7 +633,7 @@ body{padding-bottom:var(--footer-h)}
 .row-right{ display:flex; align-items:center; gap:6px; min-height:1.8rem; }
 
 
-/* === Status "pending" (⏳) wie Observer/Dash: dezenter, grauer Outline-Chip === */
+/* === Status "pending" (⏳) wie spectator/Dash: dezenter, grauer Outline-Chip === */
 /* Überschreibt die frühere gelbe Warnfarbe */
 #liveParticipantList .row-right .status-icon.pending{
   /* gleiche Breite/Geometrie wie Chips */
@@ -658,7 +658,7 @@ body{padding-bottom:var(--footer-h)}
   font-family: "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",system-ui,sans-serif;
 }
 
-/* Light-Theme-Kontrast anpassen – identisch zu Observer/Dash */
+/* Light-Theme-Kontrast anpassen – identisch zu spectator/Dash */
 :root[data-theme="light"] #liveParticipantList .row-right .status-icon.pending{
   border-color: var(--chip-special-border, #cfe0ff) !important;
   color: var(--chip-special-text, #0b1220) !important;

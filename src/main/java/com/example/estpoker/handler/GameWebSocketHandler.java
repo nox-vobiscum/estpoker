@@ -160,7 +160,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             // ----------------------------------------------------------------------------
             if (payload.startsWith("participation:")) {
                 boolean estimating = Boolean.parseBoolean(payload.substring("participation:".length()));
-                gameService.setObserver(roomCode, cid, !estimating);
+                gameService.setSpectator(roomCode, cid, !estimating);
                 return;
             }
 

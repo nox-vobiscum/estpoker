@@ -1,11 +1,11 @@
-// Prod: Participation → Observer mode disables voting and reflects in host list
+// Prod: Participation → Spectator mode disables voting and reflects in host list
 // - User toggles Participation OFF → all their cards disabled, host sees 👁
 // - User toggles Participation ON  → cards enabled again, 👁 verschwindet
 
 import { test, expect } from '@playwright/test';
 import { roomUrlFor, newRoomCode, ensureMenuOpen, ensureMenuClosed } from './_setup/prod-helpers.js';
 
-test('Participation toggle on prod: observer disables voting and updates host list', async ({ page }) => {
+test('Participation toggle on prod: Spectator disables voting and updates host list', async ({ page }) => {
   const room = newRoomCode('PROD-OBS');
 
   // Host & User öffnen
@@ -27,7 +27,7 @@ test('Participation toggle on prod: observer disables voting and updates host li
   await expect(hostRow).toHaveCount(1);
   await expect(viewerRow).toHaveCount(1);
 
-  // --- User -> Observer (OFF) ---
+  // --- User -> Spectator (OFF) ---
   await ensureMenuOpen(user);
   const userToggle = user.locator('#menuParticipationToggle');
   await expect(userToggle).toHaveCount(1);
@@ -43,7 +43,7 @@ test('Participation toggle on prod: observer disables voting and updates host li
   });
 
   // Auf Host-Seite: 👁-Icon beim Viewer
-  await expect(viewerRow.locator('.status-icon.observer')).toHaveCount(1);
+  await expect(viewerRow.locator('.status-icon.spectator')).toHaveCount(1);
 
   // --- User -> Estimating (ON) ---
   await ensureMenuOpen(user);
@@ -59,5 +59,5 @@ test('Participation toggle on prod: observer disables voting and updates host li
   });
 
   // Auf Host-Seite: 👁-Icon weg
-  await expect(viewerRow.locator('.status-icon.observer')).toHaveCount(0);
+  await expect(viewerRow.locator('.status-icon.spectator')).toHaveCount(0);
 });

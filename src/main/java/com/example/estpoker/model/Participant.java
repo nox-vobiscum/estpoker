@@ -8,7 +8,7 @@ public class Participant {
     private final String name;
     private String vote;                 // current vote token
     private boolean active = true;       // considered connected/active by server
-    private boolean participating = true;// false => observer
+    private boolean participating = true;// false => Spectator
     private boolean host = false;        // host flag
     private volatile long lastSeenAt = System.currentTimeMillis(); // heartbeat
 
@@ -38,8 +38,8 @@ public class Participant {
     public void setHost(boolean host) { this.host = host; }
 
     // --- aliases for handler compatibility ---
-    /** Observer is the inverse of participating. */
-    public boolean isObserver() { return !participating; }
+    /** Spectator is the inverse of participating. */
+    public boolean isSpectator() { return !participating; }
     /** Connected maps to our 'active' flag. */
     public boolean isConnected() { return active; }
 

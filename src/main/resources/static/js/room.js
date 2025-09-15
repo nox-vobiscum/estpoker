@@ -185,7 +185,7 @@
       away: false,
       isHost: !!state.isHost,
       participating: true,
-      observer: false
+      spectator: false
     }];
     try { renderParticipants(); } catch {}
   }
@@ -273,7 +273,7 @@
 
   function renderSigFromState() {
     const P = (state.participants || [])
-      .map(p => ({ n: p?.name || '', v: (p?.vote ?? ''), o: !!p?.observer, d: !!p?.disconnected }))
+      .map(p => ({ n: p?.name || '', v: (p?.vote ?? ''), o: !!p?.spectator, d: !!p?.disconnected }))
       .sort((a, b) => a.n.localeCompare(b.n));
 
     return JSON.stringify({
@@ -353,24 +353,31 @@
       // --- participants (preserve previous vote if omitted) ---
       if (has(m, 'participants') && Array.isArray(m.participants)) {
         const prevByName = Object.fromEntries((state.participants || []).map(p => [p.name, p]));
-        state.participants = m.participants.map(p => {
-          const name = p?.name || '';
-          const prev = prevByName[name];
-          const vote = has(p, 'vote') ? (p.vote ?? null)
-                      : prev ? (prev.vote ?? null)
-                      : null;
-          return {
-            name,
-            vote,
-            disconnected: has(p, 'disconnected') ? !!p.disconnected : !!prev?.disconnected,
-            away:         has(p, 'away')         ? !!p.away         : !!prev?.away,
-            isHost:       has(p, 'isHost')       ? !!p.isHost       : !!prev?.isHost,
-            participating: has(p, 'participating') ? (p.participating !== false)
-                          : (prev ? (prev.participating !== false) : true),
-            observer:       has(p, 'participating') ? (p.participating === false)
-                          : (prev ? prev.observer : false)
-          };
-        });
+
+      state.participants = m.participants.map(p => {
+        const name = p?.name || '';
+        const prev = prevByName[name];
+
+        const has = (o,k) => Object.prototype.hasOwnProperty.call(o || {}, k);
+        const vote = has(p,'vote') ? (p.vote ?? null) : (prev ? (prev.vote ?? null) : null);
+
+        // NEW: single source of truth
+        const spectator =
+          has(p, 'spectator')     ? !!p.spectator :
+          has(p, 'participating') ? (p.participating === false) :
+          !!prev?.spectator;
+
+        return {
+          name,
+          vote,
+          spectator,                          // <— only this going forward
+          participating: !spectator,          // keep for convenience
+          disconnected: has(p,'disconnected') ? !!p.disconnected : !!prev?.disconnected,
+          away:         has(p,'away')         ? !!p.away         : !!prev?.away,
+          isHost:       has(p,'isHost')       ? !!p.isHost       : !!prev?.isHost
+        };
+      });
+
       }
 
       // who am I (re-evaluate host)
@@ -404,12 +411,19 @@
       state.participants.unshift({
         name: state.youName || 'You',
         vote: null, disconnected:false, away:false,
-        isHost: !!state.isHost, participating:true, observer:false
+        isHost: !!state.isHost, participating:true, spectator:false
       });
     }
   }
 
   // ---------------- Participants ----------------
+
+  // Canonical check in case an old server sends `participating:false`
+  function isSpectator(p) {
+    return !!(p && (p.spectator === true || p.participating === false));
+  }
+
+  
   function renderParticipants() {
     const ul = $('#liveParticipantList'); if (!ul) return;
     try {
@@ -423,13 +437,14 @@
         const isInactive = !!p.disconnected || !!p.away;
         if (isInactive) li.classList.add('disconnected');
         if (p.isHost)    li.classList.add('is-host');
+        if (spectator) li.classList.add('spectator');
 
         // Left icon
         const left = document.createElement('span');
         left.className = 'participant-icon' + (p.isHost ? ' host' : '');
         let icon = '👤';
         if (p.isHost)                 icon = '👑';
-        else if (p.observer === true) icon = '👁️';
+        else if (p.spectator === true) icon = '👁️';
         else if (isInactive)          icon = '💤';
         left.textContent = icon;
         left.setAttribute('aria-hidden', 'true');
@@ -448,9 +463,9 @@
 
         // Chips
         if (!state.votesRevealed) {
-          if (p.observer) {
+          if (p.spectator) {
             const eye = document.createElement('span');
-            eye.className = 'mini-chip observer';
+            eye.className = 'mini-chip spectator';
             eye.textContent = '👁️';
             right.appendChild(eye);
           } else if (!p.disconnected && p.vote != null && String(p.vote) !== '') {
@@ -465,9 +480,9 @@
             right.appendChild(dash);
           }
         } else {
-          if (p.observer) {
+          if (p.spectator) {
             const eye = document.createElement('span');
-            eye.className = 'mini-chip observer';
+            eye.className = 'mini-chip spectator';
             eye.textContent = '👁️';
             right.appendChild(eye);
           } else if (isInactive) {
@@ -602,10 +617,11 @@
     return null;
   }
   function allEligibleVoted() {
-    const elig = state.participants.filter(p => p && !p.observer && !p.disconnected);
+    const elig = state.participants.filter(p => p && !isSpectator(p) && !p.disconnected);
     if (!elig.length) return false;
     return elig.every(p => p.vote != null && String(p.vote) !== '');
-    }
+  }
+
 
   // unified i18n accessor: uses `t()` (which reads /i18n/messages),
   // then falls back to provided en/de defaults when needed.
@@ -622,8 +638,9 @@
     grid.innerHTML = '';
 
     const me = state.participants.find(pp => pp.name === state.youName);
-    const isObserver = !!(me && me.observer);
-    const disabled = state.votesRevealed || isObserver;
+    const isSpectatorMe = !!(me && isSpectator(me));
+    const disabled = state.votesRevealed || isSpectatorMe;
+
 
     // split deck
     const deckSpecialsFromState = (state.cards || [])
@@ -733,8 +750,9 @@
     const hasInfinity = !!(
       state.votesRevealed &&
       Array.isArray(state.participants) &&
-      state.participants.some(p => p && !p.observer && (p.vote === INFINITY_ || p.vote === INFINITY_ALT))
+      state.participants.some(p => p && !isSpectator(p) && (p.vote === INFINITY_ || p.vote === INFINITY_ALT))
     );
+
 
     const toStr  = (v) => (v == null || v === '' ? null : String(v));
     const withInf = (base) => (base != null ? base + (hasInfinity ? ' +♾️' : '') : (hasInfinity ? '♾️' : null));
@@ -991,10 +1009,13 @@
     if (mSt) mSt.textContent = state.topicVisible ? (isDe() ? 'An' : 'On') : (isDe() ? 'Aus' : 'Off');
 
     const me = state.participants.find(p => p.name === state.youName);
-    const isObserver = !!(me && me.observer);
-    const mPTgl = $('#menuParticipationToggle'); const mPSt = $('#menuPartStatus');
-    if (mPTgl) { mPTgl.checked = !isObserver; mPTgl.setAttribute('aria-checked', String(!isObserver)); }
-    if (mPSt) mPSt.textContent = !isObserver ? (isDe() ? 'Ich schätze mit' : "I'm estimating") : (isDe() ? 'Beobachter:in' : 'Observer');
+    const spectator = !!(me && isSpectator(me));
+    mPTgl.checked = !spectator;
+    mPTgl.setAttribute('aria-checked', String(!spectator));
+    mPSt.textContent = !spectator
+    ? t('menu.participation.estimating', isDe() ? 'Ich schätze mit' : "I'm estimating")
+    : t('menu.participation.spectator',  isDe() ? 'Zuschauer:in'   : 'Spectator');
+
 
     const mARTgl = $('#menuAutoRevealToggle');
     if (mARTgl) { mARTgl.checked = !!state.autoRevealEnabled; mARTgl.setAttribute('aria-checked', String(!!state.autoRevealEnabled)); }

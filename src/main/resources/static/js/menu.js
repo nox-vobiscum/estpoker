@@ -167,7 +167,7 @@
       topic: t('hint.topic.toggle',  de ? 'Ticket/Story-Zeile ein- oder ausblenden'            : 'Show or hide the Ticket/Story row'),
       specials: t('hint.specials',   de ? 'Spezialkarten erlauben (❓ 💬 ☕)'                   : 'Allow special cards (❓ 💬 ☕)'),
       hard : t('hint.hardmode',      de ? 'Nur aufdecken, wenn alle gewählt haben'             : 'Reveal only when everyone voted'),
-      part : t('hint.participation', de ? 'Zwischen Schätzer:in und Beobachter:in umschalten'  : 'Toggle between estimator and observer'),
+      part : t('hint.participation', de ? 'Zwischen Schätzer:in und Beobachter:in umschalten'  : 'Toggle between estimator and spectator'),
       lang : t('title.lang.to',      de ? 'Sprache wechseln → {0}'                             : 'Switch language → {0}', {0: de ? 'English' : 'Deutsch'}),
       close: t('room.close.hint',    de ? 'Schließt diesen Raum für alle und kehrt zur Startseite zurück.' : 'Closes this room for all participants and returns to the start page.')
     };

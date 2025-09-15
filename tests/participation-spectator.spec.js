@@ -1,9 +1,9 @@
-// Participation / Observer mode E2E:
-// - Toggling participation OFF (observer) disables all card buttons for that user
-// - Host sees 👁 observer icon for that participant
-// - Toggling back ON re-enables voting and removes the observer icon
+// Participation / Spectator mode E2E:
+// - Toggling participation OFF (Spectator) disables all card buttons for that user
+// - Host sees 👁 spectator icon for that participant
+// - Toggling back ON re-enables voting and removes the spectator icon
 // Run:
-//   npx playwright test tests/participation-observer.spec.js
+//   npx playwright test tests/participation-spectator.spec.js
 // Env:
 //   EP_BASE_URL  (e.g. http://localhost:8080 or https://ep.noxvobiscum.at)
 //   EP_ROOM_URL  (optional full room URL; overrides base; test appends participant & room)
@@ -53,7 +53,7 @@ async function ensureMenuClosed(page) {
   }
 }
 
-test.describe('Participation → Observer mode disables voting', () => {
+test.describe('Participation → Spectator mode disables voting', () => {
   test('Toggle participation off/on updates UI for user and host list', async ({ browser }) => {
     const roomCode = newRoomCode();
     const hostName = 'Hoster';
@@ -72,7 +72,7 @@ test.describe('Participation → Observer mode disables voting', () => {
     await waitGridReady(host);
     await waitGridReady(user);
 
-    // --- Switch user to Observer via menu ---
+    // --- Switch user to Spectator via menu ---
     await ensureMenuOpen(user);
     const partToggle = user.locator('#menuParticipationToggle');
     await expect(partToggle).toHaveCount(1);

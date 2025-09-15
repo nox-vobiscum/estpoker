@@ -292,7 +292,7 @@ public class GameService {
     }
 }
 
-    public void setObserver(String roomCode, String nameOrCid, boolean observer) {
+    public void setSpectator(String roomCode, String nameOrCid, boolean spectator) {
         Room room = getOrCreateRoom(roomCode);
         synchronized (room) {
             Participant p = room.getParticipantByCid(nameOrCid).orElse(null);
@@ -302,7 +302,7 @@ public class GameService {
                 p = new Participant(nameOrCid);
                 room.addParticipant(p);
             }
-            boolean participating = !observer;
+            boolean participating = !spectator;
             p.setParticipating(participating);
             if (!participating) p.setVote(null);
             p.bumpLastSeen();
