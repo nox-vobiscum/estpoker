@@ -277,7 +277,7 @@
   });
 
   /* ---------- Sequence radios ---------- */
-  const SPECIALS = new Set(['?', '❓', '💬', '☕', '∞']);
+  const SPECIALS = new Set(['?', '❓', '☕', '∞']);
   const SEQ_FALLBACKS = {
     'fib.scrum': [0, 1, 2, 3, 5, 8, 13, 20, 40, 100],
     'fib.enh'  : [0, 0.5, 1, 2, 3, 5, 8, 13, 20, 40, 100, '∞', '❓', '☕'],

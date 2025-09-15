@@ -13,7 +13,7 @@ public final class CardSequences {
     private CardSequences() {}
 
     /* --- Specials (global, appended to every deck) --- */
-    public static final List<String> SPECIALS = List.of("❓","💬","☕");
+    public static final List<String> SPECIALS = List.of("❓","☕");
     public static final Set<String> SPECIALS_SET = new HashSet<>(SPECIALS);
 
     public static boolean isSpecial(String s) {

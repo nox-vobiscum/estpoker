@@ -38,7 +38,7 @@
   }
 
   // ---------------- Constants ----------------
-  const SPECIALS = ['❓', '💬', '☕'];
+  const SPECIALS = ['❓', '☕'];
   const INFINITY_ = '♾️';
   const INFINITY_ALT = '∞'; // backward-compat
   const IDLE_MS_THRESHOLD = 3_600_000; // 60min
@@ -351,8 +351,9 @@
 
     // Align specials if server sent an explicit list (including empty)
     if (specialsList !== null) {
-      deck = deck.filter(c => !SPECIALS_SET.has(c)).concat(specialsList);
+      deck = deck.filter(c => !SPECIALS.includes(c)).concat(specialsList);
     }
+    deck = deck.filter(c => !DISABLED_SPECIALS.has(String(c)));
     state.cards = deck;
 
     // --- core flags / stats (only overwrite if present) ---
@@ -651,8 +652,10 @@
     const disabled = state.votesRevealed || isObserver;
 
     // split deck
-    const deckSpecialsFromState = (state.cards || []).filter(v => SPECIALS.includes(v));
-    const deckNumbers           = (state.cards || []).filter(v => !SPECIALS.includes(v));
+      const deckSpecialsFromState = (state.cards || [])
+    .filter(v => SPECIALS.includes(v) && !DISABLED_SPECIALS.has(String(v)));
+      const deckNumbers = (state.cards || [])
+    .filter(v => !SPECIALS.includes(v) && !DISABLED_SPECIALS.has(String(v)));
 
     // robust fallback for specials
     const specialsCandidate = deckSpecialsFromState.length ? deckSpecialsFromState : SPECIALS.slice();
