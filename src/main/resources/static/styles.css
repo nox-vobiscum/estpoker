@@ -855,7 +855,7 @@ body.light .vote-chip.heat,
 }
 .kb > summary::-webkit-details-marker{ display:none; }
 
-.kb-title{ font-size: .90rem; font-weight: 600; color: var(--text-strong); }
+.kb-title{ font-size: .80rem; font-weight: 600; color: var(--text-strong); }
 .kb-preview{
   font-size: .80rem;
   color: var(--text-dim);
@@ -867,7 +867,7 @@ body.light .vote-chip.heat,
 /* Smaller body text */
 .kb-body{
   padding: 8px 10px 10px;
-  font-size: .88rem;
+  font-size: .75rem;
   line-height: 1.45;
   color: var(--text);
 }
