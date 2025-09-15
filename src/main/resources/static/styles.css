@@ -816,9 +816,12 @@ body.light .vote-chip.heat,
   .result-row-wrap{ min-height:56px; }      /* mobile often wraps → a bit taller */
 }
 
+#resultRow{ min-height: 1.2rem; }
+
 /* The pre-vote placeholder uses the same reserved height */
 .result-row-placeholder{ min-height:inherit; }
 
+.post-vote{ min-height: 1.6rem; }
 
 
 

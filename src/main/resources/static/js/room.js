@@ -756,9 +756,8 @@
     const withInf = (base) => (base != null ? base + (hasInfinity ? ' +♾️' : '') : (hasInfinity ? '♾️' : null));
 
     // Toggle pre/post sections
-    const pre  = document.querySelector('.pre-vote');
-    const post = document.querySelector('.post-vote');
-    if (pre && post) { pre.style.display = state.votesRevealed ? 'none' : ''; post.style.display = state.votesRevealed ? '' : 'none'; }
+    const preActions = document.querySelector('.pre-vote .vote-actions'); // button row only
+    if (preActions) preActions.style.display = state.votesRevealed ? 'none' : '';
 
     const row        = $('#resultRow');
     const avgWrap    = document.querySelector('#resultLabel .label-average');
