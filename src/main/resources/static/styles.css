@@ -877,3 +877,43 @@ body.light .vote-chip.heat,
 /* Hover/active affordances */
 .kb:hover{ border-color: var(--accent); }
 .kb[open] > summary{ background: var(--panel-2-hover); }
+
+
+/* === KBase: subtle Caret right hand side, rotates on open ======= */
+.kbase details > summary {
+  position: relative;
+  padding-right: 1.5rem;              /* Platz für den Pfeil rechts */
+  cursor: pointer;
+}
+
+.kbase details > summary::-webkit-details-marker { display: none; }
+.kbase details > summary::marker { content: ''; }
+
+.kbase details > summary::after {
+  content: '';
+  position: absolute;
+  right: .4rem;
+  top: 50%;
+  width: .5rem;
+  height: .5rem;
+  margin-top: -.25rem;
+  border-right: 2px solid var(--text-dim);
+  border-bottom: 2px solid var(--text-dim);
+  transform: rotate(-45deg);
+  transform-origin: 50% 50%;
+  opacity: .8;
+  transition: transform .18s ease, opacity .18s ease;
+}
+
+.kbase details[open] > summary::after {
+  transform: rotate(45deg);
+  opacity: .95;
+}
+
+.kbase details > summary:hover::after {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kbase details > summary::after { transition: none; }
+}
