@@ -643,6 +643,15 @@
     return elig.every(p => p.vote != null && String(p.vote) !== '');
   }
 
+  function msg(name, en, de) {
+    try {
+      const m = document.querySelector(`meta[name="msg.${name}"]`);
+      if (m && m.content) return m.content;
+    } catch {}
+    return isDe() ? (de ?? en) : en; // graceful fallback
+  }
+
+
   function renderCards() {
     const grid = $('#cardGrid'); if (!grid) return;
     grid.innerHTML = '';
@@ -671,6 +680,27 @@
       btn.type = 'button';
       const label = String(val);
       btn.textContent = label;
+
+            // Special-card tooltips (❓, ☕)
+      if (SPECIALS.includes(label)) {
+        if (label === '❓') {
+          const t = msg(
+            'card.tip.question',
+            'I still have questions about this requirement.',
+            'Ich habe noch offene Fragen zu dieser Anforderung.'
+          );
+          btn.setAttribute('title', t);
+          btn.setAttribute('aria-label', t);
+        } else if (label === '☕') {
+          const t = msg(
+            'card.tip.coffee',
+            'I need a short break…',
+            'Ich brauche eine Pause…'
+          );
+          btn.setAttribute('title', t);
+          btn.setAttribute('aria-label', t);
+        }
+      }
 
       if (label === INFINITY_ || label === INFINITY_ALT) btn.classList.add('card-infinity');
 
