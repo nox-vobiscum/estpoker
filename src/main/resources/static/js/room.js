@@ -1137,6 +1137,18 @@
 
     document.addEventListener('ep:participation-toggle', (ev) => {
       const estimating = !!(ev && ev.detail && ev.detail.estimating);
+
+      // Optimistic: update local self immediately
+      const me = state.participants.find(p => p && p.name === state.youName);
+      if (me) {
+        me.spectator = !estimating;
+        me.participating = estimating;
+        renderParticipants();
+        renderCards();
+        syncMenuFromState();
+      }
+
+      // Notify server (source of truth)
       send(`participation:${estimating}`);
     });
 
