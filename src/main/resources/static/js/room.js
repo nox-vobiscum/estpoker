@@ -10,10 +10,7 @@
   };
 
   // ---------------- i18n helpers (lightweight) ----------------
-  // Cache for messages loaded from /i18n/messages
   const MSG = Object.create(null);
-
-  // Read a message key either from cache, or from a <meta name="msg.KEY">, or fall back
   function t(key, fallback) {
     try {
       if (key && Object.prototype.hasOwnProperty.call(MSG, key)) return MSG[key];
@@ -22,8 +19,6 @@
     } catch {}
     return fallback;
   }
-
-  // Prefetch message map (non-blocking). Works with I18nController (/i18n/messages).
   async function preloadMessages() {
     const lang = isDe() ? 'de' : 'en';
     try {
@@ -32,26 +27,33 @@
         const data = await res.json();
         if (data && typeof data === 'object') Object.assign(MSG, data);
       }
-    } catch {
-      /* keep graceful fallbacks via <meta> and hardcoded text */
-    }
+    } catch {}
   }
 
   // ---------------- Constants ----------------
-  const SPECIALS = ['❓', '☕'];
+  const SPECIALS = ['❓', '☕'];              // 💬 entfernt
   const INFINITY_ = '♾️';
-  const INFINITY_ALT = '∞'; // backward-compat
-  const IDLE_MS_THRESHOLD = 3_600_000; // 60min
+  const INFINITY_ALT = '∞';
+  const IDLE_MS_THRESHOLD = 3_600_000;       // 60min (nur falls später gebraucht)
 
   // script dataset / URL params
   const scriptEl = document.querySelector('script[src*="/js/room.js"]');
   const ds = (scriptEl && scriptEl.dataset) || {};
   const url = new URL(location.href);
 
+  // Optional: einzelne Specials per data-attr hart deaktivieren (z.B. data-disabled-specials="☕")
+  const DISABLED_SPECIALS = new Set(
+    String(ds.disabledSpecials || '')
+      .split(',')
+      .map(s => s.trim())
+      .filter(Boolean)
+  );
+
   // ---------------- State (client) ----------------
   const state = {
-    _lastRenderSig: null,      // dedupe signature
-    _chipAnimShown: false,     // first post-reveal animation already shown?
+    _lastRenderSig: null,
+    _chipAnimShown: false,
+
     roomCode: ds.room || url.searchParams.get('roomCode') || 'demo',
     youName: ds.participant || url.searchParams.get('participantName') || 'Guest',
     cid: null,
@@ -130,11 +132,9 @@
     if (s === 't-shirt') return 'tshirt';
     return s;
   }
-
   function isDe() {
     return (document.documentElement.lang || 'en').toLowerCase().startsWith('de');
   }
-
   function wsUrl() {
     const proto = location.protocol === 'https:' ? 'wss://' : 'ws://';
     return `${proto}${location.host}/gameSocket` +
@@ -142,7 +142,6 @@
       `&participantName=${encodeURIComponent(state.youName)}` +
       `&cid=${encodeURIComponent(state.cid)}`;
   }
-
   function syncHostClass() {
     document.body.classList.toggle('is-host', !!state.isHost);
   }
@@ -150,19 +149,11 @@
   // ----- Presence guard (2s grace; never self-toast) ------------------------
   const PRESENCE_GRACE_MS = 2000;
   const PRESENCE_KEY = (n) => 'ep-presence:' + encodeURIComponent(n);
-
-  function markAlive(name) {
-    if (!name) return;
-    try { localStorage.setItem(PRESENCE_KEY(name), String(Date.now())); } catch {}
-  }
-
-  function shouldToastPresence(name, kind) {
-    if (!name) return false;
-    if (name === state.youName) return false;
-    let last = 0;
-    try { last = parseInt(localStorage.getItem(PRESENCE_KEY(name)) || '0', 10) || 0; } catch {}
-    const delta = Date.now() - last;
-    return delta > PRESENCE_GRACE_MS;
+  function markAlive(name) { if (!name) return; try { localStorage.setItem(PRESENCE_KEY(name), String(Date.now())); } catch {} }
+  function shouldToastPresence(name) {
+    if (!name || name === state.youName) return false;
+    let last = 0; try { last = parseInt(localStorage.getItem(PRESENCE_KEY(name)) || '0', 10) || 0; } catch {}
+    return (Date.now() - last) > PRESENCE_GRACE_MS;
   }
 
   // Wrap long text for native title tooltips by injecting \n
@@ -171,23 +162,14 @@
     const out = [];
     let line = '';
     for (let w of words) {
-      // break very long tokens/URLs at common boundaries (/, -, _, .)
       if (w.length > max) {
-        w = w
-          .replace(/(?<=\/)/g, '\n')
-          .replace(/(?<=-)/g, '\n')
-          .replace(/(?<=_)/g, '\n')
-          .replace(/(?<=\.)/g, '\n');
+        w = w.replace(/(?<=\/)/g, '\n').replace(/(?<=-)/g, '\n').replace(/(?<=_)/g, '\n').replace(/(?<=\.)/g, '\n');
       }
       for (const chunk of w.split('\n')) {
         if (!chunk) continue;
         const need = (line ? line.length + 1 : 0) + chunk.length;
-        if (need > max) {
-          if (line) out.push(line);
-          line = chunk;
-        } else {
-          line += (line ? ' ' : '') + chunk;
-        }
+        if (need > max) { if (line) out.push(line); line = chunk; }
+        else { line += (line ? ' ' : '') + chunk; }
       }
     }
     if (line) out.push(line);
@@ -195,6 +177,19 @@
   }
 
   // ---------------- WebSocket ----------------
+  function seedSelfPlaceholder() {
+    state.participants = [{
+      name: state.youName || 'You',
+      vote: null,
+      disconnected: false,
+      away: false,
+      isHost: !!state.isHost,
+      participating: true,
+      observer: false
+    }];
+    try { renderParticipants(); } catch {}
+  }
+
   function connectWS() {
     const u = wsUrl();
     console.info(TAG, 'connect →', u);
@@ -203,11 +198,12 @@
     state.ws = s;
 
     s.onopen = () => {
-    state.connected = true;
-    try { send('rename:' + encodeURIComponent(state.youName)); } catch {}
-    try { send('requestSync'); } catch {}
-    setTimeout(() => { try { send('requestSync'); } catch {} }, 400); // Retry, if race
-    heartbeat();
+      state.connected = true;
+      try { send('rename:' + encodeURIComponent(state.youName)); } catch {}
+      try { send('requestSync'); } catch {}
+      setTimeout(() => { try { send('requestSync'); } catch {} }, 400);
+      heartbeat();
+      try { renderParticipants(); } catch {}
     };
 
     s.onclose = (ev) => {
@@ -246,23 +242,17 @@
       }
       case 'participantJoined': {
         const name = m.name || '';
-        if (shouldToastPresence(name, 'join')) {
-          showToast(isDe() ? `${name} ist beigetreten` : `${name} joined the room`);
-        }
+        if (shouldToastPresence(name)) showToast(isDe() ? `${name} ist beigetreten` : `${name} joined the room`);
         break;
       }
       case 'participantLeft': {
         const name = m.name || '';
-        if (shouldToastPresence(name, 'left')) {
-          showToast(isDe() ? `${name} hat den Raum verlassen` : `${name} left the room`);
-        }
+        if (shouldToastPresence(name)) showToast(isDe() ? `${name} hat den Raum verlassen` : `${name} left the room`);
         break;
       }
       case 'participantRenamed': {
         const from = m.from || '', to = m.to || '';
-        if (from !== state.youName) {
-          showToast(isDe() ? `${from} heißt jetzt ${to}` : `${from} is now ${to}`);
-        }
+        if (from !== state.youName) showToast(isDe() ? `${from} heißt jetzt ${to}` : `${from} is now ${to}`);
         break;
       }
       case 'hostTransferred': {
@@ -283,12 +273,7 @@
 
   function renderSigFromState() {
     const P = (state.participants || [])
-      .map(p => ({
-        n: p?.name || '',
-        v: (p?.vote ?? ''),
-        o: !!p?.observer,
-        d: !!p?.disconnected
-      }))
+      .map(p => ({ n: p?.name || '', v: (p?.vote ?? ''), o: !!p?.observer, d: !!p?.disconnected }))
       .sort((a, b) => a.n.localeCompare(b.n));
 
     return JSON.stringify({
@@ -308,143 +293,127 @@
   }
 
   function applyVoteUpdate(m) {
-  try {
-    const has = (obj, k) => Object.prototype.hasOwnProperty.call(obj || {}, k);
+    try {
+      const has = (obj, k) => Object.prototype.hasOwnProperty.call(obj || {}, k);
 
-    // --- sequence id (normalize but only update if present) ---
-    if (has(m, 'sequenceId')) {
-      state.sequenceId = normalizeSeq(m.sequenceId);
-    } else if (!state.sequenceId) {
-      state.sequenceId = 'fib.scrum';
+      // --- sequence id ---
+      if (has(m, 'sequenceId')) state.sequenceId = normalizeSeq(m.sequenceId);
+      else if (!state.sequenceId) state.sequenceId = 'fib.scrum';
+
+      // --- specials & deck (robust across server variants) ---
+      const SPECIALS_SET = new Set(SPECIALS);
+      let specialsList = null;    // explicit list (incl. empty)
+      let allowFromServer = null; // explicit boolean
+
+      if (has(m, 'specials') && Array.isArray(m.specials)) {
+        specialsList = m.specials.slice();
+        allowFromServer = specialsList.length > 0;
+      }
+      if (has(m, 'allowSpecials')) {
+        allowFromServer = !!m.allowSpecials;
+        if (specialsList === null) specialsList = allowFromServer ? SPECIALS.slice() : [];
+      }
+      if (has(m, 'specialsOff')) {
+        allowFromServer = !m.specialsOff;
+        if (specialsList === null) specialsList = (!m.specialsOff) ? SPECIALS.slice() : [];
+      }
+      if (has(m, 'specialsEnabled')) {
+        allowFromServer = !!m.specialsEnabled;
+        if (specialsList === null) specialsList = m.specialsEnabled ? SPECIALS.slice() : [];
+      }
+      if (allowFromServer !== null) state.allowSpecials = allowFromServer;
+
+      let deck = has(m, 'cards') && Array.isArray(m.cards) ? m.cards.slice()
+               : Array.isArray(state.cards) ? state.cards.slice()
+               : [];
+
+      // Infinity nur für fib.enh
+      const seqId = state.sequenceId || 'fib.scrum';
+      if (seqId !== 'fib.enh') deck = deck.filter(c => c !== INFINITY_ && c !== INFINITY_ALT);
+
+      // Specials mit Serverliste (auch leere) synchronisieren
+      if (specialsList !== null) deck = deck.filter(c => !SPECIALS.includes(c)).concat(specialsList);
+      deck = deck.filter(c => !DISABLED_SPECIALS.has(String(c)));
+      state.cards = deck;
+
+      // --- core flags / stats (nur wenn vorhanden) ---
+      if (has(m, 'votesRevealed')) state.votesRevealed = !!m.votesRevealed;
+      if (has(m, 'averageVote'))   state.averageVote   = m.averageVote;
+      if (has(m, 'medianVote'))    state.medianVote    = m.medianVote;
+      if (has(m, 'range'))         state.range         = m.range;
+      if (has(m, 'consensus'))     state.consensus     = !!m.consensus;
+      if (has(m, 'outliers') && Array.isArray(m.outliers)) state.outliers = m.outliers.slice();
+      if (has(m, 'autoRevealEnabled')) state.autoRevealEnabled = !!m.autoRevealEnabled;
+
+      // --- topic / misc ---
+      if (has(m, 'topicVisible')) state.topicVisible = !!m.topicVisible;
+      if (has(m, 'topicLabel'))   state.topicLabel   = m.topicLabel || '';
+      if (has(m, 'topicUrl'))     state.topicUrl     = m.topicUrl || null;
+
+      // --- participants (preserve previous vote if omitted) ---
+      if (has(m, 'participants') && Array.isArray(m.participants)) {
+        const prevByName = Object.fromEntries((state.participants || []).map(p => [p.name, p]));
+        state.participants = m.participants.map(p => {
+          const name = p?.name || '';
+          const prev = prevByName[name];
+          const vote = has(p, 'vote') ? (p.vote ?? null)
+                      : prev ? (prev.vote ?? null)
+                      : null;
+          return {
+            name,
+            vote,
+            disconnected: has(p, 'disconnected') ? !!p.disconnected : !!prev?.disconnected,
+            away:         has(p, 'away')         ? !!p.away         : !!prev?.away,
+            isHost:       has(p, 'isHost')       ? !!p.isHost       : !!prev?.isHost,
+            participating: has(p, 'participating') ? (p.participating !== false)
+                          : (prev ? (prev.participating !== false) : true),
+            observer:       has(p, 'participating') ? (p.participating === false)
+                          : (prev ? prev.observer : false)
+          };
+        });
+      }
+
+      // who am I (re-evaluate host)
+      const me = state.participants.find(p => p && p.name === state.youName);
+      state.isHost = !!(me && me.isHost);
+      state._hostKnown = true;
+      if (me && me.vote != null) state._optimisticVote = null;
+
+      // --- render ---
+      syncHostClass();
+      renderParticipants();
+      renderCards();
+      renderResultBar();
+      renderTopic();
+      renderAutoReveal();
+
+      // presence freshness
+      try { (state.participants || []).forEach(p => { if (p && !p.disconnected) markAlive(p.name); }); } catch {}
+
+      requestAnimationFrame(() => { syncMenuFromState(); syncSequenceInMenu(); });
+      if (!document.documentElement.hasAttribute('data-ready')) {
+        document.documentElement.setAttribute('data-ready', '1');
+      }
+    } catch (e) {
+      console.error('[ROOM] applyVoteUpdate failed', e);
     }
 
-    // --- specials & deck (robust across server variants) ---
-    const SPECIALS_SET = new Set(SPECIALS);
-    let specialsList = null;    // explicit list (incl. empty) → forces deck specials
-    let allowFromServer = null; // explicit boolean for allowSpecials
-
-    if (has(m, 'specials') && Array.isArray(m.specials)) {
-      specialsList = m.specials.slice();
-      allowFromServer = specialsList.length > 0;
-    }
-    if (has(m, 'allowSpecials')) {
-      allowFromServer = !!m.allowSpecials;
-      if (specialsList === null) specialsList = allowFromServer ? SPECIALS.slice() : [];
-    }
-    if (has(m, 'specialsOff')) {
-      allowFromServer = !m.specialsOff;
-      if (specialsList === null) specialsList = (!m.specialsOff) ? SPECIALS.slice() : [];
-    }
-    if (has(m, 'specialsEnabled')) {
-      allowFromServer = !!m.specialsEnabled;
-      if (specialsList === null) specialsList = m.specialsEnabled ? SPECIALS.slice() : [];
-    }
-    if (allowFromServer !== null) state.allowSpecials = allowFromServer;
-
-    // Base deck: use server deck if provided, else keep current
-    let deck = has(m, 'cards') && Array.isArray(m.cards) ? m.cards.slice()
-              : Array.isArray(state.cards) ? state.cards.slice()
-              : [];
-
-    // Infinity only for fib.enh
-    const seqId = state.sequenceId || 'fib.scrum';
-    if (seqId !== 'fib.enh') {
-      deck = deck.filter(c => c !== INFINITY_ && c !== INFINITY_ALT);
-    }
-
-    // Align specials if server sent an explicit list (including empty)
-    if (specialsList !== null) {
-      deck = deck.filter(c => !SPECIALS.includes(c)).concat(specialsList);
-    }
-    deck = deck.filter(c => !DISABLED_SPECIALS.has(String(c)));
-    state.cards = deck;
-
-    // --- core flags / stats (only overwrite if present) ---
-    if (has(m, 'votesRevealed')) state.votesRevealed = !!m.votesRevealed;
-    if (has(m, 'averageVote'))   state.averageVote   = m.averageVote;
-    if (has(m, 'medianVote'))    state.medianVote    = m.medianVote;
-    if (has(m, 'range'))         state.range         = m.range;
-    if (has(m, 'consensus'))     state.consensus     = !!m.consensus;
-    if (has(m, 'outliers') && Array.isArray(m.outliers)) state.outliers = m.outliers.slice();
-
-    if (has(m, 'autoRevealEnabled')) state.autoRevealEnabled = !!m.autoRevealEnabled;
-
-    // --- topic / misc (only if present) ---
-    if (has(m, 'topicVisible')) state.topicVisible = !!m.topicVisible;
-    if (has(m, 'topicLabel'))   state.topicLabel   = m.topicLabel || '';
-    if (has(m, 'topicUrl'))     state.topicUrl     = m.topicUrl || null;
-
-    // --- participants (preserve previous vote if omitted) ---
-    if (has(m, 'participants') && Array.isArray(m.participants)) {
-      const prevByName = Object.fromEntries((state.participants || []).map(p => [p.name, p]));
-      state.participants = m.participants.map(p => {
-        const name = p?.name || '';
-        const prev = prevByName[name];
-
-        const vote = has(p, 'vote') ? (p.vote ?? null)
-                    : prev ? (prev.vote ?? null)
-                    : null;
-
-        return {
-          name,
-          vote,
-          disconnected: has(p, 'disconnected') ? !!p.disconnected : !!prev?.disconnected,
-          away:         has(p, 'away')         ? !!p.away         : !!prev?.away,
-          isHost:       has(p, 'isHost')       ? !!p.isHost       : !!prev?.isHost,
-          // default: participating unless explicitly false
-          participating: has(p, 'participating') ? (p.participating !== false)
-                        : (prev ? (prev.participating !== false) : true),
-          observer:       has(p, 'participating') ? (p.participating === false)
-                        : (prev ? prev.observer : false)
-        };
+    // Safety: falls Liste leer und ich nicht drin → Self-Placeholder vorn ergänzen
+    if (Array.isArray(state.participants) &&
+        !state.participants.some(p => p && p.name === state.youName)) {
+      state.participants.unshift({
+        name: state.youName || 'You',
+        vote: null, disconnected:false, away:false,
+        isHost: !!state.isHost, participating:true, observer:false
       });
     }
-
-    // who am I (re-evaluate host)
-    const me = state.participants.find(p => p && p.name === state.youName);
-    state.isHost = !!(me && me.isHost);
-    state._hostKnown = true;
-    if (me && me.vote != null) state._optimisticVote = null;
-
-    // --- render (unchanged) ---
-    syncHostClass();
-    renderParticipants();
-    renderCards();
-    renderResultBar();
-    renderTopic();
-    renderAutoReveal();
-
-    // presence freshness
-    try {
-      (state.participants || []).forEach(p => { if (p && !p.disconnected) markAlive(p.name); });
-    } catch {}
-
-    requestAnimationFrame(() => { syncMenuFromState(); syncSequenceInMenu(); });
-    if (!document.documentElement.hasAttribute('data-ready')) {
-      document.documentElement.setAttribute('data-ready', '1');
-    }
-  } catch (e) {
-    console.error('[ROOM] applyVoteUpdate failed', e);
   }
-
-  if (Array.isArray(state.participants) &&
-    !state.participants.some(p => p && p.name === state.youName)) {
-  state.participants.unshift({
-    name: state.youName || 'You',
-    vote: null, disconnected:false, away:false,
-    isHost: !!state.isHost, participating:true, observer:false
-  });
-}
-
-}
-
 
   // ---------------- Participants ----------------
   function renderParticipants() {
     const ul = $('#liveParticipantList'); if (!ul) return;
     try {
       const frag = document.createDocumentFragment();
-
       (state.participants || []).forEach(p => {
         if (!p || !p.name) return;
 
@@ -455,7 +424,7 @@
         if (isInactive) li.classList.add('disconnected');
         if (p.isHost)    li.classList.add('is-host');
 
-        // Left icon (role/presence)
+        // Left icon
         const left = document.createElement('span');
         left.className = 'participant-icon' + (p.isHost ? ' host' : '');
         let icon = '👤';
@@ -479,7 +448,6 @@
 
         // Chips
         if (!state.votesRevealed) {
-          // Pre-vote: render a stable mini-chip
           if (p.observer) {
             const eye = document.createElement('span');
             eye.className = 'mini-chip observer';
@@ -497,7 +465,6 @@
             right.appendChild(dash);
           }
         } else {
-          // Post-vote
           if (p.observer) {
             const eye = document.createElement('span');
             eye.className = 'mini-chip observer';
@@ -524,10 +491,8 @@
               const isInfinity = (display === INFINITY_ || display === INFINITY_ALT);
               const isSpecial  = SPECIALS.includes(display);
 
-              // Specials keep their special styling (not heat-colored)
               if (!isInfinity && isSpecial) chip.classList.add('special');
 
-              // Heat color for numeric & infinity
               if (!isSpecial) {
                 const hue = heatHueForLabel(display);
                 if (hue != null) {
@@ -536,7 +501,6 @@
                 }
               }
 
-              // Outlier badge
               if (Array.isArray(state.outliers) && state.outliers.includes(p.name)) {
                 chip.classList.add('outlier');
               }
@@ -594,7 +558,6 @@
     const num = Number(s.replace(',', '.'));
     return Number.isFinite(num) ? num : null;
   }
-
   function numericDeckFromState() {
     const nums = (state.cards || [])
       .map(parseVoteNumber)
@@ -602,32 +565,21 @@
     const uniq = [...new Set(nums)].sort((a, b) => (a === b ? 0 : a < b ? -1 : 1));
     return uniq;
   }
-
-  const PIVOT_BY_SEQUENCE = {
-    'fib.enh': 13,
-    'fib.scrum': 13,
-    'fib.math': 13,
-    'pow2': 32,
-  };
-
+  const PIVOT_BY_SEQUENCE = { 'fib.enh': 13, 'fib.scrum': 13, 'fib.math': 13, 'pow2': 32 };
   function heatHueForLabel(label) {
     const deck = numericDeckFromState();
     if (!deck.length) return null;
-
     const v = parseVoteNumber(label);
     if (v == null) return null;
 
     let idx = deck.findIndex(x => Object.is(x, v));
-    if (idx < 0) {
-      idx = deck.findIndex(x => x > v);
-      if (idx < 0) idx = deck.length - 1;
-    }
+    if (idx < 0) { idx = deck.findIndex(x => x > v); if (idx < 0) idx = deck.length - 1; }
 
     const max = Math.max(1, deck.length - 1);
-    let t = idx / max; // 0..1
+    let t = idx / max;
 
     const pivotLabel = PIVOT_BY_SEQUENCE[state.sequenceId || ''] ?? null;
-    let gamma = 1.25; // mild default if no pivot
+    let gamma = 1.25;
     if (pivotLabel != null) {
       const pivIdx = deck.findIndex(x => Object.is(x, pivotLabel));
       if (pivIdx > 0) {
@@ -638,7 +590,7 @@
     }
 
     t = Math.pow(t, gamma);
-    const hue = 120 - (t * 120); // 120=green → 0=red
+    const hue = 120 - (t * 120);
     return Math.round(Math.max(0, Math.min(120, hue)));
   }
 
@@ -649,21 +601,16 @@
     if (state._optimisticVote != null) return String(state._optimisticVote);
     return null;
   }
-
   function allEligibleVoted() {
     const elig = state.participants.filter(p => p && !p.observer && !p.disconnected);
     if (!elig.length) return false;
     return elig.every(p => p.vote != null && String(p.vote) !== '');
-  }
+    }
 
   function msg(name, en, de) {
-    try {
-      const m = document.querySelector(`meta[name="msg.${name}"]`);
-      if (m && m.content) return m.content;
-    } catch {}
-    return isDe() ? (de ?? en) : en; // graceful fallback
+    try { const m = document.querySelector(`meta[name="msg.${name}"]`); if (m && m.content) return m.content; } catch {}
+    return isDe() ? (de ?? en) : en;
   }
-
 
   function renderCards() {
     const grid = $('#cardGrid'); if (!grid) return;
@@ -674,10 +621,10 @@
     const disabled = state.votesRevealed || isObserver;
 
     // split deck
-      const deckSpecialsFromState = (state.cards || [])
-    .filter(v => SPECIALS.includes(v) && !DISABLED_SPECIALS.has(String(v)));
-      const deckNumbers = (state.cards || [])
-    .filter(v => !SPECIALS.includes(v) && !DISABLED_SPECIALS.has(String(v)));
+    const deckSpecialsFromState = (state.cards || [])
+      .filter(v => SPECIALS.includes(v) && !DISABLED_SPECIALS.has(String(v)));
+    const deckNumbers = (state.cards || [])
+      .filter(v => !SPECIALS.includes(v) && !DISABLED_SPECIALS.has(String(v)));
 
     // robust fallback for specials
     const specialsCandidate = deckSpecialsFromState.length ? deckSpecialsFromState : SPECIALS.slice();
@@ -694,29 +641,22 @@
       const label = String(val);
       btn.textContent = label;
 
-            // Special-card tooltips (❓, ☕)
+      // Special-card tooltips (❓, ☕)
       if (SPECIALS.includes(label)) {
         if (label === '❓') {
-          const t = msg(
-            'card.tip.question',
+          const tip = msg('card.tip.question',
             'I still have questions about this requirement.',
-            'Ich habe noch offene Fragen zu dieser Anforderung.'
-          );
-          btn.setAttribute('title', t);
-          btn.setAttribute('aria-label', t);
+            'Ich habe noch offene Fragen zu dieser Anforderung.');
+          btn.setAttribute('title', tip); btn.setAttribute('aria-label', tip);
         } else if (label === '☕') {
-          const t = msg(
-            'card.tip.coffee',
+          const tip = msg('card.tip.coffee',
             'I need a short break…',
-            'Ich brauche eine Pause…'
-          );
-          btn.setAttribute('title', t);
-          btn.setAttribute('aria-label', t);
+            'Ich brauche eine Pause…');
+          btn.setAttribute('title', tip); btn.setAttribute('aria-label', tip);
         }
       }
 
       if (label === INFINITY_ || label === INFINITY_ALT) btn.classList.add('card-infinity');
-
       if (disabled) btn.disabled = true;
       if (selectedVal != null && String(selectedVal) === label) btn.classList.add('selected');
 
@@ -725,7 +665,6 @@
         state._optimisticVote = label;
         grid.querySelectorAll('button').forEach(b => b.classList.remove('selected'));
         btn.classList.add('selected');
-        // name in the payload is ignored server-side (CID binding), kept for BC
         send(`vote:${state.youName}:${label}`);
       });
 
@@ -765,10 +704,8 @@
         revealBtn.setAttribute('aria-disabled', 'true');
         revealBtn.setAttribute('aria-label', gateMsg);
       } else {
-        // Restore base label (room.html already sets i18n title; we remove explicit blocker title)
         revealBtn.removeAttribute('title');
         revealBtn.removeAttribute('aria-disabled');
-        // Keep aria-label as provided by room.html (button.reveal)
       }
     }
     if (resetBtn) {
@@ -778,119 +715,99 @@
   }
 
   // ---------------- Result bar ----------------
-function renderResultBar() {
-  
-  if (state.votesRevealed) {
-  if (state._chipAnimShown) {
-    document.body.classList.add('no-chip-anim');
-  } else {
-    document.body.classList.remove('no-chip-anim');
-    state._chipAnimShown = true;
-  }
-} else {
-  document.body.classList.remove('no-chip-anim');
-  state._chipAnimShown = false;
-}
-  
-  const hasInfinity = !!(
-    state.votesRevealed &&
-    Array.isArray(state.participants) &&
-    state.participants.some(p => p && !p.observer && (p.vote === INFINITY_ || p.vote === INFINITY_ALT))
-  );
-
-  const toStr  = (v) => (v == null || v === '' ? null : String(v));
-  const withInf = (base) => (base != null ? base + (hasInfinity ? ' +♾️' : '') : (hasInfinity ? '♾️' : null));
-
-  // Toggle pre/post sections
-  const pre  = document.querySelector('.pre-vote');
-  const post = document.querySelector('.post-vote');
-  if (pre && post) {
-    pre.style.display  = state.votesRevealed ? 'none' : '';
-    post.style.display = state.votesRevealed ? '' : 'none';
-  }
-
-  const row        = $('#resultRow');
-  const avgWrap    = document.querySelector('#resultLabel .label-average');
-  const consEl     = document.querySelector('#resultLabel .label-consensus');
-  const medianWrap = $('#medianWrap');
-  const rangeWrap  = $('#rangeWrap');
-  const rangeSep   = $('#rangeSep'); // separator before Range
-  const avgEl      = $('#averageVote');
-
-  // Localized "🎉 Consensus" label via <meta>, fallback de/en
-  const CONS_LABEL =
-    document.querySelector('meta[name="msg.label.consensus"]')?.content
-    || (isDe() ? '🎉 Konsens' : '🎉 Consensus');
-
-  // First separator between Average and Median (prefer explicit id)
-  const medianSep  = document.getElementById('medianSep')
-                  || document.querySelector('#resultRow .sep');
-
-  // Average
-  if (avgEl) {
-    const avgTxt = withInf(toStr(state.averageVote));
-    avgEl.textContent = avgTxt ?? (state.votesRevealed ? 'N/A' : '');
-  }
-
-  // Consensus mode: hide everything but the label
-  if (row) {
-    if (state.consensus) {
-      row.classList.add('consensus');
-      if (avgWrap) avgWrap.hidden = true;
-      if (consEl) { consEl.hidden = false; consEl.textContent = CONS_LABEL; }
-      if (medianSep) { medianSep.hidden = true; medianSep.setAttribute('aria-hidden', 'true'); }
-      if (medianWrap) medianWrap.hidden = true;
-      if (rangeSep)  rangeSep.hidden  = true;
-      if (rangeWrap) rangeWrap.hidden = true;
-      return;
+  function renderResultBar() {
+    // one-time chip animation gating
+    if (state.votesRevealed) {
+      if (state._chipAnimShown) document.body.classList.add('no-chip-anim');
+      else { document.body.classList.remove('no-chip-anim'); state._chipAnimShown = true; }
     } else {
-      row.classList.remove('consensus');
-      if (avgWrap) avgWrap.hidden = false;
-      if (consEl)  consEl.hidden  = true;
+      document.body.classList.remove('no-chip-anim');
+      state._chipAnimShown = false;
+    }
+
+    const hasInfinity = !!(
+      state.votesRevealed &&
+      Array.isArray(state.participants) &&
+      state.participants.some(p => p && !p.observer && (p.vote === INFINITY_ || p.vote === INFINITY_ALT))
+    );
+
+    const toStr  = (v) => (v == null || v === '' ? null : String(v));
+    const withInf = (base) => (base != null ? base + (hasInfinity ? ' +♾️' : '') : (hasInfinity ? '♾️' : null));
+
+    // Toggle pre/post sections
+    const pre  = document.querySelector('.pre-vote');
+    const post = document.querySelector('.post-vote');
+    if (pre && post) { pre.style.display = state.votesRevealed ? 'none' : ''; post.style.display = state.votesRevealed ? '' : 'none'; }
+
+    const row        = $('#resultRow');
+    const avgWrap    = document.querySelector('#resultLabel .label-average');
+    const consEl     = document.querySelector('#resultLabel .label-consensus');
+    const medianWrap = $('#medianWrap');
+    const rangeWrap  = $('#rangeWrap');
+    const rangeSep   = $('#rangeSep');
+    const avgEl      = $('#averageVote');
+
+    const CONS_LABEL =
+      document.querySelector('meta[name="msg.label.consensus"]')?.content
+      || (isDe() ? '🎉 Konsens' : '🎉 Consensus');
+
+    const medianSep  = document.getElementById('medianSep') || document.querySelector('#resultRow .sep');
+
+    // Average
+    if (avgEl) {
+      const avgTxt = withInf(toStr(state.averageVote));
+      avgEl.textContent = avgTxt ?? (state.votesRevealed ? 'N/A' : '');
+    }
+
+    // Consensus-only view
+    if (row) {
+      if (state.consensus) {
+        row.classList.add('consensus');
+        if (avgWrap) avgWrap.hidden = true;
+        if (consEl) { consEl.hidden = false; consEl.textContent = CONS_LABEL; }
+        if (medianSep) { medianSep.hidden = true; medianSep.setAttribute('aria-hidden', 'true'); }
+        if (medianWrap) medianWrap.hidden = true;
+        if (rangeSep)  rangeSep.hidden  = true;
+        if (rangeWrap) rangeWrap.hidden = true;
+        return;
+      } else {
+        row.classList.remove('consensus');
+        if (avgWrap) avgWrap.hidden = false;
+        if (consEl)  consEl.hidden  = true;
+      }
+    }
+
+    // Median + its separator
+    let showMedian = false;
+    if (medianWrap) {
+      showMedian = state.votesRevealed && toStr(state.medianVote) != null;
+      medianWrap.hidden = !showMedian;
+      if (showMedian) setText('#medianVote', withInf(toStr(state.medianVote)));
+    }
+    if (medianSep) {
+      medianSep.hidden = !showMedian;
+      medianSep.setAttribute('aria-hidden', String(!showMedian));
+    }
+
+    // Range + its separator
+    if (rangeWrap && rangeSep) {
+      const showRange = state.votesRevealed && toStr(state.range) != null;
+      rangeWrap.hidden = !showRange;
+      rangeSep.hidden  = !showRange;
+      if (showRange) setText('#rangeVote', withInf(toStr(state.range)));
     }
   }
-
-  // Median + its separator (deterministic)
-  let showMedian = false;
-  if (medianWrap) {
-    showMedian = state.votesRevealed && toStr(state.medianVote) != null;
-    medianWrap.hidden = !showMedian;
-    if (showMedian) setText('#medianVote', withInf(toStr(state.medianVote)));
-  }
-  if (medianSep) {
-    medianSep.hidden = !showMedian;
-    medianSep.setAttribute('aria-hidden', String(!showMedian));
-  }
-
-  // Range + second separator
-  if (rangeWrap && rangeSep) {
-    const showRange = state.votesRevealed && toStr(state.range) != null;
-    rangeWrap.hidden = !showRange;
-    rangeSep.hidden  = !showRange;
-    if (showRange) setText('#rangeVote', withInf(toStr(state.range)));
-  }
-}
-
 
   // ---------------- Topic row ----------------
   function renderTopic() {
     const row = $('#topicRow'); if (!row) return;
-
-    // show/hide whole row
     row.style.display = state.topicVisible ? '' : 'none';
 
-    // ensure actions container (right side)
     let actions = row.querySelector('.topic-actions');
-    if (!actions) {
-      actions = document.createElement('div');
-      actions.className = 'topic-actions';
-      row.appendChild(actions);
-    }
+    if (!actions) { actions = document.createElement('div'); actions.className = 'topic-actions'; row.appendChild(actions); }
 
-    // ensure #topicDisplay exists (SPAN in view mode, INPUT in edit mode)
     let displayEl = row.querySelector('#topicDisplay');
 
-    // helper: fill the display element in view mode
     const renderDisplayContent = (el) => {
       if (state.topicLabel && state.topicUrl) {
         el.innerHTML = `<a href="${encodeURI(state.topicUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(state.topicLabel)}</a>`;
@@ -904,7 +821,6 @@ function renderResultBar() {
       (link || el).setAttribute('title', wrapForTitle(full, 44));
     };
 
-    // create (or reuse) the compact “more” button
     let hint = row.querySelector('#topicOverflowHint');
     const ensureHint = () => {
       if (!hint) {
@@ -914,14 +830,14 @@ function renderResultBar() {
         btn.className = 'topic-more-btn';
         btn.textContent = isDe() ? 'mehr' : 'more';
         const lab = isDe() ? 'Vollständiges Thema anzeigen' : 'Show full topic';
-        const label = t('topic.more', lab); // optional key; falls nicht vorhanden → fallback
+        const label = t('topic.more', lab);
         btn.setAttribute('aria-label', label);
         btn.setAttribute('title', label);
         hint = btn;
       }
     };
 
-    // Non-hosts: view-only
+    // Non-hosts view
     if (!state.isHost) {
       if (!displayEl || displayEl.tagName !== 'SPAN') {
         const span = document.createElement('span');
@@ -944,9 +860,8 @@ function renderResultBar() {
       return;
     }
 
-    // Host view/edit modes
+    // Host: view/edit
     if (!state.topicEditing) {
-      // VIEW
       if (!displayEl || displayEl.tagName !== 'SPAN') {
         const span = document.createElement('span');
         span.id = 'topicDisplay';
@@ -964,16 +879,10 @@ function renderResultBar() {
       const titleClear = t('button.clearTopic', isDe() ? 'Feld leeren'  : 'Clear');
 
       actions.innerHTML =
-        `<button id="topicEditBtn"
-                 class="icon-button neutral"
-                 type="button"
-                 title="${escapeHtml(titleEdit)}"
-                 aria-label="${escapeHtml(titleEdit)}">✍️</button>
-         <button id="topicClearBtn"
-                 class="icon-button neutral"
-                 type="button"
-                 title="${escapeHtml(titleClear)}"
-                 aria-label="${escapeHtml(titleClear)}">🗑️</button>`;
+        `<button id="topicEditBtn" class="icon-button neutral" type="button"
+                 title="${escapeHtml(titleEdit)}" aria-label="${escapeHtml(titleEdit)}">✍️</button>
+         <button id="topicClearBtn" class="icon-button neutral" type="button"
+                 title="${escapeHtml(titleClear)}" aria-label="${escapeHtml(titleClear)}">🗑️</button>`;
 
       const editBtn  = $('#topicEditBtn');
       const clearBtn = $('#topicClearBtn');
@@ -988,15 +897,12 @@ function renderResultBar() {
 
       requestAnimationFrame(syncTopicOverflow);
     } else {
-      // EDIT
       if (!displayEl || displayEl.tagName !== 'INPUT') {
         const inp = document.createElement('input');
         inp.type = 'text';
         inp.className = 'topic-inline-input';
         inp.id = 'topicDisplay';
-        inp.placeholder = isDe()
-          ? 'JIRA-Link einfügen oder Key eingeben'
-          : 'Paste JIRA link or type key';
+        inp.placeholder = isDe() ? 'JIRA-Link einfügen oder Key eingeben' : 'Paste JIRA link or type key';
         if (displayEl) displayEl.replaceWith(inp);
         else row.insertBefore(inp, row.firstChild ? row.firstChild.nextSibling : null);
         displayEl = inp;
@@ -1010,16 +916,10 @@ function renderResultBar() {
       const titleCancel = t('button.cancel',    isDe() ? 'Abbrechen'  : 'Cancel');
 
       actions.innerHTML =
-        `<button id="topicSaveBtn"
-                 class="icon-button neutral"
-                 type="button"
-                 title="${escapeHtml(titleSave)}"
-                 aria-label="${escapeHtml(titleSave)}">✅</button>
-         <button id="topicCancelEditBtn"
-                 class="icon-button neutral"
-                 type="button"
-                 title="${escapeHtml(titleCancel)}"
-                 aria-label="${escapeHtml(titleCancel)}">❌</button>`;
+        `<button id="topicSaveBtn" class="icon-button neutral" type="button"
+                 title="${escapeHtml(titleSave)}" aria-label="${escapeHtml(titleSave)}">✅</button>
+         <button id="topicCancelEditBtn" class="icon-button neutral" type="button"
+                 title="${escapeHtml(titleCancel)}" aria-label="${escapeHtml(titleCancel)}">❌</button>`;
 
       const saveBtn   = $('#topicSaveBtn');
       const cancelBtn = $('#topicCancelEditBtn');
@@ -1030,10 +930,7 @@ function renderResultBar() {
         state.topicEditing = false;
         renderTopic();
       };
-      const doCancel = () => {
-        state.topicEditing = false;
-        renderTopic();
-      };
+      const doCancel = () => { state.topicEditing = false; renderTopic(); };
 
       if (saveBtn)   saveBtn.addEventListener('click', doSave);
       if (cancelBtn) cancelBtn.addEventListener('click', doCancel);
@@ -1043,12 +940,7 @@ function renderResultBar() {
       });
     }
   }
-
-  function beginTopicEdit() {
-    if (!state.isHost) return;
-    state.topicEditing = true;
-    renderTopic();
-  }
+  function beginTopicEdit() { if (!state.isHost) return; state.topicEditing = true; renderTopic(); }
 
   function syncTopicOverflow() {
     try {
@@ -1057,7 +949,6 @@ function renderResultBar() {
       const hint = row.querySelector('#topicOverflowHint');
       if (!el || !hint) return;
 
-      // only in view mode
       const inViewMode = el && el.tagName === 'SPAN';
       if (!inViewMode) { hint.style.display = 'none'; return; }
 
@@ -1086,7 +977,6 @@ function renderResultBar() {
     if (input) { input.disabled = !!disabled; input.setAttribute('aria-disabled', String(!!disabled)); }
     if (row) { row.classList.toggle('disabled', !!disabled); }
   }
-
   function syncMenuFromState() {
     setRowDisabled('menuAutoRevealToggle', !state.isHost && state._hostKnown);
     setRowDisabled('menuTopicToggle', !state.isHost && state._hostKnown);
@@ -1114,10 +1004,8 @@ function renderResultBar() {
     if (mHRTgl) { mHRTgl.checked = !!state.hardMode; mHRTgl.setAttribute('aria-checked', String(!!state.hardMode)); }
     if (mHRSt) mHRSt.textContent = state.hardMode ? (isDe() ? 'An' : 'On') : (isDe() ? 'Aus' : 'Off');
   }
-
   function syncSequenceInMenu() {
     const root = $('#menuSeqChoice'); if (!root) return;
-
     root.querySelectorAll('input[type="radio"][name="menu-seq"]').forEach(r => {
       const shouldDisable = state._hostKnown ? !state.isHost : false;
       r.disabled = !!shouldDisable;
@@ -1125,16 +1013,13 @@ function renderResultBar() {
       const lab = r.closest('label');
       if (lab) lab.classList.toggle('disabled', !!shouldDisable);
     });
-
     const esc = (s) => (window.CSS && typeof CSS.escape === 'function') ? CSS.escape(s) : String(s).replace(/"/g, '\\"');
-
     const id = state.sequenceId || '';
     const sel =
       root.querySelector(`input[type="radio"][name="menu-seq"][value="${esc(id)}"]`) ||
       root.querySelector(`input[type="radio"][name="menu-seq"][value="${esc(id.replace('.', '-'))}"]`);
     if (sel) { sel.checked = true; sel.setAttribute('aria-checked', 'true'); }
   }
-
   document.addEventListener('ep:menu-open', () => { syncMenuFromState(); syncSequenceInMenu(); });
 
   // ---------------- Global actions ----------------
@@ -1156,22 +1041,16 @@ function renderResultBar() {
       tEl.className = 'toast';
       tEl.textContent = msg;
       document.body.appendChild(tEl);
-      // force reflow for CSS animation
+      // force reflow
       // eslint-disable-next-line no-unused-expressions
       tEl.offsetHeight;
       setTimeout(() => tEl.remove(), ms + 600);
     } catch {}
   }
-
-  function inviteUrl() {
-    return `${location.origin}/invite?roomCode=${encodeURIComponent(state.roomCode)}`;
-  }
-
+  function inviteUrl() { return `${location.origin}/invite?roomCode=${encodeURIComponent(state.roomCode)}`; }
   async function copyText(text) {
-    try {
-      await navigator.clipboard.writeText(text);
-      return true;
-    } catch {
+    try { await navigator.clipboard.writeText(text); return true; }
+    catch {
       try {
         const ta = document.createElement('textarea');
         ta.value = text;
@@ -1185,17 +1064,10 @@ function renderResultBar() {
       } catch { return false; }
     }
   }
-
   function bindCopyLink() {
-    const candidates = [
-      '#copyRoomLink',
-      '#copyRoomLinkBtn',
-      '#copyRoomBtn',
-      '.room-with-actions .icon-button',
-      '.main-info .icon-button'
-    ].map(sel => $(sel)).filter(Boolean);
-    const btn = candidates[0];
-    if (!btn) return;
+    const candidates = ['#copyRoomLink','#copyRoomLinkBtn','#copyRoomBtn','.room-with-actions .icon-button','.main-info .icon-button']
+      .map(sel => $(sel)).filter(Boolean);
+    const btn = candidates[0]; if (!btn) return;
 
     const okMsg   = t('copy.ok',   isDe() ? 'Link kopiert' : 'Link copied');
     const failMsg = t('copy.fail', isDe() ? 'Kopieren fehlgeschlagen' : 'Copy failed');
@@ -1283,7 +1155,6 @@ function renderResultBar() {
       });
     }
 
-    // keep the overflow hint in sync on window resizes (bind once)
     if (!_topicOverflowResizeBound) {
       window.addEventListener('resize', () => requestAnimationFrame(syncTopicOverflow));
       _topicOverflowResizeBound = true;
@@ -1304,7 +1175,7 @@ function renderResultBar() {
   }
 
   // ---------------- Boot ----------------
-  function boot() { preloadMessages(); wireOnce(); syncHostClass(); connectWS(); }
+  function boot() { preloadMessages(); wireOnce(); syncHostClass(); seedSelfPlaceholder(); connectWS(); }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();
 
