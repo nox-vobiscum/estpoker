@@ -808,6 +808,20 @@ body.light .vote-chip.heat,
   transform: none !important;
 }
 
+
+
+/* Reserve vertical space for the result-row to avoid page jumping */
+.result-row-wrap{ min-height:34px; }        /* one text line on desktop */
+@media (max-width:640px){
+  .result-row-wrap{ min-height:56px; }      /* mobile often wraps → a bit taller */
+}
+
+/* The pre-vote placeholder uses the same reserved height */
+.result-row-placeholder{ min-height:inherit; }
+
+
+
+
 /* Knowledge bites – compact, safe-bottom spacing, mobile friendly */
 .knowledge-bites{
   margin-top: 5.25rem;

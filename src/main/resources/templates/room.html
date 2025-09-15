@@ -77,13 +77,15 @@
                 data-i18n-attr="title:button.reveal;aria-label:button.reveal"
                 onclick="revealCards()"></button>
       </div>
+      <div class="result-row-wrap result-row-placeholder" aria-hidden="true"></div>
     </div>
 
     <!-- Post-vote -->
     <div class="post-vote" style="display:none;">
-      <p id="resultRow"
-         class="average-label consensus-row"
-         role="status" aria-live="polite" aria-atomic="true">
+      <div class="result-row-wrap">
+        <p id="resultRow"
+          class="average-label consensus-row"
+          role="status" aria-live="polite" aria-atomic="true">
 
         <!-- Variant 3: long+short labels + separate consensus label -->
         <span id="resultLabel" class="label">
