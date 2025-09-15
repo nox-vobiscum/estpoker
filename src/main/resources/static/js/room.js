@@ -607,10 +607,15 @@
     return elig.every(p => p.vote != null && String(p.vote) !== '');
     }
 
-  function msg(name, en, de) {
-    try { const m = document.querySelector(`meta[name="msg.${name}"]`); if (m && m.content) return m.content; } catch {}
-    return isDe() ? (de ?? en) : en;
+  // unified i18n accessor: uses `t()` (which reads /i18n/messages),
+  // then falls back to provided en/de defaults when needed.
+  function msg(key, en, de) {
+    // choose a fallback string purely based on current language
+    const fallback = isDe() ? (de != null ? de : en) : en;
+    // defer to `t()` which checks the in-memory message cache or <meta> fallback
+    return t(key, fallback);
   }
+
 
   function renderCards() {
     const grid = $('#cardGrid'); if (!grid) return;
@@ -747,9 +752,7 @@
     const rangeSep   = $('#rangeSep');
     const avgEl      = $('#averageVote');
 
-    const CONS_LABEL =
-      document.querySelector('meta[name="msg.label.consensus"]')?.content
-      || (isDe() ? '🎉 Konsens' : '🎉 Consensus');
+    const CONS_LABEL = t('label.consensus', isDe() ? '🎉 Konsens' : '🎉 Consensus');
 
     const medianSep  = document.getElementById('medianSep') || document.querySelector('#resultRow .sep');
 
@@ -1173,6 +1176,38 @@
   function escapeHtml(s) {
     return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   }
+
+    // re-render every UI section that contains translatable text/labels/titles
+  function rerenderAll() {
+    renderParticipants();   // updates action button titles/aria-labels
+    renderCards();          // updates card tooltips (❓, ☕)
+    renderResultBar();      // updates consensus label and separators
+    renderTopic();          // updates topic action labels
+    renderAutoReveal();     // updates ON/OFF text
+    syncMenuFromState();    // updates all menu labels/states
+    syncSequenceInMenu();   // re-syncs sequence radio state
+  }
+
+  // when language changes, fetch message map for the new language, then redraw
+  async function onLangChange() {
+    await preloadMessages();  // pulls /i18n/messages?lang=...
+    rerenderAll();
+  }
+
+  // (a) auto-detect changes to <html lang="..."> and react
+  new MutationObserver(function (muts) {
+    for (var i = 0; i < muts.length; i++) {
+      var m = muts[i];
+      if (m.type === 'attributes' && m.attributeName === 'lang') {
+        onLangChange();       // refresh i18n without page reload
+        break;
+      }
+    }
+  }).observe(document.documentElement, { attributes: true, attributeFilter: ['lang'] });
+
+  // (b) optional: if your switcher fires a custom event, react to it as well
+  document.addEventListener('ep:lang-changed', onLangChange);
+
 
   // ---------------- Boot ----------------
   function boot() { preloadMessages(); wireOnce(); syncHostClass(); seedSelfPlaceholder(); connectWS(); }
