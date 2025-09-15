@@ -934,3 +934,28 @@ body.light .vote-chip.heat,
 @media (prefers-reduced-motion: reduce) {
   .kbase details > summary::after { transition: none; }
 }
+
+
+/* Result row: keep a reserved slot even when no results are shown */
+.result-row{
+  /* reserve vertical space so the layout doesn't jump */
+  min-height: 1.25rem;           /* tune to your line-height */
+  margin: 8px 0 6px;
+}
+.result-row.is-hidden {
+  /* hide text but keep the space occupied */
+  visibility: hidden;
+}
+
+/* Actions spacing – stable distance from the grid */
+.vote-actions { margin-top: 14px; }
+
+/* After reveal: cards are visible but not interactive */
+body.votes-revealed .card-grid {
+  pointer-events: none;          /* disable clicking */
+  opacity: .6;                   /* subtle dim */
+  filter: saturate(.85);
+}
+
+/* Optional: keep keyboard focus styles sane even when disabled via pointer-events */
+body.votes-revealed .card-grid button:focus { outline: 2px solid var(--accent); }

@@ -1,4 +1,4 @@
-/* room.js — UI + WS glue for Estimation Poker */
+/* room.js — UI + WS glue for Estimation Poker (consolidated) */
 (() => {
   'use strict';
 
@@ -10,6 +10,7 @@
   };
 
   // ---------------- i18n helpers (lightweight) ----------------
+  // Cache that is filled from /i18n/messages to avoid hard reloads on lang switch.
   const MSG = Object.create(null);
   function t(key, fallback) {
     try {
@@ -20,6 +21,7 @@
     return fallback;
   }
   async function preloadMessages() {
+    // Decide which language we want to fetch for
     const lang = isDe() ? 'de' : 'en';
     try {
       const res = await fetch(`/i18n/messages?lang=${encodeURIComponent(lang)}`, { credentials: 'same-origin' });
@@ -27,20 +29,22 @@
         const data = await res.json();
         if (data && typeof data === 'object') Object.assign(MSG, data);
       }
-    } catch {}
+    } catch {
+      // Network hiccups? We continue with <meta> and in-code fallbacks.
+    }
   }
 
   // ---------------- Constants ----------------
-  const SPECIALS = ['❓', '☕'];              // 💬 entfernt
+  const SPECIALS = ['❓', '☕'];      // Supported special cards (question, coffee)
   const INFINITY_ = '♾️';
   const INFINITY_ALT = '∞';
 
-  // script dataset / URL params
+  // Read script dataset / URL params (robust when embedded from Thymeleaf)
   const scriptEl = document.querySelector('script[src*="/js/room.js"]');
   const ds = (scriptEl && scriptEl.dataset) || {};
   const url = new URL(location.href);
 
-  // Optional: einzelne Specials per data-attr hart deaktivieren (z.B. data-disabled-specials="☕")
+  // Optionally disable certain specials via data-disabled-specials="☕,❓"
   const DISABLED_SPECIALS = new Set(
     String(ds.disabledSpecials || '')
       .split(',')
@@ -50,8 +54,8 @@
 
   // ---------------- State (client) ----------------
   const state = {
-    _lastRenderSig: null,
-    _chipAnimShown: false,
+    _lastRenderSig: null,        // render dedupe (kept for future use)
+    _chipAnimShown: false,       // one-time chip animation gating
 
     roomCode: ds.room || url.searchParams.get('roomCode') || 'demo',
     youName: ds.participant || url.searchParams.get('participantName') || 'Guest',
@@ -61,6 +65,8 @@
 
     isHost: false,
     _hostKnown: false,
+
+    // Room values pushed by the server
     votesRevealed: false,
     cards: [],
     participants: [],
@@ -70,18 +76,18 @@
     consensus: false,
     outliers: [],
 
+    // Deck/sequence/topic flags
     sequenceId: null,
     topicVisible: true,
     topicLabel: '',
     topicUrl: null,
-
     autoRevealEnabled: false,
 
-    // client-only toggles
+    // Client-only toggles
     hardMode: false,
     allowSpecials: true,
 
-    // topic edit
+    // Topic editing state (host only)
     topicEditing: false,
 
     // UI helpers
@@ -89,7 +95,7 @@
     hardRedirect: null
   };
 
-  // stable per-tab client id
+  // ---------------- Stable per-tab client id ----------------
   const CIDKEY = 'ep-cid';
   try {
     state.cid = sessionStorage.getItem(CIDKEY);
@@ -98,13 +104,15 @@
       sessionStorage.setItem(CIDKEY, state.cid);
     }
   } catch {
+    // If sessionStorage is blocked, we still want a deterministic-ish cid
     state.cid = 'cid-' + Date.now();
   }
 
+  // Seed UI basics
   setText('#youName', state.youName);
   setText('#roomCodeVal', state.roomCode);
 
-  // canonicalize URL params without reload
+  // Canonicalize URL params without reload (nice copy/paste behavior)
   (function canonicalizeRoomUrl() {
     try {
       const desiredQs = new URLSearchParams({
@@ -119,11 +127,12 @@
     } catch {}
   })();
 
-  // one-time binding guard
+  // Bind-once guard
   let _topicOverflowResizeBound = false;
 
   // ---------------- Helpers ----------------
   function normalizeSeq(id) {
+    // Normalize historic ids to current identifiers
     if (!id) return 'fib.scrum';
     const s = String(id).toLowerCase().trim();
     if (s === 'fib-enh') return 'fib.enh';
@@ -132,9 +141,11 @@
     return s;
   }
   function isDe() {
+    // Keep it simple: any "de*" will be treated as German
     return (document.documentElement.lang || 'en').toLowerCase().startsWith('de');
   }
   function wsUrl() {
+    // Build WS URL with all relevant client information
     const proto = location.protocol === 'https:' ? 'wss://' : 'ws://';
     return `${proto}${location.host}/gameSocket` +
       `?roomCode=${encodeURIComponent(state.roomCode)}` +
@@ -142,6 +153,7 @@
       `&cid=${encodeURIComponent(state.cid)}`;
   }
   function syncHostClass() {
+    // Used by CSS to enable/disable host-only affordances
     document.body.classList.toggle('is-host', !!state.isHost);
   }
 
@@ -155,12 +167,13 @@
     return (Date.now() - last) > PRESENCE_GRACE_MS;
   }
 
-  // Wrap long text for native title tooltips by injecting \n
+  // Wrap long text for native title tooltips by injecting \n at safe points
   function wrapForTitle(text, max = 44) {
     const words = String(text || '').trim().split(/\s+/);
     const out = [];
     let line = '';
     for (let w of words) {
+      // Split very long tokens/URLs
       if (w.length > max) {
         w = w.replace(/(?<=\/)/g, '\n').replace(/(?<=-)/g, '\n').replace(/(?<=_)/g, '\n').replace(/(?<=\.)/g, '\n');
       }
@@ -177,6 +190,7 @@
 
   // ---------------- WebSocket ----------------
   function seedSelfPlaceholder() {
+    // Render our own row early to reduce perceived latency
     state.participants = [{
       name: state.youName || 'You',
       vote: null,
@@ -198,17 +212,23 @@
 
     s.onopen = () => {
       state.connected = true;
+      // (1) Reconfirm name (helps across reconnects)
       try { send('rename:' + encodeURIComponent(state.youName)); } catch {}
+      // (2) Ask the server for a full sync (two shots for safety)
       try { send('requestSync'); } catch {}
       setTimeout(() => { try { send('requestSync'); } catch {} }, 400);
+      // (3) Start heartbeat
       heartbeat();
+      // (4) Make sure our placeholder is visible until the first update arrives
       try { renderParticipants(); } catch {}
     };
 
     s.onclose = (ev) => {
       state.connected = false; stopHeartbeat();
       if (state.hardRedirect) { location.href = state.hardRedirect; return; }
+      // Respect server-initiated terminal closes
       if (ev.code === 4000 || ev.code === 4001) return;
+      // Otherwise, try to reconnect after a short delay
       setTimeout(() => { if (!state.connected) connectWS(); }, 2000);
     };
     s.onerror = (e) => console.warn(TAG, 'ERROR', e);
@@ -271,6 +291,7 @@
   }
 
   function renderSigFromState() {
+    // Used for future UI dedupe or optimistic updates
     const P = (state.participants || [])
       .map(p => ({ n: p?.name || '', v: (p?.vote ?? ''), o: !!p?.spectator, d: !!p?.disconnected }))
       .sort((a, b) => a.n.localeCompare(b.n));
@@ -295,12 +316,12 @@
     try {
       const has = (obj, k) => Object.prototype.hasOwnProperty.call(obj || {}, k);
 
-      // --- sequence id ---
+      // --- sequence id (normalize to current identifiers) ---
       if (has(m, 'sequenceId')) state.sequenceId = normalizeSeq(m.sequenceId);
       else if (!state.sequenceId) state.sequenceId = 'fib.scrum';
 
-      // --- specials & deck (robust across server variants) ---
-      let specialsList = null;    // explicit list (incl. empty)
+      // --- specials & deck (be liberal across server variants) ---
+      let specialsList = null;    // explicit list (incl. empty means "none")
       let allowFromServer = null; // explicit boolean
 
       if (has(m, 'specials') && Array.isArray(m.specials)) {
@@ -325,16 +346,16 @@
                : Array.isArray(state.cards) ? state.cards.slice()
                : [];
 
-      // Infinity nur für fib.enh
+      // Infinity only available for 'fib.enh'
       const seqId = state.sequenceId || 'fib.scrum';
       if (seqId !== 'fib.enh') deck = deck.filter(c => c !== INFINITY_ && c !== INFINITY_ALT);
 
-      // Specials mit Serverliste (auch leere) synchronisieren
+      // Align specials based on explicit server list (including empty list)
       if (specialsList !== null) deck = deck.filter(c => !SPECIALS.includes(c)).concat(specialsList);
       deck = deck.filter(c => !DISABLED_SPECIALS.has(String(c)));
       state.cards = deck;
 
-      // --- core flags / stats (nur wenn vorhanden) ---
+      // --- core flags / stats (only if present) ---
       if (has(m, 'votesRevealed')) state.votesRevealed = !!m.votesRevealed;
       if (has(m, 'averageVote'))   state.averageVote   = m.averageVote;
       if (has(m, 'medianVote'))    state.medianVote    = m.medianVote;
@@ -348,7 +369,7 @@
       if (has(m, 'topicLabel'))   state.topicLabel   = m.topicLabel || '';
       if (has(m, 'topicUrl'))     state.topicUrl     = m.topicUrl || null;
 
-      // --- participants (preserve previous vote if omitted) ---
+      // --- participants (preserve previous vote if omitted; be defensive) ---
       if (has(m, 'participants') && Array.isArray(m.participants)) {
         const prevByName = Object.fromEntries((state.participants || []).map(p => [p.name, p]));
         const next = [];
@@ -362,6 +383,7 @@
 
           const vote = has(p, 'vote') ? (p.vote ?? null) : (prev ? (prev.vote ?? null) : null);
 
+          // Single source of truth for "spectator"; still accept "participating:false"
           const spectator =
             has(p, 'spectator')     ? !!p.spectator :
             has(p, 'participating') ? (p.participating === false) :
@@ -382,11 +404,11 @@
           });
         }
 
-        // Nur setzen, wenn die Liste nicht leer ist (verhindert „Wegwischen“)
+        // Only set if the list isn't empty (prevents wiping during partial syncs)
         if (next.length) state.participants = next;
       }
 
-      // who am I (re-evaluate host)
+      // Who am I (re-evaluate host)
       const me = state.participants.find(p => p && p.name === state.youName);
       state.isHost = !!(me && me.isHost);
       state._hostKnown = true;
@@ -400,7 +422,7 @@
       renderTopic();
       renderAutoReveal();
 
-      // presence freshness
+      // Update presence freshness (avoid toasts within grace window)
       try { (state.participants || []).forEach(p => { if (p && !p.disconnected) markAlive(p.name); }); } catch {}
 
       requestAnimationFrame(() => { syncMenuFromState(); syncSequenceInMenu(); });
@@ -411,7 +433,7 @@
       console.error('[ROOM] applyVoteUpdate failed', e);
     }
 
-    // Safety: falls Liste leer und ich nicht drin → Self-Placeholder vorn ergänzen
+    // Safety: if list is empty and "me" is not present, prepend a self placeholder
     if (Array.isArray(state.participants) &&
         !state.participants.some(p => p && p.name === state.youName)) {
       state.participants.unshift({
@@ -424,7 +446,7 @@
 
   // ---------------- Participants ----------------
 
-  // Canonical check in case an old server sends `participating:false`
+  // Canonical check for spectator (older servers might only send participating:false)
   function isSpectator(p) {
     return !!(p && (p.spectator === true || p.participating === false));
   }
@@ -444,7 +466,7 @@
         if (p.isHost)    li.classList.add('is-host');
         if (isSpectator(p)) li.classList.add('spectator');
 
-        // Left icon
+        // Left icon (role/presence)
         const left = document.createElement('span');
         left.className = 'participant-icon' + (p.isHost ? ' host' : '');
         let icon = '👤';
@@ -466,7 +488,7 @@
         const right = document.createElement('div');
         right.className = 'row-right';
 
-        // Chips
+        // Chips (pre vs. post reveal)
         if (!state.votesRevealed) {
           if (isSpectator(p)) {
             const eye = document.createElement('span');
@@ -511,8 +533,10 @@
               const isInfinity = (display === INFINITY_ || display === INFINITY_ALT);
               const isSpecial  = SPECIALS.includes(display);
 
+              // Specials keep their special styling (not heat-colored)
               if (!isInfinity && isSpecial) chip.classList.add('special');
 
+              // Heat color for numeric & infinity
               if (!isSpecial) {
                 const hue = heatHueForLabel(display);
                 if (hue != null) {
@@ -521,6 +545,7 @@
                 }
               }
 
+              // Outlier badge
               if (Array.isArray(state.outliers) && state.outliers.includes(p.name)) {
                 chip.classList.add('outlier');
               }
@@ -599,7 +624,7 @@
     let t = idx / max;
 
     const pivotLabel = PIVOT_BY_SEQUENCE[state.sequenceId || ''] ?? null;
-    let gamma = 1.25;
+    let gamma = 1.25; // default gamma if no pivot found
     if (pivotLabel != null) {
       const pivIdx = deck.findIndex(x => Object.is(x, pivotLabel));
       if (pivIdx > 0) {
@@ -610,7 +635,7 @@
     }
 
     t = Math.pow(t, gamma);
-    const hue = 120 - (t * 120);
+    const hue = 120 - (t * 120); // 120=green → 0=red
     return Math.round(Math.max(0, Math.min(120, hue)));
   }
 
@@ -622,12 +647,13 @@
     return null;
   }
   function allEligibleVoted() {
+    // Only non-spectators and non-disconnected count towards "everyone"
     const elig = state.participants.filter(p => p && !isSpectator(p) && !p.disconnected);
     if (!elig.length) return false;
     return elig.every(p => p.vote != null && String(p.vote) !== '');
   }
 
-  // unified i18n accessor
+  // Unified i18n accessor: fetch via t(), fallback by current language
   function msg(key, en, de) {
     const fallback = isDe() ? (de != null ? de : en) : en;
     return t(key, fallback);
@@ -641,17 +667,17 @@
     const isSpectatorMe = !!(me && isSpectator(me));
     const disabled = state.votesRevealed || isSpectatorMe;
 
-    // split deck
+    // Split deck into numeric and specials
     const deckSpecialsFromState = (state.cards || [])
       .filter(v => SPECIALS.includes(v) && !DISABLED_SPECIALS.has(String(v)));
     const deckNumbers = (state.cards || [])
       .filter(v => !SPECIALS.includes(v) && !DISABLED_SPECIALS.has(String(v)));
 
-    // robust fallback for specials
+    // Robust fallback for specials
     const specialsCandidate = deckSpecialsFromState.length ? deckSpecialsFromState : SPECIALS.slice();
     const specialsDedupe = [...new Set(specialsCandidate.filter(s => !deckNumbers.includes(s)))];
 
-    // honor host toggle
+    // Honor host toggle (allow/disallow specials)
     const specials = state.allowSpecials ? specialsDedupe : [];
 
     const selectedVal = mySelectedValue();
@@ -686,16 +712,17 @@
         state._optimisticVote = label;
         grid.querySelectorAll('button').forEach(b => b.classList.remove('selected'));
         btn.classList.add('selected');
+        // Server binds by CID anyway; we keep name for backward compatibility
         send(`vote:${state.youName}:${label}`);
       });
 
       grid.appendChild(btn);
     }
 
-    // numeric first
+    // Numeric first
     deckNumbers.forEach(addCardButton);
 
-    // break before specials
+    // Then specials (separated by a break)
     if (specials.length) {
       const br = document.createElement('div');
       br.className = 'grid-break';
@@ -704,7 +731,7 @@
       specials.forEach(addCardButton);
     }
 
-    // CTA buttons logic
+    // CTA buttons logic (show one button depending on reveal state and host role)
     const revealBtn = $('#revealButton');
     const resetBtn  = $('#resetButton');
     const hardGateOK = !state.hardMode || allEligibleVoted();
@@ -725,6 +752,7 @@
         revealBtn.setAttribute('aria-disabled', 'true');
         revealBtn.setAttribute('aria-label', gateMsg);
       } else {
+        // Restore base label/attrs (room.html sets i18n; we only remove temp attrs)
         revealBtn.removeAttribute('title');
         revealBtn.removeAttribute('aria-disabled');
       }
@@ -737,7 +765,14 @@
 
   // ---------------- Result bar ----------------
   function renderResultBar() {
-    // one-time chip animation gating
+    // Reflect reveal state on <body> for CSS hooks (dim grid, etc.)
+    document.body.classList.toggle('votes-revealed', !!state.votesRevealed);
+
+    // Reserve the result slot but hide its contents before reveal
+    const row = document.getElementById('resultRow');
+    if (row) row.classList.toggle('is-hidden', !state.votesRevealed);
+
+    // Gate chip animation (only plays once per reveal cycle)
     if (state.votesRevealed) {
       if (state._chipAnimShown) document.body.classList.add('no-chip-anim');
       else { document.body.classList.remove('no-chip-anim'); state._chipAnimShown = true; }
@@ -755,11 +790,6 @@
     const toStr  = (v) => (v == null || v === '' ? null : String(v));
     const withInf = (base) => (base != null ? base + (hasInfinity ? ' +♾️' : '') : (hasInfinity ? '♾️' : null));
 
-    // Toggle pre/post sections
-    const preActions = document.querySelector('.pre-vote .vote-actions'); // button row only
-    if (preActions) preActions.style.display = state.votesRevealed ? 'none' : '';
-
-    const row        = $('#resultRow');
     const avgWrap    = document.querySelector('#resultLabel .label-average');
     const consEl     = document.querySelector('#resultLabel .label-consensus');
     const medianWrap = $('#medianWrap');
@@ -819,13 +849,18 @@
   // ---------------- Topic row ----------------
   function renderTopic() {
     const row = $('#topicRow'); if (!row) return;
+
+    // Show/hide entire row based on host toggle
     row.style.display = state.topicVisible ? '' : 'none';
 
+    // Ensure actions container
     let actions = row.querySelector('.topic-actions');
     if (!actions) { actions = document.createElement('div'); actions.className = 'topic-actions'; row.appendChild(actions); }
 
+    // Ensure display element
     let displayEl = row.querySelector('#topicDisplay');
 
+    // Helper: fill view-mode content
     const renderDisplayContent = (el) => {
       if (state.topicLabel && state.topicUrl) {
         el.innerHTML = `<a href="${encodeURI(state.topicUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(state.topicLabel)}</a>`;
@@ -839,6 +874,7 @@
       (link || el).setAttribute('title', wrapForTitle(full, 44));
     };
 
+    // Create (or reuse) compact “more” button on the right
     let hint = row.querySelector('#topicOverflowHint');
     const ensureHint = () => {
       if (!hint) {
@@ -855,7 +891,7 @@
       }
     };
 
-    // Non-hosts view
+    // Non-hosts: view-only
     if (!state.isHost) {
       if (!displayEl || displayEl.tagName !== 'SPAN') {
         const span = document.createElement('span');
@@ -878,8 +914,9 @@
       return;
     }
 
-    // Host: view/edit
+    // Host: view/edit modes
     if (!state.topicEditing) {
+      // VIEW
       if (!displayEl || displayEl.tagName !== 'SPAN') {
         const span = document.createElement('span');
         span.id = 'topicDisplay';
@@ -915,6 +952,7 @@
 
       requestAnimationFrame(syncTopicOverflow);
     } else {
+      // EDIT
       if (!displayEl || displayEl.tagName !== 'INPUT') {
         const inp = document.createElement('input');
         inp.type = 'text';
@@ -967,6 +1005,7 @@
       const hint = row.querySelector('#topicOverflowHint');
       if (!el || !hint) return;
 
+      // Only in view mode
       const inViewMode = el && el.tagName === 'SPAN';
       if (!inViewMode) { hint.style.display = 'none'; return; }
 
@@ -981,10 +1020,8 @@
 
   // ---------------- Auto-reveal badge ----------------
   function renderAutoReveal() {
-    const preSt = document.querySelector('.pre-vote #arStatus');
     const menuSt = document.querySelector('#appMenuOverlay #menuArStatus');
     const statusText = state.autoRevealEnabled ? (isDe() ? 'An' : 'On') : (isDe() ? 'Aus' : 'Off');
-    if (preSt) preSt.textContent = statusText;
     if (menuSt) menuSt.textContent = statusText;
   }
 
@@ -1062,7 +1099,7 @@
       tEl.className = 'toast';
       tEl.textContent = msg;
       document.body.appendChild(tEl);
-      // force reflow
+      // Force reflow so CSS animation can start cross-browser
       // eslint-disable-next-line no-unused-expressions
       tEl.offsetHeight;
       setTimeout(() => tEl.remove(), ms + 600);
@@ -1137,7 +1174,7 @@
     document.addEventListener('ep:participation-toggle', (ev) => {
       const estimating = !!(ev && ev.detail && ev.detail.estimating);
 
-      // Optimistic: update local self immediately
+      // Optimistic self-update so the UI responds immediately
       const me = state.participants.find(p => p && p.name === state.youName);
       if (me) {
         me.spectator = !estimating;
@@ -1151,7 +1188,7 @@
       send(`participation:${estimating}`);
     });
 
-    // host-only: specials toggle (client optimistic + server notify)
+    // Host-only: specials toggle (client optimistic + server notify)
     document.addEventListener('ep:specials-toggle', () => {
       if (!state.isHost) return;
       queueMicrotask(() => {
@@ -1177,7 +1214,7 @@
     bindCopyLink();
     wireMenuEvents();
 
-    // clicking empty topic row (host only) opens editor
+    // Clicking an empty topic row (host only) opens the inline editor
     const row = $('#topicRow');
     if (row) {
       row.addEventListener('click', (e) => {
@@ -1188,12 +1225,13 @@
       });
     }
 
+    // Keep the overflow hint in sync on window resizes (bind once)
     if (!_topicOverflowResizeBound) {
       window.addEventListener('resize', () => requestAnimationFrame(syncTopicOverflow));
       _topicOverflowResizeBound = true;
     }
 
-    // NO 'intentionalLeave' on beforeunload anymore
+    // Re-sync after BFCache restore / tab switch if the socket is closed
     window.addEventListener('pageshow', () => {
       document.dispatchEvent(new CustomEvent('ep:request-sync', { detail: { room: state.roomCode } }));
       if (!state.connected && (!state.ws || state.ws.readyState !== 1)) connectWS();
@@ -1207,20 +1245,20 @@
     return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   }
 
-  // re-render every UI section that contains translatable text/labels/titles
+  // Re-render every UI section that contains translatable text/labels/titles
   function rerenderAll() {
-    renderParticipants();
-    renderCards();
-    renderResultBar();
-    renderTopic();
-    renderAutoReveal();
-    syncMenuFromState();
-    syncSequenceInMenu();
+    renderParticipants();   // updates action button titles/aria-labels
+    renderCards();          // updates card tooltips (❓, ☕)
+    renderResultBar();      // updates consensus label and separators
+    renderTopic();          // updates topic action labels
+    renderAutoReveal();     // updates ON/OFF text
+    syncMenuFromState();    // updates all menu labels/states
+    syncSequenceInMenu();   // re-syncs sequence radio state
   }
 
-  // when language changes, fetch message map for the new language, then redraw
+  // When language changes, fetch message map for the new language, then redraw
   async function onLangChange() {
-    await preloadMessages();
+    await preloadMessages();  // pulls /i18n/messages?lang=...
     rerenderAll();
   }
 
@@ -1229,13 +1267,13 @@
     for (var i = 0; i < muts.length; i++) {
       var m = muts[i];
       if (m.type === 'attributes' && m.attributeName === 'lang') {
-        onLangChange();
+        onLangChange();       // refresh i18n without page reload
         break;
       }
     }
   }).observe(document.documentElement, { attributes: true, attributeFilter: ['lang'] });
 
-  // (b) optional: custom event from your switcher
+  // (b) optional: react to a custom app event from your language switcher
   document.addEventListener('ep:lang-changed', onLangChange);
 
   // ---------------- Boot ----------------

@@ -36,81 +36,51 @@
     <!-- Topic compact row (inline edit) -->
     <div id="topicRow" class="topic-row" style="display:none;">
       <span class="topic-label" aria-hidden="true">📝</span>
-
-      <!-- Display mode -->
+      <!-- Display mode (replaced by an <input> while editing) -->
       <span id="topicDisplay" class="topic-text">–</span>
-
-      <!-- Edit input (replaces display while in edit mode) -->
-      <input id="topicInput"
-             class="topic-input"
-             type="text"
-             style="display:none"
-             th:attr="placeholder=#{topic.placeholder}"
-             data-i18n-attr="placeholder:topic.placeholder"
-             placeholder="Paste JIRA link or type key (e.g., RBSEP-123)…" />
-
-      <div class="topic-actions">
-        <!-- Primary action: view mode ✍️ ; edit mode ✅ -->
-        <button id="topicPrimaryBtn" class="row-action host-only" type="button"
-                data-i18n-attr="title:button.editTopic;aria-label:button.editTopic"
-                title="Edit" aria-label="Edit">
-          <span class="ra-icon" id="topicPrimaryIcon">✍️</span>
-        </button>
-
-        <!-- Secondary action: view mode 🗑️ ; edit mode ❌ -->
-        <button id="topicSecondaryBtn" class="row-action host-only" type="button"
-                data-i18n-attr="title:button.clearTopic;aria-label:button.clearTopic"
-                title="Clear" aria-label="Clear">
-          <span class="ra-icon" id="topicSecondaryIcon">🗑️</span>
-        </button>
-      </div>
+      <div class="topic-actions"></div>
     </div>
 
-    <!-- Pre-vote: cards + (host) reveal -->
-    <div class="pre-vote">
-      <div class="card-grid" id="cardGrid"></div>
+    <!-- Result row (always present; space is reserved even when hidden) -->
+    <p id="resultRow"
+       class="average-label consensus-row result-row is-hidden"
+       role="status" aria-live="polite" aria-atomic="true">
 
-      <div class="vote-actions">
-        <button type="button" id="revealButton" class="button" style="display:none;"
-                th:text="#{button.reveal}" data-i18n="button.reveal"
-                th:attr="title=#{button.reveal},aria-label=#{button.reveal}"
-                data-i18n-attr="title:button.reveal;aria-label:button.reveal"
-                onclick="revealCards()"></button>
-      </div>
-      <div class="result-row-wrap result-row-placeholder" aria-hidden="true"></div>
-    </div>
+      <!-- Long+short labels + dedicated consensus label -->
+      <span id="resultLabel" class="label">
+        <span class="label-average" th:text="#{label.average}" data-i18n="label.average">Average:</span>
+        <span class="label-consensus" hidden>🎉 Consensus</span>
+      </span>
 
-    <!-- Post-vote -->
-    <div class="post-vote">
-      <div class="result-row-wrap">
-        <p id="resultRow"
-          class="average-label consensus-row"
-          role="status" aria-live="polite" aria-atomic="true">
+      <span id="averageVote" class="value">–</span>
 
-        <!-- Variant 3: long+short labels + separate consensus label -->
-        <span id="resultLabel" class="label">
-          <span class="label-average" th:text="#{label.average}" data-i18n="label.average">Average:</span>
-          <span class="label-consensus" hidden>🎉 Consensus</span>
-        </span>
+      <span id="medianSep" class="sep" hidden aria-hidden="true"> • </span>
 
-        <span id="averageVote" class="value">–</span>
+      <span id="medianWrap" class="stat" hidden>
+        <span id="medianLabel" class="label" th:text="#{label.median}" data-i18n="label.median">Median:</span>
+        <span id="medianVote" class="value">–</span>
+      </span>
 
-        <span id="medianSep" class="sep" hidden aria-hidden="true"> • </span>
+      <span id="rangeSep" class="sep" hidden aria-hidden="true"> • </span>
 
-        <span id="medianWrap" class="stat" hidden>
-          <span id="medianLabel" class="label" th:text="#{label.median}" data-i18n="label.median">Median:</span>
-          <span id="medianVote" class="value">–</span>
-        </span>
+      <span id="rangeWrap" class="stat" hidden>
+        <span id="rangeLabel" class="label" th:text="#{label.range}" data-i18n="label.range">Range:</span>
+        <span id="rangeVote" class="value">–</span>
+      </span>
+    </p>
 
-        <span id="rangeSep" class="sep" hidden aria-hidden="true"> • </span>
+    <!-- Card grid (always visible; disabled after reveal via body class + JS) -->
+    <div class="card-grid" id="cardGrid"></div>
 
-        <span id="rangeWrap" class="stat" hidden>
-          <span id="rangeLabel" class="label" th:text="#{label.range}" data-i18n="label.range">Range:</span>
-          <span id="rangeVote" class="value">–</span>
-        </span>
-      </p>
+    <!-- Actions (host): we toggle only buttons, never the container -->
+    <div class="vote-actions">
+      <button type="button" id="revealButton" class="button"
+              th:text="#{button.reveal}" data-i18n="button.reveal"
+              th:attr="title=#{button.reveal},aria-label=#{button.reveal}"
+              data-i18n-attr="title:button.reveal;aria-label:button.reveal"
+              onclick="revealCards()"></button>
 
-      <button type="button" id="resetButton" class="button" style="display:none;"
+      <button type="button" id="resetButton" class="button"
               th:text="#{button.reset}" data-i18n="button.reset"
               th:attr="title=#{button.reset},aria-label=#{button.reset}"
               data-i18n-attr="title:button.reset;aria-label:button.reset"
@@ -122,8 +92,8 @@
 
   </div>
 
-  <!-- Room connector (use your current version; bump v-param if client caches JS) -->
-  <script defer th:src="@{/js/room.js?v=39}"
+  <!-- Room connector (bump v-param if clients cache JS) -->
+  <script defer th:src="@{/js/room.js?v=40}"
           th:attr="data-participant=${participantName},data-room=${roomCode}"></script>
   <script defer src="/js/ws-probe.js"></script>
 
