@@ -810,7 +810,7 @@ body.light .vote-chip.heat,
 
 /* Knowledge bites – compact, safe-bottom spacing, mobile friendly */
 .knowledge-bites{
-  margin-top: 1.25rem;
+  margin-top: 5.25rem;
   padding-bottom: max(24px, calc(var(--footer-h) + var(--cta-offset, 8px) + env(safe-area-inset-bottom)));
   background: var(--panel);
   border: 1px solid var(--border);
