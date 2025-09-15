@@ -34,7 +34,6 @@
   const SPECIALS = ['❓', '☕'];              // 💬 entfernt
   const INFINITY_ = '♾️';
   const INFINITY_ALT = '∞';
-  const IDLE_MS_THRESHOLD = 3_600_000;       // 60min (nur falls später gebraucht)
 
   // script dataset / URL params
   const scriptEl = document.querySelector('script[src*="/js/room.js"]');
@@ -301,7 +300,6 @@
       else if (!state.sequenceId) state.sequenceId = 'fib.scrum';
 
       // --- specials & deck (robust across server variants) ---
-      const SPECIALS_SET = new Set(SPECIALS);
       let specialsList = null;    // explicit list (incl. empty)
       let allowFromServer = null; // explicit boolean
 
@@ -353,31 +351,39 @@
       // --- participants (preserve previous vote if omitted) ---
       if (has(m, 'participants') && Array.isArray(m.participants)) {
         const prevByName = Object.fromEntries((state.participants || []).map(p => [p.name, p]));
+        const next = [];
 
-      state.participants = m.participants.map(p => {
-        const name = p?.name || '';
-        const prev = prevByName[name];
+        for (const p of m.participants) {
+          if (!p) continue;
+          const prev = prevByName[p.name] || null;
 
-        const has = (o,k) => Object.prototype.hasOwnProperty.call(o || {}, k);
-        const vote = has(p,'vote') ? (p.vote ?? null) : (prev ? (prev.vote ?? null) : null);
+          const name = (p.name || prev?.name || '').trim();
+          if (!name) continue;
 
-        // NEW: single source of truth
-        const spectator =
-          has(p, 'spectator')     ? !!p.spectator :
-          has(p, 'participating') ? (p.participating === false) :
-          !!prev?.spectator;
+          const vote = has(p, 'vote') ? (p.vote ?? null) : (prev ? (prev.vote ?? null) : null);
 
-        return {
-          name,
-          vote,
-          spectator,                          // <— only this going forward
-          participating: !spectator,          // keep for convenience
-          disconnected: has(p,'disconnected') ? !!p.disconnected : !!prev?.disconnected,
-          away:         has(p,'away')         ? !!p.away         : !!prev?.away,
-          isHost:       has(p,'isHost')       ? !!p.isHost       : !!prev?.isHost
-        };
-      });
+          const spectator =
+            has(p, 'spectator')     ? !!p.spectator :
+            has(p, 'participating') ? (p.participating === false) :
+            !!prev?.spectator;
 
+          const participating =
+            has(p, 'participating') ? (p.participating !== false) :
+            (!spectator && (prev ? (prev.participating !== false) : true));
+
+          next.push({
+            name,
+            vote,
+            spectator,
+            participating,
+            disconnected: has(p,'disconnected') ? !!p.disconnected : !!prev?.disconnected,
+            away:         has(p,'away')         ? !!p.away         : !!prev?.away,
+            isHost:       has(p,'isHost')       ? !!p.isHost       : !!prev?.isHost
+          });
+        }
+
+        // Nur setzen, wenn die Liste nicht leer ist (verhindert „Wegwischen“)
+        if (next.length) state.participants = next;
       }
 
       // who am I (re-evaluate host)
@@ -423,7 +429,6 @@
     return !!(p && (p.spectator === true || p.participating === false));
   }
 
-  
   function renderParticipants() {
     const ul = $('#liveParticipantList'); if (!ul) return;
     try {
@@ -437,15 +442,15 @@
         const isInactive = !!p.disconnected || !!p.away;
         if (isInactive) li.classList.add('disconnected');
         if (p.isHost)    li.classList.add('is-host');
-        if (spectator) li.classList.add('spectator');
+        if (isSpectator(p)) li.classList.add('spectator');
 
         // Left icon
         const left = document.createElement('span');
         left.className = 'participant-icon' + (p.isHost ? ' host' : '');
         let icon = '👤';
-        if (p.isHost)                 icon = '👑';
-        else if (p.spectator === true) icon = '👁️';
-        else if (isInactive)          icon = '💤';
+        if (p.isHost)              icon = '👑';
+        else if (isSpectator(p))   icon = '👁️';
+        else if (isInactive)       icon = '💤';
         left.textContent = icon;
         left.setAttribute('aria-hidden', 'true');
         if (isInactive) left.classList.add('inactive');
@@ -463,7 +468,7 @@
 
         // Chips
         if (!state.votesRevealed) {
-          if (p.spectator) {
+          if (isSpectator(p)) {
             const eye = document.createElement('span');
             eye.className = 'mini-chip spectator';
             eye.textContent = '👁️';
@@ -480,7 +485,7 @@
             right.appendChild(dash);
           }
         } else {
-          if (p.spectator) {
+          if (isSpectator(p)) {
             const eye = document.createElement('span');
             eye.className = 'mini-chip spectator';
             eye.textContent = '👁️';
@@ -622,16 +627,11 @@
     return elig.every(p => p.vote != null && String(p.vote) !== '');
   }
 
-
-  // unified i18n accessor: uses `t()` (which reads /i18n/messages),
-  // then falls back to provided en/de defaults when needed.
+  // unified i18n accessor
   function msg(key, en, de) {
-    // choose a fallback string purely based on current language
     const fallback = isDe() ? (de != null ? de : en) : en;
-    // defer to `t()` which checks the in-memory message cache or <meta> fallback
     return t(key, fallback);
   }
-
 
   function renderCards() {
     const grid = $('#cardGrid'); if (!grid) return;
@@ -640,7 +640,6 @@
     const me = state.participants.find(pp => pp.name === state.youName);
     const isSpectatorMe = !!(me && isSpectator(me));
     const disabled = state.votesRevealed || isSpectatorMe;
-
 
     // split deck
     const deckSpecialsFromState = (state.cards || [])
@@ -752,7 +751,6 @@
       Array.isArray(state.participants) &&
       state.participants.some(p => p && !isSpectator(p) && (p.vote === INFINITY_ || p.vote === INFINITY_ALT))
     );
-
 
     const toStr  = (v) => (v == null || v === '' ? null : String(v));
     const withInf = (base) => (base != null ? base + (hasInfinity ? ' +♾️' : '') : (hasInfinity ? '♾️' : null));
@@ -1009,13 +1007,13 @@
     if (mSt) mSt.textContent = state.topicVisible ? (isDe() ? 'An' : 'On') : (isDe() ? 'Aus' : 'Off');
 
     const me = state.participants.find(p => p.name === state.youName);
-    const spectator = !!(me && isSpectator(me));
-    mPTgl.checked = !spectator;
-    mPTgl.setAttribute('aria-checked', String(!spectator));
-    mPSt.textContent = !spectator
-    ? t('menu.participation.estimating', isDe() ? 'Ich schätze mit' : "I'm estimating")
-    : t('menu.participation.spectator',  isDe() ? 'Zuschauer:in'   : 'Spectator');
-
+    const spectatorMe = !!(me && isSpectator(me));
+    const mPTgl = $('#menuParticipationToggle');
+    const mPSt  = $('#menuPartStatus');
+    if (mPTgl) { mPTgl.checked = !spectatorMe; mPTgl.setAttribute('aria-checked', String(!spectatorMe)); }
+    if (mPSt)  mPSt.textContent = !spectatorMe
+      ? t('menu.participation.estimating', isDe() ? 'Ich schätze mit' : "I'm estimating")
+      : t('menu.participation.spectator',  isDe() ? 'Zuschauer:in'   : 'Spectator');
 
     const mARTgl = $('#menuAutoRevealToggle');
     if (mARTgl) { mARTgl.checked = !!state.autoRevealEnabled; mARTgl.setAttribute('aria-checked', String(!!state.autoRevealEnabled)); }
@@ -1198,20 +1196,20 @@
     return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   }
 
-    // re-render every UI section that contains translatable text/labels/titles
+  // re-render every UI section that contains translatable text/labels/titles
   function rerenderAll() {
-    renderParticipants();   // updates action button titles/aria-labels
-    renderCards();          // updates card tooltips (❓, ☕)
-    renderResultBar();      // updates consensus label and separators
-    renderTopic();          // updates topic action labels
-    renderAutoReveal();     // updates ON/OFF text
-    syncMenuFromState();    // updates all menu labels/states
-    syncSequenceInMenu();   // re-syncs sequence radio state
+    renderParticipants();
+    renderCards();
+    renderResultBar();
+    renderTopic();
+    renderAutoReveal();
+    syncMenuFromState();
+    syncSequenceInMenu();
   }
 
   // when language changes, fetch message map for the new language, then redraw
   async function onLangChange() {
-    await preloadMessages();  // pulls /i18n/messages?lang=...
+    await preloadMessages();
     rerenderAll();
   }
 
@@ -1220,15 +1218,14 @@
     for (var i = 0; i < muts.length; i++) {
       var m = muts[i];
       if (m.type === 'attributes' && m.attributeName === 'lang') {
-        onLangChange();       // refresh i18n without page reload
+        onLangChange();
         break;
       }
     }
   }).observe(document.documentElement, { attributes: true, attributeFilter: ['lang'] });
 
-  // (b) optional: if your switcher fires a custom event, react to it as well
+  // (b) optional: custom event from your switcher
   document.addEventListener('ep:lang-changed', onLangChange);
-
 
   // ---------------- Boot ----------------
   function boot() { preloadMessages(); wireOnce(); syncHostClass(); seedSelfPlaceholder(); connectWS(); }
