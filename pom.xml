@@ -75,6 +75,14 @@
       <version>24.0.1</version>
     </dependency>
 
+    <!-- Apache Commons Net: FTPS client -->
+    <dependency>
+      <groupId>commons-net</groupId>
+      <artifactId>commons-net</artifactId>
+      <version>3.10.0</version>
+    </dependency>
+
+
     <!-- WebSockets -->
     <dependency>
       <groupId>org.springframework.boot</groupId>
