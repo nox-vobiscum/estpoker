@@ -373,7 +373,7 @@ li{margin-bottom:.4rem;line-height:1.5;font-size:1rem}
 
 /* ---------- Results / average -------------------------------------------- */
 .pre-vote{margin-top:var(--pre-vote-margin-desktop)}
-.average-label{font-size:.85rem;margin-top:1rem}
+.average-label{font-size:1rem;margin-top:1rem}
 .average-label #averageVote{font-size:.85rem;font-weight:600;opacity:0;animation:avgIn 240ms ease forwards}
 @keyframes avgIn{to{opacity:1}}
 .average-label.consensus{color:var(--ok);font-weight:700}
@@ -573,7 +573,7 @@ html.light .vote-chip.heat, body.light .vote-chip.heat, :root[data-theme="light"
 @media (prefers-reduced-motion: reduce) { .kbase details > summary::after { transition: none; } }
 
 /* Result row slot (visible/hidden) ---------------------------------------- */
-.result-row{ min-height:1.25rem; margin:8px 0 6px; }
+.result-row{ min-height:1.25rem; margin:18px 0 6px; }
 .result-row.is-hidden{ visibility:hidden; }
 
 /* Actions spacing & reveal state ----------------------------------------- */
