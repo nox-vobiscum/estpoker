@@ -1,18 +1,14 @@
 package com.example.estpoker.web;
 
 import com.example.estpoker.service.StorageDiagnosticsService;
-import com.example.estpoker.service.StorageDiagnosticsService.Status;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import com.example.estpoker.service.StorageDiagnosticsService.StorageHealth;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-/**
- * Health endpoint for the file storage.
- */
+/** Read-only storage diagnostics API. */
 @RestController
 @RequestMapping("/api/storage")
-@ConditionalOnProperty(name = "app.storage.mode", havingValue = "ftps")
 public class StorageController {
 
   private final StorageDiagnosticsService diag;
@@ -22,8 +18,9 @@ public class StorageController {
   }
 
   @GetMapping("/health")
-  public ResponseEntity<Status> health() {
-    Status s = diag.ping();
-    return new ResponseEntity<>(s, s.ok() ? HttpStatus.OK : HttpStatus.SERVICE_UNAVAILABLE);
+  public ResponseEntity<StorageHealth> health() {
+    StorageHealth h = diag.ping();
+    // 200 when ok, 503 when not ok → ideal for uptime monitors
+    return ResponseEntity.status(h.isOk() ? HttpStatus.OK : HttpStatus.SERVICE_UNAVAILABLE).body(h);
   }
 }

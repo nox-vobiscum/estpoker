@@ -58,6 +58,11 @@ public class AppStorageProperties {
       return security == Security.IMPLICIT;
     }
 
+    private Boolean preferIpv4 = Boolean.TRUE;
+    public Boolean getPreferIpv4() { return preferIpv4; }
+    public void setPreferIpv4(Boolean preferIpv4) { this.preferIpv4 = preferIpv4; }
+
+
     // --- getters / setters
     public String getHost() { return host; }
     public void setHost(String host) { this.host = host; }

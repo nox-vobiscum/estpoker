@@ -5,7 +5,6 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-import java.net.SocketException;
 import java.util.function.Supplier;
 
 /** Factory for short-lived FTPSClient instances. */
@@ -13,26 +12,22 @@ import java.util.function.Supplier;
 public class FtpsClientConfig {
 
   @Bean
-  @SuppressWarnings("deprecation") // FTPClient#setDataTimeout / #setPassiveNatWorkaround are deprecated but useful in practice
+  @SuppressWarnings("deprecation") // FTPClient#setDataTimeout / #setPassiveNatWorkaround are deprecated but practical
   @ConditionalOnProperty(name = "app.storage.mode", havingValue = "ftps")
   public Supplier<FTPSClient> ftpsClientSupplier(AppStorageProperties props) {
     final var p = props.getFtps();
 
     return () -> {
-      // true → implicit TLS (port 990); false → explicit AUTH TLS (port 21)
+      // implicit TLS (true) vs explicit AUTH TLS (false) stays as in your model
       FTPSClient c = new FTPSClient(p.isImplicitMode());
 
-      try {
-        if (p.getSoTimeoutMs() != null) {
-          c.setSoTimeout(p.getSoTimeoutMs());
-        }
-      } catch (SocketException e) {
-        // Convert checked → unchecked; supplier cannot throw checked exceptions
-        throw new IllegalStateException("Failed to set SO_TIMEOUT on FTPSClient", e);
+      // SAFE pre-connect timeout: used for connect and initial reads
+      if (p.getSoTimeoutMs() != null) {
+        c.setDefaultTimeout(p.getSoTimeoutMs());
       }
 
       if (p.getDataTimeoutMs() != null) {
-        // Deprecated in Apache Commons Net, but still useful behind NAT
+        // Still useful behind NAT even though marked deprecated
         c.setDataTimeout(p.getDataTimeoutMs());
       }
 
