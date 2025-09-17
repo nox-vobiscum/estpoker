@@ -19,6 +19,8 @@ public class FtpsClientConfig {
     return () -> {
       // Create only. No setSoTimeout() here (requires an open socket).
       FTPSClient c = new FTPSClient(p.isImplicitMode()); // implicit TLS (990) if true, explicit AUTH TLS (21) if false
+      // ensure explicit FTPS uses AUTH TLS
+      c.setAuthValue("TLS");
       // Safe pre-connect knobs:
       c.setControlKeepAliveTimeout(10);   // seconds, harmless pre-connect
       c.setControlKeepAliveReplyTimeout(10_000); // ms, harmless pre-connect

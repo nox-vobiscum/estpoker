@@ -28,72 +28,63 @@ public class StorageDiagnosticsService {
     this.ftpsSupplier = ftpsSupplier;
   }
 
-  @SuppressWarnings("deprecation")  // setDataTimeout
+  // @SuppressWarnings("deprecation")  // setDataTimeout
   public StorageHealth ping() {
-    final String mode = (props.getMode() == null ? "local" : props.getMode().trim().toLowerCase());
+  final String mode = props.getMode() == null ? "local" : props.getMode().trim().toLowerCase();
+  if (!"ftps".equals(mode)) return StorageHealth.ok(mode, "Local storage active", null, 0);
+  if (ftpsSupplier == null) return StorageHealth.fail(mode, "FTPS client not available", null, 0);
 
-    if (!"ftps".equals(mode)) {
-      // File-system mode: no remote hop
-      return StorageHealth.ok(mode, "Local storage active", null, 0);
-    }
-    if (ftpsSupplier == null) {
-      return StorageHealth.fail(mode, "FTPS mode configured but no client supplier", null, 0);
-    }
+  final var cfg = props.getFtps();
+  final long t0 = System.nanoTime();
+  FTPSClient c = null;
 
-    final var cfg = props.getFtps();
-    final long t0 = System.nanoTime();
-    FTPSClient c = null;
+  try {
+    c = ftpsSupplier.get();
 
-    try {
-      c = ftpsSupplier.get();
-
-      // 1) CONNECT
-      c.connect(cfg.getHost(), cfg.getPort());
-      // timeouts MUST be set after connect (socket exists now)
-      if (cfg.getSoTimeoutMs() != null) {
-        c.setSoTimeout(cfg.getSoTimeoutMs());
-      }
-      if (cfg.getDataTimeoutMs() != null) {
-        // deprecated in commons-net, still widely used & harmless
-        c.setDataTimeout(cfg.getDataTimeoutMs());
-      }
-
-      // 2) TLS data protection for explicit FTPS (AUTH TLS). Implicit often ignores this gracefully.
-      try {
-        c.execPBSZ(0);
-        c.execPROT("P");
-      } catch (IOException ignored) {
-        // Some servers don't require it; safe to ignore
-      }
-
-      // 3) LOGIN
-      if (!c.login(cfg.getUser(), cfg.getPass())) {
-        final long ms = elapsedMs(t0);
-        safeLogoutDisconnect(c);
-        return StorageHealth.fail("ftps", "Login failed (credentials / policy)", String.valueOf(c.getReplyCode()), ms);
-      }
-
-      // 4) PASSIVE if requested
-      if (cfg.isPassive()) {
-        c.enterLocalPassiveMode();
-      }
-
-      // 5) LIGHTWEIGHT round-trip
-      c.noop();
-
+    // 1) Connect
+    c.connect(cfg.getHost(), cfg.getPort());
+    int reply = c.getReplyCode();
+    if (!org.apache.commons.net.ftp.FTPReply.isPositiveCompletion(reply)) {
       final long ms = elapsedMs(t0);
-      final String server = safeServerString(c);
+      final String msg = "Connect failed: " + reply + " " + c.getReplyString();
       safeLogoutDisconnect(c);
-      return StorageHealth.ok("ftps", "Connected + NOOP OK", server, ms);
-
-    } catch (Exception ex) {
-      final long ms = elapsedMs(t0);
-      safeLogoutDisconnect(c);
-      final String msg = ex.getClass().getSimpleName() + ": " + (ex.getMessage() == null ? "(no message)" : ex.getMessage());
-      // Map all failures to a clean 503 payload; controller chooses the status code.
       return StorageHealth.fail("ftps", msg, null, ms);
     }
+
+    // 2) Explizites TLS aushandeln (wichtig bei DF)
+    try {
+      c.execAUTH("TLS");      // erwartet 234
+    } catch (IOException ignore) {
+      // einige Server verhandeln TLS implizit – ok zu ignorieren
+    }
+
+    // 3) Login
+    if (!c.login(cfg.getUser(), cfg.getPass())) {
+      final long ms = elapsedMs(t0);
+      final String msg = "Login failed: " + c.getReplyCode() + " " + c.getReplyString();
+      safeLogoutDisconnect(c);
+      return StorageHealth.fail("ftps", msg, null, ms);
+    }
+
+    // 4) Datenkanal schützen (post-login)
+    try { c.execPBSZ(0); c.execPROT("P"); } catch (IOException ignore) {}
+
+    if (cfg.isPassive()) c.enterLocalPassiveMode();
+    c.noop();
+
+    final long ms = elapsedMs(t0);
+    final String server = safeServerString(c);
+    safeLogoutDisconnect(c);
+    return StorageHealth.ok("ftps", "Connected + NOOP OK", server, ms);
+
+  } catch (Exception ex) {
+    final long ms = elapsedMs(t0);
+    safeLogoutDisconnect(c);
+    final String msg = ex.getClass().getSimpleName() + ": " +
+        (ex.getMessage() == null ? "(no message)" : ex.getMessage());
+    return StorageHealth.fail("ftps", msg, null, ms);
   }
+}
 
   private static long elapsedMs(long t0) { return Duration.ofNanos(System.nanoTime() - t0).toMillis(); }
 
