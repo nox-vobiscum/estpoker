@@ -27,7 +27,7 @@ public class AppStorageProperties {
     private int port = 21;
     private String user;
     private String pass;
-    private String baseDir = "data/rooms";
+    private String baseDir = "/rooms";
 
     private boolean passive = true;
     private boolean implicitMode = false;  // <-- binds app.storage.ftps.implicit-mode
