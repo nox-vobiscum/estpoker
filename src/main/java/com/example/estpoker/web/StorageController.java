@@ -1,10 +1,12 @@
 package com.example.estpoker.web;
 
+import com.example.estpoker.config.AppStorageProperties;
 import com.example.estpoker.service.StorageDiagnosticsService;
 import com.example.estpoker.service.StorageProbeService;
 import org.springframework.web.bind.annotation.*;
 
 import java.nio.charset.StandardCharsets;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 @RestController
@@ -12,24 +14,27 @@ public class StorageController {
 
   private final StorageDiagnosticsService diag;
   private final StorageProbeService probe;
+  private final AppStorageProperties props;
 
-  // constructor injection: initialize both finals
-  public StorageController(StorageDiagnosticsService diag, StorageProbeService probe) {
+  public StorageController(StorageDiagnosticsService diag,
+                           StorageProbeService probe,
+                           AppStorageProperties props) {
     this.diag = diag;
     this.probe = probe;
+    this.props = props;
   }
 
-  // --- health (kept) --------------------------------------------------------
+  // --- health (null-safe) ---------------------------------------------------
   @GetMapping("/api/storage/health")
   public Map<String, Object> health() {
     var h = diag.ping();
-    return Map.of(
-        "ok", h.isOk(),
-        "mode", h.getMode(),
-        "server", h.getServer(),
-        "elapsedMs", h.getElapsedMs(),
-        "message", h.getMessage()
-    );
+    Map<String, Object> out = new LinkedHashMap<>();
+    out.put("ok", h.isOk());
+    out.put("mode", h.getMode());
+    out.put("server", h.getServer());     // may be null -> allowed
+    out.put("elapsedMs", h.getElapsedMs());
+    out.put("message", h.getMessage());   // may be null -> allowed
+    return out;
   }
 
   // --- probe: write ----------------------------------------------------------
@@ -44,11 +49,11 @@ public class StorageController {
 
     probe.writeUtf8(name, content);
 
-    return Map.of(
-        "ok", true,
-        "wrote", name,
-        "bytes", content.getBytes(StandardCharsets.UTF_8).length
-    );
+    Map<String, Object> out = new LinkedHashMap<>();
+    out.put("ok", true);
+    out.put("wrote", name);
+    out.put("bytes", content.getBytes(StandardCharsets.UTF_8).length);
+    return out;
   }
 
   // --- probe: read -----------------------------------------------------------
@@ -57,11 +62,25 @@ public class StorageController {
       @RequestParam(defaultValue = "probe.txt") String name
   ) throws Exception {
     String txt = probe.readUtf8(name);
-    return Map.of(
-        "ok", true,
-        "read", name,
-        "bytes", txt.length(),
-        "preview", txt.substring(0, Math.min(80, txt.length()))
-    );
+    Map<String, Object> out = new LinkedHashMap<>();
+    out.put("ok", true);
+    out.put("read", name);
+    out.put("bytes", txt.getBytes(StandardCharsets.UTF_8).length);
+    out.put("preview", txt.substring(0, Math.min(120, txt.length())));
+    return out;
+  }
+
+  // --- debug: sanitized config (nur temporär nutzen) ------------------------
+  @GetMapping("/api/storage/debug-config")
+  public Map<String, Object> debugConfig() {
+    var f = props.getFtps();
+    Map<String, Object> out = new LinkedHashMap<>();
+    out.put("mode", props.getMode());
+    out.put("host", f != null ? String.valueOf(f.getHost()) : null);
+    out.put("port", f != null ? f.getPort() : null);
+    out.put("baseDir", f != null ? String.valueOf(f.getBaseDir()) : null);
+    out.put("hasUser", f != null && f.getUser() != null && !f.getUser().isBlank());
+    out.put("hasPass", f != null && f.getPass() != null && !f.getPass().isBlank());
+    return out;
   }
 }
