@@ -3,95 +3,82 @@ package com.example.estpoker.service;
 import com.example.estpoker.config.AppStorageProperties;
 import org.apache.commons.net.ftp.FTPClient;
 import org.apache.commons.net.ftp.FTPSClient;
-import org.springframework.lang.Nullable;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
-import java.net.Inet4Address;
-import java.net.InetAddress;
 import java.time.Duration;
 import java.util.Objects;
 import java.util.function.Supplier;
 
 /**
- * Pings the configured storage:
- * - "local" → always OK (no remote hop)
- * - "ftps"  → connects, login, optional passive, NOOP; maps result to a JSON-friendly DTO
+ * Storage health probe:
+ * - "local": always OK
+ * - "ftps" : connect → login → (optional passive) → NOOP, with robust error mapping
  */
 @Service
 public class StorageDiagnosticsService {
 
   private final AppStorageProperties props;
-  /** Optional: present only when app.storage.mode=ftps and FtpsClientConfig is active */
-  private final Supplier<FTPSClient> ftpsSupplier;
+  private final Supplier<FTPSClient> ftpsSupplier; // may be null if mode != ftps
 
   public StorageDiagnosticsService(AppStorageProperties props,
-                                   @Nullable Supplier<FTPSClient> ftpsSupplier) {
+                                   @Autowired(required = false) Supplier<FTPSClient> ftpsSupplier) {
     this.props = Objects.requireNonNull(props, "props");
-    this.ftpsSupplier = ftpsSupplier; // may be null in non-FTPS mode
+    this.ftpsSupplier = ftpsSupplier;
   }
 
+  @SuppressWarnings("deprecation")  // setDataTimeout
   public StorageHealth ping() {
-    final String mode = props.getMode() == null ? "local" : props.getMode().trim().toLowerCase();
+    final String mode = (props.getMode() == null ? "local" : props.getMode().trim().toLowerCase());
 
     if (!"ftps".equals(mode)) {
-      // Local (file-system) storage: no remote call needed
+      // File-system mode: no remote hop
       return StorageHealth.ok(mode, "Local storage active", null, 0);
     }
-
     if (ftpsSupplier == null) {
-      return StorageHealth.fail(mode, "FTPS mode configured but client supplier is not available", null, 0);
+      return StorageHealth.fail(mode, "FTPS mode configured but no client supplier", null, 0);
     }
 
     final var cfg = props.getFtps();
     final long t0 = System.nanoTime();
-
     FTPSClient c = null;
+
     try {
       c = ftpsSupplier.get();
 
-      // --- Prefer IPv4 if configured (helps on hosts without public IPv6) ---
-      InetAddress target = null;
-      try {
-        if (Boolean.TRUE.equals(cfg.getPreferIpv4())) {
-          for (InetAddress a : InetAddress.getAllByName(cfg.getHost())) {
-            if (a instanceof Inet4Address) { target = a; break; }
-          }
-        }
-      } catch (Exception ignore) {
-        // DNS issues → fall back to hostname connect
+      // 1) CONNECT
+      c.connect(cfg.getHost(), cfg.getPort());
+      // timeouts MUST be set after connect (socket exists now)
+      if (cfg.getSoTimeoutMs() != null) {
+        c.setSoTimeout(cfg.getSoTimeoutMs());
+      }
+      if (cfg.getDataTimeoutMs() != null) {
+        // deprecated in commons-net, still widely used & harmless
+        c.setDataTimeout(cfg.getDataTimeoutMs());
       }
 
-      // Connect (use the resolved IPv4 target when available)
-      if (target != null) {
-        c.connect(target, cfg.getPort());
-      } else {
-        c.connect(cfg.getHost(), cfg.getPort());
-      }
-      final int connectReply = c.getReplyCode();
-
-      // TLS data channel protection (explicit mode servers may require PBSZ/PROT)
+      // 2) TLS data protection for explicit FTPS (AUTH TLS). Implicit often ignores this gracefully.
       try {
         c.execPBSZ(0);
         c.execPROT("P");
-      } catch (IOException ignore) {
-        // Some servers do not require/allow this sequence; ignore.
+      } catch (IOException ignored) {
+        // Some servers don't require it; safe to ignore
       }
 
-      // Login
+      // 3) LOGIN
       if (!c.login(cfg.getUser(), cfg.getPass())) {
         final long ms = elapsedMs(t0);
         safeLogoutDisconnect(c);
-        return StorageHealth.fail("ftps", "Login failed (bad credentials or server policy)",
-                                  String.valueOf(connectReply), ms);
+        return StorageHealth.fail("ftps", "Login failed (credentials / policy)", String.valueOf(c.getReplyCode()), ms);
       }
 
-      // Optional passive
+      // 4) PASSIVE if requested
       if (cfg.isPassive()) {
         c.enterLocalPassiveMode();
       }
 
-      // Lightweight roundtrip
+      // 5) LIGHTWEIGHT round-trip
       c.noop();
 
       final long ms = elapsedMs(t0);
@@ -102,24 +89,16 @@ public class StorageDiagnosticsService {
     } catch (Exception ex) {
       final long ms = elapsedMs(t0);
       safeLogoutDisconnect(c);
-      // Compact cause text, avoids huge stack traces in JSON
-      final String msg = ex.getClass().getSimpleName() + ": " +
-                         (ex.getMessage() == null ? "(no message)" : ex.getMessage());
+      final String msg = ex.getClass().getSimpleName() + ": " + (ex.getMessage() == null ? "(no message)" : ex.getMessage());
+      // Map all failures to a clean 503 payload; controller chooses the status code.
       return StorageHealth.fail("ftps", msg, null, ms);
     }
   }
 
-  private static long elapsedMs(long t0) {
-    return Duration.ofNanos(System.nanoTime() - t0).toMillis();
-  }
+  private static long elapsedMs(long t0) { return Duration.ofNanos(System.nanoTime() - t0).toMillis(); }
 
   private static String safeServerString(FTPClient c) {
-    try {
-      // System type is cheap and usually populated post-login
-      return c.getSystemType();
-    } catch (Exception ignore) {
-      return null;
-    }
+    try { return c.getSystemType(); } catch (Exception ignore) { return null; }
   }
 
   private static void safeLogoutDisconnect(FTPClient c) {

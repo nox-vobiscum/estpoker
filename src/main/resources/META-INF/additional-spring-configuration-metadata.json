@@ -1,5 +1,6 @@
 {
   "properties": [
+
     {
       "name": "features.persistentRooms.enabled",
       "type": "java.lang.Boolean",
@@ -11,6 +12,20 @@
       "type": "java.lang.String",
       "description": "Comma-separated list of allowed WebSocket origins (e.g. https://ep.noxvobiscum.at,http://localhost:8080).",
       "sourceType": "com.example.estpoker.config.WebSocketConfig"
-    }
+    },
+
+    {"name":"app.storage.mode","type":"java.lang.String"},
+    {"name":"app.storage.ftps.host","type":"java.lang.String"},
+    {"name":"app.storage.ftps.port","type":"java.lang.Integer"},
+    {"name":"app.storage.ftps.user","type":"java.lang.String"},
+    {"name":"app.storage.ftps.pass","type":"java.lang.String"},
+    {"name":"app.storage.ftps.base-dir","type":"java.lang.String"},
+    {"name":"app.storage.ftps.passive","type":"java.lang.Boolean"},
+    {"name":"app.storage.ftps.implicit-mode","type":"java.lang.Boolean"},
+    {"name":"app.storage.ftps.so-timeout-ms","type":"java.lang.Integer"},
+    {"name":"app.storage.ftps.data-timeout-ms","type":"java.lang.Integer"},
+    {"name":"app.storage.ftps.use-utf8","type":"java.lang.Boolean"},
+    {"name":"app.storage.ftps.debug","type":"java.lang.Boolean"}
+    
   ]
 }

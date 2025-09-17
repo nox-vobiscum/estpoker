@@ -7,33 +7,28 @@ import org.springframework.context.annotation.Configuration;
 
 import java.util.function.Supplier;
 
-/** Factory for short-lived FTPSClient instances. */
+/** Factory for short-lived FTPSClient instances. Never touches the socket here. */
 @Configuration
 public class FtpsClientConfig {
 
   @Bean
-  @SuppressWarnings("deprecation") // FTPClient#setDataTimeout / #setPassiveNatWorkaround are deprecated but practical
   @ConditionalOnProperty(name = "app.storage.mode", havingValue = "ftps")
+  @SuppressWarnings("deprecation")  // setControlKeepAliveTimeout, setControlKeepAliveReplyTimeout, setPassiveNatWorkaround
   public Supplier<FTPSClient> ftpsClientSupplier(AppStorageProperties props) {
     final var p = props.getFtps();
-
     return () -> {
-      // implicit TLS (true) vs explicit AUTH TLS (false) stays as in your model
-      FTPSClient c = new FTPSClient(p.isImplicitMode());
-
-      // SAFE pre-connect timeout: used for connect and initial reads
-      if (p.getSoTimeoutMs() != null) {
-        c.setDefaultTimeout(p.getSoTimeoutMs());
+      // Create only. No setSoTimeout() here (requires an open socket).
+      FTPSClient c = new FTPSClient(p.isImplicitMode()); // implicit TLS (990) if true, explicit AUTH TLS (21) if false
+      // Safe pre-connect knobs:
+      c.setControlKeepAliveTimeout(10);   // seconds, harmless pre-connect
+      c.setControlKeepAliveReplyTimeout(10_000); // ms, harmless pre-connect
+      if (p.isPassive()) {
+        // This flag is safe to set pre-connect; real PASV happens after login in the service.
+        c.setPassiveNatWorkaround(true);
       }
-
-      if (p.getDataTimeoutMs() != null) {
-        // Still useful behind NAT even though marked deprecated
-        c.setDataTimeout(p.getDataTimeoutMs());
+      if (p.isUseUtf8()) {
+        c.setControlEncoding("UTF-8");
       }
-
-      // Helps when running behind proxies/NAT
-      c.setPassiveNatWorkaround(true);
-
       return c;
     };
   }

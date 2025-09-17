@@ -1,16 +1,19 @@
 package com.example.estpoker.config;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.context.annotation.Configuration;
 
-/**
- * Binds all keys under "app.storage".
- * Supports both "security=implicit|explicit|none" and a legacy "explicit=true|false".
- */
-@ConfigurationProperties(prefix = "app.storage")
+@Configuration
+@ConfigurationProperties("app.storage")
 public class AppStorageProperties {
 
-  private String mode = "none";
+  /** "local" (default) or "ftps" */
+  private String mode = "local";
+
+  /** FTPS subsection */
   private Ftps ftps = new Ftps();
+
+  // --- getters/setters ---
 
   public String getMode() { return mode; }
   public void setMode(String mode) { this.mode = mode; }
@@ -18,52 +21,23 @@ public class AppStorageProperties {
   public Ftps getFtps() { return ftps; }
   public void setFtps(Ftps ftps) { this.ftps = ftps; }
 
-  public enum Security { IMPLICIT, EXPLICIT, NONE }
-
+  /** Mutable holder for FTPS connection options. */
   public static class Ftps {
-
     private String host;
     private int port = 21;
     private String user;
     private String pass;
+    private String baseDir = "data/rooms";
 
-    /** Base directory relative to the FTP user’s root (no leading slash). */
-    private String baseDir = "";
-
-    /** Always use passive mode behind NAT / PaaS. */
     private boolean passive = true;
+    private boolean implicitMode = false;  // <-- binds app.storage.ftps.implicit-mode
+    private Integer soTimeoutMs = 15000;
+    private Integer dataTimeoutMs = 20000;
+    private boolean useUtf8 = true;
+    private boolean debug = false;
 
-    /** If set, overrides "security". explicit=false → implicit; explicit=true → explicit. */
-    private Boolean explicit;
+    // --- getters/setters ---
 
-    /** Preferred way to select security. */
-    private Security security = Security.IMPLICIT;
-
-    /** Socket read timeout (control channel) in ms. */
-    private Integer soTimeoutMs = 18000;
-
-    /** Data channel timeout in ms. */
-    private Integer dataTimeoutMs = 18000;
-
-    /** Use UTF-8 for control channel and file names. */
-    private Boolean useUtf8 = true;
-
-    /** Enable extra logging (app-side). */
-    private Boolean debug = false;
-
-    // --- derived helper
-    /** true → FTPS implicit (990), false → FTPS explicit (21). */
-    public boolean isImplicitMode() {
-      if (explicit != null) return !explicit;              // explicit=false means implicit
-      return security == Security.IMPLICIT;
-    }
-
-    private Boolean preferIpv4 = Boolean.TRUE;
-    public Boolean getPreferIpv4() { return preferIpv4; }
-    public void setPreferIpv4(Boolean preferIpv4) { this.preferIpv4 = preferIpv4; }
-
-
-    // --- getters / setters
     public String getHost() { return host; }
     public void setHost(String host) { this.host = host; }
 
@@ -82,11 +56,8 @@ public class AppStorageProperties {
     public boolean isPassive() { return passive; }
     public void setPassive(boolean passive) { this.passive = passive; }
 
-    public Boolean getExplicit() { return explicit; }
-    public void setExplicit(Boolean explicit) { this.explicit = explicit; }
-
-    public Security getSecurity() { return security; }
-    public void setSecurity(Security security) { this.security = security; }
+    public boolean isImplicitMode() { return implicitMode; }
+    public void setImplicitMode(boolean implicitMode) { this.implicitMode = implicitMode; }
 
     public Integer getSoTimeoutMs() { return soTimeoutMs; }
     public void setSoTimeoutMs(Integer soTimeoutMs) { this.soTimeoutMs = soTimeoutMs; }
@@ -94,10 +65,10 @@ public class AppStorageProperties {
     public Integer getDataTimeoutMs() { return dataTimeoutMs; }
     public void setDataTimeoutMs(Integer dataTimeoutMs) { this.dataTimeoutMs = dataTimeoutMs; }
 
-    public Boolean getUseUtf8() { return useUtf8; }
-    public void setUseUtf8(Boolean useUtf8) { this.useUtf8 = useUtf8; }
+    public boolean isUseUtf8() { return useUtf8; }
+    public void setUseUtf8(boolean useUtf8) { this.useUtf8 = useUtf8; }
 
-    public Boolean getDebug() { return debug; }
-    public void setDebug(Boolean debug) { this.debug = debug; }
+    public boolean isDebug() { return debug; }
+    public void setDebug(boolean debug) { this.debug = debug; }
   }
 }

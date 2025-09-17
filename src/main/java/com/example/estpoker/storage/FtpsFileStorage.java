@@ -13,6 +13,8 @@ import java.util.List;
 import java.util.Objects;
 import java.util.function.Supplier;
 
+import java.nio.charset.StandardCharsets;
+
 /**
  * Short-lived FTPS operations: connect -> login -> do work -> logout/disconnect.
  * This is resilient on platforms where idle sockets are killed (mobile sleep, PaaS).
@@ -70,8 +72,8 @@ public class FtpsFileStorage implements FileStorage {
       c.setFileType(FTP.BINARY_FILE_TYPE);
 
       // Ensure UTF-8 listing/paths if enabled.
-      if (Boolean.TRUE.equals(cfg.getUseUtf8())) {
-        c.setControlEncoding(java.nio.charset.StandardCharsets.UTF_8.name());
+      if (cfg.isUseUtf8()) {
+       c.setControlEncoding(StandardCharsets.UTF_8.name());
       }
 
       // Change into base directory if configured.
