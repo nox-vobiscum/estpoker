@@ -1,65 +1,159 @@
 package com.example.estpoker.rooms.model;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.fasterxml.jackson.annotation.JsonInclude;
-
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
+import java.util.Objects;
 
 /**
- * JSON-friendly DTO for persisted rooms.
- * Keep this separate from the in-memory Room (com.example.estpoker.model.Room).
+ * JSON-persisted room snapshot for FTPS storage.
+ * Keep this DTO stable and additive; avoid breaking changes to field names.
+ *
+ * Security note:
+ * - passwordHash contains a BCrypt hash (optionally peppered via PasswordHasher).
+ * - Do NOT expose this DTO 1:1 in public REST responses.
  */
-@JsonInclude(JsonInclude.Include.NON_NULL)
-@JsonIgnoreProperties(ignoreUnknown = true)
 public class StoredRoom {
 
-  /** Stable, URL-safe identifier (e.g. "alpha-team"). */
-  private String id;
+  // --- identity / metadata ---
+  private String code;            // room code (required, filename stem)
+  private String title;           // optional display title
+  private String owner;           // creator/current owner by display name
 
-  /** Display name shown in UI. */
-  private String name;
+  private String passwordHash;    // BCrypt hash (never raw)
 
-  /** Optional list of previously seen participants (display names). */
-  private List<String> pastParticipants = new ArrayList<>();
+  private Instant createdAt;      // set on first persist
+  private Instant updatedAt;      // update on each write
 
-  /** Room settings snapshot. */
+  // --- current room settings (only the toggles needed by your UI) ---
   private Settings settings = new Settings();
 
-  /** Cumulative statistics. */
+  // --- aggregate statistics over time (optional / best-effort) ---
   private Stats stats = new Stats();
 
-  /** Optional history entries (topic + result). */
-  private List<HistoryEntry> history = new ArrayList<>();
+  // --- compact history of finished rounds (optional) ---
+  private List<HistoryItem> history = new ArrayList<>();
 
-  /** BCrypt hash of the room password (null if not protected). */
-  private String passwordHash;
+  // ----- lifecycle helpers --------------------------------------------------
 
-  /** Audit / bookkeeping. */
-  private Instant createdAt = Instant.now();
-  private Instant updatedAt = Instant.now();
-  private int version = 1;
+  /** Ensure timestamps exist; call when creating a brand-new room. */
+  public void touchCreatedIfNull() {
+    if (createdAt == null) createdAt = Instant.now();
+    touchUpdated();
+  }
 
-  // ----- getters & setters -----
-  public String getId() { return id; }
-  public void setId(String id) { this.id = id; }
+  /** Update the "updatedAt" timestamp; call before saving the JSON. */
+  public void touchUpdated() {
+    updatedAt = Instant.now();
+  }
 
-  public String getName() { return name; }
-  public void setName(String name) { this.name = name; }
+  /**
+   * Set a new password by hashing the raw input with your PasswordHasher.
+   * Passing null/blank will clear the password (room becomes open).
+   */
+  public void setPasswordFromRaw(String raw, com.example.estpoker.security.PasswordHasher hasher) {
+    Objects.requireNonNull(hasher, "hasher");
+    if (raw == null || raw.isBlank()) {
+      this.passwordHash = null;
+    } else {
+      this.passwordHash = hasher.hash(raw);
+    }
+  }
 
-  public List<String> getPastParticipants() { return pastParticipants; }
-  public void setPastParticipants(List<String> pastParticipants) { this.pastParticipants = pastParticipants; }
+  /**
+   * Verify a raw password against the stored hash.
+   * If no hash is set, empty/blank passwords are considered valid.
+   */
+  public boolean verifyPassword(String raw, com.example.estpoker.security.PasswordHasher hasher) {
+    Objects.requireNonNull(hasher, "hasher");
+    if (passwordHash == null || passwordHash.isBlank()) {
+      return raw == null || raw.isBlank();
+    }
+    return hasher.matches(raw, passwordHash);
+  }
 
-  public Settings getSettings() { return settings; }
-  public void setSettings(Settings settings) { this.settings = settings; }
+  /** Remove the password protection (hash cleared). */
+  public void clearPassword() {
+    this.passwordHash = null;
+  }
 
-  public Stats getStats() { return stats; }
-  public void setStats(Stats stats) { this.stats = stats; }
+  /** Convenience: create a new instance with code + timestamps initialized. */
+  public static StoredRoom newWithCode(String code) {
+    StoredRoom r = new StoredRoom();
+    r.code = Objects.requireNonNull(code, "code");
+    r.touchCreatedIfNull();
+    return r;
+  }
 
-  public List<HistoryEntry> getHistory() { return history; }
-  public void setHistory(List<HistoryEntry> history) { this.history = history; }
+  // ----- nested types -------------------------------------------------------
+
+  /** User-facing toggles that define the current behavior of the room. */
+  public static class Settings {
+    private String sequenceId = "fib.scrum"; // deck/sequence id
+    private boolean autoRevealEnabled = false;
+    private boolean allowSpecials = true;
+    private boolean topicVisible = false;
+
+    // getters/setters
+    public String getSequenceId() { return sequenceId; }
+    public void setSequenceId(String sequenceId) { this.sequenceId = sequenceId; }
+    public boolean isAutoRevealEnabled() { return autoRevealEnabled; }
+    public void setAutoRevealEnabled(boolean autoRevealEnabled) { this.autoRevealEnabled = autoRevealEnabled; }
+    public boolean isAllowSpecials() { return allowSpecials; }
+    public void setAllowSpecials(boolean allowSpecials) { this.allowSpecials = allowSpecials; }
+    public boolean isTopicVisible() { return topicVisible; }
+    public void setTopicVisible(boolean topicVisible) { this.topicVisible = topicVisible; }
+  }
+
+  /** Cheap running totals; refine later when the repository is in place. */
+  public static class Stats {
+    private long sessions;              // number of sessions played
+    private long totalVotes;            // total votes recorded
+    private double averageOfAverages;   // rolling average (optional, best-effort)
+    private long totalSessionSeconds;   // accumulated session duration
+
+    // getters/setters
+    public long getSessions() { return sessions; }
+    public void setSessions(long sessions) { this.sessions = sessions; }
+    public long getTotalVotes() { return totalVotes; }
+    public void setTotalVotes(long totalVotes) { this.totalVotes = totalVotes; }
+    public double getAverageOfAverages() { return averageOfAverages; }
+    public void setAverageOfAverages(double averageOfAverages) { this.averageOfAverages = averageOfAverages; }
+    public long getTotalSessionSeconds() { return totalSessionSeconds; }
+    public void setTotalSessionSeconds(long totalSessionSeconds) { this.totalSessionSeconds = totalSessionSeconds; }
+  }
+
+  /** Minimal per-round history entry; can be extended later. */
+  public static class HistoryItem {
+    private Instant at;           // time the round finished
+    private String topicLabel;    // the visible topic text (if any)
+    private String topicUrl;      // optional link
+    private String resultAverage; // formatted average string (e.g., "5.3")
+    private List<String> votes;   // optional raw votes (can be omitted for privacy)
+
+    // getters/setters
+    public Instant getAt() { return at; }
+    public void setAt(Instant at) { this.at = at; }
+    public String getTopicLabel() { return topicLabel; }
+    public void setTopicLabel(String topicLabel) { this.topicLabel = topicLabel; }
+    public String getTopicUrl() { return topicUrl; }
+    public void setTopicUrl(String topicUrl) { this.topicUrl = topicUrl; }
+    public String getResultAverage() { return resultAverage; }
+    public void setResultAverage(String resultAverage) { this.resultAverage = resultAverage; }
+    public List<String> getVotes() { return votes; }
+    public void setVotes(List<String> votes) { this.votes = votes; }
+  }
+
+  // ----- getters/setters (flat) --------------------------------------------
+
+  public String getCode() { return code; }
+  public void setCode(String code) { this.code = code; }
+
+  public String getTitle() { return title; }
+  public void setTitle(String title) { this.title = title; }
+
+  public String getOwner() { return owner; }
+  public void setOwner(String owner) { this.owner = owner; }
 
   public String getPasswordHash() { return passwordHash; }
   public void setPasswordHash(String passwordHash) { this.passwordHash = passwordHash; }
@@ -70,63 +164,12 @@ public class StoredRoom {
   public Instant getUpdatedAt() { return updatedAt; }
   public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
 
-  public int getVersion() { return version; }
-  public void setVersion(int version) { this.version = version; }
+  public Settings getSettings() { return settings; }
+  public void setSettings(Settings settings) { this.settings = settings; }
 
-  // ----- nested DTOs -----
+  public Stats getStats() { return stats; }
+  public void setStats(Stats stats) { this.stats = stats; }
 
-  /** User-tunable settings that should persist across sessions. */
-  public static class Settings {
-    /** Card sequence in use, e.g. ["1","2","3","5","8","13","?","☕"]. */
-    private List<String> cardSequence;
-
-    /** Reveal cards automatically when everyone voted. */
-    private boolean autoReveal;
-
-    /** "hard" / "soft" behavior (free-form vs strict). */
-    private String mode;
-
-    /** Whether topic field is visible/enabled. */
-    private boolean topicField;
-
-    public List<String> getCardSequence() { return cardSequence; }
-    public void setCardSequence(List<String> cardSequence) { this.cardSequence = cardSequence; }
-    public boolean isAutoReveal() { return autoReveal; }
-    public void setAutoReveal(boolean autoReveal) { this.autoReveal = autoReveal; }
-    public String getMode() { return mode; }
-    public void setMode(String mode) { this.mode = mode; }
-    public boolean isTopicField() { return topicField; }
-    public void setTopicField(boolean topicField) { this.topicField = topicField; }
-  }
-
-  /** Accumulated simple statistics. Extend freely later. */
-  public static class Stats {
-    private long votesTotal;
-    private double votesAverage;
-    private long sessionsCount;
-    private long totalSessionSeconds;
-
-    public long getVotesTotal() { return votesTotal; }
-    public void setVotesTotal(long votesTotal) { this.votesTotal = votesTotal; }
-    public double getVotesAverage() { return votesAverage; }
-    public void setVotesAverage(double votesAverage) { this.votesAverage = votesAverage; }
-    public long getSessionsCount() { return sessionsCount; }
-    public void setSessionsCount(long sessionsCount) { this.sessionsCount = sessionsCount; }
-    public long getTotalSessionSeconds() { return totalSessionSeconds; }
-    public void setTotalSessionSeconds(long totalSessionSeconds) { this.totalSessionSeconds = totalSessionSeconds; }
-  }
-
-  /** Optional history of topics and results. */
-  public static class HistoryEntry {
-    private String topic;
-    private String result;
-    private Map<String, String> extra;
-
-    public String getTopic() { return topic; }
-    public void setTopic(String topic) { this.topic = topic; }
-    public String getResult() { return result; }
-    public void setResult(String result) { this.result = result; }
-    public Map<String, String> getExtra() { return extra; }
-    public void setExtra(Map<String, String> extra) { this.extra = extra; }
-  }
+  public List<HistoryItem> getHistory() { return history; }
+  public void setHistory(List<HistoryItem> history) { this.history = history; }
 }
