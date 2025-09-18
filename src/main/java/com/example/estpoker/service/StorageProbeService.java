@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.function.Supplier;
 
@@ -22,17 +23,30 @@ public class StorageProbeService {
     this.ftpsSupplier = ftpsSupplier;
   }
 
+  /**
+   * Write UTF-8 text to `{baseDir}/{name}`.
+   * `name` may contain subfolders like "checks/probe.txt".
+   */
   public void writeUtf8(String name, String content) throws Exception {
     var cfg = props.getFtps();
     if (cfg == null) throw new IllegalStateException("FTPS config missing");
-    String remote = normalizePath(cfg.getBaseDir(), name);
+
+    // split incoming name into (dir, file)
+    var parts = splitDirFile(name);
+    String subdir = parts[0];
+    String filename = parts[1];
 
     FTPSClient c = null;
     try {
       c = openAndLogin();
       c.setFileType(FTP.BINARY_FILE_TYPE);
+
+      // cd into baseDir, then into optional subdir from 'name'
+      ensureCwd(c, cfg.getBaseDir());
+      ensureCwd(c, subdir);
+
       try (var in = new ByteArrayInputStream(content.getBytes(StandardCharsets.UTF_8))) {
-        boolean ok = c.storeFile(remote, in);
+        boolean ok = c.storeFile(filename, in);
         if (!ok) {
           throw new IllegalStateException("storeFile failed: " + c.getReplyCode() + " " + trim(c.getReplyString()));
         }
@@ -42,17 +56,28 @@ public class StorageProbeService {
     }
   }
 
+  /**
+   * Read UTF-8 text from `{baseDir}/{name}`.
+   * `name` may contain subfolders like "checks/probe.txt".
+   */
   public String readUtf8(String name) throws Exception {
     var cfg = props.getFtps();
     if (cfg == null) throw new IllegalStateException("FTPS config missing");
-    String remote = normalizePath(cfg.getBaseDir(), name);
+
+    var parts = splitDirFile(name);
+    String subdir = parts[0];
+    String filename = parts[1];
 
     FTPSClient c = null;
     try {
       c = openAndLogin();
       c.setFileType(FTP.BINARY_FILE_TYPE);
+
+      ensureCwd(c, cfg.getBaseDir());
+      ensureCwd(c, subdir);
+
       var out = new ByteArrayOutputStream();
-      boolean ok = c.retrieveFile(remote, out);
+      boolean ok = c.retrieveFile(filename, out);
       if (!ok) {
         throw new IllegalStateException("retrieveFile failed: " + c.getReplyCode() + " " + trim(c.getReplyString()));
       }
@@ -78,7 +103,7 @@ public class StorageProbeService {
     FTPSClient c = ftpsSupplier.get();
     c.connect(cfg.getHost(), cfg.getPort());
 
-    // Same TLS dance as in diagnostics (works with DF)
+    // DF works fine with this sequence
     try { c.execPBSZ(0); } catch (Exception ignore) {}
     try { c.execPROT("P"); } catch (Exception ignore) {}
 
@@ -92,11 +117,39 @@ public class StorageProbeService {
     return c;
   }
 
-  private static String normalizePath(String base, String name) {
-    String b = base == null ? "" : base.trim();
-    if (b.endsWith("/")) b = b.substring(0, b.length() - 1);
-    String n = name.startsWith("/") ? name.substring(1) : name;
-    return b.isEmpty() ? n : (b + "/" + n);
+  /** mkdir -p & cd into each segment of base (or subdir); ignores null/blank. */
+  private static void ensureCwd(FTPSClient c, String path) throws IOException {
+    if (path == null || path.isBlank()) return;
+    String p = path.trim();
+    // normalize slashes
+    p = p.replace('\\', '/');
+    // remove leading slash to stay relative to account home
+    if (p.startsWith("/")) p = p.substring(1);
+    for (String seg : p.split("/+")) {
+      if (seg.isBlank()) continue;
+      if (!c.changeWorkingDirectory(seg)) {
+        if (!c.makeDirectory(seg)) {
+          throw new IOException("mkdir '" + seg + "' failed → " + c.getReplyCode() + " " + c.getReplyString());
+        }
+        if (!c.changeWorkingDirectory(seg)) {
+          throw new IOException("chdir '" + seg + "' failed → " + c.getReplyCode() + " " + c.getReplyString());
+        }
+      }
+    }
+  }
+
+  /** Split "a/b/file.txt" → ["a/b", "file.txt"]; trims leading slash. */
+  private static String[] splitDirFile(String raw) {
+    if (raw == null) return new String[]{"", "probe.txt"};
+    String p = raw.replace('\\', '/').trim();
+    while (p.startsWith("/")) p = p.substring(1);
+    if (p.endsWith("/")) p = p.substring(0, p.length() - 1);
+    int i = p.lastIndexOf('/');
+    if (i < 0) return new String[]{"", p.isEmpty() ? "probe.txt" : p};
+    String dir = p.substring(0, i);
+    String file = p.substring(i + 1);
+    if (file.isBlank()) file = "probe.txt";
+    return new String[]{dir, file};
   }
 
   private static String trim(String s) {
