@@ -1,32 +1,48 @@
 package com.example.estpoker.rooms.web;
 
-import com.example.estpoker.rooms.storage.RoomJsonStore;
-import org.springframework.http.MediaType;
+import com.example.estpoker.rooms.model.StoredRoom;
+import com.example.estpoker.rooms.repo.RoomStore;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/persist")
+@RequestMapping("/api/persist/rooms")
+@ConditionalOnProperty(name = "app.storage.mode", havingValue = "ftps")
 public class RoomPersistController {
 
-  private final RoomJsonStore store;
+  private final RoomStore store;
 
-  public RoomPersistController(RoomJsonStore store) {
+  public RoomPersistController(RoomStore store) {
     this.store = store;
   }
 
-  /** Speichert JSON unter <code>.json. Body darf beliebiges JSON sein (StoredRoom oder Testobjekt). */
-  @PutMapping(value = "/rooms/{code}", consumes = MediaType.APPLICATION_JSON_VALUE)
-  public Map<String, Object> save(@PathVariable String code, @RequestBody Map<String, Object> body) throws Exception {
-    store.save(code, body);
-    return Map.of("ok", true, "saved", code + ".json");
+  @GetMapping("/{code}")
+  public ResponseEntity<?> get(@PathVariable String code) {
+    try {
+      var room = store.load(code);
+      return ResponseEntity.ok(room);
+    } catch (Exception e) {
+      return ResponseEntity.status(404).body(Map.of(
+        "error", "not_found",
+        "message", e.getMessage()
+      ));
+    }
   }
 
-  /** Liest die gespeicherte Datei roh (String). */
-  @GetMapping("/rooms/{code}")
-  public Map<String, Object> load(@PathVariable String code) throws Exception {
-    String json = store.readRaw(code);
-    return Map.of("ok", true, "code", code, "json", json);
+  @PutMapping("/{code}")
+  public ResponseEntity<?> put(@PathVariable String code, @RequestBody StoredRoom body) {
+    try {
+      body.setCode(code);                 // Pfad & Body synchronisieren
+      store.save(body);
+      return ResponseEntity.ok(Map.of("ok", true, "code", code));
+    } catch (Exception e) {
+      return ResponseEntity.status(500).body(Map.of(
+        "ok", false,
+        "message", e.getClass().getSimpleName() + ": " + e.getMessage()
+      ));
+    }
   }
 }
