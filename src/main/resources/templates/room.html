@@ -74,13 +74,13 @@
 
     <!-- Actions (host): we toggle only buttons, never the container -->
     <div class="vote-actions">
-      <button type="button" id="revealButton" class="button"
+      <button type="button" id="revealButton" class="button" hidden
               th:text="#{button.reveal}" data-i18n="button.reveal"
               th:attr="title=#{button.reveal},aria-label=#{button.reveal}"
               data-i18n-attr="title:button.reveal;aria-label:button.reveal"
               onclick="revealCards()"></button>
 
-      <button type="button" id="resetButton" class="button"
+      <button type="button" id="resetButton" class="button" hidden
               th:text="#{button.reset}" data-i18n="button.reset"
               th:attr="title=#{button.reset},aria-label=#{button.reset}"
               data-i18n-attr="title:button.reset;aria-label:button.reset"

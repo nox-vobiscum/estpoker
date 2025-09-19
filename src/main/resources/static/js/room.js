@@ -1,10 +1,10 @@
-/* room.js — UI + WS glue for Estimation Poker (liveness‑hardened)
+/* room.js — UI + WS glue for Estimation Poker (liveness-hardened)
    - 15s heartbeat pings (ping)
    - Watchdog reconnects if we see no inbound frames for >20s
    - Wake-ups on visibilitychange / focus / online / pageshow (poke + resync)
    - Exponential backoff reconnect w/ jitter
    - English inline comments & "Spectator" wording
-   - Matches your current IST behaviors (result row placement, topic row/editor, menu sync, etc.)
+   - Matches current IST behaviors (result row placement, topic row/editor, menu sync, etc.)
 */
 (() => {
   'use strict';
@@ -20,7 +20,7 @@
   /*** ---------- i18n (lightweight) ---------- ***/
   const MSG = Object.create(null);
   function t(key, fallback) {
-    // English inline comments: prefer dynamic message map, fall back to <meta> content, then to given fallback
+    // Prefer dynamic message map, fall back to <meta> content, then given fallback
     try {
       if (key && Object.prototype.hasOwnProperty.call(MSG, key)) return MSG[key];
       const meta = document.head && document.head.querySelector(`meta[name="msg.${key}"]`);
@@ -40,7 +40,7 @@
   }
 
   /*** ---------- Constants ---------- ***/
-  const SPECIALS = ['❓', '☕'];              // Note: 💬 removed
+  const SPECIALS = ['❓', '☕']; // Note: 💬 removed
   const INFINITY_ = '♾️';
   const INFINITY_ALT = '∞';
 
@@ -138,7 +138,7 @@
 
   /*** ---------- Helpers ---------- ***/
   function normalizeSeq(id) {
-    // English inline comment: map legacy/aliases to canonical deck ids
+    // Map legacy/aliases to canonical deck ids
     if (!id) return 'fib.scrum';
     const s = String(id).toLowerCase().trim();
     if (s === 'fib-enh') return 'fib.enh';
@@ -227,7 +227,7 @@
   function stopWatchdog() { if (wdTimer) { clearInterval(wdTimer); wdTimer = null; } }
 
   function scheduleReconnect(reason) {
-    // English inline comment: coalesce multiple schedules; exponential backoff with jitter
+    // Coalesce multiple schedules; exponential backoff with jitter
     if (state.hardRedirect) return;
     if (rcTimer) return; // already scheduled
     const attempt = rcAttempts++;
@@ -246,7 +246,7 @@
   }
 
   function pokeServerAndSync() {
-    // English inline comment: gentle "hello" after wake — triggers fast state push
+    // Gentle "hello" after wake — triggers fast state push
     try { state.ws && state.ws.readyState === 1 && state.ws.send('ping'); } catch {}
     try { send('requestSync'); } catch {}
     setTimeout(() => { try { send('requestSync'); } catch {} }, 200); // double-tap in case first races with auth
@@ -436,15 +436,13 @@
       deck = deck.filter(c => !DISABLED_SPECIALS.has(String(c)));
       state.cards = deck;
 
-      // --- core flags / stats (only set if present) ---
-      // reveal flag: accept multiple server spellings
+      // --- core flags / stats (accept aliases) ---
       if (has(m, 'votesRevealed') || has(m, 'cardsRevealed') || has(m, 'revealed')) {
         state.votesRevealed = !!(has(m, 'votesRevealed') ? m.votesRevealed
                               : has(m, 'cardsRevealed')   ? m.cardsRevealed
                               : m.revealed);
       }
 
-      // average / median / range: accept aliases
       if (has(m, 'averageVote') || has(m, 'average')) {
         state.averageVote = has(m, 'averageVote') ? m.averageVote : m.average;
       }
@@ -461,7 +459,6 @@
       if (has(m, 'consensus'))          state.consensus = !!m.consensus;
       if (has(m, 'outliers') && Array.isArray(m.outliers)) state.outliers = m.outliers.slice();
       if (has(m, 'autoRevealEnabled'))  state.autoRevealEnabled = !!m.autoRevealEnabled;
-
 
       // --- topic / misc ---
       if (has(m, 'topicVisible')) state.topicVisible = !!m.topicVisible;
@@ -824,17 +821,16 @@
       specials.forEach(addCardButton);
     }
 
-    // CTA buttons (host)
+    // CTA buttons (host) — toggle only `hidden` to avoid flicker
     const revealBtn = $('#revealButton');
     const resetBtn  = $('#resetButton');
     const hardGateOK = !state.hardMode || allEligibleVoted();
 
     const showReveal = (!state.votesRevealed && state.isHost);
-    const showReset  = (state.votesRevealed && state.isHost);
+    const showReset  = ( state.votesRevealed && state.isHost);
 
     if (revealBtn) {
-      revealBtn.style.display = showReveal ? '' : 'none';
-      revealBtn.hidden = !showReveal;
+      revealBtn.hidden   = !showReveal;
       revealBtn.disabled = !hardGateOK;
 
       if (!hardGateOK) {
@@ -849,101 +845,96 @@
         revealBtn.removeAttribute('aria-disabled');
       }
     }
+
     if (resetBtn) {
-      resetBtn.style.display = showReset ? '' : 'none';
       resetBtn.hidden = !showReset;
     }
-  }
+  } // ← important: close renderCards()
 
   /*** ---------- Result bar ---------- ***/
-      function renderResultBar() {
-      // Toggle body class (used by CSS to dim cards)
-      document.body.classList.toggle('votes-revealed', !!state.votesRevealed);
+  function renderResultBar() {
+    // Toggle body class (used by CSS to dim cards)
+    document.body.classList.toggle('votes-revealed', !!state.votesRevealed);
 
-      // Show/hide the result row itself
-      const row = $('#resultRow');
-      if (row) {
-        if (state.votesRevealed) row.classList.remove('is-hidden');
-        else                     row.classList.add('is-hidden');
-      }
+    // Show/hide the result row itself
+    const row = $('#resultRow');
+    if (row) {
+      if (state.votesRevealed) row.classList.remove('is-hidden');
+      else                     row.classList.add('is-hidden');
+    }
 
-      // One-time chip animation gating
-      if (state.votesRevealed) {
-        if (state._chipAnimShown) document.body.classList.add('no-chip-anim');
-        else { document.body.classList.remove('no-chip-anim'); state._chipAnimShown = true; }
+    // One-time chip animation gating
+    if (state.votesRevealed) {
+      if (state._chipAnimShown) document.body.classList.add('no-chip-anim');
+      else { document.body.classList.remove('no-chip-anim'); state._chipAnimShown = true; }
+    } else {
+      document.body.classList.remove('no-chip-anim');
+      state._chipAnimShown = false;
+    }
+
+    const hasInfinity = !!(
+      state.votesRevealed &&
+      Array.isArray(state.participants) &&
+      state.participants.some(p => p && !isSpectator(p) && (p.vote === INFINITY_ || p.vote === INFINITY_ALT))
+    );
+
+    const toStr  = (v) => (v == null || v === '' ? null : String(v));
+    const withInf = (base) => (base != null ? base + (hasInfinity ? ' +♾️' : '') : (hasInfinity ? '♾️' : null));
+
+    const avgWrap    = document.querySelector('#resultLabel .label-average');
+    const consEl     = document.querySelector('#resultLabel .label-consensus');
+    const medianWrap = $('#medianWrap');
+    const rangeWrap  = $('#rangeWrap');
+    const rangeSep   = $('#rangeSep');
+    const avgEl      = $('#averageVote');
+    const medianSep  = document.getElementById('medianSep') || document.querySelector('#resultRow .sep');
+
+    const CONS_LABEL = t('label.consensus', isDe() ? '🎉 Konsens' : '🎉 Consensus');
+
+    // Average
+    if (avgEl) {
+      const avgTxt = withInf(toStr(state.averageVote));
+      avgEl.textContent = avgTxt ?? (state.votesRevealed ? 'N/A' : '');
+    }
+
+    // Consensus-only view
+    if (row) {
+      if (state.consensus) {
+        row.classList.add('consensus');
+        if (avgWrap) avgWrap.hidden = true;
+        if (consEl) { consEl.hidden = false; consEl.textContent = CONS_LABEL; }
+        if (medianSep) { medianSep.hidden = true; medianSep.setAttribute('aria-hidden', 'true'); }
+        if (medianWrap) medianWrap.hidden = true;
+        if (rangeSep)  rangeSep.hidden  = true;
+        if (rangeWrap) rangeWrap.hidden = true;
+        return;
       } else {
-        document.body.classList.remove('no-chip-anim');
-        state._chipAnimShown = false;
-      }
-
-      // If revealed, hide the action buttons (your markup has no ".pre-vote" wrapper)
-      const actions = document.querySelector('.vote-actions');
-      if (actions) actions.style.display = state.votesRevealed ? 'none' : '';
-
-      const hasInfinity = !!(
-        state.votesRevealed &&
-        Array.isArray(state.participants) &&
-        state.participants.some(p => p && !isSpectator(p) && (p.vote === INFINITY_ || p.vote === INFINITY_ALT))
-      );
-
-      const toStr  = (v) => (v == null || v === '' ? null : String(v));
-      const withInf = (base) => (base != null ? base + (hasInfinity ? ' +♾️' : '') : (hasInfinity ? '♾️' : null));
-
-      const avgWrap    = document.querySelector('#resultLabel .label-average');
-      const consEl     = document.querySelector('#resultLabel .label-consensus');
-      const medianWrap = $('#medianWrap');
-      const rangeWrap  = $('#rangeWrap');
-      const rangeSep   = $('#rangeSep');
-      const avgEl      = $('#averageVote');
-      const medianSep  = document.getElementById('medianSep') || document.querySelector('#resultRow .sep');
-
-      const CONS_LABEL = t('label.consensus', isDe() ? '🎉 Konsens' : '🎉 Consensus');
-
-      // Average
-      if (avgEl) {
-        const avgTxt = withInf(toStr(state.averageVote));
-        avgEl.textContent = avgTxt ?? (state.votesRevealed ? 'N/A' : '');
-      }
-
-      // Consensus-only view
-      if (row) {
-        if (state.consensus) {
-          row.classList.add('consensus');
-          if (avgWrap) avgWrap.hidden = true;
-          if (consEl) { consEl.hidden = false; consEl.textContent = CONS_LABEL; }
-          if (medianSep) { medianSep.hidden = true; medianSep.setAttribute('aria-hidden', 'true'); }
-          if (medianWrap) medianWrap.hidden = true;
-          if (rangeSep)  rangeSep.hidden  = true;
-          if (rangeWrap) rangeWrap.hidden = true;
-          return;
-        } else {
-          row.classList.remove('consensus');
-          if (avgWrap) avgWrap.hidden = false;
-          if (consEl)  consEl.hidden  = true;
-        }
-      }
-
-      // Median + separator
-      let showMedian = false;
-      if (medianWrap) {
-        showMedian = state.votesRevealed && toStr(state.medianVote) != null;
-        medianWrap.hidden = !showMedian;
-        if (showMedian) setText('#medianVote', withInf(toStr(state.medianVote)));
-      }
-      if (medianSep) {
-        medianSep.hidden = !showMedian;
-        medianSep.setAttribute('aria-hidden', String(!showMedian));
-      }
-
-      // Range + separator
-      if (rangeWrap && rangeSep) {
-        const showRange = state.votesRevealed && toStr(state.range) != null;
-        rangeWrap.hidden = !showRange;
-        rangeSep.hidden  = !showRange;
-        if (showRange) setText('#rangeVote', withInf(toStr(state.range)));
+        row.classList.remove('consensus');
+        if (avgWrap) avgWrap.hidden = false;
+        if (consEl)  consEl.hidden  = true;
       }
     }
 
+    // Median + separator
+    let showMedian = false;
+    if (medianWrap) {
+      showMedian = state.votesRevealed && toStr(state.medianVote) != null;
+      medianWrap.hidden = !showMedian;
+      if (showMedian) setText('#medianVote', withInf(toStr(state.medianVote)));
+    }
+    if (medianSep) {
+      medianSep.hidden = !showMedian;
+      medianSep.setAttribute('aria-hidden', String(!showMedian));
+    }
+
+    // Range + separator
+    if (rangeWrap && rangeSep) {
+      const showRange = state.votesRevealed && toStr(state.range) != null;
+      rangeWrap.hidden = !showRange;
+      rangeSep.hidden  = !showRange;
+      if (showRange) setText('#rangeVote', withInf(toStr(state.range)));
+    }
+  }
 
   /*** ---------- Topic row ---------- ***/
   function renderTopic() {
@@ -1399,9 +1390,13 @@
     wireOnce();
     syncHostClass();
     seedSelfPlaceholder();
-    // Initial connect is triggered in wireOnce() (and guarded)
+    // Initial connect starts in wireOnce() (guarded)
   }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
-  else boot();
 
-})();
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot, { once: true });
+  } else {
+    boot();
+  }
+
+})(); // end IIFE
