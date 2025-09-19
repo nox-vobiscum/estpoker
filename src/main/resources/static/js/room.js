@@ -437,13 +437,31 @@
       state.cards = deck;
 
       // --- core flags / stats (only set if present) ---
-      if (has(m, 'votesRevealed')) state.votesRevealed = !!m.votesRevealed;
-      if (has(m, 'averageVote'))   state.averageVote   = m.averageVote;
-      if (has(m, 'medianVote'))    state.medianVote    = m.medianVote;
-      if (has(m, 'range'))         state.range         = m.range;
-      if (has(m, 'consensus'))     state.consensus     = !!m.consensus;
+      // reveal flag: accept multiple server spellings
+      if (has(m, 'votesRevealed') || has(m, 'cardsRevealed') || has(m, 'revealed')) {
+        state.votesRevealed = !!(has(m, 'votesRevealed') ? m.votesRevealed
+                              : has(m, 'cardsRevealed')   ? m.cardsRevealed
+                              : m.revealed);
+      }
+
+      // average / median / range: accept aliases
+      if (has(m, 'averageVote') || has(m, 'average')) {
+        state.averageVote = has(m, 'averageVote') ? m.averageVote : m.average;
+      }
+      if (has(m, 'medianVote') || has(m, 'median')) {
+        state.medianVote = has(m, 'medianVote') ? m.medianVote : m.median;
+      }
+      if (has(m, 'range')) {
+        state.range = m.range;
+      } else if (has(m, 'min') || has(m, 'max')) {
+        const min = m.min ?? null, max = m.max ?? null;
+        state.range = (min != null && max != null) ? `${min}–${max}` : null;
+      }
+
+      if (has(m, 'consensus'))          state.consensus = !!m.consensus;
       if (has(m, 'outliers') && Array.isArray(m.outliers)) state.outliers = m.outliers.slice();
-      if (has(m, 'autoRevealEnabled')) state.autoRevealEnabled = !!m.autoRevealEnabled;
+      if (has(m, 'autoRevealEnabled'))  state.autoRevealEnabled = !!m.autoRevealEnabled;
+
 
       // --- topic / misc ---
       if (has(m, 'topicVisible')) state.topicVisible = !!m.topicVisible;
@@ -838,88 +856,94 @@
   }
 
   /*** ---------- Result bar ---------- ***/
-  function renderResultBar() {
-    // Toggle a body class to dim/disable cards after reveal (CSS uses this)
-    document.body.classList.toggle('votes-revealed', !!state.votesRevealed);
+      function renderResultBar() {
+      // Toggle body class (used by CSS to dim cards)
+      document.body.classList.toggle('votes-revealed', !!state.votesRevealed);
 
-    // One-time chip animation gating
-    if (state.votesRevealed) {
-      if (state._chipAnimShown) document.body.classList.add('no-chip-anim');
-      else { document.body.classList.remove('no-chip-anim'); state._chipAnimShown = true; }
-    } else {
-      document.body.classList.remove('no-chip-anim');
-      state._chipAnimShown = false;
-    }
+      // Show/hide the result row itself
+      const row = $('#resultRow');
+      if (row) {
+        if (state.votesRevealed) row.classList.remove('is-hidden');
+        else                     row.classList.add('is-hidden');
+      }
 
-    const hasInfinity = !!(
-      state.votesRevealed &&
-      Array.isArray(state.participants) &&
-      state.participants.some(p => p && !isSpectator(p) && (p.vote === INFINITY_ || p.vote === INFINITY_ALT))
-    );
-
-    const toStr  = (v) => (v == null || v === '' ? null : String(v));
-    const withInf = (base) => (base != null ? base + (hasInfinity ? ' +♾️' : '') : (hasInfinity ? '♾️' : null));
-
-    // Hide only the button row in pre-vote
-    const preActions = document.querySelector('.pre-vote .vote-actions');
-    if (preActions) preActions.style.display = state.votesRevealed ? 'none' : '';
-
-    const row        = $('#resultRow');
-    const avgWrap    = document.querySelector('#resultLabel .label-average');
-    const consEl     = document.querySelector('#resultLabel .label-consensus');
-    const medianWrap = $('#medianWrap');
-    const rangeWrap  = $('#rangeWrap');
-    const rangeSep   = $('#rangeSep');
-    const avgEl      = $('#averageVote');
-
-    const CONS_LABEL = t('label.consensus', isDe() ? '🎉 Konsens' : '🎉 Consensus');
-
-    const medianSep  = document.getElementById('medianSep') || document.querySelector('#resultRow .sep');
-
-    // Average
-    if (avgEl) {
-      const avgTxt = withInf(toStr(state.averageVote));
-      avgEl.textContent = avgTxt ?? (state.votesRevealed ? 'N/A' : '');
-    }
-
-    // Consensus-only view
-    if (row) {
-      if (state.consensus) {
-        row.classList.add('consensus');
-        if (avgWrap) avgWrap.hidden = true;
-        if (consEl) { consEl.hidden = false; consEl.textContent = CONS_LABEL; }
-        if (medianSep) { medianSep.hidden = true; medianSep.setAttribute('aria-hidden', 'true'); }
-        if (medianWrap) medianWrap.hidden = true;
-        if (rangeSep)  rangeSep.hidden  = true;
-        if (rangeWrap) rangeWrap.hidden = true;
-        return;
+      // One-time chip animation gating
+      if (state.votesRevealed) {
+        if (state._chipAnimShown) document.body.classList.add('no-chip-anim');
+        else { document.body.classList.remove('no-chip-anim'); state._chipAnimShown = true; }
       } else {
-        row.classList.remove('consensus');
-        if (avgWrap) avgWrap.hidden = false;
-        if (consEl)  consEl.hidden  = true;
+        document.body.classList.remove('no-chip-anim');
+        state._chipAnimShown = false;
+      }
+
+      // If revealed, hide the action buttons (your markup has no ".pre-vote" wrapper)
+      const actions = document.querySelector('.vote-actions');
+      if (actions) actions.style.display = state.votesRevealed ? 'none' : '';
+
+      const hasInfinity = !!(
+        state.votesRevealed &&
+        Array.isArray(state.participants) &&
+        state.participants.some(p => p && !isSpectator(p) && (p.vote === INFINITY_ || p.vote === INFINITY_ALT))
+      );
+
+      const toStr  = (v) => (v == null || v === '' ? null : String(v));
+      const withInf = (base) => (base != null ? base + (hasInfinity ? ' +♾️' : '') : (hasInfinity ? '♾️' : null));
+
+      const avgWrap    = document.querySelector('#resultLabel .label-average');
+      const consEl     = document.querySelector('#resultLabel .label-consensus');
+      const medianWrap = $('#medianWrap');
+      const rangeWrap  = $('#rangeWrap');
+      const rangeSep   = $('#rangeSep');
+      const avgEl      = $('#averageVote');
+      const medianSep  = document.getElementById('medianSep') || document.querySelector('#resultRow .sep');
+
+      const CONS_LABEL = t('label.consensus', isDe() ? '🎉 Konsens' : '🎉 Consensus');
+
+      // Average
+      if (avgEl) {
+        const avgTxt = withInf(toStr(state.averageVote));
+        avgEl.textContent = avgTxt ?? (state.votesRevealed ? 'N/A' : '');
+      }
+
+      // Consensus-only view
+      if (row) {
+        if (state.consensus) {
+          row.classList.add('consensus');
+          if (avgWrap) avgWrap.hidden = true;
+          if (consEl) { consEl.hidden = false; consEl.textContent = CONS_LABEL; }
+          if (medianSep) { medianSep.hidden = true; medianSep.setAttribute('aria-hidden', 'true'); }
+          if (medianWrap) medianWrap.hidden = true;
+          if (rangeSep)  rangeSep.hidden  = true;
+          if (rangeWrap) rangeWrap.hidden = true;
+          return;
+        } else {
+          row.classList.remove('consensus');
+          if (avgWrap) avgWrap.hidden = false;
+          if (consEl)  consEl.hidden  = true;
+        }
+      }
+
+      // Median + separator
+      let showMedian = false;
+      if (medianWrap) {
+        showMedian = state.votesRevealed && toStr(state.medianVote) != null;
+        medianWrap.hidden = !showMedian;
+        if (showMedian) setText('#medianVote', withInf(toStr(state.medianVote)));
+      }
+      if (medianSep) {
+        medianSep.hidden = !showMedian;
+        medianSep.setAttribute('aria-hidden', String(!showMedian));
+      }
+
+      // Range + separator
+      if (rangeWrap && rangeSep) {
+        const showRange = state.votesRevealed && toStr(state.range) != null;
+        rangeWrap.hidden = !showRange;
+        rangeSep.hidden  = !showRange;
+        if (showRange) setText('#rangeVote', withInf(toStr(state.range)));
       }
     }
 
-    // Median + its separator
-    let showMedian = false;
-    if (medianWrap) {
-      showMedian = state.votesRevealed && toStr(state.medianVote) != null;
-      medianWrap.hidden = !showMedian;
-      if (showMedian) setText('#medianVote', withInf(toStr(state.medianVote)));
-    }
-    if (medianSep) {
-      medianSep.hidden = !showMedian;
-      medianSep.setAttribute('aria-hidden', String(!showMedian));
-    }
-
-    // Range + its separator
-    if (rangeWrap && rangeSep) {
-      const showRange = state.votesRevealed && toStr(state.range) != null;
-      rangeWrap.hidden = !showRange;
-      rangeSep.hidden  = !showRange;
-      if (showRange) setText('#rangeVote', withInf(toStr(state.range)));
-    }
-  }
 
   /*** ---------- Topic row ---------- ***/
   function renderTopic() {
