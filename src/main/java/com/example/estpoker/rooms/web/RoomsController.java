@@ -1,89 +1,106 @@
 package com.example.estpoker.rooms.web;
 
 import com.example.estpoker.rooms.model.StoredRoom;
+import com.example.estpoker.rooms.repo.RoomStore;
 import com.example.estpoker.rooms.service.RoomPersistenceService;
-import com.example.estpoker.rooms.storage.RoomRepository;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.Instant;
 import java.util.Objects;
-import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/rooms")
 public class RoomsController {
 
-  private final RoomRepository repo;
+  private final RoomStore store;
   private final RoomPersistenceService service;
 
-  public RoomsController(RoomRepository repo, RoomPersistenceService service) {
-    this.repo = repo;
+  public RoomsController(RoomStore store, RoomPersistenceService service) {
+    this.store = store;
     this.service = service;
   }
 
-  // --- 5.2: Exists / Get ---------------------------------------------------
+  // --- Exists / Get --------------------------------------------------------
 
   @GetMapping("/{code}/exists")
   public ResponseEntity<ExistsView> exists(@PathVariable String code) {
-    return ResponseEntity.ok(new ExistsView(repo.exists(code)));
+    try {
+      boolean ex = (store.load(code) != null);
+      return ResponseEntity.ok(new ExistsView(ex));
+    } catch (Exception e) {
+      // konservativ: bei Fehler "exists=false" + 500 ist auch okay; hier: 200 mit false
+      return ResponseEntity.ok(new ExistsView(false));
+    }
   }
 
   @GetMapping("/{code}")
-  public ResponseEntity<StoredRoomView> get(@PathVariable String code) {
-    Optional<StoredRoom> r = repo.load(code);
-    return r.<ResponseEntity<StoredRoomView>>map(stored -> ResponseEntity.ok(StoredRoomView.from(stored)))
-            .orElseGet(() -> ResponseEntity.notFound().build());
+  public ResponseEntity<?> get(@PathVariable String code) {
+    try {
+      StoredRoom r = store.load(code);
+      if (r == null) return ResponseEntity.notFound().build();
+      return ResponseEntity.ok(StoredRoomView.from(r));
+    } catch (Exception e) {
+      return ResponseEntity.status(500).body(new ErrorView(e.getMessage()));
+    }
   }
 
-  // --- 5.3: Upsert (nur Meta+Settings; KEIN Passwort in-/output) ----------
+  // --- Upsert (Meta + Settings; KEIN Passwort I/O) -------------------------
 
   @PutMapping("/{code}")
-  public ResponseEntity<StoredRoomView> upsert(
+  public ResponseEntity<?> upsert(
       @PathVariable String code,
       @RequestBody UpsertRequest body
   ) {
-    // Lade oder erzeuge
-    StoredRoom r = repo.load(code).orElseGet(() -> StoredRoom.newWithCode(code));
+    try {
+      // Lade oder erzeuge
+      StoredRoom r = store.load(code);
+      if (r == null) r = StoredRoom.newWithCode(code);
 
-    // Meta
-    if (body.title != null)  r.setTitle(body.title);
-    if (body.owner != null)  r.setOwner(body.owner);
+      // Meta
+      if (body.title != null)  r.setTitle(body.title);
+      if (body.owner != null)  r.setOwner(body.owner);
 
-    // Settings (nur wenn geliefert)
-    var s = r.getSettings();
-    if (body.sequenceId != null)            s.setSequenceId(body.sequenceId);
-    if (body.autoRevealEnabled != null)     s.setAutoRevealEnabled(body.autoRevealEnabled);
-    if (body.allowSpecials != null)         s.setAllowSpecials(body.allowSpecials);
-    if (body.topicVisible != null)          s.setTopicVisible(body.topicVisible);
+      // Settings (nur wenn geliefert)
+      var s = r.getSettings();
+      if (body.sequenceId != null)        s.setSequenceId(body.sequenceId);
+      if (body.autoRevealEnabled != null) s.setAutoRevealEnabled(body.autoRevealEnabled);
+      if (body.allowSpecials != null)     s.setAllowSpecials(body.allowSpecials);
+      if (body.topicVisible != null)      s.setTopicVisible(body.topicVisible);
 
-    r.touchUpdated();
-    repo.save(r);
-    return ResponseEntity.ok(StoredRoomView.from(r));
+      r.touchUpdated();
+      store.save(r);
+
+      return ResponseEntity.ok(StoredRoomView.from(r));
+    } catch (Exception e) {
+      return ResponseEntity.status(500).body(new ErrorView(e.getMessage()));
+    }
   }
 
-  // --- 5.4: Passwort setzen/löschen ---------------------------------------
+  // --- Passwort setzen/löschen --------------------------------------------
 
   @PostMapping("/{code}/set-password")
-  public ResponseEntity<Void> setPassword(
+  public ResponseEntity<?> setPassword(
       @PathVariable String code,
       @RequestBody PasswordRequest req
   ) {
-    // null oder "" -> Passwort entfernen
-    service.setPassword(code, (req == null ? null : req.password));
-    return ResponseEntity.noContent().build();
+    try {
+      service.setPassword(code, (req == null ? null : req.password));
+      return ResponseEntity.noContent().build();
+    } catch (Exception e) {
+      return ResponseEntity.status(500).body(new ErrorView(e.getMessage()));
+    }
   }
 
-  // --- 5.5: Löschen --------------------------------------------------------
+  // --- Löschen -------------------------------------------------------------
 
   @DeleteMapping("/{code}")
-  public ResponseEntity<Void> delete(@PathVariable String code) {
-    if (!repo.exists(code)) return ResponseEntity.notFound().build();
-    repo.delete(code);
-    return ResponseEntity.noContent().build();
+  public ResponseEntity<?> delete(@PathVariable String code) {
+    // Aktuelle RoomStore-API hat (bei dir) kein delete/exists -> später nachrüsten.
+    return ResponseEntity.status(501).body(new ErrorView("Delete not implemented yet"));
   }
 
-  // ====== DTOs (Views/Requests) ============================================
+  // ===== DTOs (Views/Requests) ============================================
 
   /** GET /exists view */
   public static final class ExistsView {
@@ -142,5 +159,14 @@ public class RoomsController {
   /** POST set-password body */
   public static final class PasswordRequest {
     public String password;
+  }
+
+  /** Fehler-View (kompakt) */
+  public static final class ErrorView {
+    public boolean ok = false;
+    public String message;
+    public ErrorView(String message) {
+      this.message = (message == null ? "Internal error" : message);
+    }
   }
 }

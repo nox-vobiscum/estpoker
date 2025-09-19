@@ -2,68 +2,63 @@ package com.example.estpoker.rooms.service;
 
 import com.example.estpoker.model.Room;
 import com.example.estpoker.rooms.model.StoredRoom;
-import com.example.estpoker.rooms.storage.RoomRepository;
+import com.example.estpoker.rooms.repo.RoomStore;
 import com.example.estpoker.security.PasswordHasher;
+import com.example.estpoker.rooms.codec.RoomCodec;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 
-import java.util.Optional;
-
 @Service
+@ConditionalOnProperty(name = "app.storage.mode", havingValue = "ftps")
 public class RoomPersistenceService {
 
-  private final RoomRepository repo;
+  private final RoomStore store;
+  private final RoomCodec codec;
   private final PasswordHasher hasher;
 
-  public RoomPersistenceService(RoomRepository repo, PasswordHasher hasher) {
-    this.repo = repo;
+  public RoomPersistenceService(RoomStore store, RoomCodec codec, PasswordHasher hasher) {
+    this.store = store;
+    this.codec = codec;
     this.hasher = hasher;
   }
 
-  /** Create or update a StoredRoom snapshot from an in-memory Room. */
-  public StoredRoom upsertFromRoom(Room src, String title, String owner) {
-    String code = src.getCode();
-    StoredRoom dst = repo.load(code).orElseGet(() -> StoredRoom.newWithCode(code));
-
-    // identity/meta
-    if (title != null) dst.setTitle(title);
-    if (owner != null) dst.setOwner(owner);
-
-    // settings (nur das, was Room heute schon hat)
-    var s = dst.getSettings();
-    s.setSequenceId(src.getSequenceId());
-    s.setAutoRevealEnabled(src.isAutoRevealEnabled());
-    s.setAllowSpecials(src.isAllowSpecials());
-    s.setTopicVisible(src.isTopicVisible());
-
-    // timestamps
-    dst.touchUpdated();
-
-    repo.save(dst);
-    return dst;
+  /** Lädt die persistierte Snapshot-DTO (wirkt noch nicht auf Live-Room). */
+  public StoredRoom loadStored(String code) throws Exception {
+    return store.load(code);
   }
 
-  public Optional<StoredRoom> load(String code) {
-    return repo.load(code);
+  /** Persistiert einen Live-Room als Snapshot (Owner optional für Meta). */
+  public void saveFromLive(Room live, String ownerDisplayName) throws Exception {
+    StoredRoom dto = RoomCodec.toStored(live);
+    if (ownerDisplayName != null && !ownerDisplayName.isBlank()) {
+      dto.setOwner(ownerDisplayName);
+    }
+    // Aktualisiert created/updated und schreibt JSON
+    store.save(dto);
   }
 
-  public boolean exists(String code) {
-    return repo.exists(code);
+  /** Wendet einen gespeicherten Snapshot auf einen Live-Room an. */
+  public void applyStoredToLive(String code, Room live) throws Exception {
+    StoredRoom dto = store.load(code);
+    RoomCodec.applyToRoom(dto, live);
   }
 
-  public void delete(String code) {
-    repo.delete(code);
+  /** Setzt/updated ein Passwort (raw, null/blank = löschen). */
+  public void setPassword(String code, String raw) throws Exception {
+    StoredRoom dto;
+    try {
+      dto = store.load(code);
+    } catch (Exception notFound) {
+      // Neu anlegen, wenn noch nicht existiert
+      dto = StoredRoom.newWithCode(code);
+    }
+    dto.setPasswordFromRaw(raw, hasher);
+    store.save(dto);
   }
 
-  /** Set or clear the room password (null/blank clears). */
-  public void setPassword(String code, String rawPassword) {
-    StoredRoom r = repo.load(code).orElseGet(() -> StoredRoom.newWithCode(code));
-    r.setPasswordFromRaw(rawPassword, hasher);
-    r.touchUpdated();
-    repo.save(r);
-  }
-
-  /** Validate a raw password against the stored hash; open rooms accept blank. */
-  public boolean verifyPassword(String code, String rawPassword) {
-    return repo.load(code).map(r -> r.verifyPassword(rawPassword, hasher)).orElse(false);
+  /** Verifiziert ein Passwort gegen dem gespeicherten Hash. */
+  public boolean verifyPassword(String code, String raw) throws Exception {
+    StoredRoom dto = store.load(code);
+    return dto.verifyPassword(raw, hasher);
   }
 }

@@ -16,18 +16,18 @@ public final class RoomCodec {
     StoredRoom s = new StoredRoom();
     s.setCode(room.getCode());
 
-    // Settings übernehmen
+    // apply settings
     StoredRoom.Settings settings = s.getSettings();
     settings.setSequenceId(room.getSequenceId());
     settings.setAutoRevealEnabled(room.isAutoRevealEnabled());
     settings.setAllowSpecials(room.isAllowSpecials());
     settings.setTopicVisible(room.isTopicVisible());
 
-    // Aktuelles Topic (Text/URL) mit persistieren
+    // persist actual topic text/URL
     s.setTopicLabel(room.getTopicLabel());
     s.setTopicUrl(room.getTopicUrl());
 
-    // Teilnehmerliste
+    // participant list
     List<StoredParticipant> list = new ArrayList<>();
     for (Participant p : room.getParticipants()) {
       StoredParticipant sp = new StoredParticipant();
@@ -40,17 +40,34 @@ public final class RoomCodec {
     }
     s.setParticipants(list);
 
-    // Metadaten-Zeitstempel pflegen (optional)
+    // maintain meta data time stamp 
     s.touchUpdated();
 
     return s;
   }
 
-  /** Stored snapshot -> neue Live-Instanz */
+  public static void applyToRoom(StoredRoom s, Room live) {
+    if (s == null || live == null) return;
+
+    var st = s.getSettings();
+    if (st != null) {
+        if (st.getSequenceId() != null && !st.getSequenceId().isBlank()) {
+        live.setSequenceId(st.getSequenceId());
+        }
+        live.setAutoRevealEnabled(st.isAutoRevealEnabled());
+        live.setAllowSpecials(st.isAllowSpecials());
+        live.setTopicVisible(st.isTopicVisible());
+    }
+    if (s.getTopicLabel() != null) live.setTopicLabel(s.getTopicLabel());
+    if (s.getTopicUrl() != null) live.setTopicUrl(s.getTopicUrl());
+
+    }
+
+  /** Stored snapshot -> new live instance */
   public static Room toLive(StoredRoom s) {
     Room r = new Room(s.getCode());
 
-    // Settings anwenden (nur wenn vorhanden/nicht blank)
+    // apply settings (if existent/not blank)
     StoredRoom.Settings settings = s.getSettings();
     if (settings != null) {
       String seq = settings.getSequenceId();
@@ -60,11 +77,11 @@ public final class RoomCodec {
       r.setTopicVisible(settings.isTopicVisible());
     }
 
-    // Topic-Inhalt
+    // Topic content
     r.setTopicLabel(s.getTopicLabel());
     r.setTopicUrl(s.getTopicUrl());
 
-    // Teilnehmer wiederherstellen
+    // restore participants
     if (s.getParticipants() != null) {
       for (StoredParticipant sp : s.getParticipants()) {
         Participant p = new Participant(sp.getName());
@@ -76,7 +93,8 @@ public final class RoomCodec {
       }
     }
 
-    // cardsRevealed absichtlich NICHT aus Persistenz setzen (flüchtig)
     return r;
   }
+
+  
 }
