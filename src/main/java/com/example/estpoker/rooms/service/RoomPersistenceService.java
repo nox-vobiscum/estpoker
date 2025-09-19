@@ -1,12 +1,14 @@
 package com.example.estpoker.rooms.service;
 
 import com.example.estpoker.model.Room;
-import com.example.estpoker.rooms.codec.RoomCodec;      // nur für statische Helfer
+import com.example.estpoker.rooms.codec.RoomCodec;
 import com.example.estpoker.rooms.model.StoredRoom;
 import com.example.estpoker.rooms.repo.RoomStore;
 import com.example.estpoker.security.PasswordHasher;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
+
+import java.util.Optional;
 
 @Service
 @ConditionalOnProperty(name = "app.storage.mode", havingValue = "ftps")
@@ -21,7 +23,7 @@ public class RoomPersistenceService {
   }
 
   /** Lädt die persistierte Snapshot-DTO (wirkt noch nicht auf Live-Room). */
-  public StoredRoom loadStored(String code) throws Exception {
+  public Optional<StoredRoom> loadStored(String code) throws Exception {
     return store.load(code);
   }
 
@@ -37,26 +39,23 @@ public class RoomPersistenceService {
 
   /** Wendet einen gespeicherten Snapshot auf einen Live-Room an. */
   public void applyStoredToLive(String code, Room live) throws Exception {
-    StoredRoom dto = store.load(code);
+    StoredRoom dto = store.load(code)
+        .orElseThrow(() -> new IllegalStateException("room '" + code + "' not found"));
     RoomCodec.applyToRoom(dto, live);
   }
 
   /** Setzt/updated ein Passwort (raw, null/blank = löschen). */
   public void setPassword(String code, String raw) throws Exception {
-    StoredRoom dto;
-    try {
-      dto = store.load(code);
-    } catch (Exception notFound) {
-      // Neu anlegen, wenn noch nicht existiert
-      dto = StoredRoom.newWithCode(code);
-    }
+    StoredRoom dto = store.load(code).orElseGet(() -> StoredRoom.newWithCode(code));
     dto.setPasswordFromRaw(raw, hasher);
     store.save(dto);
   }
 
-  /** Verifiziert ein Passwort gegen den gespeicherten Hash. */
+  /** Verifiziert ein Passwort gegen dem gespeicherten Hash. */
   public boolean verifyPassword(String code, String raw) throws Exception {
-    StoredRoom dto = store.load(code);
-    return dto.verifyPassword(raw, hasher);
+    Optional<StoredRoom> dto = store.load(code);
+    // Wenn es noch keinen Snapshot gibt, betrachten wir das wie "kein Passwort gesetzt"
+    return dto.map(r -> r.verifyPassword(raw, hasher))
+              .orElse(false);
   }
 }

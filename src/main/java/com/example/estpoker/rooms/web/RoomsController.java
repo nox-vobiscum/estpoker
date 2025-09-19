@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.Instant;
 import java.util.Objects;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/rooms")
@@ -24,28 +25,26 @@ public class RoomsController {
   // --- Exists / Get --------------------------------------------------------
 
   @GetMapping("/{code}/exists")
-  public ResponseEntity<ExistsView> exists(@PathVariable String code) {
+  public ResponseEntity<?> exists(@PathVariable String code) {
     try {
-      boolean ex = (store.load(code) != null);
-      return ResponseEntity.ok(new ExistsView(ex));
+      return ResponseEntity.ok(new ExistsView(store.exists(code)));
     } catch (Exception e) {
-      // konservativ: bei Fehler "exists=false" + 500 ist auch okay; hier: 200 mit false
-      return ResponseEntity.ok(new ExistsView(false));
+      return ResponseEntity.internalServerError().body(new ErrorView(e.getMessage()));
     }
   }
 
   @GetMapping("/{code}")
   public ResponseEntity<?> get(@PathVariable String code) {
     try {
-      StoredRoom r = store.load(code);
-      if (r == null) return ResponseEntity.notFound().build();
-      return ResponseEntity.ok(StoredRoomView.from(r));
+      Optional<StoredRoom> r = store.load(code);
+      return r.<ResponseEntity<?>>map(stored -> ResponseEntity.ok(StoredRoomView.from(stored)))
+              .orElseGet(() -> ResponseEntity.notFound().build());
     } catch (Exception e) {
-      return ResponseEntity.status(500).body(new ErrorView(e.getMessage()));
+      return ResponseEntity.internalServerError().body(new ErrorView(e.getMessage()));
     }
   }
 
-  // --- Upsert (Meta + Settings; KEIN Passwort I/O) -------------------------
+  // --- Upsert (nur Meta + Settings; KEIN Passwort IO) ----------------------
 
   @PutMapping("/{code}")
   public ResponseEntity<?> upsert(
@@ -54,8 +53,7 @@ public class RoomsController {
   ) {
     try {
       // Lade oder erzeuge
-      StoredRoom r = store.load(code);
-      if (r == null) r = StoredRoom.newWithCode(code);
+      StoredRoom r = store.load(code).orElseGet(() -> StoredRoom.newWithCode(code));
 
       // Meta
       if (body.title != null)  r.setTitle(body.title);
@@ -63,17 +61,16 @@ public class RoomsController {
 
       // Settings (nur wenn geliefert)
       var s = r.getSettings();
-      if (body.sequenceId != null)        s.setSequenceId(body.sequenceId);
-      if (body.autoRevealEnabled != null) s.setAutoRevealEnabled(body.autoRevealEnabled);
-      if (body.allowSpecials != null)     s.setAllowSpecials(body.allowSpecials);
-      if (body.topicVisible != null)      s.setTopicVisible(body.topicVisible);
+      if (body.sequenceId != null)            s.setSequenceId(body.sequenceId);
+      if (body.autoRevealEnabled != null)     s.setAutoRevealEnabled(body.autoRevealEnabled);
+      if (body.allowSpecials != null)         s.setAllowSpecials(body.allowSpecials);
+      if (body.topicVisible != null)          s.setTopicVisible(body.topicVisible);
 
       r.touchUpdated();
       store.save(r);
-
       return ResponseEntity.ok(StoredRoomView.from(r));
     } catch (Exception e) {
-      return ResponseEntity.status(500).body(new ErrorView(e.getMessage()));
+      return ResponseEntity.internalServerError().body(new ErrorView(e.getMessage()));
     }
   }
 
@@ -88,7 +85,7 @@ public class RoomsController {
       service.setPassword(code, (req == null ? null : req.password));
       return ResponseEntity.noContent().build();
     } catch (Exception e) {
-      return ResponseEntity.status(500).body(new ErrorView(e.getMessage()));
+      return ResponseEntity.internalServerError().body(new ErrorView(e.getMessage()));
     }
   }
 
@@ -96,11 +93,16 @@ public class RoomsController {
 
   @DeleteMapping("/{code}")
   public ResponseEntity<?> delete(@PathVariable String code) {
-    // Aktuelle RoomStore-API hat (bei dir) kein delete/exists -> später nachrüsten.
-    return ResponseEntity.status(501).body(new ErrorView("Delete not implemented yet"));
+    try {
+      if (!store.exists(code)) return ResponseEntity.notFound().build();
+      store.delete(code);
+      return ResponseEntity.noContent().build();
+    } catch (Exception e) {
+      return ResponseEntity.internalServerError().body(new ErrorView(e.getMessage()));
+    }
   }
 
-  // ===== DTOs (Views/Requests) ============================================
+  // ====== DTOs (Views/Requests) ============================================
 
   /** GET /exists view */
   public static final class ExistsView {
@@ -161,12 +163,9 @@ public class RoomsController {
     public String password;
   }
 
-  /** Fehler-View (kompakt) */
   public static final class ErrorView {
     public boolean ok = false;
     public String message;
-    public ErrorView(String message) {
-      this.message = (message == null ? "Internal error" : message);
-    }
+    public ErrorView(String message) { this.message = (message == null ? "Internal error" : message); }
   }
 }
