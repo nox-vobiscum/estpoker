@@ -22,14 +22,14 @@ public class RoomsController {
     this.service = service;
   }
 
-  // --- Exists / Get --------------------------------------------------------
+  // --- Exists / Get ---------------------------------------------------------
 
   @GetMapping("/{code}/exists")
   public ResponseEntity<?> exists(@PathVariable String code) {
     try {
       return ResponseEntity.ok(new ExistsView(store.exists(code)));
     } catch (Exception e) {
-      return ResponseEntity.internalServerError().body(new ErrorView(e.getMessage()));
+      return ResponseEntity.status(500).body(new ErrorView(e.getMessage()));
     }
   }
 
@@ -40,11 +40,11 @@ public class RoomsController {
       return r.<ResponseEntity<?>>map(stored -> ResponseEntity.ok(StoredRoomView.from(stored)))
               .orElseGet(() -> ResponseEntity.notFound().build());
     } catch (Exception e) {
-      return ResponseEntity.internalServerError().body(new ErrorView(e.getMessage()));
+      return ResponseEntity.status(500).body(new ErrorView(e.getMessage()));
     }
   }
 
-  // --- Upsert (nur Meta + Settings; KEIN Passwort IO) ----------------------
+  // --- Upsert (Meta + Settings; no password in/out) -----------------------
 
   @PutMapping("/{code}")
   public ResponseEntity<?> upsert(
@@ -52,14 +52,11 @@ public class RoomsController {
       @RequestBody UpsertRequest body
   ) {
     try {
-      // Lade oder erzeuge
       StoredRoom r = store.load(code).orElseGet(() -> StoredRoom.newWithCode(code));
 
-      // Meta
       if (body.title != null)  r.setTitle(body.title);
       if (body.owner != null)  r.setOwner(body.owner);
 
-      // Settings (nur wenn geliefert)
       var s = r.getSettings();
       if (body.sequenceId != null)            s.setSequenceId(body.sequenceId);
       if (body.autoRevealEnabled != null)     s.setAutoRevealEnabled(body.autoRevealEnabled);
@@ -70,11 +67,11 @@ public class RoomsController {
       store.save(r);
       return ResponseEntity.ok(StoredRoomView.from(r));
     } catch (Exception e) {
-      return ResponseEntity.internalServerError().body(new ErrorView(e.getMessage()));
+      return ResponseEntity.status(500).body(new ErrorView(e.getMessage()));
     }
   }
 
-  // --- Passwort setzen/löschen --------------------------------------------
+  // --- set/delete password ----------------------------------------------
 
   @PostMapping("/{code}/set-password")
   public ResponseEntity<?> setPassword(
@@ -85,11 +82,27 @@ public class RoomsController {
       service.setPassword(code, (req == null ? null : req.password));
       return ResponseEntity.noContent().build();
     } catch (Exception e) {
-      return ResponseEntity.internalServerError().body(new ErrorView(e.getMessage()));
+      return ResponseEntity.status(500).body(new ErrorView(e.getMessage()));
     }
   }
 
-  // --- Löschen -------------------------------------------------------------
+  // --- check password ------------------------------------------------------
+
+  @PostMapping("/{code}/password/check")
+  public ResponseEntity<CheckView> checkPassword(
+      @PathVariable String code,
+      @RequestBody(required = false) PasswordRequest req
+  ) {
+    boolean ok;
+    try {
+      ok = service.verifyPassword(code, (req == null ? null : req.password));
+    } catch (Exception e) {
+      ok = false;
+    }
+    return ResponseEntity.ok(new CheckView(ok));
+  }
+
+  // --- delete --------------------------------------------------------------
 
   @DeleteMapping("/{code}")
   public ResponseEntity<?> delete(@PathVariable String code) {
@@ -98,19 +111,17 @@ public class RoomsController {
       store.delete(code);
       return ResponseEntity.noContent().build();
     } catch (Exception e) {
-      return ResponseEntity.internalServerError().body(new ErrorView(e.getMessage()));
+      return ResponseEntity.status(500).body(new ErrorView(e.getMessage()));
     }
   }
 
-  // ====== DTOs (Views/Requests) ============================================
+  // ===== DTOs ===============================================================
 
-  /** GET /exists view */
   public static final class ExistsView {
     public boolean exists;
     public ExistsView(boolean exists) { this.exists = exists; }
   }
 
-  /** Redacted view (ohne passwordHash) */
   public static final class StoredRoomView {
     public String code;
     public String title;
@@ -127,7 +138,6 @@ public class RoomsController {
       v.owner = r.getOwner();
       v.createdAt = r.getCreatedAt();
       v.updatedAt = r.getUpdatedAt();
-
       var s = r.getSettings();
       SettingsView sv = new SettingsView();
       if (s != null) {
@@ -148,7 +158,6 @@ public class RoomsController {
     public boolean topicVisible;
   }
 
-  /** PUT body */
   public static final class UpsertRequest {
     public String  title;
     public String  owner;
@@ -158,7 +167,6 @@ public class RoomsController {
     public Boolean topicVisible;
   }
 
-  /** POST set-password body */
   public static final class PasswordRequest {
     public String password;
   }
@@ -167,5 +175,10 @@ public class RoomsController {
     public boolean ok = false;
     public String message;
     public ErrorView(String message) { this.message = (message == null ? "Internal error" : message); }
+  }
+
+  public static final class CheckView {
+    public boolean ok;
+    public CheckView(boolean ok) { this.ok = ok; }
   }
 }
