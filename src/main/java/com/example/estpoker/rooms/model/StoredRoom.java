@@ -34,6 +34,23 @@ public class StoredRoom {
   // --- compact history of finished rounds (optional) ---
   private List<HistoryItem> history = new ArrayList<>();
 
+  // --- participants snapshot (current room presence) ---
+  private List<StoredParticipant> participants = new ArrayList<>();
+
+  // Optional live topic (aktueller Titel/Link des Rooms)
+  private String topicLabel;
+  private String topicUrl;
+
+  public List<StoredParticipant> getParticipants() { return participants; }
+  public void setParticipants(List<StoredParticipant> participants) { this.participants = participants; }
+
+  public String getTopicLabel() { return topicLabel; }
+  public void setTopicLabel(String topicLabel) { this.topicLabel = topicLabel; }
+
+  public String getTopicUrl() { return topicUrl; }
+  public void setTopicUrl(String topicUrl) { this.topicUrl = topicUrl; }
+
+
   // ----- lifecycle helpers --------------------------------------------------
 
   /** Ensure timestamps exist; call when creating a brand-new room. */
