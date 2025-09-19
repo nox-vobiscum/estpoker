@@ -1,10 +1,10 @@
 package com.example.estpoker.rooms.service;
 
 import com.example.estpoker.model.Room;
+import com.example.estpoker.rooms.codec.RoomCodec;      // nur für statische Helfer
 import com.example.estpoker.rooms.model.StoredRoom;
 import com.example.estpoker.rooms.repo.RoomStore;
 import com.example.estpoker.security.PasswordHasher;
-import com.example.estpoker.rooms.codec.RoomCodec;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 
@@ -13,12 +13,10 @@ import org.springframework.stereotype.Service;
 public class RoomPersistenceService {
 
   private final RoomStore store;
-  private final RoomCodec codec;
   private final PasswordHasher hasher;
 
-  public RoomPersistenceService(RoomStore store, RoomCodec codec, PasswordHasher hasher) {
+  public RoomPersistenceService(RoomStore store, PasswordHasher hasher) {
     this.store = store;
-    this.codec = codec;
     this.hasher = hasher;
   }
 
@@ -56,7 +54,7 @@ public class RoomPersistenceService {
     store.save(dto);
   }
 
-  /** Verifiziert ein Passwort gegen dem gespeicherten Hash. */
+  /** Verifiziert ein Passwort gegen den gespeicherten Hash. */
   public boolean verifyPassword(String code, String raw) throws Exception {
     StoredRoom dto = store.load(code);
     return dto.verifyPassword(raw, hasher);
