@@ -6,6 +6,7 @@ import com.example.estpoker.model.CardSequences;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
@@ -22,6 +23,20 @@ import java.util.regex.Pattern;
 public class GameService {
 
     private static final Logger log = LoggerFactory.getLogger(GameService.class);
+
+    // --- optional persistence hook (non-fatal, may be null) ---
+    /** English inline comment: May be null in tests; Spring injects a real provider at runtime. */
+    private final ObjectProvider<com.example.estpoker.rooms.service.RoomPersistenceService> persistenceProvider;
+
+    /** English inline comment: default ctor for tests – no persistence. */
+    public GameService() {
+        this.persistenceProvider = null;
+    }
+
+    /** English inline comment: Spring-injected provider (may be null if no bean is present). */
+    public GameService(ObjectProvider<com.example.estpoker.rooms.service.RoomPersistenceService> persistenceProvider) {
+        this.persistenceProvider = persistenceProvider;
+    }
 
     // --- in-memory state ---
     private final Map<String, Room> rooms = new ConcurrentHashMap<>();
@@ -213,14 +228,26 @@ public class GameService {
 
     public void reveal(String roomCode) {
         Room room = getOrCreateRoom(roomCode);
-        synchronized (room) { room.setCardsRevealed(true); }
+        String actor = null;
+        synchronized (room) {
+            room.setCardsRevealed(true);
+            Participant host = room.getHost();
+            actor = (host != null ? host.getName() : null);
+        }
         broadcastRoomState(room);
+        persistSnapshot(room, actor); // English inline comment: best-effort, non-blocking
     }
 
     public void reset(String roomCode) {
         Room room = getOrCreateRoom(roomCode);
-        synchronized (room) { room.reset(); }
+        String actor = null;
+        synchronized (room) {
+            room.reset();
+            Participant host = room.getHost();
+            actor = (host != null ? host.getName() : null);
+        }
         broadcastRoomState(room);
+        persistSnapshot(room, actor); // English inline comment: best-effort, non-blocking
     }
 
     public void saveTopic(String roomCode, String input) {
@@ -267,30 +294,30 @@ public class GameService {
     }
 
     public void setAllowSpecials(String roomCode, boolean allow) {
-    Room room = getOrCreateRoom(roomCode);
-    boolean changed = false;
+        Room room = getOrCreateRoom(roomCode);
+        boolean changed = false;
 
-    synchronized (room) {
-        if (room.isAllowSpecials() != allow) {
-            room.setAllowSpecials(allow);
-            changed = true;
+        synchronized (room) {
+            if (room.isAllowSpecials() != allow) {
+                room.setAllowSpecials(allow);
+                changed = true;
 
-            // If specials are disabled, clear any existing special votes
-            if (!allow) {
-                for (Participant p : room.getParticipants()) {
-                    String v = p.getVote();
-                    if (CardSequences.isSpecial(v)) {
-                        p.setVote(null);
+                // If specials are disabled, clear any existing special votes
+                if (!allow) {
+                    for (Participant p : room.getParticipants()) {
+                        String v = p.getVote();
+                        if (CardSequences.isSpecial(v)) {
+                            p.setVote(null);
+                        }
                     }
                 }
             }
         }
-    }
 
-    if (changed) {
-        broadcastRoomState(room);
+        if (changed) {
+            broadcastRoomState(room);
+        }
     }
-}
 
     public void setSpectator(String roomCode, String nameOrCid, boolean spectator) {
         Room room = getOrCreateRoom(roomCode);
@@ -426,22 +453,21 @@ public class GameService {
 
     /** Consensus now fails immediately if any active participant selected ∞. */
     public boolean isConsensus(Room room) {
-    if (room == null) return false;
+        if (room == null) return false;
 
-    // Collect all visible votes (strings), including specials/infinity for the check
-    List<String> votes = new ArrayList<>();
-    for (Participant p : room.getParticipants()) {
-        if (p.isActive() && p.isParticipating()) {
-            String v = p.getVote();
-            if (v != null) votes.add(v);
+        // Collect all visible votes (strings), including specials/infinity for the check
+        List<String> votes = new ArrayList<>();
+        for (Participant p : room.getParticipants()) {
+            if (p.isActive() && p.isParticipating()) {
+                String v = p.getVote();
+                if (v != null) votes.add(v);
+            }
         }
+
+        // Delegate to CardSequences: returns false if any infinity is present,
+        // otherwise checks numeric equality of all numeric votes.
+        return com.example.estpoker.model.CardSequences.isConsensus(votes);
     }
-
-    // Delegate to CardSequences: returns false if any infinity is present,
-    // otherwise checks numeric equality of all numeric votes.
-    return com.example.estpoker.model.CardSequences.isConsensus(votes);
-}
-
 
     /** Detects at least one active, participating vote of ∞. */
     private boolean hasInfinityVote(Room room) {
@@ -872,41 +898,63 @@ public class GameService {
         }
     }
 
-    // Mindestens so viele numerische Stimmen nötig, um mehrere (gleich weit entfernte) Outlier zu markieren
-private static final int MIN_VOTERS_FOR_TIED_OUTLIERS = 5;
+    // At least this many numeric voters required before returning tied outliers
+    private static final int MIN_VOTERS_FOR_TIED_OUTLIERS = 5;
 
-/** 
- * Names farthest from the average (numeric votes only, ≥3 voters required).
- * - If there is a single clear farthest voter → return that one.
- * - If several voters are tied for farthest → only return them when there are ≥ MIN_VOTERS_FOR_TIED_OUTLIERS
- *   numeric voters; otherwise return an empty list (no outliers).
- */
-public List<String> farthestFromAverageNames(Room room) {
-    Map<String, Double> nv = collectNumericVotes(room);
-    int n = nv.size();
-    if (n < 3) return List.of();
+    /**
+     * Names farthest from the average (numeric votes only, ≥3 voters required).
+     * - If there is a single clear farthest voter → return that one.
+     * - If several voters are tied for farthest → only return them when there are ≥ MIN_VOTERS_FOR_TIED_OUTLIERS
+     *   numeric voters; otherwise return an empty list (no outliers).
+     */
+    public List<String> farthestFromAverageNames(Room room) {
+        Map<String, Double> nv = collectNumericVotes(room);
+        int n = nv.size();
+        if (n < 3) return List.of();
 
-    OptionalDouble avgOpt = nv.values().stream().mapToDouble(Double::doubleValue).average();
-    if (avgOpt.isEmpty()) return List.of();
-    double avg = avgOpt.getAsDouble();
+        OptionalDouble avgOpt = nv.values().stream().mapToDouble(Double::doubleValue).average();
+        if (avgOpt.isEmpty()) return List.of();
+        double avg = avgOpt.getAsDouble();
 
-    double maxDist = -1d;
-    Map<String, Double> dist = new LinkedHashMap<>();
-    for (Map.Entry<String, Double> e : nv.entrySet()) {
-        double d = Math.abs(e.getValue() - avg);
-        dist.put(e.getKey(), d);
-        if (d > maxDist) maxDist = d;
+        double maxDist = -1d;
+        Map<String, Double> dist = new LinkedHashMap<>();
+        for (Map.Entry<String, Double> e : nv.entrySet()) {
+            double d = Math.abs(e.getValue() - avg);
+            dist.put(e.getKey(), d);
+            if (d > maxDist) maxDist = d;
+        }
+        if (maxDist <= 0) return List.of(); // all equal → no outliers
+
+        final double eps = 1e-9;
+        List<String> tied = new ArrayList<>();
+        for (Map.Entry<String, Double> e : dist.entrySet()) {
+            if (Math.abs(e.getValue() - maxDist) <= eps) tied.add(e.getKey());
+        }
+
+        if (tied.size() == 1) return tied;                     // exactly one outlier
+        return (n >= MIN_VOTERS_FOR_TIED_OUTLIERS) ? tied : List.of(); // multiple: require n >= 5
     }
-    if (maxDist <= 0) return List.of(); // komplett gleich → keine Outlier
 
-    final double eps = 1e-9;
-    List<String> tied = new ArrayList<>();
-    for (Map.Entry<String, Double> e : dist.entrySet()) {
-        if (Math.abs(e.getValue() - maxDist) <= eps) tied.add(e.getKey());
+    // ========================================================================
+    //  PERSISTENCE HELPER (optional)
+    // ========================================================================
+
+    /** English inline comment: fire-and-forget snapshot; ignore absence/failure of persistence bean. */
+    private void persistSnapshot(Room room, String requestedBy) {
+        try {
+            if (persistenceProvider != null) {
+                var svc = persistenceProvider.getIfAvailable();
+                if (svc != null && room != null) {
+                    svc.saveFromLive(room, requestedBy);
+                }
+            }
+        } catch (Exception e) {
+            final String rc = (room != null ? room.getCode() : "<null>");
+            if (log.isDebugEnabled()) {
+                log.debug("Persistence saveFromLive failed for room {}: {}", rc, e.toString(), e);
+            } else {
+                log.warn("Persistence saveFromLive failed for room {}: {}", rc, e.toString());
+            }
+        }
     }
-
-    if (tied.size() == 1) return tied;                     // genau ein klarer Outlier
-    return (n >= MIN_VOTERS_FOR_TIED_OUTLIERS) ? tied : List.of(); // mehrere: erst ab n >= 5
-}
-
 }

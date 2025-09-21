@@ -38,9 +38,10 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     /** Per WebSocket session → (room, cid, canonicalName) */
     private final Map<String, Conn> bySession = new ConcurrentHashMap<>();
 
-    /** Hard host reassignment threshold (kept in sync with service logic – currently 15 min). */
+    /** Hard host reassignment threshold (keep consistent with service logic – currently 60 min). */
     private static final long HOST_INACTIVE_MS = 3_600_000L;
 
+    // English inline comment: accept a few common truthy/falsy spellings for boolean toggles.
     private static boolean parseOn(String s) {
         if (s == null) return false;
         switch (s.trim().toLowerCase(Locale.ROOT)) {
@@ -283,7 +284,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                 // Do NOT broadcast leave immediately here (grace on unexpected close).
                 gameService.scheduleDisconnect(room, c.name);
             }
-            // Host hard demotion safeguard (15 min inactivity).
+            // Host hard demotion safeguard (60 min inactivity).
             gameService.ensureHost(roomCode, 0L, HOST_INACTIVE_MS);
         } catch (Throwable t) {
             log.error("WS afterConnectionClosed handling failed (room={}, name={})", roomCode, c.name, t);

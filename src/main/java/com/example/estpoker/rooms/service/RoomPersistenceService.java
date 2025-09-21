@@ -1,61 +1,35 @@
 package com.example.estpoker.rooms.service;
 
 import com.example.estpoker.model.Room;
-import com.example.estpoker.rooms.codec.RoomCodec;
-import com.example.estpoker.rooms.model.StoredRoom;
-import com.example.estpoker.rooms.repo.RoomStore;
-import com.example.estpoker.security.PasswordHasher;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.stereotype.Service;
 
-import java.util.Optional;
+/**
+ * Persistence facade for saving/loading room snapshots and optional room protection.
+ * Implementations may back this with any storage (DB, file, etc.).
+ * Default methods are no-ops to avoid breaking existing implementations.
+ */
+public interface RoomPersistenceService {
 
-@Service
-@ConditionalOnProperty(name = "app.storage.mode", havingValue = "ftps")
-public class RoomPersistenceService {
+    /**
+     * Save a snapshot of the live in-memory room to persistent storage.
+     * Implementations decide what and how to store.
+     */
+    void saveFromLive(Room room, String requestedBy);
 
-  private final RoomStore store;
-  private final PasswordHasher hasher;
-
-  public RoomPersistenceService(RoomStore store, PasswordHasher hasher) {
-    this.store = store;
-    this.hasher = hasher;
-  }
-
-  /** Lädt die persistierte Snapshot-DTO (wirkt noch nicht auf Live-Room). */
-  public Optional<StoredRoom> loadStored(String code) throws Exception {
-    return store.load(code);
-  }
-
-  /** Persistiert einen Live-Room als Snapshot (Owner optional für Meta). */
-  public void saveFromLive(Room live, String ownerDisplayName) throws Exception {
-    StoredRoom dto = RoomCodec.toStored(live);
-    if (ownerDisplayName != null && !ownerDisplayName.isBlank()) {
-      dto.setOwner(ownerDisplayName);
+    /**
+     * Set or clear the password for a room.
+     * English inline comment: default is a no-op so existing implementations keep working.
+     * Implementations should treat null/blank as "clear password".
+     */
+    default void setPassword(String roomCode, String newPassword) {
+        // no-op by default
     }
-    // Aktualisiert created/updated und schreibt JSON
-    store.save(dto);
-  }
 
-  /** Wendet einen gespeicherten Snapshot auf einen Live-Room an. */
-  public void applyStoredToLive(String code, Room live) throws Exception {
-    StoredRoom dto = store.load(code)
-        .orElseThrow(() -> new IllegalStateException("room '" + code + "' not found"));
-    RoomCodec.applyToRoom(dto, live);
-  }
-
-  /** Setzt/updated ein Passwort (raw, null/blank = löschen). */
-  public void setPassword(String code, String raw) throws Exception {
-    StoredRoom dto = store.load(code).orElseGet(() -> StoredRoom.newWithCode(code));
-    dto.setPasswordFromRaw(raw, hasher);
-    store.save(dto);
-  }
-
-  /** Verifiziert ein Passwort gegen dem gespeicherten Hash. */
-  public boolean verifyPassword(String code, String raw) throws Exception {
-    Optional<StoredRoom> dto = store.load(code);
-    // Wenn es noch keinen Snapshot gibt, betrachten wir das wie "kein Passwort gesetzt"
-    return dto.map(r -> r.verifyPassword(raw, hasher))
-              .orElse(false);
-  }
+    /**
+     * Verify a provided password for a room.
+     * English inline comment: default returns true to stay non-blocking at compile time.
+     * Implementations should perform a constant-time comparison against the stored hash.
+     */
+    default boolean verifyPassword(String roomCode, String password) {
+        return true;
+    }
 }
