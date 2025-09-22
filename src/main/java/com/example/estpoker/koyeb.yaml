@@ -6,7 +6,7 @@ services:
       dockerfile: Dockerfile
     env:
       - key: SPRING_PROFILES_ACTIVE
-        value: prod-h2
+        value: prod
       # Später für Neon:
       # - key: JDBC_URL
       #   value: jdbc:postgresql://<host>/<db>?sslmode=require

@@ -27,7 +27,7 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 @Service
 @Primary               // Prefer this over other RoomPersistenceService beans (e.g., NoOp)
-@Profile("prod-h2")    // Limit to current deploy profile
+@Profile("local")    // Limit to current deploy profile
 public class InMemoryRoomPersistenceService implements RoomPersistenceService {
 
     private static final Logger log = LoggerFactory.getLogger(InMemoryRoomPersistenceService.class);

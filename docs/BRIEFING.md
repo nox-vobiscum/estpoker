@@ -53,7 +53,7 @@ Lightweight online estimation poker with real-time updates, simple UX, and optio
 ## 3) Configuration & Feature Flags
 
 - **Base config:** `application.properties`
-- **Per-profile overrides:** e.g. `application-prod.properties`, `application-prod-h2.properties`
+- **Per-profile overrides: ... application-prod.properties, application-local.properties
 
 **Examples**
 - Persistence master switch:  
@@ -170,7 +170,7 @@ Command (fast loop): mvnw -q -DskipITs -DskipE2E test
 
 - **Deploy target:** Koyeb  
 - **Proxy/CDN:** Cloudflare (forwarded headers via `server.forward-headers-strategy=framework`)  
-- **Profiles:** e.g., `prod`, `prod-h2`, `prod-neon`, `local`  
+- **Profiles: prod, local
 - **Logs:** prefer structured and concise; avoid noisy stack traces for expected flows.
 
 ---

@@ -12,13 +12,13 @@ import org.springframework.stereotype.Service;
  * English inline comments:
  * - Minimal, always-available fallback to satisfy DI in RoomsController.
  * - It intentionally does NOT persist anything.
- * - Scope: active in 'prod-h2' profile (your Koyeb deploy), so local/dev
+ * - Scope: active in 'prod' profile (your Koyeb deploy), so local/dev
  *   won't be affected unless they also use that profile.
  *
  * Replace with a real storage-backed implementation later.
  */
 @Service
-@Profile("prod-h2") // keep this limited to your current deploy profile
+@Profile("local")    // dev-only, prod uses real persistence
 public class NoOpRoomPersistenceService implements RoomPersistenceService {
 
     private static final Logger log = LoggerFactory.getLogger(NoOpRoomPersistenceService.class);
