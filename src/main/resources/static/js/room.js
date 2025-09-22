@@ -936,168 +936,197 @@
     }
   }
 
-  /*** ---------- Topic row ---------- ***/
-  function renderTopic() {
-    const row = $('#topicRow'); if (!row) return;
-    row.style.display = state.topicVisible ? '' : 'none';
+  /*** ---------- Topic row (guarded against WS while editing) ---------- ***/
+let topicDraft = null; // holds the in-progress text while editing
 
-    let actions = row.querySelector('.topic-actions');
-    if (!actions) { actions = document.createElement('div'); actions.className = 'topic-actions'; row.appendChild(actions); }
+function renderTopic() {
+  const row = $('#topicRow'); if (!row) return;
+  row.style.display = state.topicVisible ? '' : 'none';
 
-    let displayEl = row.querySelector('#topicDisplay');
+  let actions = row.querySelector('.topic-actions');
+  if (!actions) { actions = document.createElement('div'); actions.className = 'topic-actions'; row.appendChild(actions); }
 
-    const renderDisplayContent = (el) => {
-      if (state.topicLabel && state.topicUrl) {
-        el.innerHTML = `<a href="${encodeURI(state.topicUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(state.topicLabel)}</a>`;
-      } else if (state.topicLabel) {
-        el.textContent = state.topicLabel;
-      } else {
-        el.textContent = '–';
-      }
-      const full = [state.topicLabel || '', state.topicUrl || ''].filter(Boolean).join(' — ');
-      const link = el.querySelector && el.querySelector('a');
-      (link || el).setAttribute('title', wrapForTitle(full, 44));
-    };
+  let displayEl = row.querySelector('#topicDisplay');
 
-    let hint = row.querySelector('#topicOverflowHint');
-    const ensureHint = () => {
-      if (!hint) {
-        const btn = document.createElement('button');
-        btn.id = 'topicOverflowHint';
-        btn.type = 'button';
-        btn.className = 'topic-more-btn';
-        btn.textContent = isDe() ? 'mehr' : 'more';
-        const lab = isDe() ? 'Vollständiges Thema anzeigen' : 'Show full topic';
-        const label = t('topic.more', lab);
-        btn.setAttribute('aria-label', label);
-        btn.setAttribute('title', label);
-        hint = btn;
-      }
-    };
-
-    // Non-hosts view
-    if (!state.isHost) {
-      if (!displayEl || displayEl.tagName !== 'SPAN') {
-        const span = document.createElement('span');
-        span.id = 'topicDisplay';
-        span.className = 'topic-text';
-        if (displayEl) displayEl.replaceWith(span);
-        else row.insertBefore(span, row.firstChild ? row.firstChild.nextSibling : null);
-        displayEl = span;
-      }
-      renderDisplayContent(displayEl);
-
-      ensureHint();
-      if (!hint.isConnected) row.insertBefore(hint, actions);
-      actions.innerHTML = '';
-
-      requestAnimationFrame(syncTopicOverflow);
-      const full = [state.topicLabel || '', state.topicUrl || ''].filter(Boolean).join(' — ');
-      hint.setAttribute('title', wrapForTitle(full, 44));
-      hint.setAttribute('aria-label', t('topic.more', isDe() ? 'Vollständiges Thema anzeigen' : 'Show full topic'));
-      return;
-    }
-
-    // Host: view/edit
-    if (!state.topicEditing) {
-      if (!displayEl || displayEl.tagName !== 'SPAN') {
-        const span = document.createElement('span');
-        span.id = 'topicDisplay';
-        span.className = 'topic-text';
-        if (displayEl) displayEl.replaceWith(span);
-        else row.insertBefore(span, row.firstChild ? row.firstChild.nextSibling : null);
-        displayEl = span;
-      }
-      renderDisplayContent(displayEl);
-
-      ensureHint();
-      if (!hint.isConnected) row.insertBefore(hint, actions);
-
-      const titleEdit  = t('button.editTopic',  isDe() ? 'Bearbeiten'   : 'Edit');
-      const titleClear = t('button.clearTopic', isDe() ? 'Feld leeren'  : 'Clear');
-
-      actions.innerHTML =
-        `<button id="topicEditBtn" class="icon-button neutral" type="button"
-                 title="${escapeHtml(titleEdit)}" aria-label="${escapeHtml(titleEdit)}">✍️</button>
-         <button id="topicClearBtn" class="icon-button neutral" type="button"
-                 title="${escapeHtml(titleClear)}" aria-label="${escapeHtml(titleClear)}">🗑️</button>`;
-
-      const editBtn  = $('#topicEditBtn');
-      const clearBtn = $('#topicClearBtn');
-      if (editBtn)  editBtn.addEventListener('click', beginTopicEdit);
-      if (clearBtn) clearBtn.addEventListener('click', () => {
-        send('topicSave:' + encodeURIComponent(''));
-        state.topicLabel = '';
-        state.topicUrl = null;
-        state.topicEditing = false;
-        renderTopic();
-      });
-
-      requestAnimationFrame(syncTopicOverflow);
+  const renderDisplayContent = (el) => {
+    if (state.topicLabel && state.topicUrl) {
+      el.innerHTML = `<a href="${encodeURI(state.topicUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(state.topicLabel)}</a>`;
+    } else if (state.topicLabel) {
+      el.textContent = state.topicLabel;
     } else {
-      if (!displayEl || displayEl.tagName !== 'INPUT') {
-        const inp = document.createElement('input');
-        inp.type = 'text';
-        inp.className = 'topic-inline-input';
-        inp.id = 'topicDisplay';
-        inp.placeholder = isDe() ? 'JIRA-Link einfügen oder Key eingeben' : 'Paste JIRA link or type key';
-        if (displayEl) displayEl.replaceWith(inp);
-        else row.insertBefore(inp, row.firstChild ? row.firstChild.nextSibling : null);
-        displayEl = inp;
-      }
-      displayEl.value = state.topicLabel || '';
-      setTimeout(() => { try { displayEl.focus(); displayEl.select(); } catch {} }, 0);
-
-      if (hint) hint.style.display = 'none';
-
-      const titleSave   = t('button.saveTopic', isDe() ? 'Speichern'  : 'Save');
-      const titleCancel = t('button.cancel',    isDe() ? 'Abbrechen'  : 'Cancel');
-
-      actions.innerHTML =
-        `<button id="topicSaveBtn" class="icon-button neutral" type="button"
-                 title="${escapeHtml(titleSave)}" aria-label="${escapeHtml(titleSave)}">✅</button>
-         <button id="topicCancelEditBtn" class="icon-button neutral" type="button"
-                 title="${escapeHtml(titleCancel)}" aria-label="${escapeHtml(titleCancel)}">❌</button>`;
-
-      const saveBtn   = $('#topicSaveBtn');
-      const cancelBtn = $('#topicCancelEditBtn');
-
-      const doSave = () => {
-        const val = displayEl.value || '';
-        send('topicSave:' + encodeURIComponent(val));
-        state.topicEditing = false;
-        renderTopic();
-      };
-      const doCancel = () => { state.topicEditing = false; renderTopic(); };
-
-      if (saveBtn)   saveBtn.addEventListener('click', doSave);
-      if (cancelBtn) cancelBtn.addEventListener('click', doCancel);
-      displayEl.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter')  { e.preventDefault(); doSave(); }
-        if (e.key === 'Escape') { e.preventDefault(); doCancel(); }
-      });
+      el.textContent = '–';
     }
+    const full = [state.topicLabel || '', state.topicUrl || ''].filter(Boolean).join(' — ');
+    const link = el.querySelector && el.querySelector('a');
+    (link || el).setAttribute('title', wrapForTitle(full, 44));
+  };
+
+  let hint = row.querySelector('#topicOverflowHint');
+  const ensureHint = () => {
+    if (!hint) {
+      const btn = document.createElement('button');
+      btn.id = 'topicOverflowHint';
+      btn.type = 'button';
+      btn.className = 'topic-more-btn';
+      btn.textContent = isDe() ? 'mehr' : 'more';
+      const lab = isDe() ? 'Vollständiges Thema anzeigen' : 'Show full topic';
+      const label = t('topic.more', lab);
+      btn.setAttribute('aria-label', label);
+      btn.setAttribute('title', label);
+      hint = btn;
+    }
+  };
+
+  // Non-hosts view
+  if (!state.isHost) {
+    // not editing for non-hosts, ensure display span exists
+    if (!displayEl || displayEl.tagName !== 'SPAN') {
+      const span = document.createElement('span');
+      span.id = 'topicDisplay';
+      span.className = 'topic-text';
+      if (displayEl) displayEl.replaceWith(span);
+      else row.insertBefore(span, row.firstChild ? row.firstChild.nextSibling : null);
+      displayEl = span;
+    }
+    renderDisplayContent(displayEl);
+
+    ensureHint();
+    if (!hint.isConnected) row.insertBefore(hint, actions);
+    actions.innerHTML = '';
+
+    requestAnimationFrame(syncTopicOverflow);
+    const full = [state.topicLabel || '', state.topicUrl || ''].filter(Boolean).join(' — ');
+    hint.setAttribute('title', wrapForTitle(full, 44));
+    hint.setAttribute('aria-label', t('topic.more', isDe() ? 'Vollständiges Thema anzeigen' : 'Show full topic'));
+    return;
   }
-  function beginTopicEdit() { if (!state.isHost) return; state.topicEditing = true; renderTopic(); }
 
-  function syncTopicOverflow() {
-    try {
-      const row  = $('#topicRow'); if (!row) return;
-      const el   = row.querySelector('#topicDisplay');
-      const hint = row.querySelector('#topicOverflowHint');
-      if (!el || !hint) return;
+  // Host: view/edit
+  if (!state.topicEditing) {
+    // leaving edit mode: drop any draft
+    topicDraft = null;
 
-      const inViewMode = el && el.tagName === 'SPAN';
-      if (!inViewMode) { hint.style.display = 'none'; return; }
+    if (!displayEl || displayEl.tagName !== 'SPAN') {
+      const span = document.createElement('span');
+      span.id = 'topicDisplay';
+      span.className = 'topic-text';
+      if (displayEl) displayEl.replaceWith(span);
+      else row.insertBefore(span, row.firstChild ? row.firstChild.nextSibling : null);
+      displayEl = span;
+    }
+    renderDisplayContent(displayEl);
 
-      const full = [state.topicLabel || '', state.topicUrl || ''].filter(Boolean).join(' — ');
-      hint.setAttribute('title', full);
-      hint.setAttribute('aria-label', t('topic.more', isDe() ? 'Vollständiges Thema anzeigen' : 'Show full topic'));
+    ensureHint();
+    if (!hint.isConnected) row.insertBefore(hint, actions);
 
-      const over = el.scrollWidth > el.clientWidth + 1;
-      hint.style.display = over ? '' : 'none';
-    } catch {}
+    const titleEdit  = t('button.editTopic',  isDe() ? 'Bearbeiten'   : 'Edit');
+    const titleClear = t('button.clearTopic', isDe() ? 'Feld leeren'  : 'Clear');
+
+    actions.innerHTML =
+      `<button id="topicEditBtn" class="icon-button neutral" type="button"
+               title="${escapeHtml(titleEdit)}" aria-label="${escapeHtml(titleEdit)}">✍️</button>
+       <button id="topicClearBtn" class="icon-button neutral" type="button"
+               title="${escapeHtml(titleClear)}" aria-label="${escapeHtml(titleClear)}">🗑️</button>`;
+
+    const editBtn  = $('#topicEditBtn');
+    const clearBtn = $('#topicClearBtn');
+    if (editBtn)  editBtn.addEventListener('click', beginTopicEdit);
+    if (clearBtn) clearBtn.addEventListener('click', () => {
+      send('topicSave:' + encodeURIComponent(''));
+      // reflect immediately in local state
+      state.topicLabel = '';
+      state.topicUrl = null;
+      state.topicEditing = false;
+      topicDraft = null;
+      renderTopic();
+    });
+
+    requestAnimationFrame(syncTopicOverflow);
+  } else {
+    // editing mode: install an <input>, keep user's typing in topicDraft
+    const existedAsInput = (displayEl && displayEl.tagName === 'INPUT');
+    if (!existedAsInput) {
+      const inp = document.createElement('input');
+      inp.type = 'text';
+      inp.className = 'topic-inline-input';
+      inp.id = 'topicDisplay';
+      inp.placeholder = isDe() ? 'JIRA-Link einfügen oder Key eingeben' : 'Paste JIRA link or type key';
+      if (displayEl) displayEl.replaceWith(inp);
+      else row.insertBefore(inp, row.firstChild ? row.firstChild.nextSibling : null);
+      displayEl = inp;
+
+      // initialize from draft or current state once
+      displayEl.value = (topicDraft !== null ? topicDraft : (state.topicLabel || ''));
+      // keep draft updated while typing
+      displayEl.addEventListener('input', () => { topicDraft = displayEl.value; });
+
+      setTimeout(() => { try { displayEl.focus(); displayEl.select(); } catch {} }, 0);
+    }
+    // if input already exists, do NOT overwrite its value on re-renders
+
+    if (hint) hint.style.display = 'none';
+
+    const titleSave   = t('button.saveTopic', isDe() ? 'Speichern'  : 'Save');
+    const titleCancel = t('button.cancel',    isDe() ? 'Abbrechen'  : 'Cancel');
+
+    actions.innerHTML =
+      `<button id="topicSaveBtn" class="icon-button neutral" type="button"
+               title="${escapeHtml(titleSave)}" aria-label="${escapeHtml(titleSave)}">✅</button>
+       <button id="topicCancelEditBtn" class="icon-button neutral" type="button"
+               title="${escapeHtml(titleCancel)}" aria-label="${escapeHtml(titleCancel)}">❌</button>`;
+
+    const saveBtn   = $('#topicSaveBtn');
+    const cancelBtn = $('#topicCancelEditBtn');
+
+    const doSave = () => {
+      const val = (topicDraft !== null ? topicDraft : displayEl.value || '');
+      send('topicSave:' + encodeURIComponent(val));
+      state.topicEditing = false;
+      topicDraft = null;
+      renderTopic();
+    };
+    const doCancel = () => {
+      state.topicEditing = false;
+      topicDraft = null;
+      renderTopic();
+    };
+
+    if (saveBtn)   saveBtn.addEventListener('click', doSave);
+    if (cancelBtn) cancelBtn.addEventListener('click', doCancel);
+    displayEl.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter')  { e.preventDefault(); doSave(); }
+      if (e.key === 'Escape') { e.preventDefault(); doCancel(); }
+    });
   }
+}
+
+function beginTopicEdit() {
+  if (!state.isHost) return;
+  // seed draft from current label once, then keep it independent from WS updates
+  topicDraft = state.topicLabel || '';
+  state.topicEditing = true;
+  renderTopic();
+}
+
+function syncTopicOverflow() {
+  try {
+    const row  = $('#topicRow'); if (!row) return;
+    const el   = row.querySelector('#topicDisplay');
+    const hint = row.querySelector('#topicOverflowHint');
+    if (!el || !hint) return;
+
+    const inViewMode = el && el.tagName === 'SPAN';
+    if (!inViewMode) { hint.style.display = 'none'; return; }
+
+    const full = [state.topicLabel || '', state.topicUrl || ''].filter(Boolean).join(' — ');
+    hint.setAttribute('title', full);
+    hint.setAttribute('aria-label', t('topic.more', isDe() ? 'Vollständiges Thema anzeigen' : 'Show full topic'));
+
+    const over = el.scrollWidth > el.clientWidth + 1;
+    hint.style.display = over ? '' : 'none';
+  } catch {}
+}
+
 
   /*** ---------- Auto-reveal badge ---------- ***/
   function renderAutoReveal() {
