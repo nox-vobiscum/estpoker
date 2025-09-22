@@ -1,144 +1,111 @@
 # Backlog
 
-> Scope: lightweight, dev-facing backlog for estpoker.  
-> Conventions: [P1]=high, [P2]=medium, [P3]=low.  
-> Status tags: ⏳ planned · ��� in progress · ✅ done
+This backlog collects future improvements and nice-to-haves. Priorities are indicative:
+- **P1** high – near-term value / risk
+- **P2** medium – useful, not urgent
+- **P3** low – nice to have / polish
+
+Status tags:
+- ✅ Done
+- 🚧 In progress
+- ⏳ Planned
+- 💤 Parked
 
 ---
 
-## [P3] Configurable JIRA base URL per room  ⏳
-**Goal:** Allow the host to set a JIRA base URL per room so plain issue keys (e.g., `ABC-123`) are auto-linked to the correct instance.
+## [P2] Debounced room snapshotter & unified mutation hooks ⏳
+**Goal:** Persist a debounced snapshot of the live room state on relevant mutations (topic, votes, join/leave/rename, settings), avoiding excessive writes.
 
-**Behavior**
-- Paste full JIRA URL → keep current behavior (extract key for display, link to original URL).
-- Enter only a key → if a `jiraBaseUrl` exists (e.g., `https://jira.example.com/browse/`), render link `base + KEY`.
-- If no base exists → show key as plain text (no link).
-
-**Scope / Persistence**
-- Room-scoped, host-only editable.
-- Stored in room snapshot (e.g., `StoredRoom.Settings.jiraBaseUrl`).
-- Feature-flag-able (defaults off).
+**Scope**
+- Introduce a small `RoomSnapshotter` that wraps `saveFromLive(...)` with `debounceMs` (configurable).
+- Single call site per mutation: `snapshotter.onChange(room, actor)`.
+- Wire calls in `GameService` after: `setVote`, `saveTopic`, `clearTopic`, `setTopicEnabled`, `setSequence`, `setAutoRevealEnabled`, `setAllowSpecials`, `join`, `renameParticipant`, `kickParticipant`.
+- Config via `application.properties`:
+  - `features.persistentRooms.enabled=true|false`
+  - `features.persistentRooms.snapshot.enabled=true|false`
+  - `features.persistentRooms.snapshot.debounceMs=1500`
 
 **Acceptance**
-- Host can set/clear via small settings UI.
-- Non-hosts cannot edit.
-- Keys link correctly; full URLs still work.
-- Survives refresh & persistence.
-
-**Notes**
-- Keep **current behavior** (full URL → extract key & display it, link points to full URL) as the default until this ships.
+- When multiple mutations occur in rapid succession, at most one persisted snapshot per debounce window.
+- Turning snapshot feature off results in zero persistence calls.
+- No user-visible latency/regressions.
 
 ---
 
-## [P2] Optimistic topic editing — polish  ⏳
-**Today:** Optimistic local UI after “Save”.  
-**Polish**
-- Disable “Save” when unchanged.
-- Small “saving…” affordance; rollback on server error.
-- `Esc` reliably reverts to last persisted value.
-- Keep caret position when re-rendering.
+## [P3] JIRA base URL setting (per room, host-editable) ⏳
+**Goal:** Allow hosts to set a room-local JIRA base URL (e.g. `https://yourcompany.atlassian.net/browse/`), used to auto-link issue keys entered as plain text.
+
+**Scope**
+- Room setting `jiraBaseUrl: string | null` (persisted with room).
+- Host-only UI affordance (small “link” icon or “⋯” menu → “Set JIRA base URL…”).
+- Safe parsing/normalization (ensure trailing slash).
+- When user enters a **full** JIRA link: keep current behavior (extract key, display key, link to full URL).
+- When user enters **just a key**: if `jiraBaseUrl` exists → link to `<base><KEY>`; otherwise display plain key.
 
 **Acceptance**
-- No “jump back” while typing.
-- Clear feedback on save/rollback.
+- No global instance config required; each room can differ.
+- Works with arbitrary JIRA instances (cloud/on-prem).
+- Respects permissions (only host can change base URL).
 
 ---
 
-## [P3] Snapshot trigger via domain events  ⏳
-Replace manual snapshot hooks with domain events.
+## [P3] Compact navigation & menu density ⏳
+**Goal:** Make header/menus and dialogs more compact to show more room content on small screens.
 
-**Design**
-- Publish `RoomChangedEvent(room, actor)` after mutations.
-- `@EventListener` calls debounced `saveFromLive(...)`.
-- Optional: `@Aspect` on annotated mutation methods.
+**Scope**
+- Reduce default font size and line-height for navigation and controls.
+- Tighter paddings/margins in the top bar and menus.
+- Validate DE/EN labels for wrapping/overflow.
 
 **Acceptance**
-- Debounce respected; no behavior change vs. manual calls.
-- Coverage: votes, topic set/clear, topic visible toggle, allow-specials, auto-reveal, sequence change, join/leave/rename, host change, reset/reveal, kick, close.
+- No overlaps/wrap glitches at ≤360 px width.
+- Click targets remain ≥36×36 px.
+- No regressions in `room.html`.
 
 ---
 
-## [P2] UI for room password flows (host + join)  ⏳
-**Server is ready** (`setPassword/verifyPassword` exist).  
-**Add UI**
-- Host: set/clear password (hashing remains on server).
-- Join: prompt & retry handling; error message on mismatch.
-- Persist across refresh; no leak in client logs.
+## [P3] Typography & spacing tokens (CSS variables) ⏳
+**Goal:** Centralize typography and spacing via CSS variables to make the UI consistent and easy to tune.
+
+**Scope**
+- Define tokens in `:root` (e.g. `--font-size-sm/md/lg`, `--lh-tight/normal`, `--space-1..4`).
+- Migrate key components (Topbar, topic row, participant list) to tokens.
+- Document tokens and usage in `docs/STYLE.md`.
 
 **Acceptance**
-- Protected rooms block entry until verified.
-- Clearing password unlocks immediately for new joins.
+- A single token change scales the UI consistently.
+- No visual deviations between DE/EN locales.
 
 ---
 
-## [P3] Persistence merge semantics — tests & guardrails  ⏳
-- Roundtrip tests for `RoomCodec` (settings + topic label/url + participants).
-- Verify merge keeps sensitive fields (e.g., password hash & timestamps).
-- Add unit tests mirroring `StoredRoomPersistenceServiceTest` scenarios.
+## [P3] Optional “compact mode” toggle (room setting) ⏳
+**Goal:** Toggle a denser layout per room, controlled by the host.
 
----
-
-## [P2] Test/Build infrastructure hardening  ⏳
-- Add Mockito agent to Surefire to stop self-attach warning.
-- Remove remaining usages of deprecated `@MockBean` in tests; prefer plain Mockito / slices.
-- Add WS handler tests (integration-style) for topic/vote flows.
+**Scope**
+- Room setting `compactMode: boolean` (persisted).
+- Add body class `compact` to switch to tighter tokens.
+- Host UI toggle (e.g., checkbox in a settings menu).
 
 **Acceptance**
-- `mvn test` clean: no Mockito self-attach warning, no deprecations.
-- Basic WS happy-path covered by tests.
+- Toggle takes effect live and persists across reloads.
+- Non-hosts see the chosen mode; only hosts can change it.
 
 ---
 
-## [P3] FTPS backend reliability  ⏳
-- Retries/backoff & clearer error messages.
-- Config validation (timeouts, passive/implicit modes).
-- Optional storage SPI abstraction to allow SFTP/S3 later.
+## [P3] Security probe endpoints (opt-in, dev-only) ⏳
+**Goal:** Provide optional hashing/diagnostic endpoints behind a feature flag for local/testing only.
+
+**Scope**
+- Protected endpoints (e.g., `/diag/security/hash`) enabled only with a dedicated flag and non-prod profile.
+- Rate-limited, no secrets in logs.
+- Clear documentation/warnings.
 
 **Acceptance**
-- Write paths tolerate transient network hiccups.
-- Logging points at actionable config (host, port, TLS mode).
+- Never enabled in `prod` without explicit flag.
+- Useful timing/hash diagnostics for developers.
 
 ---
 
-## [P3] Security & rate limits  ⏳
-- Throttle high-frequency WS messages (e.g., `topicSave` spam).
-- Input length validation (topic label/url).
-- Audit log for persistence (who saved what, room code).
-- Re-check WebSocket origin allowlist; config docs.
-
----
-
-## [P3] Accessibility & UX  ⏳
-- Keyboard navigation for topic row & action buttons.
-- Proper ARIA labels/titles; consistent language (DE/EN).
-- Toasts for save success/failure, non-blocking.
-
----
-
-## [P3] Performance tweaks  ⏳
-- Throttle/coalesce `broadcastRoomState` on rapid changes.
-- Consider incremental diffs for large rooms.
-- Trim payload size where possible.
-
----
-
-## [P3] Multi-tenant / per-room preferences  ⏳
-- Persist per-room preferences like `language` and (future) `jiraBaseUrl`.
-- Expose in room settings for host.
-
----
-
-## [P3] Frontend maintainability  ⏳
-- Split `room.js` (~1400 LOC) into modules (state, render, ws, actions).
-- Light unit tests for pure helpers (formatting, parsing).
-
----
-
-## Reference / Done
-
-- ✅ Topic inline editing flicker fix (local echo + revert gate).
-- ✅ Debounced snapshot wrapper (config via `features.persistentRooms.snapshot.*`).
-- ✅ Stored-room merge preserves password hash (tests green).
-- ✅ Unknown-property warnings cleaned up (Spring config metadata / variant B).
-- ✅ Room persistence fallback (NoOp) when feature off.
-
+## Parking lot / Ideas
+- Multi-tracker link patterns (JIRA + others) using a pluggable regex map per room (low priority).
+- Visual diff/“last change by …” badges for topic changes (host-only preview).
