@@ -5,6 +5,7 @@ import com.example.estpoker.persistence.NoOpPersistentRooms;
 import com.example.estpoker.persistence.PersistentRooms;
 import com.example.estpoker.repository.PersistentRoomRepository;
 import com.example.estpoker.rooms.service.RoomPersistenceService;
+import com.example.estpoker.rooms.service.RoomSnapshotter;
 import com.example.estpoker.model.Room;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -12,6 +13,8 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 
 /**
  * Central wiring for persistence-related ports and fallbacks.
@@ -74,4 +77,20 @@ public class PersistenceConfig {
       return true;
     }
   }
+
+
+  /** Debounced snapshotter; enabled by default, can be turned off via feature flag. */
+  @Bean
+  @ConditionalOnProperty(
+      name = "features.persistentRooms.snapshot.enabled",
+      havingValue = "true",
+      matchIfMissing = true
+  )
+  public RoomSnapshotter roomSnapshotter(
+      RoomPersistenceService persistence,
+      @Value("${features.persistentRooms.snapshot.debounceMs:1500}") long debounceMs
+  ) {
+    return new RoomSnapshotter(persistence, debounceMs);
+  }
+  
 }
