@@ -25,15 +25,15 @@ public class GameService {
     private static final Logger log = LoggerFactory.getLogger(GameService.class);
 
     // --- optional persistence hook (non-fatal, may be null) ---
-    /** English inline comment: May be null in tests; Spring injects a real provider at runtime. */
+    /** May be null in tests; Spring injects a real provider at runtime. */
     private final ObjectProvider<com.example.estpoker.rooms.service.RoomPersistenceService> persistenceProvider;
 
-    /** English inline comment: default ctor for tests – no persistence. */
+    /** default ctor for tests – no persistence. */
     public GameService() {
         this.persistenceProvider = null;
     }
 
-    /** English inline comment: Spring-injected provider (may be null if no bean is present). */
+    /** Spring-injected provider (may be null if no bean is present). */
     public GameService(ObjectProvider<com.example.estpoker.rooms.service.RoomPersistenceService> persistenceProvider) {
         this.persistenceProvider = persistenceProvider;
     }
@@ -235,7 +235,7 @@ public class GameService {
             actor = (host != null ? host.getName() : null);
         }
         broadcastRoomState(room);
-        persistSnapshot(room, actor); // English inline comment: best-effort, non-blocking
+        persistSnapshot(room, actor); // best-effort, non-blocking
     }
 
     public void reset(String roomCode) {
@@ -247,7 +247,7 @@ public class GameService {
             actor = (host != null ? host.getName() : null);
         }
         broadcastRoomState(room);
-        persistSnapshot(room, actor); // English inline comment: best-effort, non-blocking
+        persistSnapshot(room, actor); // best-effort, non-blocking
     }
 
     public void saveTopic(String roomCode, String input) {
@@ -939,7 +939,7 @@ public class GameService {
     //  PERSISTENCE HELPER (optional)
     // ========================================================================
 
-    /** English inline comment: fire-and-forget snapshot; ignore absence/failure of persistence bean. */
+    /** fire-and-forget snapshot; ignore absence/failure of persistence bean. */
     private void persistSnapshot(Room room, String requestedBy) {
         try {
             if (persistenceProvider != null) {

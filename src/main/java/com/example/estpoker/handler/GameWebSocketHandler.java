@@ -41,7 +41,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     /** Hard host reassignment threshold (keep consistent with service logic – currently 60 min). */
     private static final long HOST_INACTIVE_MS = 3_600_000L;
 
-    // English inline comment: accept a few common truthy/falsy spellings for boolean toggles.
+    // accept a few common truthy/falsy spellings for boolean toggles.
     private static boolean parseOn(String s) {
         if (s == null) return false;
         switch (s.trim().toLowerCase(Locale.ROOT)) {

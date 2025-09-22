@@ -25,7 +25,7 @@ public interface RoomPersistenceService {
 
     /**
      * Set or clear the password for a room.
-     * English inline comment: default is a no-op so existing implementations keep working.
+     * default is a no-op so existing implementations keep working.
      * Implementations should treat null/blank as "clear password".
      */
     default void setPassword(String roomCode, String newPassword) {
@@ -34,7 +34,7 @@ public interface RoomPersistenceService {
 
     /**
      * Verify a provided password for a room.
-     * English inline comment: default returns true to stay non-blocking at compile time.
+     * default returns true to stay non-blocking at compile time.
      * Implementations should perform a constant-time comparison against the stored hash.
      */
     default boolean verifyPassword(String roomCode, String password) {
@@ -47,7 +47,7 @@ public interface RoomPersistenceService {
 
     /**
      * Fetch persisted metadata for a room.
-     * English inline comment: default returns empty so legacy impls remain valid.
+     * default returns empty so legacy impls remain valid.
      */
     default Optional<RoomMeta> getMeta(String roomCode) {
         return Optional.empty();
@@ -55,7 +55,7 @@ public interface RoomPersistenceService {
 
     /**
      * Upsert (insert or update) persisted metadata for a room.
-     * English inline comment: default echoes back the input for compile compatibility.
+     * default echoes back the input for compile compatibility.
      * Implementations MUST upsert by roomCode in an idempotent fashion.
      */
     default RoomMeta upsertMeta(RoomMeta meta) {
