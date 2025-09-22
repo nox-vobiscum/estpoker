@@ -6,187 +6,286 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * JSON-persisted room snapshot for FTPS storage.
- * Keep this DTO stable and additive; avoid breaking changes to field names.
- *
- * Security note:
- * - passwordHash contains a BCrypt hash (optionally peppered via PasswordHasher).
- * - Do NOT expose this DTO 1:1 in public REST responses.
+ * StoredRoom is the persisted snapshot of a room's metadata and lightweight state.
+ * It is storage-agnostic and serialized/deserialized by RoomCodec implementations.
  */
 public class StoredRoom {
 
-  // --- identity / metadata ---
-  private String code;            // room code (required, filename stem)
-  private String title;           // optional display title
-  private String owner;           // creator/current owner by display name
+    // --- Identity & basic metadata -----------------------------------------
 
-  private String passwordHash;    // BCrypt hash (never raw)
+    private String code;
+    private String title;
+    private String owner;
 
-  private Instant createdAt;      // set on first persist
-  private Instant updatedAt;      // update on each write
+    private Instant createdAt;
+    private Instant updatedAt;
 
-  // --- current room settings (only the toggles needed by your UI) ---
-  private Settings settings = new Settings();
+    // Topic metadata (label + optional URL)
+    private String topicLabel;
+    private String topicUrl;
 
-  // --- aggregate statistics over time (optional / best-effort) ---
-  private Stats stats = new Stats();
+    // Participants snapshot (lightweight; not the live WebSocket participants)
+    private List<StoredParticipant> participants = new ArrayList<>();
 
-  // --- compact history of finished rounds (optional) ---
-  private List<HistoryItem> history = new ArrayList<>();
+    private Settings settings = new Settings();
+    private Stats stats; // optional; may be null until first aggregation
+    private final List<HistoryItem> history = new ArrayList<>();
 
-  // --- participants snapshot (current room presence) ---
-  private List<StoredParticipant> participants = new ArrayList<>();
+    /**
+     * Optional BCrypt (or other) password hash.
+     * If null/blank, the room is considered unprotected.
+     */
+    private String passwordHash;
 
-  // Optional live topic (aktueller Titel/Link des Rooms)
-  private String topicLabel;
-  private String topicUrl;
+    // --- Factory ------------------------------------------------------------
 
-  public List<StoredParticipant> getParticipants() { return participants; }
-  public void setParticipants(List<StoredParticipant> participants) { this.participants = participants; }
-
-  public String getTopicLabel() { return topicLabel; }
-  public void setTopicLabel(String topicLabel) { this.topicLabel = topicLabel; }
-
-  public String getTopicUrl() { return topicUrl; }
-  public void setTopicUrl(String topicUrl) { this.topicUrl = topicUrl; }
-
-
-  // ----- lifecycle helpers --------------------------------------------------
-
-  /** Ensure timestamps exist; call when creating a brand-new room. */
-  public void touchCreatedIfNull() {
-    if (createdAt == null) createdAt = Instant.now();
-    touchUpdated();
-  }
-
-  /** Update the "updatedAt" timestamp; call before saving the JSON. */
-  public void touchUpdated() {
-    updatedAt = Instant.now();
-  }
-
-  /**
-   * Set a new password by hashing the raw input with your PasswordHasher.
-   * Passing null/blank will clear the password (room becomes open).
-   */
-  public void setPasswordFromRaw(String raw, com.example.estpoker.security.PasswordHasher hasher) {
-    Objects.requireNonNull(hasher, "hasher");
-    if (raw == null || raw.isBlank()) {
-      this.passwordHash = null;
-    } else {
-      this.passwordHash = hasher.hash(raw);
+    public static StoredRoom newWithCode(String code) {
+        StoredRoom r = new StoredRoom();
+        r.code = Objects.requireNonNull(code, "code");
+        Instant now = Instant.now();
+        r.createdAt = now;
+        r.updatedAt = now;
+        return r;
     }
-  }
 
-  /**
-   * Verify a raw password against the stored hash.
-   * If no hash is set, empty/blank passwords are considered valid.
-   */
-  public boolean verifyPassword(String raw, com.example.estpoker.security.PasswordHasher hasher) {
-    Objects.requireNonNull(hasher, "hasher");
-    if (passwordHash == null || passwordHash.isBlank()) {
-      return raw == null || raw.isBlank();
+    // --- Getters / Setters --------------------------------------------------
+
+    public String getCode() {
+        return code;
     }
-    return hasher.matches(raw, passwordHash);
-  }
 
-  /** Remove the password protection (hash cleared). */
-  public void clearPassword() {
-    this.passwordHash = null;
-  }
+    public void setCode(String code) {
+        this.code = Objects.requireNonNull(code, "code");
+    }
 
-  /** Convenience: create a new instance with code + timestamps initialized. */
-  public static StoredRoom newWithCode(String code) {
-    StoredRoom r = new StoredRoom();
-    r.code = Objects.requireNonNull(code, "code");
-    r.touchCreatedIfNull();
-    return r;
-  }
+    public String getTitle() {
+        return title;
+    }
 
-  // ----- nested types -------------------------------------------------------
+    public void setTitle(String title) {
+        // allow null to clear title
+        this.title = title;
+        touchUpdated();
+    }
 
-  /** User-facing toggles that define the current behavior of the room. */
-  public static class Settings {
-    private String sequenceId = "fib.scrum"; // deck/sequence id
-    private boolean autoRevealEnabled = false;
-    private boolean allowSpecials = true;
-    private boolean topicVisible = false;
+    public String getOwner() {
+        return owner;
+    }
 
-    // getters/setters
-    public String getSequenceId() { return sequenceId; }
-    public void setSequenceId(String sequenceId) { this.sequenceId = sequenceId; }
-    public boolean isAutoRevealEnabled() { return autoRevealEnabled; }
-    public void setAutoRevealEnabled(boolean autoRevealEnabled) { this.autoRevealEnabled = autoRevealEnabled; }
-    public boolean isAllowSpecials() { return allowSpecials; }
-    public void setAllowSpecials(boolean allowSpecials) { this.allowSpecials = allowSpecials; }
-    public boolean isTopicVisible() { return topicVisible; }
-    public void setTopicVisible(boolean topicVisible) { this.topicVisible = topicVisible; }
-  }
+    public void setOwner(String owner) {
+        // allow null to clear owner
+        this.owner = owner;
+        touchUpdated();
+    }
 
-  /** Cheap running totals; refine later when the repository is in place. */
-  public static class Stats {
-    private long sessions;              // number of sessions played
-    private long totalVotes;            // total votes recorded
-    private double averageOfAverages;   // rolling average (optional, best-effort)
-    private long totalSessionSeconds;   // accumulated session duration
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
 
-    // getters/setters
-    public long getSessions() { return sessions; }
-    public void setSessions(long sessions) { this.sessions = sessions; }
-    public long getTotalVotes() { return totalVotes; }
-    public void setTotalVotes(long totalVotes) { this.totalVotes = totalVotes; }
-    public double getAverageOfAverages() { return averageOfAverages; }
-    public void setAverageOfAverages(double averageOfAverages) { this.averageOfAverages = averageOfAverages; }
-    public long getTotalSessionSeconds() { return totalSessionSeconds; }
-    public void setTotalSessionSeconds(long totalSessionSeconds) { this.totalSessionSeconds = totalSessionSeconds; }
-  }
+    public void setCreatedAt(Instant createdAt) {
+        this.createdAt = createdAt;
+    }
 
-  /** Minimal per-round history entry; can be extended later. */
-  public static class HistoryItem {
-    private Instant at;           // time the round finished
-    private String topicLabel;    // the visible topic text (if any)
-    private String topicUrl;      // optional link
-    private String resultAverage; // formatted average string (e.g., "5.3")
-    private List<String> votes;   // optional raw votes (can be omitted for privacy)
+    public Instant getUpdatedAt() {
+        return updatedAt;
+    }
 
-    // getters/setters
-    public Instant getAt() { return at; }
-    public void setAt(Instant at) { this.at = at; }
-    public String getTopicLabel() { return topicLabel; }
-    public void setTopicLabel(String topicLabel) { this.topicLabel = topicLabel; }
-    public String getTopicUrl() { return topicUrl; }
-    public void setTopicUrl(String topicUrl) { this.topicUrl = topicUrl; }
-    public String getResultAverage() { return resultAverage; }
-    public void setResultAverage(String resultAverage) { this.resultAverage = resultAverage; }
-    public List<String> getVotes() { return votes; }
-    public void setVotes(List<String> votes) { this.votes = votes; }
-  }
+    public void setUpdatedAt(Instant updatedAt) {
+        this.updatedAt = updatedAt;
+    }
 
-  // ----- getters/setters (flat) --------------------------------------------
+    public Settings getSettings() {
+        if (settings == null) settings = new Settings();
+        return settings;
+    }
 
-  public String getCode() { return code; }
-  public void setCode(String code) { this.code = code; }
+    public void setSettings(Settings settings) {
+        this.settings = (settings == null ? new Settings() : settings);
+        touchUpdated();
+    }
 
-  public String getTitle() { return title; }
-  public void setTitle(String title) { this.title = title; }
+    public Stats getStats() {
+        return stats;
+    }
 
-  public String getOwner() { return owner; }
-  public void setOwner(String owner) { this.owner = owner; }
+    public void setStats(Stats stats) {
+        this.stats = stats;
+        touchUpdated();
+    }
 
-  public String getPasswordHash() { return passwordHash; }
-  public void setPasswordHash(String passwordHash) { this.passwordHash = passwordHash; }
+    public List<HistoryItem> getHistory() {
+        return history;
+    }
 
-  public Instant getCreatedAt() { return createdAt; }
-  public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
+    /**
+     * Update the "last modified" timestamp to now.
+     */
+    public void touchUpdated() {
+        this.updatedAt = Instant.now();
+    }
 
-  public Instant getUpdatedAt() { return updatedAt; }
-  public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
+    /**
+     * Initialize createdAt if it is currently null. Does not change updatedAt.
+     */
+    public void touchCreatedIfNull() {
+        if (this.createdAt == null) {
+            this.createdAt = Instant.now();
+        }
+    }
 
-  public Settings getSettings() { return settings; }
-  public void setSettings(Settings settings) { this.settings = settings; }
+    // --- Topic metadata -----------------------------------------------------
 
-  public Stats getStats() { return stats; }
-  public void setStats(Stats stats) { this.stats = stats; }
+    public String getTopicLabel() {
+        return topicLabel;
+    }
 
-  public List<HistoryItem> getHistory() { return history; }
-  public void setHistory(List<HistoryItem> history) { this.history = history; }
+    public void setTopicLabel(String topicLabel) {
+        this.topicLabel = topicLabel;
+        touchUpdated();
+    }
+
+    public String getTopicUrl() {
+        return topicUrl;
+    }
+
+    public void setTopicUrl(String topicUrl) {
+        this.topicUrl = topicUrl;
+        touchUpdated();
+    }
+
+    // --- Participants snapshot ----------------------------------------------
+
+    public List<StoredParticipant> getParticipants() {
+        return participants;
+    }
+
+    public void setParticipants(List<StoredParticipant> participants) {
+        this.participants = (participants == null ? new ArrayList<>() : participants);
+        touchUpdated();
+    }
+
+    // --- Password hash (persistent) ----------------------------------------
+
+    /**
+     * Returns the stored password hash or null if no password is set.
+     */
+    public String getPasswordHash() {
+        return passwordHash;
+    }
+
+    /**
+     * Sets the stored password hash (already encoded). Use null/blank to clear.
+     */
+    public void setPasswordHash(String passwordHash) {
+        this.passwordHash = (passwordHash == null || passwordHash.isBlank()) ? null : passwordHash;
+        touchUpdated();
+    }
+
+    /**
+     * True if a non-blank password hash is present.
+     */
+    public boolean hasPassword() {
+        return passwordHash != null && !passwordHash.isBlank();
+    }
+
+    // --- Nested types -------------------------------------------------------
+
+    /**
+     * Settings contain room-level configuration flags that affect gameplay UX.
+     */
+    public static class Settings {
+        private String sequenceId;          // e.g. "tshirt", "fib", etc.
+        private boolean autoRevealEnabled;  // reveal results automatically
+        private boolean allowSpecials;      // allow ❓ 💬 ☕ etc
+        private boolean topicVisible;       // whether topic is visible to participants
+
+        public String getSequenceId() {
+            return sequenceId;
+        }
+
+        public void setSequenceId(String sequenceId) {
+            this.sequenceId = sequenceId;
+        }
+
+        public boolean isAutoRevealEnabled() {
+            return autoRevealEnabled;
+        }
+
+        public void setAutoRevealEnabled(boolean autoRevealEnabled) {
+            this.autoRevealEnabled = autoRevealEnabled;
+        }
+
+        public boolean isAllowSpecials() {
+            return allowSpecials;
+        }
+
+        public void setAllowSpecials(boolean allowSpecials) {
+            this.allowSpecials = allowSpecials;
+        }
+
+        public boolean isTopicVisible() {
+            return topicVisible;
+        }
+
+        public void setTopicVisible(boolean topicVisible) {
+            this.topicVisible = topicVisible;
+        }
+    }
+
+    /**
+     * Stats is optional aggregated information that can be displayed after reveals.
+     */
+    public static class Stats {
+        private int roundsPlayed;
+        private double lastAverage;
+
+        public int getRoundsPlayed() {
+            return roundsPlayed;
+        }
+
+        public void setRoundsPlayed(int roundsPlayed) {
+            this.roundsPlayed = roundsPlayed;
+        }
+
+        public double getLastAverage() {
+            return lastAverage;
+        }
+
+        public void setLastAverage(double lastAverage) {
+            this.lastAverage = lastAverage;
+        }
+    }
+
+    /**
+     * HistoryItem models a simple audit trail entry for this room.
+     */
+    public static class HistoryItem {
+        private Instant at;
+        private String actor;
+        private String action;
+
+        public Instant getAt() {
+            return at;
+        }
+
+        public void setAt(Instant at) {
+            this.at = at;
+        }
+
+        public String getActor() {
+            return actor;
+        }
+
+        public void setActor(String actor) {
+            this.actor = actor;
+        }
+
+        public String getAction() {
+            return action;
+        }
+
+        public void setAction(String action) {
+            this.action = action;
+        }
+    }
 }
