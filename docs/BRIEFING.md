@@ -1,6 +1,4 @@
 Projekt: RBS Estimation Poker (Spring + Thymeleaf + Vanilla JS).
-Ziel: Stabilisierung des App-Menüs (Theme, Language, Card-Sequence, Auto-Reveal, Ticket/Story, Participation) und i18n.
-Regeln:
 
 Ein File pro Turn, vollständiger IST-Stand wird vorher angefragt.
 
@@ -21,5 +19,3 @@ ep:sequence-change {id:string}
 ep:close-room {}
 
 WS-Befehle (Room → Server): autoReveal:…, topicVisible:…, participation:…, sequence:…, revealCards, resetRoom, closeRoom, vote:…, topicSave:…, topicClear.
-
-Startaufgabe (P0): Prüfe menu.js und room.js auf korrekte Event-Dispatch/Event-Listener-Kopplung für die drei Toggles und liefere exakt ein File mit fix + Logs (Dev only).
