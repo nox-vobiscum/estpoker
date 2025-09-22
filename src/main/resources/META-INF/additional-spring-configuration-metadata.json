@@ -25,7 +25,26 @@
     {"name":"app.storage.ftps.so-timeout-ms","type":"java.lang.Integer"},
     {"name":"app.storage.ftps.data-timeout-ms","type":"java.lang.Integer"},
     {"name":"app.storage.ftps.use-utf8","type":"java.lang.Boolean"},
-    {"name":"app.storage.ftps.debug","type":"java.lang.Boolean"}
+    {"name":"app.storage.ftps.debug","type":"java.lang.Boolean"},
+
+    {
+      "name": "features.securityProbe.enabled",
+      "type": "java.lang.Boolean",
+      "description": "Enable optional security probe endpoints.",
+      "defaultValue": false
+    },
+    {
+      "name": "features.persistentRooms.snapshot.enabled",
+      "type": "java.lang.Boolean",
+      "description": "Enable debounced live->stored snapshots.",
+      "defaultValue": true
+    },
+    {
+      "name": "features.persistentRooms.snapshot.debounceMs",
+      "type": "java.lang.Long",
+      "description": "Debounce window in milliseconds.",
+      "defaultValue": 1500
+    }
     
   ]
 }

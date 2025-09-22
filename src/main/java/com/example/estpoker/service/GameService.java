@@ -4,9 +4,11 @@ import com.example.estpoker.model.Participant;
 import com.example.estpoker.model.Room;
 import com.example.estpoker.model.CardSequences;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.example.estpoker.rooms.service.RoomSnapshotter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
@@ -24,18 +26,24 @@ public class GameService {
 
     private static final Logger log = LoggerFactory.getLogger(GameService.class);
 
-    // --- optional persistence hook (non-fatal, may be null) ---
-    /** May be null in tests; Spring injects a real provider at runtime. */
-    private final ObjectProvider<com.example.estpoker.rooms.service.RoomPersistenceService> persistenceProvider;
+    // --- optional snapshot hook (non-fatal, may be null) ---
+    private final RoomSnapshotter snapshotter;
 
-    /** default ctor for tests – no persistence. */
+    /** Default ctor for tests (no Spring context): snapshotter stays null. */
     public GameService() {
-        this.persistenceProvider = null;
+        this.snapshotter = null;
     }
 
-    /** Spring-injected provider (may be null if no bean is present). */
-    public GameService(ObjectProvider<com.example.estpoker.rooms.service.RoomPersistenceService> persistenceProvider) {
-        this.persistenceProvider = persistenceProvider;
+    /** Spring-injected provider (preferred at runtime). */
+    @Autowired
+    public GameService(ObjectProvider<RoomSnapshotter> snapshotterProvider) {
+        this.snapshotter = (snapshotterProvider != null ? snapshotterProvider.getIfAvailable() : null);
+    }
+
+    private void snapshot(Room room, String actor) {
+        if (snapshotter != null && room != null) {
+            snapshotter.onChange(room, (actor != null && !actor.isBlank()) ? actor : "system");
+        }
     }
 
     // --- in-memory state ---
@@ -97,6 +105,7 @@ public class GameService {
     public Room join(String roomCode, String cid, String requestedName) {
         Room room = getOrCreateRoom(roomCode);
         String desired = normalizeName(requestedName);
+        String actor = null;
 
         synchronized (room) {
             Participant byCid = room.getParticipantByCid(cid).orElse(null);
@@ -107,6 +116,7 @@ public class GameService {
                 if (room.getHost() == null) byCid.setHost(true);
                 rememberClientName(roomCode, cid, byCid.getName());
                 cancelPresenceTimers(room, byCid.getName());
+                actor = byCid.getName();
             } else {
                 String unique = uniqueNameFor(room, desired, null);
                 Participant p = new Participant(unique);
@@ -119,10 +129,12 @@ public class GameService {
                 room.linkCid(cid, unique);
                 rememberClientName(roomCode, cid, unique);
                 cancelPresenceTimers(room, unique);
+                actor = unique;
             }
         }
 
         broadcastRoomState(room);
+        snapshot(room, actor);
         return room;
     }
 
@@ -178,6 +190,7 @@ public class GameService {
             broadcastParticipantRenamed(room, oldName, finalName);
         }
         broadcastRoomState(room);
+        snapshot(room, finalName);
         return finalName;
     }
 
@@ -209,6 +222,7 @@ public class GameService {
 
     public void setVote(String roomCode, String nameOrCid, String value) {
         Room room = getOrCreateRoom(roomCode);
+        String actor;
         synchronized (room) {
             Participant p = room.getParticipantByCid(nameOrCid).orElse(null);
             if (p == null) p = room.getParticipant(nameOrCid);
@@ -218,12 +232,14 @@ public class GameService {
             }
             p.setVote(value);
             p.bumpLastSeen();
+            actor = p.getName();
 
             if (room.isAutoRevealEnabled() && !room.areVotesRevealed() && allActiveParticipantsHaveValidVotes(room)) {
                 room.setCardsRevealed(true);
             }
         }
         broadcastRoomState(room);
+        snapshot(room, actor);
     }
 
     public void reveal(String roomCode) {
@@ -235,7 +251,7 @@ public class GameService {
             actor = (host != null ? host.getName() : null);
         }
         broadcastRoomState(room);
-        persistSnapshot(room, actor); // best-effort, non-blocking
+        snapshot(room, actor);
     }
 
     public void reset(String roomCode) {
@@ -247,18 +263,19 @@ public class GameService {
             actor = (host != null ? host.getName() : null);
         }
         broadcastRoomState(room);
-        persistSnapshot(room, actor); // best-effort, non-blocking
+        snapshot(room, actor);
     }
 
     public void saveTopic(String roomCode, String input) {
         Room room = getOrCreateRoom(roomCode);
-        String[] parsed = parseTopic(input);
         synchronized (room) {
+            String[] parsed = parseTopic(input);
             room.setTopicLabel(parsed[0]);
             room.setTopicUrl(parsed[1]);
             room.setTopicVisible(true);
         }
         broadcastRoomState(room);
+        snapshot(room, "ws");
     }
 
     public void clearTopic(String roomCode) {
@@ -269,12 +286,14 @@ public class GameService {
             room.setTopicVisible(false);
         }
         broadcastRoomState(room);
+        snapshot(room, "ws");
     }
 
     public void setTopicEnabled(String roomCode, boolean enabled) {
         Room room = getOrCreateRoom(roomCode);
         synchronized (room) { room.setTopicVisible(enabled); }
         broadcastRoomState(room);
+        snapshot(room, "ws");
     }
 
     public void setAutoRevealEnabled(String roomCode, boolean enabled) {
@@ -291,6 +310,7 @@ public class GameService {
             log.debug("Auto-reveal: immediately revealing room={} (all votes present)", roomCode);
         }
         broadcastRoomState(room);
+        snapshot(room, "ws");
     }
 
     public void setAllowSpecials(String roomCode, boolean allow) {
@@ -302,7 +322,6 @@ public class GameService {
                 room.setAllowSpecials(allow);
                 changed = true;
 
-                // If specials are disabled, clear any existing special votes
                 if (!allow) {
                     for (Participant p : room.getParticipants()) {
                         String v = p.getVote();
@@ -316,11 +335,13 @@ public class GameService {
 
         if (changed) {
             broadcastRoomState(room);
+            snapshot(room, "ws");
         }
     }
 
     public void setSpectator(String roomCode, String nameOrCid, boolean spectator) {
         Room room = getOrCreateRoom(roomCode);
+        String actor = null;
         synchronized (room) {
             Participant p = room.getParticipantByCid(nameOrCid).orElse(null);
             if (p == null) p = room.getParticipant(nameOrCid);
@@ -333,11 +354,13 @@ public class GameService {
             p.setParticipating(participating);
             if (!participating) p.setVote(null);
             p.bumpLastSeen();
+            actor = p.getName();
         }
         broadcastRoomState(room);
+        snapshot(room, actor);
     }
 
-    /** Keep-alive ping to keep presence fresh. */
+    /** Keep-alive ping to keep presence fresh (no snapshot). */
     public void touch(String roomCode, String nameOrCid) {
         Room room = getOrCreateRoom(roomCode);
         synchronized (room) {
@@ -352,12 +375,13 @@ public class GameService {
 
     public void setSequence(String roomCode, String sequenceId) {
         Room room = getOrCreateRoom(roomCode);
-        String normalized = sanitizeSequenceId(sequenceId);
         synchronized (room) {
+            String normalized = sanitizeSequenceId(sequenceId);
             room.setSequenceId(normalized);
             room.reset();
         }
         broadcastRoomState(room);
+        snapshot(room, "ws");
     }
 
     public void makeHost(String roomCode, String targetName) {
@@ -378,6 +402,7 @@ public class GameService {
         }
         broadcastHostChange(room, oldHost, targetName);
         broadcastRoomState(room);
+        snapshot(room, targetName);
     }
 
     public boolean shouldAutoReveal(String roomCode) {
@@ -416,6 +441,7 @@ public class GameService {
         if (newHost != null) {
             broadcastHostChange(room, oldHost, newHost);
             broadcastRoomState(room);
+            snapshot(room, newHost);
         }
     }
 
@@ -455,7 +481,6 @@ public class GameService {
     public boolean isConsensus(Room room) {
         if (room == null) return false;
 
-        // Collect all visible votes (strings), including specials/infinity for the check
         List<String> votes = new ArrayList<>();
         for (Participant p : room.getParticipants()) {
             if (p.isActive() && p.isParticipating()) {
@@ -463,9 +488,6 @@ public class GameService {
                 if (v != null) votes.add(v);
             }
         }
-
-        // Delegate to CardSequences: returns false if any infinity is present,
-        // otherwise checks numeric equality of all numeric votes.
         return com.example.estpoker.model.CardSequences.isConsensus(votes);
     }
 
@@ -690,6 +712,7 @@ public class GameService {
             if (p != null) p.setActive(false);
         }
         broadcastRoomState(room);
+        snapshot(room, participantName);
 
         scheduleHostTransfer(room, participantName, HOST_GRACE_INTENTIONAL_MS);
     }
@@ -717,6 +740,7 @@ public class GameService {
                 }
                 broadcastParticipantLeft(room, participantName);
                 broadcastRoomState(room);
+                snapshot(room, participantName);
             } finally {
                 pendingDisconnects.remove(k);
             }
@@ -743,6 +767,7 @@ public class GameService {
                 if (newHostName != null) {
                     broadcastHostChange(room, leavingName, newHostName);
                     broadcastRoomState(room);
+                    snapshot(room, newHostName);
                 }
             } finally {
                 pendingHostTransfers.remove(k);
@@ -802,6 +827,7 @@ public class GameService {
         if (newHost != null) broadcastHostChange(room, targetName, newHost);
 
         broadcastRoomState(room);
+        snapshot(room, targetName);
     }
 
     public void closeRoom(String roomCode) {
@@ -933,28 +959,5 @@ public class GameService {
 
         if (tied.size() == 1) return tied;                     // exactly one outlier
         return (n >= MIN_VOTERS_FOR_TIED_OUTLIERS) ? tied : List.of(); // multiple: require n >= 5
-    }
-
-    // ========================================================================
-    //  PERSISTENCE HELPER (optional)
-    // ========================================================================
-
-    /** fire-and-forget snapshot; ignore absence/failure of persistence bean. */
-    private void persistSnapshot(Room room, String requestedBy) {
-        try {
-            if (persistenceProvider != null) {
-                var svc = persistenceProvider.getIfAvailable();
-                if (svc != null && room != null) {
-                    svc.saveFromLive(room, requestedBy);
-                }
-            }
-        } catch (Exception e) {
-            final String rc = (room != null ? room.getCode() : "<null>");
-            if (log.isDebugEnabled()) {
-                log.debug("Persistence saveFromLive failed for room {}: {}", rc, e.toString(), e);
-            } else {
-                log.warn("Persistence saveFromLive failed for room {}: {}", rc, e.toString());
-            }
-        }
     }
 }

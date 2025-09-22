@@ -9,6 +9,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.Optional;
 
 @Service
@@ -25,55 +26,65 @@ public class StoredRoomPersistenceService implements RoomPersistenceService {
   }
 
   @Override
-  public void saveFromLive(Room room, String requestedBy) {
+public void saveFromLive(Room room, String requestedBy) {
     if (room == null) return;
 
     try {
-      Optional<StoredRoom> existingOpt = store.load(room.getCode());
-      if (existingOpt.isEmpty()) {
+        // Build a snapshot from the live model
         StoredRoom snap = RoomCodec.toStored(room);
-        if (snap == null) return;
-        snap.touchCreatedIfNull();
-        store.save(snap);
-        return;
-      }
 
-      StoredRoom existing = existingOpt.get();
+        // Try to load existing persistent state
+        StoredRoom existing = store.load(room.getCode()).orElse(null);
 
-      // Preserve fields that must be kept
-      String previousHash = existing.getPasswordHash();
-      var createdAt = existing.getCreatedAt();
+        if (existing == null) {
+            // First write: accept snapshot as-is, keep timestamps sane
+            snap.touchCreatedIfNull();
+            snap.touchUpdated();
+            store.save(snap);
+            return;
+        }
 
-      // Build fresh snapshot and merge into existing
-      StoredRoom snap = RoomCodec.toStored(room);
+        // --- Merge into existing WITHOUT touching password/auth fields ---
+        StoredRoom.Settings ss = snap.getSettings();
+        if (ss != null) {
+            StoredRoom.Settings es = existing.getSettings();
+            if (es == null) {
+                es = new StoredRoom.Settings();
+                existing.setSettings(es);
+            }
+            es.setSequenceId(ss.getSequenceId());
+            es.setAutoRevealEnabled(ss.isAutoRevealEnabled());
+            es.setAllowSpecials(ss.isAllowSpecials());
+            es.setTopicVisible(ss.isTopicVisible());
+        }
 
-      existing.setTitle(snap.getTitle());
-      existing.setOwner(snap.getOwner());
+        // Topic
+        existing.setTopicLabel(snap.getTopicLabel());
+        existing.setTopicUrl(snap.getTopicUrl());
 
-      var es = existing.getSettings();
-      var ss = snap.getSettings();
-      es.setSequenceId(ss.getSequenceId());
-      es.setAutoRevealEnabled(ss.isAutoRevealEnabled());
-      es.setAllowSpecials(ss.isAllowSpecials());
-      es.setTopicVisible(ss.isTopicVisible());
+        // Participants (replace with snapshot list)
+        if (snap.getParticipants() != null) {
+            existing.setParticipants(new ArrayList<>(snap.getParticipants()));
+        } else {
+            existing.setParticipants(null);
+        }
 
-      existing.setTopicLabel(snap.getTopicLabel());
-      existing.setTopicUrl(snap.getTopicUrl());
-      existing.setParticipants(snap.getParticipants());
+        // Keep createdAt; bump updatedAt
+        existing.touchUpdated();
 
-      // Restore preserved metadata
-      existing.setPasswordHash(previousHash);
-      if (createdAt != null) existing.setCreatedAt(createdAt);
-      else existing.touchCreatedIfNull();
-
-      // Ensure updatedAt moves forward (fix for failing test)
-      existing.touchUpdated();
-
-      store.save(existing);
+        // Save merged entity; do NOT overwrite password/auth fields
+        store.save(existing);
     } catch (Exception e) {
-      throw new RuntimeException("saveFromLive failed for room " + room.getCode(), e);
+        // Best-effort: log and swallow so the app keeps running
+        final String code = (room != null ? room.getCode() : "<null>");
+        if (log.isDebugEnabled()) {
+            log.debug("saveFromLive failed for room {}: {}", code, e.toString(), e);
+        } else {
+            log.warn("saveFromLive failed for room {}: {}", code, e.toString());
+        }
     }
-  }
+}
+
 
   @Override
   public void setPassword(String roomCode, String newPassword) {

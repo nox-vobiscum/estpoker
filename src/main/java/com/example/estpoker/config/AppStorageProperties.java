@@ -13,6 +13,11 @@ public class AppStorageProperties {
   /** FTPS subsection */
   private Ftps ftps = new Ftps();
 
+  /** Prefer IPv4 addresses on data/control connections. */
+  private boolean preferIpv4 = true;
+  public boolean isPreferIpv4() { return preferIpv4; }
+  public void setPreferIpv4(boolean preferIpv4) { this.preferIpv4 = preferIpv4; }
+
   // --- getters/setters ---
 
   public String getMode() { return mode; }
