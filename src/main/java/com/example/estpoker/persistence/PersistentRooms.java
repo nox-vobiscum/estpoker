@@ -1,22 +1,22 @@
 package com.example.estpoker.persistence;
 
-import com.example.estpoker.model.PersistentRoom;
-
 import java.util.Optional;
 
 /**
- * Port für persistente Räume: per Feature-Flag entweder echte JPA-Implementierung
- * oder No-Op (macht nichts, hält die DB schlafend).
+ * Port for persisted room lookup without DB types.
+ * Used only for small conveniences like case-insensitive code matching.
  */
 public interface PersistentRooms {
 
-    boolean existsByNameIgnoreCase(String name);
-
-    Optional<PersistentRoom> findByNameIgnoreCase(String name);
+    /**
+     * Returns true if a stored room with this exact code exists.
+     * In the FTPS/JSON setup this will typically be false or not implemented.
+     */
+    boolean exists(String code);
 
     /**
-     * Speichert den Raum (No-Op bei deaktivierter Persistenz).
-     * @return der gespeicherte Raum (oder bei No-Op: das unveränderte Objekt)
+     * If a stored room exists for the given code ignoring case,
+     * return the canonical (proper-case) code. Otherwise empty.
      */
-    PersistentRoom save(PersistentRoom room);
+    Optional<String> findByNameIgnoreCase(String code);
 }

@@ -1,27 +1,24 @@
 package com.example.estpoker.persistence;
 
-import com.example.estpoker.model.PersistentRoom;
+import org.springframework.stereotype.Component;
 
 import java.util.Optional;
 
 /**
- * No-Op Implementierung. Tut so, als wäre nie ein Name vergeben,
- * speichert nichts und hält die DB damit komplett inaktiv.
+ * No-op adapter for deployments without DB persistence.
  */
+@Component
 public class NoOpPersistentRooms implements PersistentRooms {
 
     @Override
-    public boolean existsByNameIgnoreCase(String name) {
+    public boolean exists(String code) {
+        // No DB -> we claim nothing exists
         return false;
     }
 
     @Override
-    public Optional<PersistentRoom> findByNameIgnoreCase(String name) {
+    public Optional<String> findByNameIgnoreCase(String code) {
+        // No DB lookup available
         return Optional.empty();
-    }
-
-    @Override
-    public PersistentRoom save(PersistentRoom room) {
-        return room; // nichts persistiert
     }
 }

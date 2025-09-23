@@ -16,11 +16,11 @@ public class RoomCheckController {
         this.rooms = rooms;
     }
 
-    // Liefert true, WENN der Name bereits vergeben ist (taken)
+    // Returns true if the given room name is already taken (case-insensitive)
     @GetMapping("/check")
     public boolean isTaken(@RequestParam String name) {
         String n = name == null ? "" : name.trim();
         if (n.isEmpty()) return false;
-        return rooms.existsByNameIgnoreCase(n);
+        return rooms.findByNameIgnoreCase(n).isPresent();
     }
 }

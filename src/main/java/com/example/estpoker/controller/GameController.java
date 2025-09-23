@@ -1,6 +1,5 @@
 package com.example.estpoker.controller;
 
-import com.example.estpoker.model.PersistentRoom;
 import com.example.estpoker.persistence.PersistentRooms;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Controller;
@@ -8,9 +7,6 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
-
-import java.time.Instant;
-import java.util.Optional;
 
 @Controller
 public class GameController {
@@ -31,8 +27,8 @@ public class GameController {
 
     /**
      * Minimal view route for the invitation page.
-     * Keeps behavior unchanged elsewhere; if a roomCode is provided via query param,
-     * pass it to the view so the hidden field and heading work.
+     * If a roomCode is provided via query param, pass it through to the view
+     * so the hidden field and heading can render correctly.
      */
     @GetMapping("/invite")
     public String invite(
@@ -52,10 +48,11 @@ public class GameController {
                            @RequestParam(required = false, defaultValue = "false") boolean testRoom,
                            Model model) {
 
-        // Trim and keep variables effectively final
+        // Normalize incoming values
         final String pName = safeTrim(participantName);
         final String requestedRoomName = safeTrim(roomCode);
 
+        // Basic validation → bounce back to landing page with message
         if (pName.isBlank() || requestedRoomName.isBlank()) {
             model.addAttribute("error", "Bitte Namen und Raum ausfüllen.");
             model.addAttribute("participantName", pName);
@@ -67,29 +64,29 @@ public class GameController {
 
         String effectiveRoomCode = requestedRoomName;
 
-        // Persistent rooms only if feature flag enabled AND checkbox set
+        // If persistence feature is enabled AND user requested a persistent room:
+        // only try to canonicalize the code via lookup. We do NOT create anything here.
         if (persistent && persistenceEnabled) {
-            Optional<PersistentRoom> existing = persistentRooms.findByNameIgnoreCase(requestedRoomName);
-            PersistentRoom pr = existing.orElseGet(() -> {
-                // Public constructor with name – @PrePersist sets id/createdAt/lastActiveAt
-                PersistentRoom r = new PersistentRoom(requestedRoomName);
-                r.setTestRoom(testRoom);
-                r.setLastActiveAt(Instant.now());
-                return r;
-            });
-            pr = persistentRooms.save(pr);
-            effectiveRoomCode = pr.getId();
+            var canonical = persistentRooms.findByNameIgnoreCase(requestedRoomName);
+            if (canonical.isPresent()) {
+                // Use canonical/normalized code from persistence layer
+                effectiveRoomCode = canonical.get();
+            } else {
+                // No DB record → keep requested name as-is
+                effectiveRoomCode = requestedRoomName;
+            }
         }
 
-        // Model for room.html
+        // Prepare model for room.html
         model.addAttribute("participantName", pName);
         model.addAttribute("roomCode", effectiveRoomCode);
 
-        // Card rows (rendered via th:each)
+        // Card rows (rendered via th:each in the template)
         model.addAttribute("cardsRow1", new String[]{"1", "2", "3", "5"});
         model.addAttribute("cardsRow2", new String[]{"8", "13", "20", "40"});
         model.addAttribute("cardsRow3", new String[]{"❓", "💬", "☕"});
 
+        // Redirect to GET /room with encoded params to support refresh/deep-linking
         return "redirect:/room?roomCode=" + org.springframework.web.util.UriUtils.encodeQueryParam(effectiveRoomCode, java.nio.charset.StandardCharsets.UTF_8)
                 + "&participantName=" + org.springframework.web.util.UriUtils.encodeQueryParam(pName, java.nio.charset.StandardCharsets.UTF_8);
     }
@@ -108,19 +105,19 @@ public class GameController {
         String rCode = safeTrim(roomCode);
         String pName = safeTrim(participantName);
 
-        // No room → back to landing
+        // Missing room → back to landing
         if (rCode.isEmpty()) {
             model.addAttribute("error", "Missing room or participant");
             return "index";
         }
 
-        // Deep-link without participantName → show invite page
+        // Deep-link without participant name → show invite page (lets user enter name)
         if (pName.isEmpty()) {
             model.addAttribute("roomCode", rCode);
             return "invite";
         }
 
-        // With both params → go straight to the room
+        // Both params present → render the room directly
         model.addAttribute("participantName", pName);
         model.addAttribute("roomCode", rCode);
 

@@ -24,7 +24,7 @@
   </properties>
 
   <dependencies>
-
+    <!-- Actuator (optional, small; you also have your own /healthz) -->
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-actuator</artifactId>
@@ -40,7 +40,7 @@
       <artifactId>spring-boot-starter-thymeleaf</artifactId>
     </dependency>
 
-    <!-- Devtools (nur lokal zur Laufzeit) -->
+    <!-- Devtools (excluded from repackaged jar) -->
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-devtools</artifactId>
@@ -48,37 +48,10 @@
       <optional>true</optional>
     </dependency>
 
-    <!-- JPA -->
-    <dependency>
-      <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-data-jpa</artifactId>
-    </dependency>
-
     <!-- Bean Validation -->
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-validation</artifactId>
-    </dependency>
-
-    <!-- PostgreSQL -->
-    <dependency>
-      <groupId>org.postgresql</groupId>
-      <artifactId>postgresql</artifactId>
-      <version>42.7.3</version>
-    </dependency>
-
-    <!-- H2 (runtime) -->
-    <dependency>
-      <groupId>com.h2database</groupId>
-      <artifactId>h2</artifactId>
-      <scope>runtime</scope>
-    </dependency>
-
-    <!-- JetBrains annotations (optional) -->
-    <dependency>
-      <groupId>org.jetbrains</groupId>
-      <artifactId>annotations</artifactId>
-      <version>24.0.1</version>
     </dependency>
 
     <!-- Apache Commons Net: FTPS client -->
@@ -88,11 +61,23 @@
       <version>3.10.0</version>
     </dependency>
 
-
     <!-- WebSockets -->
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-websocket</artifactId>
+    </dependency>
+
+    <!-- Password hashing (BCrypt) -->
+    <dependency>
+      <groupId>org.springframework.security</groupId>
+      <artifactId>spring-security-crypto</artifactId>
+    </dependency>
+
+    <!-- JetBrains annotations (optional) -->
+    <dependency>
+      <groupId>org.jetbrains</groupId>
+      <artifactId>annotations</artifactId>
+      <version>24.0.1</version>
     </dependency>
 
     <!-- Tests -->
@@ -101,6 +86,7 @@
       <artifactId>spring-boot-starter-test</artifactId>
       <scope>test</scope>
     </dependency>
+    <!-- Keep Selenium only if you actually run browser tests -->
     <dependency>
       <groupId>org.seleniumhq.selenium</groupId>
       <artifactId>selenium-java</artifactId>
@@ -120,24 +106,21 @@
       <artifactId>spring-boot-configuration-processor</artifactId>
       <optional>true</optional>
     </dependency>
-
-    <!-- Password hashing (BCrypt) -->
-    <dependency>
-      <groupId>org.springframework.security</groupId>
-      <artifactId>spring-security-crypto</artifactId>
-    </dependency>
-
   </dependencies>
 
   <build>
     <plugins>
-      <!-- Spring Boot plugin -->
+      <!-- Spring Boot -->
       <plugin>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-maven-plugin</artifactId>
+        <configuration>
+          <!-- Explicit: devtools not packaged -->
+          <excludeDevtools>true</excludeDevtools>
+        </configuration>
       </plugin>
 
-      <!-- Compiler auf Release 21 -->
+      <!-- Java 21 release -->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
@@ -148,7 +131,7 @@
     </plugins>
   </build>
 
-  <!-- Eclipse/STS: M2E-Warnung für exec-maven-plugin (falls jemals wieder genutzt) ausblenden -->
+  <!-- Eclipse/STS mapping hint (safe to keep) -->
   <profiles>
     <profile>
       <id>eclipse</id>
@@ -171,7 +154,7 @@
                       <pluginExecutionFilter>
                         <groupId>org.codehaus.mojo</groupId>
                         <artifactId>exec-maven-plugin</artifactId>
-                        <versionRange>[3.3.0,)</versionRange>
+                        <versionRange>[3.3.0,]</versionRange>
                         <goals>
                           <goal>exec</goal>
                         </goals>
