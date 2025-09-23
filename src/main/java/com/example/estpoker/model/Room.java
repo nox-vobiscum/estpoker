@@ -49,19 +49,17 @@ public class Room {
     }
 
     public void addParticipant(Participant p) {
-        if (p == null) return;
-        // de-dupe by name: update existing instead of adding a duplicate row
-        Participant existing = getParticipant(p.getName());
-        if (existing == null) {
-            participants.add(p);
-        } else {
-            // merge minimal presence (keep existing object so references remain stable)
-            existing.setActive(true);
-            existing.setParticipating(p.isParticipating());
-            if (p.isHost()) existing.setHost(true);
-            // keep vote as-is unless caller wants to overwrite explicitly
-        }
+    if (p == null) return;
+    // de-dupe by name: if the name is already taken, DO NOT touch the existing participant.
+    Participant existing = getParticipant(p.getName());
+    if (existing == null) {
+        participants.add(p);
+        return;
     }
+    // Name already in use by someone else:
+    // Intentionally no-op to avoid altering room state of the existing participant.
+    // (Re-joins / refreshes should be handled via CID mapping elsewhere, not by name.)
+}
 
     public void removeParticipant(String name) {
         if (name == null) return;

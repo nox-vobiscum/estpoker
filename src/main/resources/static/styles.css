@@ -16,6 +16,7 @@
   --shadow:0 6px 16px rgba(0,0,0,.25);
   --radius:12px; --radius-sm:8px;
   --h-input:44px; --h-button:44px; --gap:12px; --gap-sm:8px;
+  --btn-primary-bg:#2b6cb0;
 
   /* footer + sticky CTA spacing */
   --footer-h:68px;
@@ -580,3 +581,58 @@ html.light .vote-chip.heat, body.light .vote-chip.heat, :root[data-theme="light"
 .vote-actions { margin-top: 14px; }
 body.votes-revealed .card-grid { pointer-events:none; opacity:.6; filter:saturate(.85); }
 body.votes-revealed .card-grid button:focus { outline:2px solid var(--accent); }
+
+/* --- inline name-availability notice --- */
+.notice-inline {
+  margin-top: 0.5rem;
+  padding: 0.75rem 0.9rem;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  line-height: 1.35;
+  border: 1px solid transparent;
+}
+.notice-warn {
+  background: #fff8e1;
+  border-color: var(--notice-warn-border, #ffe0a3);
+}
+:root[data-theme="dark"] {
+  --notice-warn-bg: #3a2e1a;
+  --notice-warn-border: #a38a5e;
+}
+:root[data-theme="light"] {
+  --notice-warn-bg: #fff8e1;
+  --notice-warn-border: #ffe0a3;
+}
+.notice-content .notice-title {
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+.notice-content .notice-text {
+  margin-bottom: 0.5rem;
+}
+.notice-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.btn {
+  display: inline-block;
+  padding: 0.4rem 0.7rem;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  font: inherit;
+}
+.btn-primary {
+  border-color: var(--btn-primary-bg);
+  background: var(--btn-primary-bg);
+  color: #fff;
+}
+.btn-link {
+  background: transparent;
+  color: var(--accent);
+  border: none;
+  padding-left: 0;
+  padding-right: 0;
+  text-decoration: underline;
+}
