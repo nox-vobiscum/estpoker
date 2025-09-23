@@ -8,6 +8,9 @@ This document captures the shared baseline for the project, the local working en
 
 Lightweight online estimation poker with real-time updates, simple UX, and optional persistence (snapshots). Server-rendered HTML + vanilla JS for minimal footprint; Spring Boot backend.
 
+prod URL:
+https://ep.noxvobiscum.at/
+
 ---
 
 ## 1) Current Working Environment (Dev box)
