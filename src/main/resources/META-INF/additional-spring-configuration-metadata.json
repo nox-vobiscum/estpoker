@@ -1,12 +1,25 @@
 {
   "properties": [
-
     {
       "name": "features.persistentRooms.enabled",
       "type": "java.lang.Boolean",
       "defaultValue": false,
-      "description": "Toggle to enable persistence of rooms using the database. When false, the app uses a No-Op adapter and does not access the DB."
+      "description": "Enable persistent rooms via storage backend (e.g., FTPS JSON snapshots). When false, a No-Op adapter is used and no persistence happens."
     },
+
+    {
+      "name": "features.persistentRooms.snapshot.enabled",
+      "type": "java.lang.Boolean",
+      "defaultValue": true,
+      "description": "Enable debounced live→stored snapshots."
+    },
+    {
+      "name": "features.persistentRooms.snapshot.debounceMs",
+      "type": "java.lang.Long",
+      "defaultValue": 1500,
+      "description": "Debounce window in milliseconds for snapshots."
+    },
+
     {
       "name": "app.websocket.allowed-origins",
       "type": "java.lang.String",
@@ -14,37 +27,23 @@
       "sourceType": "com.example.estpoker.config.WebSocketConfig"
     },
 
-    {"name":"app.storage.mode","type":"java.lang.String"},
-    {"name":"app.storage.ftps.host","type":"java.lang.String"},
-    {"name":"app.storage.ftps.port","type":"java.lang.Integer"},
-    {"name":"app.storage.ftps.user","type":"java.lang.String"},
-    {"name":"app.storage.ftps.pass","type":"java.lang.String"},
-    {"name":"app.storage.ftps.base-dir","type":"java.lang.String"},
-    {"name":"app.storage.ftps.passive","type":"java.lang.Boolean"},
-    {"name":"app.storage.ftps.implicit-mode","type":"java.lang.Boolean"},
-    {"name":"app.storage.ftps.so-timeout-ms","type":"java.lang.Integer"},
-    {"name":"app.storage.ftps.data-timeout-ms","type":"java.lang.Integer"},
-    {"name":"app.storage.ftps.use-utf8","type":"java.lang.Boolean"},
-    {"name":"app.storage.ftps.debug","type":"java.lang.Boolean"},
+    { "name": "app.storage.mode",                 "type": "java.lang.String",  "description": "Storage backend mode (ftps)." },
+    { "name": "app.storage.ftps.host",            "type": "java.lang.String",  "description": "FTPS host." },
+    { "name": "app.storage.ftps.port",            "type": "java.lang.Integer", "description": "FTPS port." },
+    { "name": "app.storage.ftps.user",            "type": "java.lang.String",  "description": "FTPS username." },
+    { "name": "app.storage.ftps.pass",            "type": "java.lang.String",  "description": "FTPS password." },
+    { "name": "app.storage.ftps.base-dir",        "type": "java.lang.String",  "description": "Base directory for room files." },
+    { "name": "app.storage.ftps.passive",         "type": "java.lang.Boolean", "description": "Use passive mode." },
+    { "name": "app.storage.ftps.implicit-mode",   "type": "java.lang.Boolean", "description": "Implicit FTPS mode." },
+    { "name": "app.storage.ftps.so-timeout-ms",   "type": "java.lang.Integer", "description": "Socket timeout (ms)." },
+    { "name": "app.storage.ftps.data-timeout-ms", "type": "java.lang.Integer", "description": "Data channel timeout (ms)." },
+    { "name": "app.storage.ftps.use-utf8",        "type": "java.lang.Boolean", "description": "Use UTF-8 control encoding." },
+    { "name": "app.storage.ftps.debug",           "type": "java.lang.Boolean", "description": "Verbose FTPS client logging." },
+    { "name": "app.storage.ftps.prefer-ipv4",     "type": "java.lang.Boolean", "description": "Prefer IPv4 when connecting." },
 
-    {
-      "name": "features.securityProbe.enabled",
-      "type": "java.lang.Boolean",
-      "description": "Enable optional security probe endpoints.",
-      "defaultValue": false
-    },
-    {
-      "name": "features.persistentRooms.snapshot.enabled",
-      "type": "java.lang.Boolean",
-      "description": "Enable debounced live->stored snapshots.",
-      "defaultValue": true
-    },
-    {
-      "name": "features.persistentRooms.snapshot.debounceMs",
-      "type": "java.lang.Long",
-      "description": "Debounce window in milliseconds.",
-      "defaultValue": 1500
-    }
-    
+    { "name": "features.securityProbe.enabled",   "type": "java.lang.Boolean", "defaultValue": false, "description": "Enable optional security probe endpoints." },
+
+    { "name": "app.security.password.bcrypt-cost","type": "java.lang.Integer", "description": "BCrypt cost factor for room passwords." },
+    { "name": "app.security.password.pepper",     "type": "java.lang.String",  "description": "Optional global pepper appended before hashing." }
   ]
 }
