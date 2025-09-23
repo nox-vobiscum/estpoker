@@ -12,8 +12,8 @@
       <span th:text="#{ui.heading}" data-i18n="ui.heading">RBS' Estimation Poker</span>
     </h1>
 
-    <!-- Join form -->
-    <form id="joinForm" class="join-form" action="/room" method="get" novalidate>
+    <!-- Join form (posts to /join like invite.html) -->
+    <form id="joinForm" class="join-form" th:action="@{/join}" method="post" novalidate>
       <div class="form-row">
         <label for="nameInput">
           <span class="mi-icon" aria-hidden="true">👤</span>
@@ -28,6 +28,11 @@
         </label>
         <input id="roomInput" name="roomCode" type="text" maxlength="40" autocapitalize="none" spellcheck="false" required placeholder="team-alpha">
       </div>
+
+      <!-- Hidden flags (default false); parity with /invite -->
+      <input type="hidden" name="persistent" value="false">
+      <input type="hidden" name="testRoom" value="false">
+
       <div class="form-actions">
         <button class="button" type="submit"
                 th:text="#{button.join}"
@@ -43,17 +48,55 @@
     const form  = document.getElementById('joinForm');
     const nameI = document.getElementById('nameInput');
     const roomI = document.getElementById('roomInput');
+
     document.addEventListener('DOMContentLoaded', () => {
       try {
-        const n = localStorage.getItem('ep-name'); const r = localStorage.getItem('ep-room');
-        if (n && !nameI.value) nameI.value = n; if (r && !roomI.value) roomI.value = r;
-        if (!nameI.value) nameI.focus(); else if (!roomI.value) roomI.focus(); else document.querySelector('.button')?.focus();
+        const n = localStorage.getItem('ep-name');
+        const r = localStorage.getItem('ep-room');
+        if (n && !nameI.value) nameI.value = n;
+        if (r && !roomI.value) roomI.value = r;
+        if (!nameI.value) nameI.focus();
+        else if (!roomI.value) roomI.focus();
+        else document.querySelector('.button')?.focus();
       } catch {}
     });
-    form.addEventListener('submit', (e) => {
-      const n = nameI.value.trim(); const r = roomI.value.trim();
-      if (!n || !r) { e.preventDefault(); alert('Please enter your name and a room code.'); (!n ? nameI : roomI).focus(); return; }
-      try { localStorage.setItem('ep-name', n); localStorage.setItem('ep-room', r); } catch {}
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault(); // we will submit manually after checks
+
+      const n = (nameI.value || '').trim();
+      const r = (roomI.value || '').trim();
+
+      if (!n || !r) {
+        alert('Please enter your name and a room code.');
+        (!n ? nameI : roomI).focus();
+        return;
+      }
+
+      // persist last inputs for convenience
+      try {
+        localStorage.setItem('ep-name', n);
+        localStorage.setItem('ep-room', r);
+      } catch {}
+
+      // async name-taken check against in-memory room state
+      try {
+        const url = `/api/rooms/${encodeURIComponent(r)}/name-taken?name=${encodeURIComponent(n)}`;
+        const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+        if (res.ok) {
+          const taken = await res.json(); // boolean
+          if (taken === true) {
+            alert('This name is already used in this room. Please choose a unique display name.');
+            nameI.focus();
+            return;
+          }
+        }
+        // if non-200 or parse error ⇒ fall through and submit (server remains authoritative)
+      } catch {
+        // network error ⇒ submit anyway; server will enforce uniqueness behavior
+      }
+
+      form.submit();
     });
   })();
   </script>

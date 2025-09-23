@@ -1,6 +1,8 @@
 package com.example.estpoker.controller;
 
 import com.example.estpoker.persistence.PersistentRooms;
+import com.example.estpoker.service.GameService;
+import com.example.estpoker.model.Room;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -8,16 +10,20 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
+import java.nio.charset.StandardCharsets;
+
 @Controller
 public class GameController {
 
     private final PersistentRooms persistentRooms;
+    private final GameService gameService; // access to live rooms for name clash checks
 
     @Value("${features.persistentRooms.enabled:false}")
     private boolean persistenceEnabled;
 
-    public GameController(PersistentRooms persistentRooms) {
+    public GameController(PersistentRooms persistentRooms, GameService gameService) {
         this.persistentRooms = persistentRooms;
+        this.gameService = gameService;
     }
 
     @GetMapping("/")
@@ -77,23 +83,26 @@ public class GameController {
             }
         }
 
-        // Prepare model for room.html
-        model.addAttribute("participantName", pName);
-        model.addAttribute("roomCode", effectiveRoomCode);
-
-        // Card rows (rendered via th:each in the template)
-        model.addAttribute("cardsRow1", new String[]{"1", "2", "3", "5"});
-        model.addAttribute("cardsRow2", new String[]{"8", "13", "20", "40"});
-        model.addAttribute("cardsRow3", new String[]{"❓", "💬", "☕"});
+        // Server-side guard: if a live room exists and the name is already taken, redirect to invite
+        Room live = gameService.getRoom(effectiveRoomCode);
+        if (live != null && live.nameInUse(pName)) {
+            // Preserve inputs and signal the reason; UI can show a message based on nameTaken=1
+            return "redirect:/invite?roomCode="
+                    + url(effectiveRoomCode) + "&participantName=" + url(pName) + "&nameTaken=1";
+        }
 
         // Redirect to GET /room with encoded params to support refresh/deep-linking
-        return "redirect:/room?roomCode=" + org.springframework.web.util.UriUtils.encodeQueryParam(effectiveRoomCode, java.nio.charset.StandardCharsets.UTF_8)
-                + "&participantName=" + org.springframework.web.util.UriUtils.encodeQueryParam(pName, java.nio.charset.StandardCharsets.UTF_8);
+        return "redirect:/room?roomCode=" + url(effectiveRoomCode)
+                + "&participantName=" + url(pName);
     }
 
     // --- helpers ---
     private static String safeTrim(String s) {
         return (s == null) ? "" : s.trim();
+    }
+
+    private static String url(String s) {
+        return org.springframework.web.util.UriUtils.encodeQueryParam(s, StandardCharsets.UTF_8);
     }
 
     @GetMapping("/room")
@@ -115,6 +124,14 @@ public class GameController {
         if (pName.isEmpty()) {
             model.addAttribute("roomCode", rCode);
             return "invite";
+        }
+
+        // Server-side guard on deep-link: if a live room exists and name is taken, go to invite to adjust
+        Room live = gameService.getRoom(rCode);
+        if (live != null && live.nameInUse(pName)) {
+            return "redirect:/invite?roomCode=" + url(rCode)
+                    + "&participantName=" + url(pName)
+                    + "&nameTaken=1";
         }
 
         // Both params present → render the room directly

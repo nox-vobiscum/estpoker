@@ -13,13 +13,21 @@
       <span th:text="#{ui.heading}" data-i18n="ui.heading">RBS' Estimation Poker</span>
     </h1>
 
-    <!-- Dynamic message: provide initial SSR and attributes for re-render on language switch -->
+    <!-- Informational heading with room code -->
     <p class="hint"
        id="inviteHeading"
        th:utext="#{invite.heading(${rc})}"
        data-i18n-dyn="invite.heading"
        th:attr="data-arg0=${rc}">
       You’ve been invited to room <strong>demo</strong>.
+    </p>
+
+    <!-- NEW: name-taken notice (shown when redirected from server with ?nameTaken=1) -->
+    <p class="hint" th:if="${param.nameTaken != null}">
+      The name
+      <strong th:text="${param.participantName}">your name</strong>
+      is already used in this room. Please choose a unique display name
+      (for example by adding a suffix like <em>(2)</em>).
     </p>
 
     <form th:action="@{/join}" method="post" id="joinForm" class="join-form">
@@ -41,7 +49,21 @@
     </form>
   </div>
 
+  <!-- Keep existing client-side helper (no changes) -->
   <script defer src="/js/invite-name-check.js?v=1"></script>
+
+  <!-- Focus the name field when user must pick a unique name -->
+  <script>
+    (function() {
+      const params = new URLSearchParams(location.search);
+      if (params.has('nameTaken')) {
+        const inp = document.getElementById('participantName');
+        if (inp && !document.activeElement || document.activeElement === document.body) {
+          setTimeout(() => inp.focus(), 0);
+        }
+      }
+    })();
+  </script>
 
   <div th:replace="~{fragments/footer :: footer}"></div>
 </body>
