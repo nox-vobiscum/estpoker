@@ -289,3 +289,78 @@ Backlog items are maintained in `docs/BACKLOG.md`. Current examples include:
 - Menu compactness (font sizes, line heights, spacing tokens in `styles.css`).  
 - Expand Playwright coverage and wire a simple CI job.  
 - Additional accessibility polish (focus states, roles, landmarks).
+
+
+
+## ###########################################
+## ##########+++++ Appendices +++++###########
+## ###########################################
+
+## Appendix A — Public surface (routes & sockets)
+
+- `GET /` → Landing page  
+- `GET /invite?roomCode=...` → Invite page (pre-fills hidden room field)  
+- `POST /join` → Validates inputs, decides persistent/non-persistent, redirects to `/room`  
+- `GET /room?roomCode=...&participantName=...` → Main room view  
+- `GET /api/rooms/check?name=...` → Returns `true` if the name is already taken (when feature backed)  
+- `GET /healthz` → Plain health probe (returns `ok`)  
+- **WebSocket:** `/gameSocket` (origins controlled via `app.websocket.allowed-origins`)
+
+---
+
+## Appendix B — FTPS env reference (current persistence mode)
+
+| Property key                         | Env fallback (if any) | Default | Notes |
+|-------------------------------------|------------------------|---------|------|
+| `app.storage.mode`                   | —                      | `ftps`  | Current mode selector |
+| `app.storage.ftps.host`             | `DF_FTP_HOST`          | —       | FTPS host |
+| `app.storage.ftps.port`             | `DF_FTP_PORT`          | `21`    | Port |
+| `app.storage.ftps.user`             | `DF_FTP_USER`          | —       | Username |
+| `app.storage.ftps.pass`             | `DF_FTP_PASS`          | —       | Password |
+| `app.storage.ftps.base-dir`         | `DF_FTP_BASE`          | `rooms` | Root dir for JSON snapshots |
+| `app.storage.ftps.passive`          | —                      | `true`  | Passive mode recommended |
+| `app.storage.ftps.implicit-mode`    | —                      | `false` | Explicit FTPS by default |
+| `app.storage.ftps.so-timeout-ms`    | —                      | `15000` | Control/data timeouts |
+| `app.storage.ftps.data-timeout-ms`  | —                      | `20000` | 〃 |
+| `app.storage.ftps.use-utf8`         | —                      | `true`  | Filenames/paths |
+| `app.storage.ftps.debug`            | —                      | `true`  | Verbose logs (disable in prod if noisy) |
+
+> Password hashing: `app.security.password.bcrypt-cost` (default 10), optional `app.security.password.pepper`.
+
+---
+
+## Appendix C — Concurrency guardrails (Room model)
+
+- `Room` holds in-memory state; mutations happen on server.  
+- List is a `CopyOnWriteArrayList`, but **external code should still synchronize on the Room** when performing multi-step mutations to keep snapshots consistent.  
+- Use provided methods (`addParticipant`, `removeParticipant`, `renameParticipant`, `reset`, …). Don’t expose or mutate internal collections directly.
+
+---
+
+## Appendix D — Quick test commands
+
+- All unit tests:  
+  ./mvnw -q -DskipITs -DskipE2E test
+
+- Single test class:
+  ./mvnw -q -DskipITs -DskipE2E -Dtest=StoredRoomPersistenceServiceTest test
+
+- With logs (noisy, for debugging):
+  ./mvnw test -X
+
+---
+
+## Appendix E — Playwright (next steps)
+
+Goal: restore green E2E smoke against local http://localhost:8080.
+
+Plan (tracked in BACKLOG):
+- Minimal playwright.config.ts with BASE_URL (inherit via env).
+- One smoke spec: open /, join a room, see your name, basic vote, reveal.
+- Keep selectors aligned with the UI: prefer roles/labels; add data-testid only where ARIA/roles are unstable.
+- Capture trace/screenshot on failure.
+- Command sketch (once added):
+    npx playwright test --headed
+    # or
+    BASE_URL=http://localhost:8080 npx playwright test
+
