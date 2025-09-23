@@ -1,4 +1,4 @@
-# EST Poker — BRIEFING
+# RBS' Estimation Poker — BRIEFING
 
 This document captures the shared baseline for the project, the local working environment, our collaboration workflow, and the testing strategy. It’s meant to be stable, concise, and actionable.
 
