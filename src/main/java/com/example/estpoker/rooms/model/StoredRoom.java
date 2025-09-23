@@ -121,8 +121,23 @@ public class StoredRoom {
      * Update the "last modified" timestamp to now.
      */
     public void touchUpdated() {
-        this.updatedAt = Instant.now();
+    java.time.Instant now = java.time.Instant.now();
+
+    if (this.updatedAt == null) {
+        this.updatedAt = now;
+        return;
     }
+
+    if (now.isAfter(this.updatedAt)) {
+        this.updatedAt = now;
+    } else {
+        this.updatedAt = this.updatedAt.plusNanos(1_000_000);
+    }
+
+    if (this.createdAt != null && this.updatedAt.isBefore(this.createdAt)) {
+    this.updatedAt = this.createdAt.plusNanos(1_000_000);
+}
+}
 
     /**
      * Initialize createdAt if it is currently null. Does not change updatedAt.
