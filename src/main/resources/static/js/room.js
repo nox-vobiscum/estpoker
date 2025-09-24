@@ -1346,14 +1346,42 @@
 
   document.addEventListener('ep:lang-changed', onLangChange);
 
-  /*** ---------- Name preflight (brand-new tabs only) ---------- ***/
+    /*** ---------- Name preflight (brand-new tabs only) ---------- ***/
   async function preflightNameCheck() {
-    // Guard: never run on reloads / existing tabs
-    if (!state.cidWasNew) return;
+    // --- Guards A + B + optional C ---
+    // A) Only on brand-new tabs (cidWasNew === true)
+    // B) Never on reload/back-forward navigations (via PerformanceNavigationTiming)
+    // C) Optional override via URL flag: ?preflight=1 (only Join forms should set this)
+    //
+    // Important: We intentionally read from the early-captured `url` (created before
+    // canonicalizeRoomUrl()), because canonicalization strips unknown params like `preflight`.
+    const preflightParam = (url && url.searchParams && url.searchParams.get('preflight')) || null;
+    const forcedByParam  = preflightParam === '1';
+
+    // Navigation type detection (reload/back_forward → skip)
+    let isReloadLike = false;
+    try {
+      const nav = performance?.getEntriesByType?.('navigation')?.[0];
+      if (nav && (nav.type === 'reload' || nav.type === 'back_forward')) {
+        isReloadLike = true;
+      }
+    } catch { /* noop */ }
+
+    // Primary guards:
+    if (isReloadLike) return;                 // B) never preflight on reload/back-forward
+    if (!forcedByParam && !state.cidWasNew) { // A) only on brand-new tabs by default
+      return;
+    }
+    // If forcedByParam === true → allow preflight even if cidWasNew === false (explicit join flow)
 
     // Guard: if we already marked this (room+name) as OK in this tab, skip
     const pfKey = `ep-pf-ok:${state.roomCode}:${state.youName}`;
-    try { if (sessionStorage.getItem(pfKey) === '1') { state._preflightMarkedOk = true; return; } } catch {}
+    try {
+      if (sessionStorage.getItem(pfKey) === '1') {
+        state._preflightMarkedOk = true;
+        return;
+      }
+    } catch { /* ignore */ }
 
     // Try best-effort availability probe; on any error, just proceed
     try {
@@ -1370,12 +1398,19 @@
           return;
         }
         // Mark OK so subsequent reloads in this tab won't re-check again
-        try { sessionStorage.setItem(pfKey, '1'); state._preflightMarkedOk = true; } catch {}
+        try {
+          sessionStorage.setItem(pfKey, '1');
+          state._preflightMarkedOk = true;
+        } catch { /* ignore */ }
       }
     } catch {
       // Ignore network/parse errors; we'll continue to room normally
     }
+
+    // Note: canonicalizeRoomUrl() earlier already strips unknown params (incl. preflight)
+    // via history.replaceState, so subsequent reloads/back-forward won't carry the flag.
   }
+
 
   /*** ---------- Boot ---------- ***/
   function seedSelfPlaceholder() {
