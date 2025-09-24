@@ -4,7 +4,7 @@
    - Wake-ups on visibilitychange / focus / online / pageshow (poke + resync)
    - Exponential backoff reconnect w/ jitter
    - English inline comments & "Spectator" wording
-   - Name preflight on brand-new tabs only (no checks on reloads)
+   - Name preflight once per (room+name) per tab
 */
 (() => {
   'use strict';
