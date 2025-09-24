@@ -91,8 +91,12 @@ public class GameController {
         model.addAttribute("cardsRow3", new String[]{"❓", "💬", "☕"});
 
         // Redirect to GET /room with encoded params to support refresh/deep-linking
-        return "redirect:/room?roomCode=" + org.springframework.web.util.UriUtils.encodeQueryParam(effectiveRoomCode, java.nio.charset.StandardCharsets.UTF_8)
-                + "&participantName=" + org.springframework.web.util.UriUtils.encodeQueryParam(pName, java.nio.charset.StandardCharsets.UTF_8);
+        // IMPORTANT: Add preflight=1 so the server runs the duplicate-name check ONLY on first entry.
+        return "redirect:/room?roomCode="
+                + org.springframework.web.util.UriUtils.encodeQueryParam(effectiveRoomCode, java.nio.charset.StandardCharsets.UTF_8)
+                + "&participantName="
+                + org.springframework.web.util.UriUtils.encodeQueryParam(pName, java.nio.charset.StandardCharsets.UTF_8)
+                + "&preflight=1";
     }
 
     // --- helpers ---
@@ -129,11 +133,9 @@ public class GameController {
         }
 
         // --- Server-side safety net: only run when explicitly flagged via ?preflight=1 ---
-        // Rationale: On reload/back-forward, we want to render the room without bouncing to /invite.
         if (runPreflight) {
             Room room = gameService.getRoom(rCode);
             if (room != null && room.nameInUse(pName)) {
-                // Pass information back so the invite page (and/or its JS) can prompt for a unique name
                 return "redirect:/invite?roomCode="
                         + org.springframework.web.util.UriUtils.encodeQueryParam(rCode, java.nio.charset.StandardCharsets.UTF_8)
                         + "&participantName="
