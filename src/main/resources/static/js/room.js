@@ -106,17 +106,49 @@
   /*** ---------- Stable per-tab client id ---------- ***/
   const CIDKEY = 'ep-cid';
   try {
-    state.cid = sessionStorage.getItem(CIDKEY);
-    if (!state.cid) {
+    const existing = sessionStorage.getItem(CIDKEY);
+    if (existing) {
+      // Reload / same tab → do not run name preflight checks
+      state.cid = existing;
+      state.cidWasNew = false;
+    } else {
+      // New tab / first entry → allow preflight checks
       state.cid = Math.random().toString(36).slice(2) + '-' + Date.now();
       sessionStorage.setItem(CIDKEY, state.cid);
+      state.cidWasNew = true;
     }
   } catch {
+    // Fallback if sessionStorage is not available
     state.cid = 'cid-' + Date.now();
+    state.cidWasNew = true; // conservative: treat as first entry
   }
 
-  setText('#youName', state.youName);
-  setText('#roomCodeVal', state.roomCode);
+  /*** ---------- Guard: skip name availability checks on reloads ---------- ***
+   * If any code (here or imported) tries to preflight '/api/rooms/{...}/name-available'
+   * while we are simply reloading the room page, short-circuit the request so it
+   * always looks "available". This prevents accidental redirects to /invite on reload.
+   */
+  (function installNameCheckBypass(){
+    try {
+      if (window.__epFetchBypassInstalled) return;
+      window.__epFetchBypassInstalled = true;
+      const originalFetch = window.fetch;
+      window.fetch = function(input, init) {
+        try {
+          const urlStr = (typeof input === 'string') ? input : (input && input.url);
+          const isNameCheck = urlStr && /\/api\/rooms\/[^/]+\/name-available\?/.test(urlStr);
+          if (isNameCheck && !state.cidWasNew) {
+            // On reload: pretend the name is available → no redirect / prompt
+            return Promise.resolve(new Response(JSON.stringify({ available: true }), {
+              status: 200,
+              headers: { 'Content-Type': 'application/json' }
+            }));
+          }
+        } catch { /* ignore and fall through */ }
+        return originalFetch.call(this, input, init);
+      };
+    } catch { /* noop */ }
+  })();
 
   // Canonicalize URL params (no reload) for shareable links
   (function canonicalizeRoomUrl() {
