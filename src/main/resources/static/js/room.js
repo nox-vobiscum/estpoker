@@ -1346,19 +1346,9 @@
 
   document.addEventListener('ep:lang-changed', onLangChange);
 
-    /*** ---------- Name preflight (brand-new tabs only) ---------- ***/
+   /*** ---------- Name preflight: run once per (room+name) per tab ---------- ***/
   async function preflightNameCheck() {
-    // --- Guards A + B + optional C ---
-    // A) Only on brand-new tabs (cidWasNew === true)
-    // B) Never on reload/back-forward navigations (via PerformanceNavigationTiming)
-    // C) Optional override via URL flag: ?preflight=1 (only Join forms should set this)
-    //
-    // Important: We intentionally read from the early-captured `url` (created before
-    // canonicalizeRoomUrl()), because canonicalization strips unknown params like `preflight`.
-    const preflightParam = (url && url.searchParams && url.searchParams.get('preflight')) || null;
-    const forcedByParam  = preflightParam === '1';
-
-    // Navigation type detection (reload/back_forward → skip)
+    // B) Never on reload/back-forward navigations
     let isReloadLike = false;
     try {
       const nav = performance?.getEntriesByType?.('navigation')?.[0];
@@ -1366,50 +1356,54 @@
         isReloadLike = true;
       }
     } catch { /* noop */ }
+    if (isReloadLike) return;
 
-    // Primary guards:
-    if (isReloadLike) return;                 // B) never preflight on reload/back-forward
-    if (!forcedByParam && !state.cidWasNew) { // A) only on brand-new tabs by default
-      return;
-    }
-    // If forcedByParam === true → allow preflight even if cidWasNew === false (explicit join flow)
-
-    // Guard: if we already marked this (room+name) as OK in this tab, skip
+    // (room+name) key for this tab
     const pfKey = `ep-pf-ok:${state.roomCode}:${state.youName}`;
+
+    // If we've already green-lit this (room+name) in THIS tab, do nothing
     try {
       if (sessionStorage.getItem(pfKey) === '1') {
         state._preflightMarkedOk = true;
         return;
       }
+    } catch { /* sessionStorage might be blocked; fall through to a best-effort check */ }
+
+    // Optional C) If we arrived via server preflight (?preflight=1),
+    // the server already rejected taken names. Mark OK and skip network work.
+    try {
+      const preflightParam = (url && url.searchParams && url.searchParams.get('preflight')) || null; // 'url' captured before canonicalization
+      if (preflightParam === '1') {
+        try { sessionStorage.setItem(pfKey, '1'); state._preflightMarkedOk = true; } catch {}
+        return;
+      }
     } catch { /* ignore */ }
 
-    // Try best-effort availability probe; on any error, just proceed
+    // Best-effort availability probe (only for the FIRST visit of this (room+name) in this tab)
     try {
-      const url2 = `/api/rooms/${encodeURIComponent(state.roomCode)}/name-available?name=${encodeURIComponent(state.youName)}`;
-      const resp = await fetch(url2, { headers: { 'Accept': 'application/json' }, cache: 'no-store' });
+      const apiUrl = `/api/rooms/${encodeURIComponent(state.roomCode)}/name-available?name=${encodeURIComponent(state.youName)}`;
+      const resp = await fetch(apiUrl, { headers: { 'Accept': 'application/json' }, cache: 'no-store' });
+
       if (resp.ok) {
         const data = await resp.json();
-        // If taken → redirect to Invite with prefilled params (no WS connection yet)
+
+        // If taken → redirect to Invite with prefilled params (still before WS handshakes)
         if (data && data.available === false) {
-          const redirectUrl = `/invite?roomCode=${encodeURIComponent(state.roomCode)}&participantName=${encodeURIComponent(state.youName)}&taken=1`;
+          const redirectUrl = `/invite?roomCode=${encodeURIComponent(state.roomCode)}&participantName=${encodeURIComponent(state.youName)}&nameTaken=1`;
           state.hardRedirect = redirectUrl;
-          // Use replace() so Back doesn't bounce the user into a loop
-          location.replace(redirectUrl);
+          location.replace(redirectUrl); // replace to avoid Back-loop
           return;
         }
-        // Mark OK so subsequent reloads in this tab won't re-check again
-        try {
-          sessionStorage.setItem(pfKey, '1');
-          state._preflightMarkedOk = true;
-        } catch { /* ignore */ }
-      }
-    } catch {
-      // Ignore network/parse errors; we'll continue to room normally
-    }
 
-    // Note: canonicalizeRoomUrl() earlier already strips unknown params (incl. preflight)
-    // via history.replaceState, so subsequent reloads/back-forward won't carry the flag.
+        // Mark OK so future navigations/reloads in THIS tab won't re-check for this (room+name)
+        try { sessionStorage.setItem(pfKey, '1'); state._preflightMarkedOk = true; } catch {}
+      }
+      // On non-OK responses we simply continue — permissive fallback
+    } catch {
+      // Network/JSON failure → be permissive and continue
+    }
   }
+
 
 
   /*** ---------- Boot ---------- ***/

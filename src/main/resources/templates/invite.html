@@ -17,7 +17,7 @@
     <p class="hint" id="inviteHeading"
        th:if="${rc != null and !#strings.isEmpty(rc)}"
        th:utext="${'You\u2019ve been invited to room <strong>' + rc + '</strong>.'}">
-      You’ve been invited to room <strong>demo</strong>.
+      You've been invited to room <strong>demo</strong>.
     </p>
     <p class="hint" th:if="${rc == null or #strings.isEmpty(rc)}"
        th:text="#{invite.generic}" data-i18n="invite.generic">
@@ -43,7 +43,7 @@
     </form>
   </div>
 
-  <script defer src="/js/invite-name-check.js?v=3"></script>
+  <script defer src="/js/invite-name-check.js?v=5"></script>
 
   <div th:replace="~{fragments/footer :: footer}"></div>
 </body>

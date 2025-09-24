@@ -14,6 +14,19 @@
       .replace(/"/g, '&quot;');
   }
 
+  // Ensure we always submit to POST /join (server then redirects to /room?preflight=1).
+  function ensureJoinDestination(form) {
+    if (!form) return;
+    try {
+      const currentAction = (form.getAttribute('action') || '').trim();
+      const currentMethod = (form.getAttribute('method') || '').trim().toLowerCase();
+      if (currentAction !== '/join' || currentMethod !== 'post') {
+        form.setAttribute('action', '/join');
+        form.setAttribute('method', 'post');
+      }
+    } catch { /* noop */ }
+  }
+
   // Reusable inline notice right after the name input (nice UX)
   function ensureNoticeAfter(input) {
     let n = document.getElementById('nameCheckNotice');
@@ -71,6 +84,9 @@
     e.preventDefault();
     clearNotice();
 
+    // Always make sure we're submitting to POST /join (server adds ?preflight=1)
+    ensureJoinDestination(form);
+
     const url = `/api/rooms/${enc(roomCode)}/name-available?name=${enc(rawName)}`;
     console.debug('[invite-name-check] checking', { roomCode, rawName, url });
 
@@ -87,12 +103,13 @@
       console.debug('[invite-name-check] API response', data);
 
       if (data && data.available === false && data.suggestion && data.suggestion !== rawName) {
-        // Robust fallback: always ask via confirm() first (works even if CSS is cached/missing)
+        // Robust fallback: confirm() first (works even without CSS)
         const ok = window.confirm(
           `The name "${rawName}" is already used in this room.\n\nJoin as "${data.suggestion}" instead?`
         );
         if (ok) {
           nameInput.value = data.suggestion;
+          ensureJoinDestination(form);
           form.submit();
           return;
         }
@@ -103,7 +120,7 @@
           rawName,
           data.suggestion,
           // onAccept
-          () => { nameInput.value = data.suggestion; clearNotice(); form.submit(); },
+          () => { nameInput.value = data.suggestion; clearNotice(); ensureJoinDestination(form); form.submit(); },
           // onEdit
           () => { clearNotice(); nameInput.focus(); nameInput.select?.(); }
         );
@@ -115,14 +132,18 @@
     }
 
     // Either available or API unreachable → submit as-is
+    ensureJoinDestination(form);
     form.submit();
   }
 
   // --- bootstrapping --------------------------------------------------------
   document.addEventListener('DOMContentLoaded', function () {
-    console.debug('[invite-name-check] loaded v4');
+    console.debug('[invite-name-check] loaded v5');
     const form = findInviteForm();
     if (!form) { console.warn('[invite-name-check] form not found'); return; }
+
+    // Make destination robust (POST /join)
+    ensureJoinDestination(form);
 
     // If server redirected here with nameTaken=1 (legacy path), show an immediate hint
     if (qp('nameTaken') === '1') {
