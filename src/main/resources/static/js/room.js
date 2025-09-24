@@ -4,7 +4,7 @@
    - Wake-ups on visibilitychange / focus / online / pageshow (poke + resync)
    - Exponential backoff reconnect w/ jitter
    - English inline comments & "Spectator" wording
-   - Matches current IST behaviors (result row placement, topic row/editor, menu sync, etc.)
+   - Name preflight on brand-new tabs only (no checks on reloads)
 */
 (() => {
   'use strict';
@@ -20,7 +20,6 @@
   /*** ---------- i18n (lightweight) ---------- ***/
   const MSG = Object.create(null);
   function t(key, fallback) {
-    // Prefer dynamic message map, fall back to <meta> content, then given fallback
     try {
       if (key && Object.prototype.hasOwnProperty.call(MSG, key)) return MSG[key];
       const meta = document.head && document.head.querySelector(`meta[name="msg.${key}"]`);
@@ -45,11 +44,11 @@
   const INFINITY_ALT = '∞';
 
   // Liveness knobs (tuned for iOS tab sleeps)
-  const HEARTBEAT_MS = 15_000;      // send 'ping' this often while socket is open
-  const WATCHDOG_STALE_MS = 20_000; // if no inbound frames for >20s, assume stale and reconnect
-  const WATCHDOG_TICK_MS  = 5_000;  // watchdog polling cadence
-  const RECO_BASE_MS = 800;         // exponential backoff base
-  const RECO_MAX_MS  = 12_000;      // max reconnect delay
+  const HEARTBEAT_MS = 15_000;
+  const WATCHDOG_STALE_MS = 20_000;
+  const WATCHDOG_TICK_MS  = 5_000;
+  const RECO_BASE_MS = 800;
+  const RECO_MAX_MS  = 12_000;
 
   // script dataset / URL params
   const scriptEl = document.querySelector('script[src*="/js/room.js"]') || document.querySelector('script[src*="room.liveness.js"]');
@@ -100,7 +99,11 @@
 
     // UI helpers
     _optimisticVote: null,
-    hardRedirect: null
+    hardRedirect: null,
+
+    // preflight guards
+    cidWasNew: true,
+    _preflightMarkedOk: false
   };
 
   /*** ---------- Stable per-tab client id ---------- ***/
@@ -108,47 +111,20 @@
   try {
     const existing = sessionStorage.getItem(CIDKEY);
     if (existing) {
-      // Reload / same tab → do not run name preflight checks
+      // Reload / same tab → no preflight by default
       state.cid = existing;
       state.cidWasNew = false;
     } else {
-      // New tab / first entry → allow preflight checks
+      // New tab / first entry → enable preflight
       state.cid = Math.random().toString(36).slice(2) + '-' + Date.now();
       sessionStorage.setItem(CIDKEY, state.cid);
       state.cidWasNew = true;
     }
   } catch {
-    // Fallback if sessionStorage is not available
+    // If sessionStorage is not available, fall back (treat as first entry)
     state.cid = 'cid-' + Date.now();
-    state.cidWasNew = true; // conservative: treat as first entry
+    state.cidWasNew = true;
   }
-
-  /*** ---------- Guard: skip name availability checks on reloads ---------- ***
-   * If any code (here or imported) tries to preflight '/api/rooms/{...}/name-available'
-   * while we are simply reloading the room page, short-circuit the request so it
-   * always looks "available". This prevents accidental redirects to /invite on reload.
-   */
-  (function installNameCheckBypass(){
-    try {
-      if (window.__epFetchBypassInstalled) return;
-      window.__epFetchBypassInstalled = true;
-      const originalFetch = window.fetch;
-      window.fetch = function(input, init) {
-        try {
-          const urlStr = (typeof input === 'string') ? input : (input && input.url);
-          const isNameCheck = urlStr && /\/api\/rooms\/[^/]+\/name-available\?/.test(urlStr);
-          if (isNameCheck && !state.cidWasNew) {
-            // On reload: pretend the name is available → no redirect / prompt
-            return Promise.resolve(new Response(JSON.stringify({ available: true }), {
-              status: 200,
-              headers: { 'Content-Type': 'application/json' }
-            }));
-          }
-        } catch { /* ignore and fall through */ }
-        return originalFetch.call(this, input, init);
-      };
-    } catch { /* noop */ }
-  })();
 
   // Canonicalize URL params (no reload) for shareable links
   (function canonicalizeRoomUrl() {
@@ -170,7 +146,6 @@
 
   /*** ---------- Helpers ---------- ***/
   function normalizeSeq(id) {
-    // Map legacy/aliases to canonical deck ids
     if (!id) return 'fib.scrum';
     const s = String(id).toLowerCase().trim();
     if (s === 'fib-enh') return 'fib.enh';
@@ -222,11 +197,11 @@
   }
 
   /*** ---------- WebSocket + liveness ---------- ***/
-  let hbTimer = null;             // heartbeat timer id
-  let wdTimer = null;             // watchdog timer id
-  let rcTimer = null;             // reconnect backoff timer id
-  let rcAttempts = 0;             // consecutive reconnect tries
-  let lastInboundAt = 0;          // timestamp of last inbound frame
+  let hbTimer = null;
+  let wdTimer = null;
+  let rcTimer = null;
+  let rcAttempts = 0;
+  let lastInboundAt = 0;
 
   function startHeartbeat() {
     stopHeartbeat();
@@ -242,7 +217,6 @@
     stopWatchdog();
     wdTimer = setInterval(() => {
       const ws = state.ws;
-      // If socket is open but we've seen no frames for a while, it's stale
       if (ws && ws.readyState === 1) {
         const age = Date.now() - lastInboundAt;
         if (age > WATCHDOG_STALE_MS) {
@@ -251,7 +225,6 @@
           scheduleReconnect('watchdog-stale');
         }
       } else {
-        // If socket is not open, ensure reconnect is scheduled
         scheduleReconnect('watchdog-closed');
       }
     }, WATCHDOG_TICK_MS);
@@ -259,12 +232,11 @@
   function stopWatchdog() { if (wdTimer) { clearInterval(wdTimer); wdTimer = null; } }
 
   function scheduleReconnect(reason) {
-    // Coalesce multiple schedules; exponential backoff with jitter
     if (state.hardRedirect) return;
-    if (rcTimer) return; // already scheduled
+    if (rcTimer) return;
     const attempt = rcAttempts++;
     const base = Math.min(RECO_MAX_MS, RECO_BASE_MS * Math.pow(2, attempt));
-    const jitter = base * (0.3 * Math.random()); // ±30% jitter
+    const jitter = base * (0.3 * Math.random());
     const delay = Math.max(300, base - (base * 0.15) + jitter);
     console.warn(TAG, 'scheduleReconnect', { reason, attempt, delay });
     rcTimer = setTimeout(() => {
@@ -278,14 +250,12 @@
   }
 
   function pokeServerAndSync() {
-    // Gentle "hello" after wake — triggers fast state push
     try { state.ws && state.ws.readyState === 1 && state.ws.send('ping'); } catch {}
     try { send('requestSync'); } catch {}
-    setTimeout(() => { try { send('requestSync'); } catch {} }, 200); // double-tap in case first races with auth
+    setTimeout(() => { try { send('requestSync'); } catch {} }, 200);
   }
 
   function wake(reason = 'wake') {
-    // Called on visibilitychange/focus/online/pageshow to quickly recover on iOS
     if (state.hardRedirect) return;
     if (navigator && 'onLine' in navigator && !navigator.onLine) {
       console.info(TAG, 'wake: offline — will wait for "online"');
@@ -297,7 +267,6 @@
       pokeServerAndSync();
     } else {
       console.info(TAG, 'wake:', reason, '→ reconnect now');
-      // Abort any half-dead socket
       try { ws && ws.close(4003, 'wake-reconnect'); } catch {}
       resetReconnectBackoff();
       connectWS();
@@ -306,7 +275,6 @@
 
   function connectWS() {
     const u = wsUrl();
-    // Avoid parallel sockets
     if (state.ws && (state.ws.readyState === 0 || state.ws.readyState === 1)) {
       try { state.ws.close(4004, 'reconnect'); } catch {}
     }
@@ -333,17 +301,14 @@
     s.onclose = (ev) => {
       state.connected = false;
       stopHeartbeat();
-      // Keep watchdog running so we schedule reconnects while asleep
       if (state.hardRedirect) { location.href = state.hardRedirect; return; }
-      // 4000/4001 are intentional closes (room closed / kicked)
-      if (ev.code === 4000 || ev.code === 4001) return;
+      if (ev.code === 4000 || ev.code === 4001) return; // room closed / kicked
       console.warn(TAG, 'onclose', ev.code, ev.reason || '');
       scheduleReconnect('close');
     };
 
     s.onerror = (e) => {
       console.warn(TAG, 'ERROR', e);
-      // Let onclose handle the reconnect; some browsers fire both
     };
 
     s.onmessage = (ev) => {
@@ -404,7 +369,6 @@
   }
 
   function renderSigFromState() {
-    // Compact signature used to detect "no-op" updates (if you need it later)
     const P = (state.participants || [])
       .map(p => ({ n: p?.name || '', v: (p?.vote ?? ''), o: !!p?.spectator, d: !!p?.disconnected }))
       .sort((a, b) => a.n.localeCompare(b.n));
@@ -433,9 +397,9 @@
       if (has(m, 'sequenceId')) state.sequenceId = normalizeSeq(m.sequenceId);
       else if (!state.sequenceId) state.sequenceId = 'fib.scrum';
 
-      // --- specials & deck (robust across server variants) ---
-      let specialsList = null;    // explicit list (incl. empty)
-      let allowFromServer = null; // explicit boolean
+      // --- specials & deck ---
+      let specialsList = null;
+      let allowFromServer = null;
 
       if (has(m, 'specials') && Array.isArray(m.specials)) {
         specialsList = m.specials.slice();
@@ -459,16 +423,14 @@
                : Array.isArray(state.cards) ? state.cards.slice()
                : [];
 
-      // Infinity is only valid for fib.enh deck
       const seqId = state.sequenceId || 'fib.scrum';
       if (seqId !== 'fib.enh') deck = deck.filter(c => c !== INFINITY_ && c !== INFINITY_ALT);
 
-      // Keep server-provided specials (even empty) authoritative
       if (specialsList !== null) deck = deck.filter(c => !SPECIALS.includes(c)).concat(specialsList);
       deck = deck.filter(c => !DISABLED_SPECIALS.has(String(c)));
       state.cards = deck;
 
-      // --- core flags / stats (accept aliases) ---
+      // --- core flags / stats ---
       if (has(m, 'votesRevealed') || has(m, 'cardsRevealed') || has(m, 'revealed')) {
         state.votesRevealed = !!(has(m, 'votesRevealed') ? m.votesRevealed
                               : has(m, 'cardsRevealed')   ? m.cardsRevealed
@@ -511,7 +473,6 @@
 
           const vote = has(p, 'vote') ? (p.vote ?? null) : (prev ? (prev.vote ?? null) : null);
 
-          // Single source of truth for Spectator (UI) / participating (legacy server field)
           const spectator =
             has(p, 'spectator')     ? !!p.spectator :
             has(p, 'participating') ? (p.participating === false) :
@@ -532,7 +493,6 @@
           });
         }
 
-        // Only set if the server actually sent non-empty list
         if (next.length) state.participants = next;
       }
 
@@ -550,7 +510,6 @@
       renderTopic();
       renderAutoReveal();
 
-      // refresh presence stamps (suppress join/leave flapping toasts)
       try { (state.participants || []).forEach(p => { if (p && !p.disconnected) markAlive(p.name); }); } catch {}
 
       requestAnimationFrame(() => { syncMenuFromState(); syncSequenceInMenu(); });
@@ -561,7 +520,7 @@
       console.error('[ROOM] applyVoteUpdate failed', e);
     }
 
-    // Safety: if empty list came in and we don't see ourselves, inject a local self placeholder
+    // Safety: ensure we show "self" locally if server sends an empty list initially
     if (Array.isArray(state.participants) &&
         !state.participants.some(p => p && p.name === state.youName)) {
       state.participants.unshift({
@@ -574,7 +533,6 @@
 
   /*** ---------- Participants ---------- ***/
   function isSpectator(p) {
-    // Canonical check in case an old server sends `participating:false`
     return !!(p && (p.spectator === true || p.participating === false));
   }
 
@@ -593,7 +551,6 @@
         if (p.isHost)    li.classList.add('is-host');
         if (isSpectator(p)) li.classList.add('spectator');
 
-        // Left icon (👑 host, 👁️ spectator, 💤 inactive, 👤 default)
         const left = document.createElement('span');
         left.className = 'participant-icon' + (p.isHost ? ' host' : '');
         let icon = '👤';
@@ -605,17 +562,14 @@
         if (isInactive) left.classList.add('inactive');
         li.appendChild(left);
 
-        // Name
         const name = document.createElement('span');
         name.className = 'name';
         name.textContent = p.name;
         li.appendChild(name);
 
-        // Right column (chips + actions)
         const right = document.createElement('div');
         right.className = 'row-right';
 
-        // Chips (pre-vote vs post-vote)
         if (!state.votesRevealed) {
           if (isSpectator(p)) {
             const eye = document.createElement('span');
@@ -679,7 +633,6 @@
           }
         }
 
-        // Row actions (host → can makeHost / kick non-hosts)
         if (state.isHost && !p.isHost) {
           const makeHostBtn = document.createElement('button');
           makeHostBtn.className = 'row-action host';
@@ -776,7 +729,6 @@
     return elig.every(p => p.vote != null && String(p.vote) !== '');
   }
 
-  // Unified i18n accessor
   function msg(key, en, de) {
     const fallback = isDe() ? (de != null ? de : en) : en;
     return t(key, fallback);
@@ -790,17 +742,15 @@
     const isSpectatorMe = !!(me && isSpectator(me));
     const disabled = state.votesRevealed || isSpectatorMe;
 
-    // Split deck into numeric + specials
     const deckSpecialsFromState = (state.cards || [])
       .filter(v => SPECIALS.includes(v) && !DISABLED_SPECIALS.has(String(v)));
     const deckNumbers = (state.cards || [])
       .filter(v => !SPECIALS.includes(v) && !DISABLED_SPECIALS.has(String(v)));
 
-    // Robust fallback for specials
     const specialsCandidate = deckSpecialsFromState.length ? deckSpecialsFromState : SPECIALS.slice();
     const specialsDedupe = [...new Set(specialsCandidate.filter(s => !deckNumbers.includes(s)))];
 
-    // Honor host toggle
+
     const specials = state.allowSpecials ? specialsDedupe : [];
 
     const selectedVal = mySelectedValue();
@@ -811,7 +761,6 @@
       const label = String(val);
       btn.textContent = label;
 
-      // Special-card tooltips (❓, ☕)
       if (SPECIALS.includes(label)) {
         if (label === '❓') {
           const tip = msg('card.tip.question',
@@ -841,10 +790,8 @@
       grid.appendChild(btn);
     }
 
-    // numeric first
     deckNumbers.forEach(addCardButton);
 
-    // then specials
     if (specials.length) {
       const br = document.createElement('div');
       br.className = 'grid-break';
@@ -853,7 +800,6 @@
       specials.forEach(addCardButton);
     }
 
-    // CTA buttons (host) — toggle only `hidden` to avoid flicker
     const revealBtn = $('#revealButton');
     const resetBtn  = $('#resetButton');
     const hardGateOK = !state.hardMode || allEligibleVoted();
@@ -881,21 +827,18 @@
     if (resetBtn) {
       resetBtn.hidden = !showReset;
     }
-  } // ← important: close renderCards()
+  } // end renderCards()
 
   /*** ---------- Result bar ---------- ***/
   function renderResultBar() {
-    // Toggle body class (used by CSS to dim cards)
     document.body.classList.toggle('votes-revealed', !!state.votesRevealed);
 
-    // Show/hide the result row itself
     const row = $('#resultRow');
     if (row) {
       if (state.votesRevealed) row.classList.remove('is-hidden');
       else                     row.classList.add('is-hidden');
     }
 
-    // One-time chip animation gating
     if (state.votesRevealed) {
       if (state._chipAnimShown) document.body.classList.add('no-chip-anim');
       else { document.body.classList.remove('no-chip-anim'); state._chipAnimShown = true; }
@@ -923,13 +866,11 @@
 
     const CONS_LABEL = t('label.consensus', isDe() ? '🎉 Konsens' : '🎉 Consensus');
 
-    // Average
     if (avgEl) {
       const avgTxt = withInf(toStr(state.averageVote));
       avgEl.textContent = avgTxt ?? (state.votesRevealed ? 'N/A' : '');
     }
 
-    // Consensus-only view
     if (row) {
       if (state.consensus) {
         row.classList.add('consensus');
@@ -947,7 +888,6 @@
       }
     }
 
-    // Median + separator
     let showMedian = false;
     if (medianWrap) {
       showMedian = state.votesRevealed && toStr(state.medianVote) != null;
@@ -959,7 +899,6 @@
       medianSep.setAttribute('aria-hidden', String(!showMedian));
     }
 
-    // Range + separator
     if (rangeWrap && rangeSep) {
       const showRange = state.votesRevealed && toStr(state.range) != null;
       rangeWrap.hidden = !showRange;
@@ -969,10 +908,6 @@
   }
 
   /*** ---------- Topic row (optimistic topic handling) ---------- ***/
-
-  // Client-side parser to mirror server logic:
-  // - If input starts with http(s) -> URL = input; label = first JIRA key if present, else truncated text
-  // - If not a URL -> URL = null; label = JIRA key or truncated text
   function clientParseTopic(input) {
     const MAX_LABEL = 140;
     const s = (input || '').trim();
@@ -981,14 +916,9 @@
     const isUrl = s.startsWith('http://') || s.startsWith('https://');
     const jiraKeyMatch = s.match(/\b([A-Z][A-Z0-9]+-\d+)\b/);
     const label = jiraKeyMatch ? jiraKeyMatch[1] : (s.length > MAX_LABEL ? (s.slice(0, MAX_LABEL) + '…') : s);
-    const url = isUrl ? s : null;
+    const url2 = isUrl ? s : null;
 
-    // Optional: turn bare keys into links by providing your JIRA base. Uncomment and set base if desired.
-    // const JIRA_BASE = 'https://your-jira.example.com/browse/';
-    // const urlFinal = url || (jiraKeyMatch ? (JIRA_BASE + jiraKeyMatch[1]) : null);
-    // return { label, url: urlFinal };
-
-    return { label, url };
+    return { label, url: url2 };
   }
 
   function renderTopic() {
@@ -1029,7 +959,6 @@
       }
     };
 
-    // Non-hosts: read-only
     if (!state.isHost) {
       if (!displayEl || displayEl.tagName !== 'SPAN') {
         const span = document.createElement('span');
@@ -1052,7 +981,6 @@
       return;
     }
 
-    // Host: view or edit
     if (!state.topicEditing) {
       if (!displayEl || displayEl.tagName !== 'SPAN') {
         const span = document.createElement('span');
@@ -1119,13 +1047,12 @@
 
       const doSave = () => {
         const val = displayEl.value || '';
-        // Optimistic parse + update before sending to server
         const parsed = clientParseTopic(val);
         state.topicLabel = parsed.label;
         state.topicUrl = parsed.url;
         state.topicEditing = false;
-        renderTopic(); // immediate UI update
-        send('topicSave:' + encodeURIComponent(val)); // server stays source of truth
+        renderTopic();
+        send('topicSave:' + encodeURIComponent(val));
       };
       const doCancel = () => { state.topicEditing = false; renderTopic(); };
 
@@ -1158,8 +1085,6 @@
       hint.style.display = over ? '' : 'none';
     } catch {}
   }
-
-
 
   /*** ---------- Auto-reveal badge ---------- ***/
   function renderAutoReveal() {
@@ -1234,7 +1159,6 @@
     send('revealCards');
   }
   function resetRoom() { send('resetRoom'); }
-  // Expose for inline handlers
   window.revealCards = revealCards;
   window.resetRoom   = resetRoom;
 
@@ -1293,8 +1217,8 @@
   function wireMenuEvents() {
     document.addEventListener('ep:close-room', () => {
       if (!state.isHost) return;
-      const msg = isDe() ? 'Diesen Raum für alle schließen?' : 'Close this room for everyone?';
-      if (confirm(msg)) send('closeRoom');
+      const msg2 = isDe() ? 'Diesen Raum für alle schließen?' : 'Close this room for everyone?';
+      if (confirm(msg2)) send('closeRoom');
     });
 
     document.addEventListener('ep:sequence-change', (ev) => {
@@ -1320,7 +1244,6 @@
     document.addEventListener('ep:participation-toggle', (ev) => {
       const estimating = !!(ev && ev.detail && ev.detail.estimating);
 
-      // Optimistic: update local self immediately
       const me = state.participants.find(p => p && p.name === state.youName);
       if (me) {
         me.spectator = !estimating;
@@ -1330,17 +1253,15 @@
         syncMenuFromState();
       }
 
-      // Notify server (source of truth)
       send(`participation:${estimating}`);
     });
 
-    // host-only: specials toggle (client optimistic + server notify)
     document.addEventListener('ep:specials-toggle', () => {
       if (!state.isHost) return;
       queueMicrotask(() => {
         const el = document.getElementById('menuSpecialsToggle');
         const on = el ? !!el.checked : !state.allowSpecials;
-        state.allowSpecials = on;          // optimistic
+        state.allowSpecials = on;
         syncMenuFromState();
         renderCards();
         try { send(`specials:${on}`); } catch {}
@@ -1360,7 +1281,6 @@
     bindCopyLink();
     wireMenuEvents();
 
-    // Clicking empty topic row (host only) opens editor
     const row = $('#topicRow');
     if (row) {
       row.addEventListener('click', (e) => {
@@ -1383,15 +1303,13 @@
     window.addEventListener('focus',  () => wake('focus'),  true);
     window.addEventListener('online', () => wake('online'), true);
     window.addEventListener('pageshow', () => {
-      // pageshow fires on BFCache restore; poke & reconnect if needed
       wake('pageshow');
     }, true);
 
-    // Start watchdog alongside the rest (it will trigger reconnects as needed)
     startWatchdog();
 
-    // Also attempt initial connection
-    if (!state.connected && (!state.ws || state.ws.readyState !== 1)) connectWS();
+    // Connect only if we are not already redirecting away
+    if (!state.hardRedirect && !state.connected && (!state.ws || state.ws.readyState !== 1)) connectWS();
 
     syncSequenceInMenu();
   }
@@ -1401,7 +1319,6 @@
     return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   }
 
-  // Re-render every UI section that contains translatable text/labels/titles
   function rerenderAll() {
     renderParticipants();
     renderCards();
@@ -1412,13 +1329,11 @@
     syncSequenceInMenu();
   }
 
-  // On language change, fetch message map and redraw
   async function onLangChange() {
     await preloadMessages();
     rerenderAll();
   }
 
-  // (a) auto-detect changes to <html lang="..."> and react
   new MutationObserver(function (muts) {
     for (var i = 0; i < muts.length; i++) {
       var m = muts[i];
@@ -1429,8 +1344,38 @@
     }
   }).observe(document.documentElement, { attributes: true, attributeFilter: ['lang'] });
 
-  // (b) optional: custom event from your switcher
   document.addEventListener('ep:lang-changed', onLangChange);
+
+  /*** ---------- Name preflight (brand-new tabs only) ---------- ***/
+  async function preflightNameCheck() {
+    // Guard: never run on reloads / existing tabs
+    if (!state.cidWasNew) return;
+
+    // Guard: if we already marked this (room+name) as OK in this tab, skip
+    const pfKey = `ep-pf-ok:${state.roomCode}:${state.youName}`;
+    try { if (sessionStorage.getItem(pfKey) === '1') { state._preflightMarkedOk = true; return; } } catch {}
+
+    // Try best-effort availability probe; on any error, just proceed
+    try {
+      const url2 = `/api/rooms/${encodeURIComponent(state.roomCode)}/name-available?name=${encodeURIComponent(state.youName)}`;
+      const resp = await fetch(url2, { headers: { 'Accept': 'application/json' }, cache: 'no-store' });
+      if (resp.ok) {
+        const data = await resp.json();
+        // If taken → redirect to Invite with prefilled params (no WS connection yet)
+        if (data && data.available === false) {
+          const redirectUrl = `/invite?roomCode=${encodeURIComponent(state.roomCode)}&participantName=${encodeURIComponent(state.youName)}&taken=1`;
+          state.hardRedirect = redirectUrl;
+          // Use replace() so Back doesn't bounce the user into a loop
+          location.replace(redirectUrl);
+          return;
+        }
+        // Mark OK so subsequent reloads in this tab won't re-check again
+        try { sessionStorage.setItem(pfKey, '1'); state._preflightMarkedOk = true; } catch {}
+      }
+    } catch {
+      // Ignore network/parse errors; we'll continue to room normally
+    }
+  }
 
   /*** ---------- Boot ---------- ***/
   function seedSelfPlaceholder() {
@@ -1447,12 +1392,16 @@
     try { renderParticipants(); } catch {}
   }
 
-  function boot() {
+  async function boot() {
     preloadMessages();
-    wireOnce();
+
+    // Run name preflight ONLY on first-tab entries; never on reloads
+    await preflightNameCheck();
+    if (state.hardRedirect) return; // we are navigating to /invite
+
     syncHostClass();
     seedSelfPlaceholder();
-    // Initial connect starts in wireOnce() (guarded)
+    wireOnce(); // this will start WS/connect, watchdog, etc.
   }
 
   if (document.readyState === 'loading') {
