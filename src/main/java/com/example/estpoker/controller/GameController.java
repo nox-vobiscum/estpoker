@@ -100,14 +100,21 @@ public class GameController {
         return (s == null) ? "" : s.trim();
     }
 
+    /**
+     * Room view.
+     * Server-side duplicate-name preflight is executed ONLY when explicitly requested via ?preflight=1.
+     * This prevents unwanted redirects on reload/back-forward navigations.
+     */
     @GetMapping("/room")
     public String getRoom(
             @RequestParam(name = "roomCode", required = false) String roomCode,
             @RequestParam(name = "participantName", required = false) String participantName,
+            @RequestParam(name = "preflight", required = false, defaultValue = "0") String preflight,
             Model model) {
 
         String rCode = safeTrim(roomCode);
         String pName = safeTrim(participantName);
+        final boolean runPreflight = "1".equals(preflight); // explicit opt-in
 
         // Missing room → back to landing
         if (rCode.isEmpty()) {
@@ -121,18 +128,21 @@ public class GameController {
             return "invite";
         }
 
-        // --- Server-side safety net: if name already taken in target room, bounce to invite ---
-        Room room = gameService.getRoom(rCode);
-        if (room != null && room.nameInUse(pName)) {
-            // Pass information back so the invite page (and/or its JS) can prompt for a unique name
-            return "redirect:/invite?roomCode="
-                    + org.springframework.web.util.UriUtils.encodeQueryParam(rCode, java.nio.charset.StandardCharsets.UTF_8)
-                    + "&participantName="
-                    + org.springframework.web.util.UriUtils.encodeQueryParam(pName, java.nio.charset.StandardCharsets.UTF_8)
-                    + "&nameTaken=1";
+        // --- Server-side safety net: only run when explicitly flagged via ?preflight=1 ---
+        // Rationale: On reload/back-forward, we want to render the room without bouncing to /invite.
+        if (runPreflight) {
+            Room room = gameService.getRoom(rCode);
+            if (room != null && room.nameInUse(pName)) {
+                // Pass information back so the invite page (and/or its JS) can prompt for a unique name
+                return "redirect:/invite?roomCode="
+                        + org.springframework.web.util.UriUtils.encodeQueryParam(rCode, java.nio.charset.StandardCharsets.UTF_8)
+                        + "&participantName="
+                        + org.springframework.web.util.UriUtils.encodeQueryParam(pName, java.nio.charset.StandardCharsets.UTF_8)
+                        + "&nameTaken=1";
+            }
         }
 
-        // Both params present and name free → render the room directly
+        // Both params present (and either preflight passed or not requested) → render the room
         model.addAttribute("participantName", pName);
         model.addAttribute("roomCode", rCode);
 
