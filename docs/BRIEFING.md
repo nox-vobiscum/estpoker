@@ -366,29 +366,50 @@ Plan (tracked in BACKLOG):
 
 ---
 
-## Appendix F - Idenity & Name Handling"
+## Appendix F – Identity & Name Handling
 
--**per-tab client-ID (`cid`) ** 
-  Each browser tab gets a stable `cid` via` session storage` (`EP-CID`).  
-  This `CID` is sent on the web socket-Connect (`/GameSocket`) and assigned to the person of the person.
+- **Per-tab Client ID (`cid`)**  
+  Each browser tab gets a stable `cid` via `sessionStorage` (`ep-cid`). The `cid` is sent on `/gameSocket` connect and bound to the participant identity server-side.
 
--**Name Preflight: Only in the brand new tab ** 
-  On the room page (`/room`) the duplicate name test *only runs *when you first enter a new tab.  
-  Reloads/Back-Forward **no **Preflight and **no **redirect.
-Implementation: `Room.js` checks` state.cidwasnew` + marked `(room code | name)` After successful check in `sessionstorage` (key` EP-PF-OK: <Room>: <name> `).
+- **Name preflight runs only on brand-new tabs**  
+  On `/room`, the duplicate-name preflight check runs **only** on the first visit of a **new tab**.  
+  Reloads and Back/Forward **do not** trigger the preflight and **do not** redirect.  
+  Implementation: `room.js` derives `state.cidWasNew` from `sessionStorage(ep-cid)` and, on success, marks the tuple `(roomCode|name)` as “ok in this tab” via `sessionStorage` key `ep-pf-ok:<room>:<name>` to avoid repeat checks.
 
--**Invite side remains the source of truth for name collisions ** 
-  `/invite` checks via` get/api/rooms/{room}/name-available? Name =… `. In the event of a collision: inline note + proposal (e.g. `Alice (2)`), optional via `Confirm ()`.
+- **Invite flow remains the UX source of truth for choosing a free name**  
+  `/invite` probes availability via `GET /api/rooms/{room}/name-available?name=...`.  
+  On collision, the page shows an inline hint and a safe suggestion (e.g., `Alice (2)`), optionally gated via `confirm()`. (`invite-name-check.js`)
 
--**Serious uniqueness is guaranteed **
-The join path is synchronized transactionally per room; The name is made clear by `uniquename forum (...)` (suffix "(2)", "(3)", ...).  
-  When deviation from the desired name, the server immediately sends a `you {YourName}` Message; The UI updates `Youname` without redirect.  
-  → The server thus reliably prevents duplications, even if several clients “join at the same time”.
+- **Server enforces uniqueness (current behavior: hard reject for clashes)**  
+  The server guarantees unique display names **per room**.  
+  If a different `cid` tries to join a room with a name that is already in use, the WebSocket is **closed with code `4005`** (“Name already in use”).  
+  The client handles this only on **brand-new tabs**: `room.js` intercepts `ws.onclose(code===4005)` and **redirects to**  
+  `/invite?roomCode=...&participantName=...&nameTaken=1` using `location.replace(...)`.  
+  Existing tabs (reloads/back/forward) never auto-redirect on `4005`; they simply show a toast and stop reconnect loops.
 
--**Reload expectation **
-A reload in the room leaves the participant: in the room; No invite transfer, no renewed Preflight query.
+  > Note: If the service is later switched to *canonicalization* (auto-suffixing to `Name (N)`), the server will send a `you{yourName}` identity message after join and the UI will update `#youName` without redirect. Tests and this appendix should then be updated accordingly.
 
-**Acceptance criteria **
-1. New tab, new in room → Preflight may block/rename colliding names ✅  
-2. Reload in the room → No Preflight, no redirect ✅  
-3. Back (Back/Forward) in the room → No Preflight ✅
+- **Identity confirmation**  
+  After a successful join, the server sends a `you` message with the canonical `yourName` (and `cid`); the client reconciles its local `youName` immediately.
+
+- **Reload expectation**  
+  Reloading the room page keeps the user in the room — **no invite redirect** and **no** preflight re-run.
+
+### Acceptance criteria
+1. **New tab**, first entry into a room with a **duplicate name** → server returns `4005`, client redirects to `/invite?...&nameTaken=1`, invite shows hint and suggestion.  
+2. **New tab**, first entry with a **free name** → enter room normally.  
+3. **Reload** while already in the room → stay in room, **no** preflight, **no** redirect.  
+4. **Back/Forward** navigation back to the room → **no** preflight, **no** redirect.
+
+### Implementation touchpoints
+- `room.js`  
+  - `ep-cid` creation & `state.cidWasNew` detection  
+  - preflight guard (`ep-pf-ok:<room>:<name>`)  
+  - WebSocket `onclose(code===4005)` redirect for brand-new tabs only
+- `invite-name-check.js`  
+  - inline availability probe + suggestion flow
+- Server (WebSocket handler/service)  
+  - uniqueness enforcement  
+  - `you{yourName}` identity message after successful join
+
+

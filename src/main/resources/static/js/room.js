@@ -303,6 +303,24 @@
       stopHeartbeat();
       if (state.hardRedirect) { location.href = state.hardRedirect; return; }
       if (ev.code === 4000 || ev.code === 4001) return; // room closed / kicked
+
+      // Name collision hard-reject from server
+      if (ev.code === 4005) {
+        // Only bounce on brand-new tab entries (never on reloads in same tab)
+        if (state.cidWasNew) {
+          const redirectUrl =
+            `/invite?roomCode=${encodeURIComponent(state.roomCode)}` +
+            `&participantName=${encodeURIComponent(state.youName)}` +
+            `&nameTaken=1`;
+          state.hardRedirect = redirectUrl;
+          // Use replace() so Back doesn't create a loop
+          location.replace(redirectUrl);
+          return;
+        }
+        // Existing tab (should be rare) → do not loop reconnects
+        showToast(isDe() ? 'Name bereits in Verwendung' : 'Name already in use');
+        return;
+      }
       console.warn(TAG, 'onclose', ev.code, ev.reason || '');
       scheduleReconnect('close');
     };
