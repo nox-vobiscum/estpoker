@@ -364,3 +364,31 @@ Plan (tracked in BACKLOG):
     # or
     BASE_URL=http://localhost:8080 npx playwright test
 
+---
+
+## Appendix F - Idenity & Name Handling"
+
+-**per-tab client-ID (`cid`) ** 
+  Each browser tab gets a stable `cid` via` session storage` (`EP-CID`).  
+  This `CID` is sent on the web socket-Connect (`/GameSocket`) and assigned to the person of the person.
+
+-**Name Preflight: Only in the brand new tab ** 
+  On the room page (`/room`) the duplicate name test *only runs *when you first enter a new tab.  
+  Reloads/Back-Forward **no **Preflight and **no **redirect.
+Implementation: `Room.js` checks` state.cidwasnew` + marked `(room code | name)` After successful check in `sessionstorage` (key` EP-PF-OK: <Room>: <name> `).
+
+-**Invite side remains the source of truth for name collisions ** 
+  `/invite` checks via` get/api/rooms/{room}/name-available? Name =… `. In the event of a collision: inline note + proposal (e.g. `Alice (2)`), optional via `Confirm ()`.
+
+-**Serious uniqueness is guaranteed **
+The join path is synchronized transactionally per room; The name is made clear by `uniquename forum (...)` (suffix "(2)", "(3)", ...).  
+  When deviation from the desired name, the server immediately sends a `you {YourName}` Message; The UI updates `Youname` without redirect.  
+  → The server thus reliably prevents duplications, even if several clients “join at the same time”.
+
+-**Reload expectation **
+A reload in the room leaves the participant: in the room; No invite transfer, no renewed Preflight query.
+
+**Acceptance criteria **
+1. New tab, new in room → Preflight may block/rename colliding names ✅  
+2. Reload in the room → No Preflight, no redirect ✅  
+3. Back (Back/Forward) in the room → No Preflight ✅
