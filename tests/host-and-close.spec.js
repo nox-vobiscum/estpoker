@@ -73,8 +73,10 @@ test.describe('Host actions: transfer & close room', () => {
     await makeHostBtn.click();
 
     expect(confirmMsg, 'Confirm dialog not shown').toBeTruthy();
+    // Client wording is "Transfer host role to <name>?" (en)
+    // and "Host-Rolle an <name> übertragen?" (de)
     const re = new RegExp(
-      `^(Make\\s+${guestName}\\s+the\\s+host\\?|Host-Rolle\\s+an\\s+${guestName}\\s+übergeben\\?)$`
+      `^(Transfer\\s+host\\s+role\\s+to\\s+${guestName}\\?|Host-Rolle\\s+an\\s+${guestName}\\s+übertragen\\?)$`
     );
     expect(re.test(confirmMsg)).toBeTruthy();
 

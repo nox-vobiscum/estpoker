@@ -1,74 +1,52 @@
-// Prod-friendly host-side check: when the user toggles participation OFF,
-// the host list shows the observer icon 👁 for that user; when toggled ON,
-// the icon disappears. Pure DOM assertions, prod-safe timing.
+// Prod: Host list shows/removes spectator eye chip when user toggles participation
+// - Viewer toggles Participation OFF → host sees 👁 chip on that row
+// - Viewer toggles Participation ON  → 👁 chip disappears
 
 import { test, expect } from '@playwright/test';
-import {
-  roomUrlFor,
-  newRoomCode,
-  ensureMenuOpen,
-  ensureMenuClosed,
-} from './_setup/prod-helpers.js';
+import { roomUrlFor, newRoomCode, ensureMenuOpen, ensureMenuClosed } from './_setup/prod-helpers.js';
 
-function hostRowLocator(hostPage, name) {
-  // Be robust to either legacy (.participant-row) or compact (.p-row) layouts
-  const legacy = hostPage.locator('#liveParticipantList .participant-row').filter({ hasText: name });
-  const compact = hostPage.locator('.p-row').filter({ hasText: name });
-  return legacy.count().then(c => c > 0 ? legacy : compact);
-}
+test('Host list shows/removes observer icon when user toggles participation', async ({ page }) => {
+  const room = newRoomCode('PROD-HOST-OBS');
+  const hostName = 'Host';
+  const viewerName = 'Viewer';
 
-test('Host list shows/removes observer icon when user toggles participation', async ({ page, browser }) => {
-  const roomCode = newRoomCode('PROD-HOSTOBS');
-  const host = page;
-  const user = await browser.newPage();
+  // Open Host & Viewer
+  await page.goto(roomUrlFor(hostName, room), { waitUntil: 'domcontentloaded' });
+  const viewer = await page.context().newPage();
+  await viewer.goto(roomUrlFor(viewerName, room), { waitUntil: 'domcontentloaded' });
 
-  // Host + user join same room
-  await host.goto(roomUrlFor('Host', roomCode), { waitUntil: 'domcontentloaded' });
-  await user.goto(roomUrlFor('Viewer', roomCode), { waitUntil: 'domcontentloaded' });
+  // Base UI visible
+  await expect(page.locator('#cardGrid')).toBeVisible();
+  await expect(viewer.locator('#cardGrid')).toBeVisible();
 
-  // Sanity: grids visible
-  await expect(host.locator('#cardGrid')).toBeVisible();
-  await expect(user.locator('#cardGrid')).toBeVisible();
+  // Wait until both rows are present (match by the name cell)
+  const rows = page.locator('#liveParticipantList .participant-row');
+  await expect(rows).toHaveCount(2);
 
-  // Find host-side row for "Viewer"
-  const row = await hostRowLocator(host, 'Viewer');
-  await expect(row).toHaveCount(1);
-
-  const eyeIcon = row.locator('.status-icon.observer');
-
-  // --- Turn user into observer (OFF) ---
-  await ensureMenuOpen(user);
-  const partToggle = user.locator('#menuParticipationToggle');
-  await expect(partToggle).toHaveCount(1);
-  if (await partToggle.isChecked()) {
-    await partToggle.setChecked(false);
-  } else {
-    await partToggle.click({ force: true });
-  }
-  await ensureMenuClosed(user);
-
-  // Wait until host sees observer icon
-  await host.waitForFunction(() => {
-    const row = Array.from(document.querySelectorAll('#liveParticipantList .participant-row, .p-row'))
-      .find(el => /Viewer/.test(el.textContent || ''));
-    return !!row && !!row.querySelector('.status-icon.observer');
+  const viewerRow = rows.filter({
+    has: page.locator('.name, .p-name', { hasText: new RegExp(`^${viewerName}$`) })
   });
-  await expect(eyeIcon).toHaveCount(1);
+  await expect(viewerRow).toHaveCount(1);
 
-  // --- Back to estimating (ON) ---
-  await ensureMenuOpen(user);
-  if (!await partToggle.isChecked()) {
-    await partToggle.setChecked(true);
-  } else {
-    await partToggle.click({ force: true });
+  // --- Viewer -> Spectator (Participation OFF) ---
+  await ensureMenuOpen(viewer);
+  const partTgl = viewer.locator('#menuParticipationToggle');
+  await expect(partTgl).toHaveCount(1);
+  if (await partTgl.isChecked()) {
+    await partTgl.click({ force: true });
   }
-  await ensureMenuClosed(user);
+  await ensureMenuClosed(viewer);
 
-  // Wait until observer icon disappears on host
-  await host.waitForFunction(() => {
-    const row = Array.from(document.querySelectorAll('#liveParticipantList .participant-row, .p-row'))
-      .find(el => /Viewer/.test(el.textContent || ''));
-    return !!row && !row.querySelector('.status-icon.observer');
-  });
-  await expect(eyeIcon).toHaveCount(0);
+  // Host sees the spectator eye chip on the viewer's row
+  await expect(viewerRow.locator('.mini-chip.spectator')).toHaveCount(1);
+
+  // --- Viewer -> Estimating (Participation ON) ---
+  await ensureMenuOpen(viewer);
+  if (!(await partTgl.isChecked())) {
+    await partTgl.click({ force: true });
+  }
+  await ensureMenuClosed(viewer);
+
+  // Spectator eye chip disappears
+  await expect(viewerRow.locator('.mini-chip.spectator')).toHaveCount(0);
 });

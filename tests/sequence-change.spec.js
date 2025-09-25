@@ -99,7 +99,7 @@ test('Host-only sequence change resets round and syncs to guest', async ({ brows
     .toBeTruthy();
 
   await host.waitForTimeout(150);
-  const doneBefore = await host.locator('#liveParticipantList .status-icon.done').count();
+  const doneBefore = await host.locator('#liveParticipantList .mini-chip.done').count();
   expect(doneBefore).toBeGreaterThan(0);
 
   // Open menu on both for assertions

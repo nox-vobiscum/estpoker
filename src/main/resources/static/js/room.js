@@ -337,6 +337,22 @@
 
   function send(line) { if (state.ws && state.ws.readyState === 1) state.ws.send(line); }
 
+  // Bridge for automated tests / power-users:
+  // Host-only sequence change via custom DOM event.
+  // Test dispatches: window.dispatchEvent(new CustomEvent('ep:sequence-change', { detail: { sequenceId: 'fib.enh' } }))
+  window.addEventListener('ep:sequence-change', (ev) => {
+    try {
+      const id = String(ev?.detail?.sequenceId || '').trim();
+      if (!id) return;
+      // We let the server enforce host permissions; harmless if non-host fires it.
+      // GameWebSocketHandler decodes URL-encoding on the server side.
+      send('sequence:' + encodeURIComponent(id));
+    } catch (e) {
+      console.warn('[room] ep:sequence-change handler failed:', e);
+    }
+  }, { passive: true });
+
+
   /*** ---------- Messages ---------- ***/
   function handleMessage(m) {
     switch (m.type) {
@@ -1448,6 +1464,12 @@
 
     syncHostClass();
     seedSelfPlaceholder();
+    // Mark page as ready immediately (before first server snapshot) so UI isn't hidden.
+    try {
+    if (!document.documentElement.hasAttribute('data-ready')) {
+    document.documentElement.setAttribute('data-ready', '1');
+      }
+    } catch {}
     wireOnce(); // this will start WS/connect, watchdog, etc.
   }
 

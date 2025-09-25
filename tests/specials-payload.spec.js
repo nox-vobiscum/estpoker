@@ -1,57 +1,69 @@
-// Verifies that backend includes `specials` in the `voteUpdate` payload
-// and that the UI renders those special cards.
-//
-// Run: npx playwright test tests/specials-payload.spec.js
+// Server includes specials in voteUpdate payload (and UI shows ❓ ☕)
+// Speech bubble (💬) is intentionally removed.
 
-const { test, expect } = require('@playwright/test');
+import { test, expect } from '@playwright/test';
+import { ensureMenuOpen, ensureMenuClosed } from './utils/helpers.js';
 
-const BASE = process.env.EP_BASE_URL || 'http://localhost:8080';
-const roomUrlFor = (name, code) =>
-  `${BASE}/room?participantName=${encodeURIComponent(name)}&roomCode=${encodeURIComponent(code)}`;
-const newRoomCode = (prefix = 'SPEC') =>
-  `${prefix}-${Math.random().toString(36).slice(2, 8)}`;
+// Small local helper to avoid helper import mismatch
+function uniqueRoom(prefix = 'SPECIALS') {
+  return `${prefix}-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
+}
 
-test('Server includes specials in voteUpdate payload (and UI shows ❓ 💬 ☕)', async ({ page }) => {
-  // Intercept WS messages before app scripts run: capture latest voteUpdate.
+test('Server includes specials ❓ ☕ (no 💬) and UI shows them', async ({ page }) => {
+  const room = uniqueRoom();
+
+  // Hook WebSocket messages to capture the latest voteUpdate payload
   await page.addInitScript(() => {
+    (window).__lastVoteUpdate = null;
     const NativeWS = window.WebSocket;
-    window.__epWSMessages = [];
-    window.__epLastVoteUpdate = null;
-
-    window.WebSocket = new Proxy(NativeWS, {
-      construct(target, args) {
-        const ws = new target(...args);
-        ws.addEventListener('message', (ev) => {
-          try {
-            const msg = JSON.parse(ev.data);
-            if (msg && msg.type === 'voteUpdate') {
-              window.__epLastVoteUpdate = msg;
-              window.__epWSMessages.push(msg);
-            }
-          } catch (_) {}
-        });
-        return ws;
-      }
-    });
+    window.WebSocket = function (url, protocols) {
+      const ws = new NativeWS(url, protocols);
+      ws.addEventListener('message', (ev) => {
+        try {
+          const m = JSON.parse(ev.data);
+          if (m && m.type === 'voteUpdate') {
+            (window).__lastVoteUpdate = m;
+          }
+        } catch {}
+      });
+      return ws;
+    };
+    window.WebSocket.prototype = NativeWS.prototype;
+    window.WebSocket.OPEN = NativeWS.OPEN;
   });
 
-  const code = newRoomCode();
-  await page.goto(roomUrlFor('SpecUser', code), { waitUntil: 'domcontentloaded' });
+  await page.goto(`/room?roomCode=${encodeURIComponent(room)}&participantName=Amy`, {
+    waitUntil: 'domcontentloaded'
+  });
 
-  // Wait until the first voteUpdate with specials arrives
-  await page.waitForFunction(() =>
-    !!window.__epLastVoteUpdate &&
-    Array.isArray(window.__epLastVoteUpdate.specials) &&
-    window.__epLastVoteUpdate.specials.length > 0
-  );
+  // Wait until we have a voteUpdate captured and read specials
+  const specials = await expect
+    .poll(async () => {
+      return await page.evaluate(() => (window).__lastVoteUpdate && (window).__lastVoteUpdate.specials);
+    }, { timeout: 15000 })
+    .not.toBeNull()
+    .then(async () => await page.evaluate(() => (window).__lastVoteUpdate.specials));
 
-  const specials = await page.evaluate(() => window.__epLastVoteUpdate.specials);
+  // Expect exactly the reduced set: ❓ and ☕ (💬 removed in codebase)
   expect(Array.isArray(specials)).toBeTruthy();
-  // Exact set expected from CardSequences.SPECIALS
-  expect(specials).toEqual(['❓','💬','☕']);
+  expect(specials).toEqual(['❓', '☕']);
 
-  // Sanity: UI must show those buttons (exact labels)
-  await expect(page.getByRole('button', { name: '❓', exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: '💬', exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: '☕', exact: true })).toBeVisible();
+  // If there is a Specials toggle in the menu, ensure it's ON (host-only control)
+  await ensureMenuOpen(page);
+  const specialsToggle = page.locator('#menuSpecialsToggle, #menuAllowSpecialsToggle');
+  if (await specialsToggle.count()) {
+    if (!(await specialsToggle.isChecked())) {
+      await specialsToggle.click({ force: true });
+    }
+  }
+  await ensureMenuClosed(page);
+
+  // UI must show ❓ and ☕ buttons in the grid; 💬 must NOT be present
+  // Use text match inside #cardGrid to avoid ARIA name discrepancies.
+  const grid = page.locator('#cardGrid');
+  await expect(grid).toBeVisible();
+
+  await expect(grid.locator('button:has-text("❓")')).toHaveCount(1, { timeout: 8000 });
+  await expect(grid.locator('button:has-text("☕")')).toHaveCount(1, { timeout: 8000 });
+  await expect(grid.locator('button:has-text("💬")')).toHaveCount(0);
 });

@@ -22,7 +22,6 @@ async function pickSequence(page, value) {
 
 async function expectSpecialsVisible(page) {
   await expect(page.getByRole('button', { name: '❓', exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: '💬', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: '☕', exact: true })).toBeVisible();
 }
 

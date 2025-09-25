@@ -1,116 +1,123 @@
-// Sequence radios: host-only enablement and ep:sequence-change event dispatch
-// Run:
-//   npx playwright test tests/menu-sequence.spec.js
-// Env:
-//   EP_BASE_URL  (e.g. http://localhost:8080 or https://ep.noxvobiscum.at)
-//   EP_ROOM_URL  (optional full room URL; overrides base; test appends participant & room)
+// Menu sequence radios: host enabled, guest disabled; change propagates
+// - Works with your current markup: #menuSeqChoice + input[name="menu-seq"]
+// - Host: radios enabled & can change -> server broadcasts sequenceId + deck
+// - Guest: sees same radios but disabled (label.disabled / aria-disabled)
 
-const { test, expect } = require('@playwright/test');
+import { test, expect } from '@playwright/test';
+import { ensureMenuOpen, ensureMenuClosed } from './utils/helpers.js';
 
-function baseUrl() { return process.env.EP_BASE_URL || 'http://localhost:8080'; }
-function newRoomCode() {
-  const t = Date.now().toString(36).slice(-6);
-  return `SEQ-${t}`;
-}
-function roomUrlFor(name, roomCode) {
-  const full = process.env.EP_ROOM_URL;
-  if (full) {
-    const u = new URL(full);
-    u.searchParams.set('participantName', name);
-    u.searchParams.set('roomCode', roomCode);
-    return u.toString();
-  }
-  const u = new URL(`${baseUrl().replace(/\/$/,'')}/room`);
-  u.searchParams.set('participantName', name);
-  u.searchParams.set('roomCode', roomCode);
-  return u.toString();
-}
+// Local, test-scoped room code generator (avoids helper export drift)
+const mkRoom = (prefix = 'SEQ') =>
+  `${prefix}-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
 
-async function ensureMenuOpen(page) {
-  const overlay = page.locator('#appMenuOverlay');
-  if (!(await overlay.isVisible().catch(() => false))) {
-    await page.locator('#menuButton').click();
-    await expect(overlay).toBeVisible();
-  }
-}
-
-async function attachSequenceRecorder(page) {
-  await page.evaluate(() => {
-    window.__epE2E_seqEvents = [];
-    document.addEventListener('ep:sequence-change', (ev) => {
-      const id = ev?.detail?.id ?? null;
-      window.__epE2E_seqEvents.push({ id });
-    });
-  });
-}
-async function waitForSeqEvent(page) {
-  await page.waitForFunction(() => Array.isArray(window.__epE2E_seqEvents) && window.__epE2E_seqEvents.length > 0);
-  return page.evaluate(() => window.__epE2E_seqEvents[0]);
-}
-
-test.describe('Menu sequence radios', () => {
-  test('host sees enabled radios and dispatches ep:sequence-change on selection; guest radios disabled', async ({ browser }) => {
-    const roomCode = newRoomCode();
-
-    // Host first → becomes host; Guest joins second
-    const ctxHost = await browser.newContext();
-    const ctxGuest = await browser.newContext();
-    const host = await ctxHost.newPage();
-    const guest = await ctxGuest.newPage();
-
-    await host.goto(roomUrlFor('Hoster', roomCode), { waitUntil: 'domcontentloaded' });
-    await guest.goto(roomUrlFor('Guest', roomCode), { waitUntil: 'domcontentloaded' });
-
-    // --- Guest: radios should be disabled (host-only control) ---
-    await ensureMenuOpen(guest);
-    const guestRadios = guest.locator('#menuSeqChoice input[type="radio"][name="menu-seq"]');
-    const guestCount = await guestRadios.count();
-    if (guestCount > 0) {
-      // allow a short grace in case the disable state is applied after initial WS sync
-      await guest.waitForTimeout(150);
-      // All radios should be disabled for guest
-      for (let i = 0; i < guestCount; i++) {
-        const dis = await guestRadios.nth(i).isDisabled();
-        expect(dis).toBeTruthy();
+function wsHookInitScript() {
+  // Capture latest voteUpdate payload early (before any WS connects)
+  (function () {
+    const _WS = window.WebSocket;
+    window.__lastVoteUpdate = null;
+    window.WebSocket = class extends _WS {
+      constructor(...args) {
+        super(...args);
+        this.addEventListener('message', (ev) => {
+          try {
+            const msg = JSON.parse(ev.data);
+            if (msg && msg.type === 'voteUpdate') {
+              window.__lastVoteUpdate = msg;
+            }
+          } catch {}
+        });
       }
-    }
-    // close menu to avoid overlay intercepts later
-    await guest.locator('#menuButton').click();
-    await expect(guest.locator('#appMenuOverlay')).toBeHidden();
+    };
+  })();
+}
 
-    // --- Host: radios enabled, changing selection dispatches ep:sequence-change ---
-    await ensureMenuOpen(host);
-    await attachSequenceRecorder(host);
+// Wait until a voteUpdate with desired sequenceId is observed
+async function waitForSequence(page, seqId, timeoutMs = 10_000) {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    const payload = await page.evaluate(() => window.__lastVoteUpdate || null);
+    if (payload?.sequenceId === seqId) return payload;
+    await page.waitForTimeout(100);
+  }
+  throw new Error(`Timeout waiting for sequenceId=${seqId} in payload`);
+}
 
-    const hostRadios = host.locator('#menuSeqChoice input[type="radio"][name="menu-seq"]');
-    const total = await hostRadios.count();
-    expect(total).toBeGreaterThan(0);
-
-    // Find current selection (0 or 1 checked); pick a different one if possible
-    let currentIndex = -1;
-    for (let i = 0; i < total; i++) {
-      if (await hostRadios.nth(i).isChecked()) { currentIndex = i; break; }
-    }
-    // Choose a target index (prefer a different radio if available)
-    const targetIndex = (currentIndex === -1) ? 0 : ((currentIndex + 1) % total);
-
-    // Radios should be enabled for the host
-    const enabled = !(await hostRadios.nth(targetIndex).isDisabled());
-    expect(enabled).toBeTruthy();
-
-    // Capture the value (sequence id) and click it
-    const targetValue = await hostRadios.nth(targetIndex).getAttribute('value');
-    await hostRadios.nth(targetIndex).click({ force: true });
-
-    // Wait for ep:sequence-change and verify detail.id matches the clicked value
-    const ev = await waitForSeqEvent(host);
-    expect(ev && ev.id).toBeTruthy();
-    expect(ev.id).toBe(targetValue);
-
-    // Close overlay
-    await host.locator('#menuButton').click();
-    await expect(host.locator('#appMenuOverlay')).toBeHidden();
-
-    await ctxHost.close(); await ctxGuest.close();
+// Count disabled radios on a page
+async function countDisabledRadios(page) {
+  return await page.evaluate(() => {
+    const root = document.querySelector('#menuSeqChoice');
+    if (!root) return -1;
+    return Array.from(root.querySelectorAll('input[type="radio"][name="menu-seq"]'))
+      .filter((r) => r.disabled).length;
   });
+}
+
+test('Menu sequence radios: host enabled, guest disabled; change propagates', async ({ page }) => {
+  const room = mkRoom('SEQ');
+
+  // Prepare pages & hook payload BEFORE navigation
+  const host = page;
+  await host.addInitScript(wsHookInitScript);
+
+  const guest = await host.context().newPage();
+  await guest.addInitScript(wsHookInitScript);
+
+  // Navigate
+  await host.goto(`/room?roomCode=${encodeURIComponent(room)}&participantName=Host`, { waitUntil: 'domcontentloaded' });
+  await guest.goto(`/room?roomCode=${encodeURIComponent(room)}&participantName=Guest`, { waitUntil: 'domcontentloaded' });
+
+  // Sanity: grid visible on both
+  await expect(host.locator('#cardGrid')).toBeVisible();
+  await expect(guest.locator('#cardGrid')).toBeVisible();
+
+  // --- Both see sequence controls in the menu ---
+  await ensureMenuOpen(host);
+  await ensureMenuOpen(guest);
+
+  const hostRadios  = host.locator('#menuSeqChoice input[type="radio"][name="menu-seq"]');
+  const guestRadios = guest.locator('#menuSeqChoice input[type="radio"][name="menu-seq"]');
+
+  // Ensure radios exist
+  const hostCount  = await hostRadios.count();
+  const guestCount = await guestRadios.count();
+  expect(hostCount,  'host should see sequence radios').toBeGreaterThan(0);
+  expect(guestCount, 'guest should also see sequence radios').toBe(hostCount);
+
+  // Host radios should be enabled; Guest radios disabled (+ label.disabled / aria-disabled)
+  const hostDisabled  = await countDisabledRadios(host);
+  const guestDisabled = await countDisabledRadios(guest);
+  expect(hostDisabled,  'host radios must be enabled').toBe(0);
+  expect(guestDisabled, 'guest radios must be fully disabled').toBe(guestCount);
+
+  // Extra robustness: guest labels have disabled semantics
+  await expect(guest.locator('#menuSeqChoice label.radio-row.disabled')).toHaveCount(guestCount);
+
+  // --- Host changes sequence to fib.enh ---
+  const target = 'fib.enh';
+  const hostTarget = host.locator(`#menuSeqChoice input[type="radio"][name="menu-seq"][value="${target}"]`);
+  await expect(hostTarget, `host should see radio ${target}`).toHaveCount(1);
+  expect(await hostTarget.isDisabled(), 'host target radio should be enabled').toBeFalsy();
+
+  await hostTarget.check({ force: true });
+  await ensureMenuClosed(host);
+  await ensureMenuClosed(guest);
+
+  // Wait for server broadcast on both clients
+  const hostPayload  = await waitForSequence(host, target);
+  const guestPayload = await waitForSequence(guest, target);
+
+  // Assert payload structure reflects the change
+  expect(hostPayload.sequenceId).toBe(target);
+  expect(guestPayload.sequenceId).toBe(target);
+
+  // Cards should be a non-empty array and identical for guest
+  expect(Array.isArray(hostPayload.cards)).toBeTruthy();
+  expect(hostPayload.cards.length).toBeGreaterThan(0);
+  expect(guestPayload.cards).toEqual(hostPayload.cards);
+
+  // Guest radios remain disabled even after the host change
+  await ensureMenuOpen(guest);
+  await expect(guest.locator('#menuSeqChoice input[type="radio"][name="menu-seq"]')).toHaveCount(guestCount);
+  await expect(guest.locator('#menuSeqChoice label.radio-row.disabled')).toHaveCount(guestCount);
+  await ensureMenuClosed(guest);
 });

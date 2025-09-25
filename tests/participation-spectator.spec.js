@@ -92,10 +92,10 @@ test.describe('Participation → Spectator mode disables voting', () => {
 
     // On host page: user's row shows observer icon 👁
     await host.waitForTimeout(150);
-    const userRow = host.locator('#liveParticipantList .participant-row', { hasText: userName });
-    await expect(userRow).toHaveCount(1);
-    const eyeIcon = userRow.locator('.status-icon.observer');
-    await expect(eyeIcon).toHaveCount(1);
+      // Expect spectator eye chip to appear on user's row
+    const rowByName = page.locator('#liveParticipantList .participant-row', { hasText: userName });
+    await expect(rowByName).toHaveCount(1);
+    await expect(rowByName.locator('.mini-chip.spectator')).toHaveCount(1);
 
     // --- Switch user back to Estimating ---
     await ensureMenuOpen(user);

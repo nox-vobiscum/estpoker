@@ -1,63 +1,67 @@
 // Prod: Participation → Spectator mode disables voting and reflects in host list
-// - User toggles Participation OFF → all their cards disabled, host sees 👁
-// - User toggles Participation ON  → cards enabled again, 👁 verschwindet
+// - User toggles Participation OFF → all their cards disabled, host sees 👁 chip
+// - User toggles Participation ON  → some cards enabled again, 👁 chip disappears
 
 import { test, expect } from '@playwright/test';
 import { roomUrlFor, newRoomCode, ensureMenuOpen, ensureMenuClosed } from './_setup/prod-helpers.js';
 
 test('Participation toggle on prod: Spectator disables voting and updates host list', async ({ page }) => {
   const room = newRoomCode('PROD-OBS');
+  const hostName = 'Host';
+  const userName = 'Viewer';
 
-  // Host & User öffnen
-  await page.goto(roomUrlFor('Host', room), { waitUntil: 'domcontentloaded' });
+  // Open Host & User
+  await page.goto(roomUrlFor(hostName, room), { waitUntil: 'domcontentloaded' });
   const user = await page.context().newPage();
-  await user.goto(roomUrlFor('Viewer', room), { waitUntil: 'domcontentloaded' });
+  await user.goto(roomUrlFor(userName, room), { waitUntil: 'domcontentloaded' });
 
-  // Grund-UI sichtbar
+  // Base UI visible
   await expect(page.locator('#cardGrid')).toBeVisible();
   await expect(user.locator('#cardGrid')).toBeVisible();
 
-  // Warten bis beide Zeilen da sind
+  // Wait until both rows are present
   const rows = page.locator('#liveParticipantList .participant-row');
   await expect(rows).toHaveCount(2);
 
-  // Exakt nach Namen in der Namenszelle matchen (nicht "Make host"-Button!)
-  const hostRow   = rows.filter({ has: page.locator('.name, .p-name', { hasText: /^Host$/ }) });
-  const viewerRow = rows.filter({ has: page.locator('.name, .p-name', { hasText: /^Viewer$/ }) });
+  // Match rows by the name cell (avoid matching action buttons)
+  const hostRow = rows.filter({ has: page.locator('.name, .p-name', { hasText: new RegExp(`^${hostName}$`) }) });
+  const viewerRow = rows.filter({ has: page.locator('.name, .p-name', { hasText: new RegExp(`^${userName}$`) }) });
   await expect(hostRow).toHaveCount(1);
   await expect(viewerRow).toHaveCount(1);
 
-  // --- User -> Spectator (OFF) ---
+  // --- User -> Spectator (Participation OFF) ---
   await ensureMenuOpen(user);
-  const userToggle = user.locator('#menuParticipationToggle');
-  await expect(userToggle).toHaveCount(1);
-  if (await userToggle.isChecked()) {
-    await userToggle.click({ force: true });
+  const participationTgl = user.locator('#menuParticipationToggle');
+  await expect(participationTgl).toHaveCount(1);
+
+  // If currently ON, click to turn OFF (spectator)
+  if (await participationTgl.isChecked()) {
+    await participationTgl.click({ force: true });
   }
   await ensureMenuClosed(user);
 
-  // Auf User-Seite: alle Karten disabled
+  // On user's page: all card buttons must be disabled
   await user.waitForFunction(() => {
     const btns = Array.from(document.querySelectorAll('#cardGrid button'));
     return btns.length > 0 && btns.every(b => b.disabled);
   });
 
-  // Auf Host-Seite: 👁-Icon beim Viewer
-  await expect(viewerRow.locator('.status-icon.spectator')).toHaveCount(1);
+  // On host page: spectator eye chip must appear on the viewer's row
+  await expect(viewerRow.locator('.mini-chip.spectator')).toHaveCount(1);
 
-  // --- User -> Estimating (ON) ---
+  // --- User -> Estimating (Participation ON) ---
   await ensureMenuOpen(user);
-  if (!(await userToggle.isChecked())) {
-    await userToggle.click({ force: true });
+  if (!(await participationTgl.isChecked())) {
+    await participationTgl.click({ force: true });
   }
   await ensureMenuClosed(user);
 
-  // Auf User-Seite: mind. eine Karte wieder enabled
+  // On user's page: at least one card button becomes enabled again
   await user.waitForFunction(() => {
     const btns = Array.from(document.querySelectorAll('#cardGrid button'));
     return btns.length > 0 && btns.some(b => !b.disabled);
   });
 
-  // Auf Host-Seite: 👁-Icon weg
-  await expect(viewerRow.locator('.status-icon.spectator')).toHaveCount(0);
+  // On host page: spectator eye chip disappears from the viewer's row
+  await expect(viewerRow.locator('.mini-chip.spectator')).toHaveCount(0);
 });
