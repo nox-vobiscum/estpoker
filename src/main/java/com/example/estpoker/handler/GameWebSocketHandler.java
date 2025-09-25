@@ -14,11 +14,12 @@ import org.springframework.web.socket.handler.TextWebSocketHandler;
 import java.lang.reflect.Method;
 import java.net.URI;
 import java.net.URLDecoder;
+import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.Locale;
 
 /**
  * WebSocket handler for /gameSocket.
@@ -27,6 +28,7 @@ import java.util.Locale;
  * - Handles intentionalLeave (service: immediate participantLeft toast + short-grace disconnect)
  * - For transport close: schedules grace disconnect (service broadcasts after grace)
  * - Keeps back-compat for legacy messages used in tests
+ * - Edge hardening: reject WS open if a different CID uses the same *active* name already (redirect to invite)
  */
 @Component
 public class GameWebSocketHandler extends TextWebSocketHandler {
@@ -45,9 +47,9 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     private static boolean parseOn(String s) {
         if (s == null) return false;
         switch (s.trim().toLowerCase(Locale.ROOT)) {
-        case "1": case "true": case "on": case "yes": case "y":  return true;
-        case "0": case "false": case "off": case "no": case "n": return false;
-        default: return Boolean.parseBoolean(s);
+            case "1": case "true": case "on": case "yes": case "y":  return true;
+            case "0": case "false": case "off": case "no": case "n": return false;
+            default: return Boolean.parseBoolean(s);
         }
     }
 
@@ -64,6 +66,29 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             final String cid         = q.getOrDefault("cid", "cid-" + session.getId()).trim();
 
             log.info("WS OPEN room={} name={} cid={}", roomCode, initialName, cid);
+
+            // ------------------------------------------------------------
+            // Edge hardening: block duplicate name from a different CID.
+            // Allow if:
+            //   - same CID already mapped to that name (reload/reconnect), OR
+            //   - the existing participant with that name is not active.
+            // Otherwise:
+            //   - send tiny JSON with redirect to /invite?…&nameTaken=1 and close.
+            // ------------------------------------------------------------
+            Room existing = gameService.getRoom(roomCode);
+            if (existing != null) {
+                Participant byName = existing.getParticipant(initialName);
+                if (byName != null && byName.isActive()) {
+                    var byCid = existing.getParticipantByCid(cid).orElse(null);
+                    boolean sameIdentity = (byCid != null && Objects.equals(byCid.getName(), byName.getName()));
+                    if (!sameIdentity) {
+                        log.warn("WS REJECT room={} name={} already in use by different CID", roomCode, initialName);
+                        sendRedirectAndClose(session, inviteUrl(roomCode, initialName, true),
+                                new CloseStatus(4005, "Name already in use"));
+                        return;
+                    }
+                }
+            }
 
             // Join with (roomCode, cid, requestedName). Service enforces a unique/canonical name.
             Room room = gameService.join(roomCode, cid, initialName);
@@ -177,7 +202,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                 }
                 return;
             }
-        
+
             // ----------------------------------------------------------------------------
             // SPECIALS toggle (host) – room-wide
             // ----------------------------------------------------------------------------
@@ -369,5 +394,32 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             Objects.requireNonNull(cid, "cid");
             Objects.requireNonNull(name, "name");
         }
+    }
+
+    /* --- local utilities for early redirect/close --- */
+
+    private static String inviteUrl(String roomCode, String participantName, boolean taken) {
+        String rc = URLEncoder.encode(roomCode == null ? "" : roomCode, StandardCharsets.UTF_8);
+        String pn = URLEncoder.encode(participantName == null ? "" : participantName, StandardCharsets.UTF_8);
+        String t  = taken ? "&nameTaken=1" : "";
+        return "/invite?roomCode=" + rc + "&participantName=" + pn + t;
+    }
+
+    private static String jsonRedirect(String url) {
+        // Very small JSON (no external deps). URL is safe w.r.t. quotes; still escape defensively.
+        String safeUrl = url.replace("\\", "\\\\").replace("\"", "\\\"");
+        return "{\"type\":\"kicked\",\"redirect\":\"" + safeUrl + "\"}";
+    }
+
+    private void sendRedirectAndClose(WebSocketSession session, String url, CloseStatus status) {
+        try {
+            String json = jsonRedirect(url);
+            if (session.isOpen()) {
+                session.sendMessage(new org.springframework.web.socket.TextMessage(json));
+            }
+        } catch (Exception ignored) { }
+        try {
+            session.close(status != null ? status : new CloseStatus(4005, "Rejected"));
+        } catch (Exception ignored) { }
     }
 }
