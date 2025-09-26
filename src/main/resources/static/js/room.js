@@ -299,41 +299,43 @@
     };
 
     s.onclose = (ev) => {
-      state.connected = false;
-      stopHeartbeat();
-      if (state.hardRedirect) { location.href = state.hardRedirect; return; }
-      if (ev.code === 4000 || ev.code === 4001) return; // room closed / kicked
+  state.connected = false;
+  stopHeartbeat();
 
-      // Name collision hard-reject from server
-      if (ev.code === 4005) {
-        // Only bounce on brand-new tab entries (never on reloads in same tab)
-        if (state.cidWasNew) {
-          const redirectUrl =
-            `/invite?roomCode=${encodeURIComponent(state.roomCode)}` +
-            `&participantName=${encodeURIComponent(state.youName)}` +
-            `&nameTaken=1`;
-          state.hardRedirect = redirectUrl;
-          // Use replace() so Back doesn't create a loop
-          location.replace(redirectUrl);
-          return;
-        }
-        // Existing tab (should be rare) → do not loop reconnects
-        showToast(isDe() ? 'Name bereits in Verwendung' : 'Name already in use');
-        return;
-      }
-      console.warn(TAG, 'onclose', ev.code, ev.reason || '');
-      scheduleReconnect('close');
-    };
+  if (state.hardRedirect) { location.href = state.hardRedirect; return; }
 
-    s.onerror = (e) => {
-      console.warn(TAG, 'ERROR', e);
-    };
-
-    s.onmessage = (ev) => {
-      lastInboundAt = Date.now();
-      try { handleMessage(JSON.parse(ev.data)); } catch (e) { console.warn('Bad message', e); }
-    };
+  // 4000 = room closed by host, 4001 = kicked by host
+  if (ev.code === 4000 || ev.code === 4001) {
+    try {
+      sessionStorage.setItem('ep-flash', ev.code === 4001 ? 'kicked' : 'roomClosed');
+    } catch {}
+    // Zurück zur Startseite – ohne Query-Parameter; replace() vermeidet Back-Loop
+    location.replace('/');
+    return;
   }
+
+  // Name collision hard-reject from server
+  if (ev.code === 4005) {
+    // Only bounce on brand-new tab entries (never on reloads in same tab)
+    if (state.cidWasNew) {
+      const redirectUrl =
+        `/invite?roomCode=${encodeURIComponent(state.roomCode)}` +
+        `&participantName=${encodeURIComponent(state.youName)}` +
+        `&nameTaken=1`;
+      state.hardRedirect = redirectUrl;
+      // Use replace() so Back doesn't create a loop
+      location.replace(redirectUrl);
+      return;
+    }
+    // Existing tab (should be rare) → do not loop reconnects
+    showToast(isDe() ? 'Name bereits in Verwendung' : 'Name already in use');
+    return;
+  }
+
+  console.warn(TAG, 'onclose', ev.code, ev.reason || '');
+  scheduleReconnect('close');}
+  
+};
 
   function send(line) { if (state.ws && state.ws.readyState === 1) state.ws.send(line); }
 

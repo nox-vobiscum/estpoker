@@ -92,8 +92,8 @@ test.describe('Participation → Spectator mode disables voting', () => {
 
     // On host page: user's row shows observer icon 👁
     await host.waitForTimeout(150);
-      // Expect spectator eye chip to appear on user's row
-    const rowByName = page.locator('#liveParticipantList .participant-row', { hasText: userName });
+    // Expect spectator eye chip to appear on user's row (assert on HOST page)
+    const rowByName = host.locator('#liveParticipantList .participant-row', { hasText: userName });
     await expect(rowByName).toHaveCount(1);
     await expect(rowByName.locator('.mini-chip.spectator')).toHaveCount(1);
 
@@ -109,10 +109,9 @@ test.describe('Participation → Spectator mode disables voting', () => {
     const enabledAfter = await user.locator('#cardGrid button:enabled').count();
     expect(enabledAfter).toBeGreaterThan(0);
 
-    // Host should no longer show observer icon for that user
+// Host should no longer show spectator chip for that user
     await host.waitForTimeout(150);
-    await expect(userRow.locator('.status-icon.observer')).toHaveCount(0);
-
+    await expect(rowByName.locator('.mini-chip.spectator')).toHaveCount(0);
     await ctxHost.close(); await ctxUser.close();
   });
 });
