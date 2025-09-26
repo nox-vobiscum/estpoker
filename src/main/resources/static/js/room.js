@@ -203,6 +203,93 @@
   let rcAttempts = 0;
   let lastInboundAt = 0;
 
+  function connectWS() {
+  const u = wsUrl();
+
+  // Close any existing open/connecting socket before reconnecting
+  if (state.ws && (state.ws.readyState === 0 || state.ws.readyState === 1)) {
+    try { state.ws.close(4004, 'reconnect'); } catch {}
+  }
+
+  console.info(TAG, 'connect →', u);
+
+  let s;
+  try { s = new WebSocket(u); }
+  catch (e) { console.error(TAG, e); scheduleReconnect('ctor'); return; }
+
+  state.ws = s;
+  // (optional) expose for debugging
+  try { window.__epWs = s; } catch {}
+
+  s.onopen = () => {
+    state.connected = true;
+    lastInboundAt = Date.now();
+    resetReconnectBackoff();
+    startHeartbeat();
+    startWatchdog();
+
+    // identify + ask for fresh snapshot
+    try { send('rename:' + encodeURIComponent(state.youName)); } catch {}
+    try { send('requestSync'); } catch {}
+    setTimeout(() => { try { send('requestSync'); } catch {} }, 400);
+
+    try { renderParticipants(); } catch {}
+  };
+
+  s.onclose = (ev) => {
+    state.connected = false;
+    stopHeartbeat();
+
+    if (state.hardRedirect) { location.href = state.hardRedirect; return; }
+
+    // 4000 = room closed by host, 4001 = kicked by host
+    if (ev.code === 4000 || ev.code === 4001) {
+      try { sessionStorage.setItem('ep-flash', ev.code === 4001 ? 'kicked' : 'roomClosed'); } catch {}
+      // back to index (no query params); replace() avoids back-loop
+      location.replace('/');
+      return;
+    }
+
+    // 4005 = name collision → only bounce on first-time tab entries
+    if (ev.code === 4005) {
+      if (state.cidWasNew) {
+        const redirectUrl =
+          `/invite?roomCode=${encodeURIComponent(state.roomCode)}` +
+          `&participantName=${encodeURIComponent(state.youName)}` +
+          `&nameTaken=1`;
+        state.hardRedirect = redirectUrl;
+        location.replace(redirectUrl); // avoid back-loop
+        return;
+      }
+      showToast(isDe() ? 'Name bereits in Verwendung' : 'Name already in use');
+      return;
+    }
+
+    console.warn(TAG, 'onclose', ev.code, ev.reason || '');
+    scheduleReconnect('close');
+  };
+
+  s.onerror = (e) => {
+    console.warn(TAG, 'ws error', e);
+  };
+
+  s.onmessage = (ev) => {
+    lastInboundAt = Date.now();
+    try {
+      const msg = JSON.parse(ev.data);
+
+      // tiny debug ring buffer for DevTools: window.__epVU.at(-1)
+      try { (window.__epVU ||= []).push(msg); } catch {}
+
+      // proceed with normal handling
+      handleMessage(msg);
+    } catch (e) {
+      console.warn(TAG, 'Bad message', e);
+    }
+  };
+}
+
+
   function startHeartbeat() {
     stopHeartbeat();
     hbTimer = setInterval(() => {
@@ -353,6 +440,72 @@
       console.warn('[room] ep:sequence-change handler failed:', e);
     }
   }, { passive: true });
+
+    /* === Confirm guards for host/kick/close-room (EN/DE, non-invasive) ====== */
+  (() => {
+    // Reuse existing isDe() if present, otherwise a safe fallback
+    function _isDe() {
+      try {
+        if (typeof isDe === 'function') return !!isDe();
+      } catch {}
+      const lang = (document.documentElement.lang || 'en').toLowerCase();
+      return lang.startsWith('de');
+    }
+    function _rowNameFrom(el) {
+      try {
+        const row = el.closest('.participant-row, .p-row');
+        const nameEl = row && (row.querySelector('.name, .p-name'));
+        const txt = (nameEl && nameEl.textContent) ? nameEl.textContent.trim() : '';
+        return txt || 'User';
+      } catch { return 'User'; }
+    }
+
+    // 1) Kick: ask before kicking
+    document.addEventListener('click', function (e) {
+      const target = e.target;
+      const btn = target && target.closest ? target.closest('button.row-action.kick') : null;
+      if (!btn) return;
+      const name = _rowNameFrom(btn);
+      const msg  = _isDe() ? `${name} wirklich entfernen?` : `Remove ${name}?`;
+      if (!window.confirm(msg)) {
+        e.preventDefault();
+        try { e.stopImmediatePropagation(); } catch {}
+      }
+      // On confirm: do nothing -> existing handlers/WS send will proceed
+    }, true); // capture = true → wir sind vor evtl. bestehenden Click-Handlern
+
+    // 2) Make host: ask before transferring
+    document.addEventListener('click', function (e) {
+      const target = e.target;
+      const btn = target && target.closest ? target.closest('button.row-action.host') : null;
+      if (!btn) return;
+      const name = _rowNameFrom(btn);
+      const msg  = _isDe()
+        ? `Host-Rolle an ${name} übertragen?`
+        : `Transfer host role to ${name}?`;
+      if (!window.confirm(msg)) {
+        e.preventDefault();
+        try { e.stopImmediatePropagation(); } catch {}
+      }
+      // On confirm: bestehende Handler senden weiter
+    }, true);
+
+    // 3) Close room: confirm CustomEvent from menu.js
+    document.addEventListener('ep:close-room', function (e) {
+      const msg = _isDe()
+        ? 'Diesen Raum für alle schließen?'
+        : 'Close this room for everyone?';
+      if (!window.confirm(msg)) {
+        e.preventDefault();
+        try { e.stopImmediatePropagation(); } catch {}
+        return;
+      }
+      // On confirm: wir lassen weitere Listener laufen (z.B. die, die den WS-Call senden)
+      // Optional: Wenn es keinen anderen Sender gibt, könnte man hier notfalls selbst senden:
+      // try { window.__epWs?.readyState === 1 && window.__epWs.send(JSON.stringify({ type: 'closeRoom' })); } catch {}
+    });
+  })();
+
 
 
   /*** ---------- Messages ---------- ***/

@@ -69,11 +69,6 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
 
             // ------------------------------------------------------------
             // Edge hardening: block duplicate name from a different CID.
-            // Allow if:
-            //   - same CID already mapped to that name (reload/reconnect), OR
-            //   - the existing participant with that name is not active.
-            // Otherwise:
-            //   - send tiny JSON with redirect to /invite?…&nameTaken=1 and close.
             // ------------------------------------------------------------
             Room existing = gameService.getRoom(roomCode);
             if (existing != null) {
@@ -140,7 +135,24 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
 
         try {
             // ----------------------------------------------------------------------------
-            // RENAME: "rename:<urlEncodedName>" → service canonicalizes; it broadcasts rename.
+            // EXPLICIT SYNC REQUEST from client (newly supported)
+            // ----------------------------------------------------------------------------
+            if ("requestSync".equals(payload)) {
+                Room room = gameService.getRoom(roomCode);
+                if (room != null) {
+                    // Prefer direct-to-session method when available.
+                    if (!tryInvoke(gameService, "sendRoomState",
+                            new Class<?>[]{WebSocketSession.class, Room.class},
+                            new Object[]{session, room})) {
+                        // Fallback: broadcast (the new session is already registered and will receive it)
+                        gameService.broadcastRoomState(room);
+                    }
+                }
+                return;
+            }
+
+            // ----------------------------------------------------------------------------
+            // RENAME: "rename:<urlEncodedName>"
             // ----------------------------------------------------------------------------
             if (payload.startsWith("rename:")) {
                 String requested = decode(payload.substring("rename:".length()));
@@ -155,7 +167,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             }
 
             // ----------------------------------------------------------------------------
-            // VOTE: "vote:<ignoredName>:<value>" (identity bound to CID server-side)
+            // VOTE: "vote:<ignoredName>:<value>"
             // ----------------------------------------------------------------------------
             if (payload.startsWith("vote:")) {
                 String[] parts = payload.split(":", 3);
@@ -204,7 +216,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             }
 
             // ----------------------------------------------------------------------------
-            // SPECIALS toggle (host) – room-wide
+            // SPECIALS toggle (host)
             // ----------------------------------------------------------------------------
             if (payload.startsWith("specials:")) {
                 if (!isHost(roomCode, c.name)) return;
@@ -248,7 +260,6 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                 case "resetRoom"   -> gameService.reset(roomCode);
 
                 case "intentionalLeave" -> {
-                    // Only tell service; it broadcasts leave + manages host transfer.
                     gameService.handleIntentionalLeave(roomCode, c.name);
                     return;
                 }

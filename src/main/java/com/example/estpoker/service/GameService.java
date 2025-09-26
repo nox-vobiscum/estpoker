@@ -533,9 +533,124 @@ public class GameService {
     }
 
     // ========================================================================
-    //  BROADCAST / SNAPSHOTS
+    //  ROOM STATE JSON / SENDERS
     // ========================================================================
 
+    /** Build the full room-state JSON payload once so both broadcast and targeted send can reuse it. */
+    private String buildRoomStateJson(Room room) throws IOException {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("type", "voteUpdate");
+
+        List<Participant> ordered = getOrderedParticipants(room);
+        Map<String, Map<String, Object>> byName = new LinkedHashMap<>();
+        for (Participant p : ordered) {
+            Map<String, Object> cur = byName.get(p.getName());
+            boolean away = pendingDisconnects.containsKey(key(room, p.getName()));
+            if (cur == null) {
+                cur = new HashMap<>();
+                cur.put("name", p.getName());
+                cur.put("vote", p.getVote());
+                cur.put("disconnected", !p.isActive());
+                cur.put("away", away);
+                cur.put("isHost", p.isHost());
+                cur.put("participating", p.isParticipating());
+                byName.put(p.getName(), cur);
+            } else {
+                if (p.getVote() != null) cur.put("vote", p.getVote());
+                if (p.isHost()) cur.put("isHost", true);
+                if (p.isParticipating()) cur.put("participating", true);
+                if (p.isActive()) cur.put("disconnected", false);
+                if (!away) cur.put("away", false);
+            }
+        }
+        payload.put("participants", new ArrayList<>(byName.values()));
+
+        boolean revealed = room.areVotesRevealed();
+        payload.put("votesRevealed", revealed);
+
+        Locale loc = Locale.getDefault();
+
+        OptionalDouble avg = calculateAverageVote(room);
+        String avgDisplay = avg.isPresent()
+                ? CardSequences.formatAverage(avg, loc)
+                : "-";
+        payload.put("averageVote", revealed ? avgDisplay : null);
+
+        Map<String, Double> numeric = collectNumericVotes(room);
+        int n = numeric.size();
+
+        if (revealed && n >= 2) {
+            OptionalDouble med = calculateMedian(room);
+            payload.put("medianVote", med.isPresent() ? CardSequences.formatAverage(med, loc) : null);
+
+            String range = calculateRange(room, loc);
+            payload.put("range", range);
+        } else {
+            payload.put("medianVote", null);
+            payload.put("range", null);
+        }
+
+        boolean consensus = revealed && isConsensus(room);
+        payload.put("consensus", consensus);
+
+        if (revealed && n >= 3) {
+            List<String> outliers = farthestFromAverageNames(room);
+            payload.put("outliers", outliers);
+        } else {
+            payload.put("outliers", List.of());
+        }
+
+        // infinity annotation for UI "(+ ♾️)"
+        payload.put("hasInfinity", revealed && hasInfinityVote(room));
+
+        payload.put("sequenceId", room.getSequenceId());
+        payload.put("cards", room.getCurrentCards());
+        payload.put("specials", CardSequences.SPECIALS);
+        payload.put("autoRevealEnabled", room.isAutoRevealEnabled());
+        payload.put("allowSpecials", room.isAllowSpecials());
+
+        payload.put("topicLabel", room.getTopicLabel());
+        payload.put("topicUrl", room.getTopicUrl());
+        payload.put("topicVisible", room.isTopicVisible());
+
+        payload.put("specialsEnabled", room.isAllowSpecials());
+
+        return objectMapper.writeValueAsString(payload);
+    }
+
+    /** Send full room state to everyone in the room (kept for compatibility). */
+    public void broadcastRoomState(Room room) {
+        try {
+            String json = buildRoomStateJson(room);
+            broadcastToRoom(room, json);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    /** Targeted: send full room state only to the given session. */
+    public void sendRoomState(WebSocketSession session, Room room) {
+        if (session == null || room == null) return;
+        try {
+            String json = buildRoomStateJson(room);
+            if (session.isOpen()) session.sendMessage(new TextMessage(json));
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    // Aliases for reflection/back-compat used by GameWebSocketHandler
+    public void sendRoomState(Room room, WebSocketSession session) { sendRoomState(session, room); }
+    public void sendRoomSnapshot(WebSocketSession session, Room room) { sendRoomState(session, room); }
+    public void sendStateTo(WebSocketSession session, Room room) { sendRoomState(session, room); }
+    public void sendStateTo(WebSocketSession session, String roomCode) {
+        Room r = getRoom(roomCode);
+        if (r != null) sendRoomState(session, r);
+    }
+    public void broadcastRoom(Room room) { broadcastRoomState(room); }
+    public void broadcast(Room room) { broadcastRoomState(room); }
+
+    /** Low-level broadcast utility. */
     public void broadcastToRoom(Room room, String message) {
         sessionToRoomMap.entrySet().removeIf(entry -> {
             WebSocketSession session = entry.getKey();
@@ -555,101 +670,6 @@ public class GameService {
         });
     }
 
-    private void broadcastJson(Room room, Map<String, Object> payload) {
-        try {
-            String json = objectMapper.writeValueAsString(payload);
-            broadcastToRoom(room, json);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-    public void broadcastRoomState(Room room) {
-        try {
-            Map<String, Object> payload = new HashMap<>();
-            payload.put("type", "voteUpdate");
-
-            List<Participant> ordered = getOrderedParticipants(room);
-            Map<String, Map<String, Object>> byName = new LinkedHashMap<>();
-            for (Participant p : ordered) {
-                Map<String, Object> cur = byName.get(p.getName());
-                boolean away = pendingDisconnects.containsKey(key(room, p.getName()));
-                if (cur == null) {
-                    cur = new HashMap<>();
-                    cur.put("name", p.getName());
-                    cur.put("vote", p.getVote());
-                    cur.put("disconnected", !p.isActive());
-                    cur.put("away", away);
-                    cur.put("isHost", p.isHost());
-                    cur.put("participating", p.isParticipating());
-                    byName.put(p.getName(), cur);
-                } else {
-                    if (p.getVote() != null) cur.put("vote", p.getVote());
-                    if (p.isHost()) cur.put("isHost", true);
-                    if (p.isParticipating()) cur.put("participating", true);
-                    if (p.isActive()) cur.put("disconnected", false);
-                    if (!away) cur.put("away", false);
-                }
-            }
-            payload.put("participants", new ArrayList<>(byName.values()));
-
-            boolean revealed = room.areVotesRevealed();
-            payload.put("votesRevealed", revealed);
-
-            Locale loc = Locale.getDefault();
-
-            OptionalDouble avg = calculateAverageVote(room);
-            String avgDisplay = avg.isPresent()
-                    ? CardSequences.formatAverage(avg, loc)
-                    : "-";
-            payload.put("averageVote", revealed ? avgDisplay : null);
-
-            Map<String, Double> numeric = collectNumericVotes(room);
-            int n = numeric.size();
-
-            if (revealed && n >= 2) {
-                OptionalDouble med = calculateMedian(room);
-                payload.put("medianVote", med.isPresent() ? CardSequences.formatAverage(med, loc) : null);
-
-                String range = calculateRange(room, loc);
-                payload.put("range", range);
-            } else {
-                payload.put("medianVote", null);
-                payload.put("range", null);
-            }
-
-            boolean consensus = revealed && isConsensus(room);
-            payload.put("consensus", consensus);
-
-            if (revealed && n >= 3) {
-                List<String> outliers = farthestFromAverageNames(room);
-                payload.put("outliers", outliers);
-            } else {
-                payload.put("outliers", List.of());
-            }
-
-            // infinity annotation for UI "(+ ♾️)"
-            payload.put("hasInfinity", revealed && hasInfinityVote(room));
-
-            payload.put("sequenceId", room.getSequenceId());
-            payload.put("cards", room.getCurrentCards());
-            payload.put("specials", CardSequences.SPECIALS);
-            payload.put("autoRevealEnabled", room.isAutoRevealEnabled());
-            payload.put("allowSpecials", room.isAllowSpecials());
-
-            payload.put("topicLabel", room.getTopicLabel());
-            payload.put("topicUrl", room.getTopicUrl());
-            payload.put("topicVisible", room.isTopicVisible());
-
-            payload.put("specialsEnabled", room.isAllowSpecials());
-
-            String json = objectMapper.writeValueAsString(payload);
-            broadcastToRoom(room, json);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
     public void broadcastHostChange(Room room, String oldHostName, String newHostName) {
         try {
             Map<String, Object> legacy = new HashMap<>();
@@ -663,7 +683,9 @@ public class GameService {
         modern.put("type", "hostTransferred");
         modern.put("from", oldHostName);
         modern.put("to", newHostName);
-        broadcastJson(room, modern);
+        try {
+            broadcastToRoom(room, objectMapper.writeValueAsString(modern));
+        } catch (Exception ignored) { }
     }
 
     private List<Participant> getOrderedParticipants(Room room) {
@@ -781,7 +803,9 @@ public class GameService {
         Map<String, Object> payload = new HashMap<>();
         payload.put("type", "participantLeft");
         payload.put("name", name);
-        broadcastJson(room, payload);
+        try {
+            broadcastToRoom(room, objectMapper.writeValueAsString(payload));
+        } catch (IOException ignored) { }
     }
 
     private void broadcastParticipantRenamed(Room room, String from, String to) {
@@ -789,7 +813,9 @@ public class GameService {
         payload.put("type", "participantRenamed");
         payload.put("from", from);
         payload.put("to", to);
-        broadcastJson(room, payload);
+        try {
+            broadcastToRoom(room, objectMapper.writeValueAsString(payload));
+        } catch (IOException ignored) { }
     }
 
     public void kickParticipant(Room room, String targetName) {
