@@ -487,13 +487,11 @@
 
     // 3) Close room: confirm CustomEvent from menu.js
     document.addEventListener('ep:close-room', function (e) {
-      const msg = _isDe()
-        ? 'Diesen Raum für alle schließen?'
-        : 'Close this room for everyone?';
+      const isDe = (document.documentElement.lang || 'en').toLowerCase().startsWith('de');
+      const msg = isDe ? 'Diesen Raum für alle schließen?' : 'Close this room for everyone?';
       if (!window.confirm(msg)) {
         e.preventDefault();
         try { e.stopImmediatePropagation(); } catch {}
-        return;
       }
     });
   })();
@@ -965,24 +963,23 @@
       if (selectedVal != null && String(selectedVal) === label) btn.classList.add('selected');
 
       btn.addEventListener('click', () => {
-        if (btn.disabled) return;
+      if (btn.disabled) return;
 
-        // optimistic local selection
-        state._optimisticVote = label;
-        grid.querySelectorAll('button').forEach(b => b.classList.remove('selected'));
-        btn.classList.add('selected');
+      // do nothing if it's already selected
+      if (mySelectedValue() === label) return;
 
-        // *** FIX: always send vote with cid (fallback name for legacy handlers)
-        const payload = { type: 'vote', value: label };
-        if (state.cid) payload.cid = state.cid;
-        if (state.youName) payload.name = state.youName; // harmless fallback
-        try {
-          send(JSON.stringify(payload));
-        } catch {
-          // fallback to legacy text frame if JSON fails for any reason
-          send(`vote:${state.youName}:${label}`);
-        }
-      });
+      // optimistic local selection
+      state._optimisticVote = label;
+      grid.querySelectorAll('button').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+
+      // Legacy wire format expected by the server:
+      // vote:<name>:<value>
+      try {
+        send(`vote:${state.youName}:${label}`);
+      } catch {}
+    });
+
 
       grid.appendChild(btn);
     }
