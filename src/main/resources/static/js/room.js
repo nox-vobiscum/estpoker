@@ -203,6 +203,9 @@
   let rcAttempts = 0;
   let lastInboundAt = 0;
 
+  // debounce flag for rapid vote clicks
+  let voteSendBusy = false;
+
   function send(line) { if (state.ws && state.ws.readyState === 1) state.ws.send(line); }
 
   function startHeartbeat() {
@@ -304,7 +307,6 @@
       // identify + ask for fresh snapshot
       try { send('rename:' + encodeURIComponent(state.youName)); } catch {}
       try { send('requestSync'); } catch {}
-      setTimeout(() => { try { send('requestSync'); } catch {} }, 400);
 
       try { renderParticipants(); } catch {}
     };
@@ -312,6 +314,7 @@
     s.onclose = (ev) => {
       state.connected = false;
       stopHeartbeat();
+      stopWatchdog();
 
       if (state.hardRedirect) { location.href = state.hardRedirect; return; }
 
@@ -353,7 +356,7 @@
       // Heartbeat reply from server
       if (ev.data === 'pong') return;
 
-      // ---- NEW: handle legacy plain-text roster frames first -----------------
+      // ---- handle legacy plain-text roster frames first -----------------
       if (typeof ev.data === 'string') {
         if (ev.data.startsWith('participantJoined:')) {
           const name = ev.data.slice('participantJoined:'.length).trim();
@@ -372,9 +375,9 @@
           return;
         }
       }
-      // -----------------------------------------------------------------------
+      // -------------------------------------------------------------------
 
-      // --- JSON events (compat for additional small JSON messages) -----------
+      // --- JSON events (compat for additional small JSON messages) --------
       try {
         if (typeof ev.data === 'string' && ev.data.charAt(0) === '{') {
           const msg = JSON.parse(ev.data);
@@ -407,7 +410,7 @@
       } catch {
         // ignore JSON-compat errors; fall through to full JSON parse below
       }
-      // -----------------------------------------------------------------------
+      // -------------------------------------------------------------------
 
       // Full JSON room-state messages
       try {
@@ -439,53 +442,8 @@
     }
   }, { passive: true });
 
-  /* === Confirm guards for host/kick/close-room (EN/DE, non-invasive) ====== */
+  /* === Confirm guard for close-room ONLY (host/kick confirm lives on buttons) ===== */
   (() => {
-    function _isDe() {
-      try {
-        if (typeof isDe === 'function') return !!isDe();
-      } catch {}
-      const lang = (document.documentElement.lang || 'en').toLowerCase();
-      return lang.startsWith('de');
-    }
-    function _rowNameFrom(el) {
-      try {
-        const row = el.closest('.participant-row, .p-row');
-        const nameEl = row && (row.querySelector('.name, .p-name'));
-        const txt = (nameEl && nameEl.textContent) ? nameEl.textContent.trim() : '';
-        return txt || 'User';
-      } catch { return 'User'; }
-    }
-
-    // 1) Kick: ask before kicking
-    document.addEventListener('click', function (e) {
-      const target = e.target;
-      const btn = target && target.closest ? target.closest('button.row-action.kick') : null;
-      if (!btn) return;
-      const name = _rowNameFrom(btn);
-      const msg  = _isDe() ? `${name} wirklich entfernen?` : `Remove ${name}?`;
-      if (!window.confirm(msg)) {
-        e.preventDefault();
-        try { e.stopImmediatePropagation(); } catch {}
-      }
-    }, true);
-
-    // 2) Make host: ask before transferring
-    document.addEventListener('click', function (e) {
-      const target = e.target;
-      const btn = target && target.closest ? target.closest('button.row-action.host') : null;
-      if (!btn) return;
-      const name = _rowNameFrom(btn);
-      const msg  = _isDe()
-        ? `Host-Rolle an ${name} übertragen?`
-        : `Transfer host role to ${name}?`;
-      if (!window.confirm(msg)) {
-        e.preventDefault();
-        try { e.stopImmediatePropagation(); } catch {}
-      }
-    }, true);
-
-    // 3) Close room: confirm CustomEvent from menu.js
     document.addEventListener('ep:close-room', function (e) {
       const isDe = (document.documentElement.lang || 'en').toLowerCase().startsWith('de');
       const msg = isDe ? 'Diesen Raum für alle schließen?' : 'Close this room for everyone?';
@@ -515,13 +473,13 @@
         break;
       }
       case 'participantJoined': {
-        addParticipantLocal((m.name || '').trim());
-        try { renderParticipants && renderParticipants(); } catch {}
+        const name = (m.name || '').trim();
+        if (name) { addParticipantLocal(name); try { renderParticipants && renderParticipants(); } catch {} }
         break;
       }
       case 'participantLeft': {
-        removeParticipantLocal((m.name || '').trim());
-        try { renderParticipants && renderParticipants(); } catch {}
+        const name = (m.name || '').trim();
+        if (name) { removeParticipantLocal(name); try { renderParticipants && renderParticipants(); } catch {} }
         break;
       }
       case 'participantRenamed': {
@@ -714,17 +672,17 @@
   }
 
   function renderParticipants() {
-  const ul = document.querySelector('#liveParticipantList');
-  if (!ul) return;
+    const ul = document.querySelector('#liveParticipantList');
+    if (!ul) return;
 
-  try {
-    // Normalize: strings → { name: "…" }
-    const list = (state.participants || [])
-      .map(p => (typeof p === 'string' ? { name: p } : p))
-      .filter(p => p && p.name);
+    try {
+      // Normalize: strings → { name: "…" }
+      const list = (state.participants || [])
+        .map(p => (typeof p === 'string' ? { name: p } : p))
+        .filter(p => p && p.name);
 
-    const frag = document.createDocumentFragment();
-    list.forEach(p => {
+      const frag = document.createDocumentFragment();
+      list.forEach(p => {
         if (!p || !p.name) return;
 
         const li = document.createElement('li');
@@ -963,23 +921,21 @@
       if (selectedVal != null && String(selectedVal) === label) btn.classList.add('selected');
 
       btn.addEventListener('click', () => {
-      if (btn.disabled) return;
+        if (btn.disabled || voteSendBusy) return;
 
-      // do nothing if it's already selected
-      if (mySelectedValue() === label) return;
+        // do nothing if it's already selected
+        if (mySelectedValue() === label) return;
 
-      // optimistic local selection
-      state._optimisticVote = label;
-      grid.querySelectorAll('button').forEach(b => b.classList.remove('selected'));
-      btn.classList.add('selected');
+        // optimistic local selection
+        state._optimisticVote = label;
+        grid.querySelectorAll('button').forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
 
-      // Legacy wire format expected by the server:
-      // vote:<name>:<value>
-      try {
-        send(`vote:${state.youName}:${label}`);
-      } catch {}
-    });
-
+        // Legacy wire format expected by the server: vote:<name>:<value>
+        voteSendBusy = true;
+        try { send(`vote:${state.youName}:${label}`); }
+        finally { setTimeout(() => { voteSendBusy = false; }, 200); }
+      });
 
       grid.appendChild(btn);
     }
@@ -1500,8 +1456,6 @@
       wake('pageshow');
     }, true);
 
-    startWatchdog();
-
     // Connect only if we are not already redirecting away
     if (!state.hardRedirect && !state.connected && (!state.ws || state.ws.readyState !== 1)) connectWS();
 
@@ -1509,16 +1463,16 @@
   }
 
   /*** ---------- Misc helpers ---------- ***/
-    function addParticipantLocal(name) {
+  function addParticipantLocal(name) {
     if (!name) return;
 
-    // Variante: Set
+    // Option: Set-backed participant collection
     if (state?.participants && typeof state.participants.add === 'function') {
       state.participants.add(name);
       return;
     }
 
-    // Variante: Array -> immer als Objekt mit "name" ablegen
+    // Option: Array — store as object with "name"
     if (Array.isArray(state?.participants)) {
       const has = state.participants.some(p =>
         (typeof p === 'string') ? (p === name) : (p && p.name === name)
@@ -1537,7 +1491,7 @@
       return;
     }
 
-    // Fallbacks für seltene Modelle
+    // Fallback shapes (rare)
     if (state?.participantsByName && typeof state.participantsByName.set === 'function') {
       if (!state.participantsByName.has(name)) state.participantsByName.set(name, { name });
     } else if (state?.participantsByName && typeof state.participantsByName === 'object') {
@@ -1550,8 +1504,7 @@
     }
   }
 
-
-    function removeParticipantLocal(name) {
+  function removeParticipantLocal(name) {
     if (!name) return;
 
     if (state?.participants && typeof state.participants.delete === 'function') {
@@ -1578,7 +1531,6 @@
       if (j !== -1) state.room.participants.splice(j, 1);
     }
   }
-
 
   function escapeHtml(s) {
     return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -1613,7 +1565,7 @@
 
   /*** ---------- Name preflight: run once per (room+name) per tab ---------- ***/
   async function preflightNameCheck() {
-    // B) Never on reload/back-forward navigations
+    // Never on reload/back-forward navigations
     let isReloadLike = false;
     try {
       const nav = performance?.getEntriesByType?.('navigation')?.[0];
@@ -1634,8 +1586,7 @@
       }
     } catch { /* sessionStorage might be blocked; fall through to a best-effort check */ }
 
-    // Optional C) If we arrived via server preflight (?preflight=1),
-    // the server already rejected taken names. Mark OK and skip network work.
+    // Optional: server preflight (?preflight=1)
     try {
       const preflightParam = (url && url.searchParams && url.searchParams.get('preflight')) || null; // 'url' captured before canonicalization
       if (preflightParam === '1') {
@@ -1644,7 +1595,7 @@
       }
     } catch { /* ignore */ }
 
-    // Best-effort availability probe (only for the FIRST visit of this (room+name) in this tab)
+    // Best-effort availability probe (first visit of this (room+name) in this tab)
     try {
       const apiUrl = `/api/rooms/${encodeURIComponent(state.roomCode)}/name-available?name=${encodeURIComponent(state.youName)}`;
       const resp = await fetch(apiUrl, { headers: { 'Accept': 'application/json' }, cache: 'no-store' });
@@ -1696,7 +1647,7 @@
         document.documentElement.setAttribute('data-ready', '1');
       }
     } catch {}
-    wireOnce(); // this will start WS/connect, watchdog, etc.
+    wireOnce(); // this will start WS/connect, etc.
   }
 
   if (document.readyState === 'loading') {
