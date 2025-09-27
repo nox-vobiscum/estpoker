@@ -95,8 +95,7 @@
   <!-- Room connector (bump v-param if clients cache JS) -->
   <script defer th:src="@{/js/room.js?v=41}"
           th:attr="data-participant=${participantName},data-room=${roomCode}"></script>
-  <script defer src="/js/ws-probe.js"></script>
-
+  
   <div th:replace="~{fragments/footer :: footer}"></div>
 </body>
 </html>

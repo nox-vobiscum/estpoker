@@ -113,6 +113,14 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             } catch (Throwable t) {
                 log.warn("WS INIT snapshot failed (room={}, name={}): {}", roomCode, canonicalName, t.toString());
             }
+
+            // Ensure the new client learns existing participants immediately.
+            try {
+                sendRosterReplay(session, room, canonicalName);
+            } catch (Throwable t) {
+                log.debug("WS roster replay skipped: {}", t.toString());
+            }
+
         } catch (Throwable t) {
             log.error("WS afterConnectionEstablished failed (sid={}, uri={})", session.getId(), safeUri(session), t);
             try { session.close(CloseStatus.SERVER_ERROR); } catch (Exception ignore) {}
@@ -147,6 +155,25 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                         // Fallback: broadcast (the new session is already registered and will receive it)
                         gameService.broadcastRoomState(room);
                     }
+                }
+                return;
+            }
+
+            // ----------------------------------------------------------------------------
+            // HEARTBEAT: reply "pong" so the client watchdog sees inbound traffic.
+            // Also keep old semantics: touch() the participant on ping.
+            // Additionally send a tiny JSON so logic that only counts JSON frames
+            // will also see inbound traffic.
+            // ----------------------------------------------------------------------------
+            if ("ping".equals(payload)) {
+                try { gameService.touch(roomCode, cid); } catch (Throwable ignore) {}
+                try {
+                    if (session.isOpen()) {
+                        session.sendMessage(new org.springframework.web.socket.TextMessage("pong"));
+                        session.sendMessage(new org.springframework.web.socket.TextMessage("{\"type\":\"pong\"}"));
+                    }
+                } catch (Exception e) {
+                    log.warn("WS pong send failed (room={}, name={}, cid={}): {}", roomCode, c.name, cid, e.toString());
                 }
                 return;
             }
@@ -264,8 +291,6 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                     return;
                 }
 
-                case "ping"       -> gameService.touch(roomCode, cid);
-
                 case "topicClear" -> {
                     if (!isHost(roomCode, c.name)) return;
                     gameService.clearTopic(roomCode);
@@ -378,6 +403,79 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         if (tryInvoke(gameService, "broadcast", new Class<?>[]{Room.class}, new Object[]{room})) return;
 
         log.debug("WS INIT snapshot: no suitable GameService method found; skipping explicit snapshot");
+    }
+
+    /** Send participantJoined:<name> for all existing participants except the new client. */
+    private void sendRosterReplay(WebSocketSession session, Room room, String selfName) {
+        java.util.List<String> sent = new java.util.ArrayList<>();
+        try {
+            for (String name : extractParticipantNames(room)) {
+                if (name == null || name.isBlank()) continue;
+                if (Objects.equals(name, selfName)) continue;
+                if (session.isOpen()) {
+                    // Important: no URL encoding here — the client expects raw names.
+                    String wire = "participantJoined:" + name;
+                    session.sendMessage(new org.springframework.web.socket.TextMessage(wire));
+                    sent.add(name);
+                }
+            }
+        } catch (Exception e) {
+            log.debug("WS roster replay failed softly: {}", e.toString());
+        }
+        log.info("WS ROSTER replay to {} ({}): {}", selfName, sent.size(), sent);
+    }
+
+    /** Best-effort extraction of participant names from Room via reflection. */
+    private java.util.Set<String> extractParticipantNames(Room room) {
+        java.util.LinkedHashSet<String> out = new java.util.LinkedHashSet<>();
+        if (room == null) return out;
+
+        // Try common accessors first.
+        try { collectNamesFromUnknown(room.getClass().getMethod("getParticipants").invoke(room), out); } catch (Throwable ignored) {}
+        try { collectNamesFromUnknown(room.getClass().getMethod("participants").invoke(room), out); } catch (Throwable ignored) {}
+        try { collectNamesFromUnknown(room.getClass().getMethod("getParticipantMap").invoke(room), out); } catch (Throwable ignored) {}
+
+        // As a last resort, scan all no-arg methods returning Collection/Map.
+        if (out.isEmpty()) {
+            for (Method m : room.getClass().getMethods()) {
+                if (m.getParameterCount() == 0) {
+                    Class<?> rt = m.getReturnType();
+                    boolean coll = java.util.Collection.class.isAssignableFrom(rt);
+                    boolean map  = java.util.Map.class.isAssignableFrom(rt);
+                    if (coll || map) {
+                        try { collectNamesFromUnknown(m.invoke(room), out); } catch (Throwable ignored) {}
+                    }
+                }
+            }
+        }
+        return out;
+    }
+
+    private void collectNamesFromUnknown(Object src, java.util.Set<String> out) {
+        if (src == null) return;
+        if (src instanceof java.util.Map<?, ?> map) {
+            for (Object v : map.values()) collectNamesFromUnknown(v, out);
+            return;
+        }
+        if (src instanceof java.util.Collection<?> coll) {
+            for (Object v : coll) collectNamesFromUnknown(v, out);
+            return;
+        }
+        // single element: Participant or String or POJO with getName()
+        if (src instanceof Participant p) {
+            String n = p.getName();
+            if (n != null && !n.isBlank()) out.add(n);
+            return;
+        }
+        if (src instanceof String s) {
+            if (!s.isBlank()) out.add(s);
+            return;
+        }
+        try {
+            Method getName = src.getClass().getMethod("getName");
+            Object n = getName.invoke(src);
+            if (n instanceof String && !((String) n).isBlank()) out.add((String) n);
+        } catch (Throwable ignored) {}
     }
 
     private boolean tryInvoke(Object target, String name, Class<?>[] sig, Object[] args) {
