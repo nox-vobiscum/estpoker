@@ -386,6 +386,10 @@ Plan (tracked in BACKLOG):
   The client handles this only on **brand-new tabs**: `room.js` intercepts `ws.onclose(code===4005)` and **redirects to**  
   `/invite?roomCode=...&participantName=...&nameTaken=1` using `location.replace(...)`.  
   Existing tabs (reloads/back/forward) never auto-redirect on `4005`; they simply show a toast and stop reconnect loops.
+  
+  WebSocket protocol: On join the server replays the current roster to the new client via participantJoined events (JSON + legacy text). The client handles {type:"participantJoined","name":"…"} and updates the participant list. The server also replies pong to ping.
+
+  Client: Handle JSON socket events participantJoined / participantLeft. Update local participant model (supports Set, Array, Map/dict, and nested room.participants) and re-render the participant list. Heartbeat pong frames are ignored by parser but reset the stale timer.
 
   > Note: If the service is later switched to *canonicalization* (auto-suffixing to `Name (N)`), the server will send a `you{yourName}` identity message after join and the UI will update `#youName` without redirect. Tests and this appendix should then be updated accordingly.
 

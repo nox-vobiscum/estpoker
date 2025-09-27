@@ -273,22 +273,80 @@
     console.warn(TAG, 'ws error', e);
   };
 
-  s.onmessage = (ev) => {
-    lastInboundAt = Date.now();
-    try {
-      const msg = JSON.parse(ev.data);
+    s.onmessage = (ev) => {
+      // Bump watchdog on any inbound frame
+      lastInboundAt = Date.now();
 
-      // tiny debug ring buffer for DevTools: window.__epVU.at(-1)
-      try { (window.__epVU ||= []).push(msg); } catch {}
+      // Heartbeat reply from server
+      if (ev.data === 'pong') return;
 
-      // proceed with normal handling
-      handleMessage(msg);
-    } catch (e) {
-      console.warn(TAG, 'Bad message', e);
-    }
-  };
-}
+      // --- NEW: JSON events (compat) ---------------------------------------------
+      try {
+        // Cheap check: JSON frames start with '{'
+        if (typeof ev.data === 'string' && ev.data.charAt(0) === '{') {
+          const msg = JSON.parse(ev.data);
 
+          switch (msg && msg.type) {
+            case 'participantJoined': {
+              const name = (msg.name || '').trim();
+              if (name) {
+                try {
+                  if (state.participants && typeof state.participants.add === 'function') {
+                    state.participants.add(name);
+                  } else if (Array.isArray(state.participants)) {
+                    if (!state.participants.includes(name)) state.participants.push(name);
+                  }
+                } catch {}
+
+                try { renderParticipants && renderParticipants(); } catch {}
+              }
+              return; // handled
+            }
+
+            case 'participantLeft': {
+              const name = (msg.name || '').trim();
+              if (name) {
+                try {
+                  if (state.participants && typeof state.participants.delete === 'function') {
+                    state.participants.delete(name);
+                  } else if (Array.isArray(state.participants)) {
+                    const i = state.participants.indexOf(name);
+                    if (i !== -1) state.participants.splice(i, 1);
+                  }
+                } catch {}
+
+                try { renderParticipants && renderParticipants(); } catch {}
+              }
+              return; // handled
+            }
+
+            // Already supported in your app, but harmless to keep here:
+            case 'kicked': {
+              if (msg.redirect) {
+                try { window.location.assign(msg.redirect); } catch { window.location.href = msg.redirect; }
+              }
+              return; // handled
+            }
+          }
+        }
+      } catch (_) {
+        // ignore JSON parse errors; fall back to legacy handling
+      }
+      // --- END NEW ----------------------------------------------------------------
+
+      try {
+        const msg = JSON.parse(ev.data);
+
+        // tiny debug ring buffer for DevTools: window.__epVU.at(-1)
+        try { (window.__epVU ||= []).push(msg); } catch {}
+
+        // proceed with normal handling
+        handleMessage(msg);
+      } catch (e) {
+        console.warn(TAG, 'Bad message', e);
+      }
+    };
+  }
 
   function startHeartbeat() {
     stopHeartbeat();
@@ -527,13 +585,14 @@
         break;
       }
       case 'participantJoined': {
-        const name = m.name || '';
-        if (shouldToastPresence(name)) showToast(isDe() ? `${name} ist beigetreten` : `${name} joined the room`);
+        addParticipantLocal((msg.name || '').trim());
+        try { renderParticipants && renderParticipants(); } catch {}
         break;
       }
+
       case 'participantLeft': {
-        const name = m.name || '';
-        if (shouldToastPresence(name)) showToast(isDe() ? `${name} hat den Raum verlassen` : `${name} left the room`);
+        removeParticipantLocal((msg.name || '').trim());
+        try { renderParticipants && renderParticipants(); } catch {}
         break;
       }
       case 'participantRenamed': {
@@ -1504,6 +1563,58 @@
   }
 
   /*** ---------- Misc helpers ---------- ***/
+    function addParticipantLocal(name) {
+    if (!name) return;
+
+    // Common: Set
+    if (state?.participants && typeof state.participants.add === 'function') {
+      state.participants.add(name);
+    }
+    // Common: Array
+    else if (Array.isArray(state?.participants)) {
+      if (!state.participants.includes(name)) state.participants.push(name);
+    }
+
+    // Map/dict by name (seen in some versions)
+    if (state?.participantsByName && typeof state.participantsByName.set === 'function') {
+      if (!state.participantsByName.has(name)) state.participantsByName.set(name, { name });
+    } else if (state?.participantsByName && typeof state.participantsByName === 'object') {
+      state.participantsByName[name] = state.participantsByName[name] || { name };
+    }
+
+    // Nested room model variants
+    if (state?.room?.participants && typeof state.room.participants.add === 'function') {
+      state.room.participants.add(name);
+    } else if (Array.isArray(state?.room?.participants)) {
+      if (!state.room.participants.includes(name)) state.room.participants.push(name);
+    }
+  }
+
+  function removeParticipantLocal(name) {
+    if (!name) return;
+
+    if (state?.participants && typeof state.participants.delete === 'function') {
+      state.participants.delete(name);
+    } else if (Array.isArray(state?.participants)) {
+      const i = state.participants.indexOf(name);
+      if (i !== -1) state.participants.splice(i, 1);
+    }
+
+    if (state?.participantsByName && typeof state.participantsByName.delete === 'function') {
+      state.participantsByName.delete(name);
+    } else if (state?.participantsByName && typeof state.participantsByName === 'object') {
+      delete state.participantsByName[name];
+    }
+
+    if (state?.room?.participants && typeof state.room.participants.delete === 'function') {
+      state.room.participants.delete(name);
+    } else if (Array.isArray(state?.room?.participants)) {
+      const j = state.room.participants.indexOf(name);
+      if (j !== -1) state.room.participants.splice(j, 1);
+    }
+  }
+
+  
   function escapeHtml(s) {
     return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   }

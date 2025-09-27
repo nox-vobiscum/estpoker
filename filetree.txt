@@ -1,0 +1,413 @@
+estpoker/
+├─ .githooks/
+│  ├─ pre-commit
+│  └─ pre-push
+├─ .github/
+│  ├─ workflows/
+│  │  ├─ ci.yml
+│  │  ├─ e2e.yml
+│  │  └─ warmup.yml
+│  └─ pull_request_template.md
+├─ .mvn/
+│  └─ wrapper/
+│     └─ maven-wrapper.properties
+├─ .vscode/
+│  ├─ launch.json
+│  ├─ settings.json
+│  └─ tasks.json
+├─ docs/
+│  ├─ adr/
+│  │  └─ 0000-template.md
+│  ├─ BACKLOG.md
+│  ├─ BRIEFING.md
+│  └─ STYLE.md
+├─ playwright-report/
+│  ├─ data/
+│  │  ├─ 83eb86c3beb4dc964c19d23a9d5c1b3437b1def3.png
+│  │  ├─ 9814f810ee8d13075c9c53358c33509b29d198de.zip
+│  │  ├─ a04a1e96e6487207b66df880a7c11bd4773ab9a3.png
+│  │  └─ ae94716095aa6d66aa9ecef4d8260ae23dcf5ab6.md
+│  ├─ trace/
+│  │  ├─ assets/
+│  │  │  ├─ codeMirrorModule-B9MwJ51G.js
+│  │  │  └─ defaultSettingsView-Do_wwdKw.js
+│  │  ├─ codeMirrorModule.C3UTv-Ge.css
+│  │  ├─ codicon.DCmgc-ay.ttf
+│  │  ├─ defaultSettingsView.DVJHpiGt.css
+│  │  ├─ index.BFsek2M6.css
+│  │  ├─ index.BZPYnuWQ.js
+│  │  ├─ index.html
+│  │  ├─ playwright-logo.svg
+│  │  ├─ snapshot.html
+│  │  ├─ sw.bundle.js
+│  │  ├─ uiMode.9zHYMU6d.js
+│  │  ├─ uiMode.BatfzHMG.css
+│  │  ├─ uiMode.html
+│  │  └─ xtermModule.Beg8tuEN.css
+│  └─ index.html
+├─ scripts/
+│  ├─ bin/
+│  │  └─ cloudflared.exe
+│  ├─ check-menu-toggle-events.js
+│  ├─ rooms-smoke.sh
+│  ├─ run-and-tunnel.sh
+│  ├─ setup-hooks.sh
+│  └─ tunnel.sh
+├─ src/
+│  ├─ main/
+│  │  ├─ java/
+│  │  │  └─ com/
+│  │  │     └─ example/
+│  │  │        └─ estpoker/
+│  │  │           ├─ config/
+│  │  │           │  ├─ AppStorageProperties.java
+│  │  │           │  ├─ FeaturesConfig.java
+│  │  │           │  ├─ FeaturesProperties.java
+│  │  │           │  ├─ FtpsClientConfig.java
+│  │  │           │  ├─ LocaleConfig.java
+│  │  │           │  ├─ PasswordProperties.java
+│  │  │           │  ├─ PersistenceConfig.java
+│  │  │           │  ├─ StorageConfig.java
+│  │  │           │  └─ WebSocketConfig.java
+│  │  │           ├─ controller/
+│  │  │           │  ├─ GameController.java
+│  │  │           │  ├─ HealthController.java
+│  │  │           │  ├─ HomeController.java
+│  │  │           │  ├─ I18nController.java
+│  │  │           │  ├─ LocaleController.java
+│  │  │           │  ├─ RoomCheckController.java
+│  │  │           │  ├─ RoomNameCheckController.java
+│  │  │           │  ├─ SequencesController.java
+│  │  │           │  └─ SignalController.java
+│  │  │           ├─ data/
+│  │  │           ├─ handler/
+│  │  │           │  └─ GameWebSocketHandler.java
+│  │  │           ├─ model/
+│  │  │           │  ├─ CardSequences.java
+│  │  │           │  ├─ Participant.java
+│  │  │           │  └─ Room.java
+│  │  │           ├─ persistence/
+│  │  │           │  ├─ NoOpPersistentRooms.java
+│  │  │           │  └─ PersistentRooms.java
+│  │  │           ├─ rooms/
+│  │  │           │  ├─ codec/
+│  │  │           │  │  └─ RoomCodec.java
+│  │  │           │  ├─ model/
+│  │  │           │  │  ├─ StoredParticipant.java
+│  │  │           │  │  └─ StoredRoom.java
+│  │  │           │  ├─ repo/
+│  │  │           │  │  ├─ FtpsRoomStore.java
+│  │  │           │  │  └─ RoomStore.java
+│  │  │           │  ├─ service/
+│  │  │           │  │  ├─ InMemoryRoomPersistenceService.java
+│  │  │           │  │  ├─ NoOpRoomPersistenceService.java
+│  │  │           │  │  ├─ RoomPersistenceService.java
+│  │  │           │  │  ├─ RoomSnapshotter.java
+│  │  │           │  │  └─ StoredRoomPersistenceService.java
+│  │  │           │  └─ web/
+│  │  │           │     ├─ NameAvailabilityController.java
+│  │  │           │     └─ RoomsController.java
+│  │  │           ├─ security/
+│  │  │           │  └─ PasswordHasher.java
+│  │  │           ├─ service/
+│  │  │           │  ├─ GameService.java
+│  │  │           │  ├─ RoomManager.java
+│  │  │           │  ├─ StorageDiagnosticsService.java
+│  │  │           │  └─ StorageProbeService.java
+│  │  │           ├─ storage/
+│  │  │           │  ├─ FileStorage.java
+│  │  │           │  └─ FtpsFileStorage.java
+│  │  │           ├─ web/
+│  │  │           │  ├─ SecurityProbeController.java
+│  │  │           │  └─ StorageController.java
+│  │  │           ├─ EstpokerApplication.java
+│  │  │           └─ koyeb.yaml
+│  │  └─ resources/
+│  │     ├─ META-INF/
+│  │     │  └─ additional-spring-configuration-metadata.json
+│  │     ├─ static/
+│  │     │  ├─ css/
+│  │     │  ├─ flags/
+│  │     │  │  ├─ at.svg
+│  │     │  │  ├─ de.svg
+│  │     │  │  ├─ gb.svg
+│  │     │  │  └─ us.svg
+│  │     │  ├─ js/
+│  │     │  │  ├─ index-flash.js
+│  │     │  │  ├─ invite-name-check.js
+│  │     │  │  ├─ menu.js
+│  │     │  │  ├─ qr.js
+│  │     │  │  └─ room.js
+│  │     │  ├─ apple-touch-icon.png
+│  │     │  ├─ favicon-16.png
+│  │     │  ├─ favicon-16x16.png
+│  │     │  ├─ favicon-180.png
+│  │     │  ├─ favicon-192.png
+│  │     │  ├─ favicon-32.png
+│  │     │  ├─ favicon-32x32.png
+│  │     │  ├─ favicon-48.png
+│  │     │  ├─ favicon-512.png
+│  │     │  ├─ favicon.ico
+│  │     │  ├─ favicon.svg
+│  │     │  └─ styles.css
+│  │     ├─ templates/
+│  │     │  ├─ fragments/
+│  │     │  │  ├─ footer.html
+│  │     │  │  ├─ head.html
+│  │     │  │  ├─ kbase.html
+│  │     │  │  ├─ menu.html
+│  │     │  │  └─ scripts.html
+│  │     │  ├─ index.html
+│  │     │  ├─ invite.html
+│  │     │  └─ room.html
+│  │     ├─ application-local.properties
+│  │     ├─ application-prod.properties
+│  │     ├─ application.properties
+│  │     ├─ messages_de.properties
+│  │     └─ messages.properties
+│  └─ test/
+│     ├─ java/
+│     │  └─ com/
+│     │     └─ example/
+│     │        └─ estpoker/
+│     │           ├─ controller/
+│     │           │  └─ RoomNameCheckControllerTest.java
+│     │           ├─ model/
+│     │           │  └─ RoomTest.java
+│     │           ├─ rooms/
+│     │           │  ├─ service/
+│     │           │  │  └─ StoredRoomPersistenceServiceTest.java
+│     │           │  └─ web/
+│     │           │     ├─ RoomsControllerCrudTests.java
+│     │           │     └─ RoomsControllerPasswordTests.java
+│     │           ├─ service/
+│     │           │  └─ GameServiceNameTests.java
+│     │           └─ SeleniumIT.java
+│     └─ resources/
+│        └─ application-test.properties
+├─ target/
+│  ├─ classes/
+│  │  ├─ com/
+│  │  │  └─ example/
+│  │  │     └─ estpoker/
+│  │  │        ├─ config/
+│  │  │        │  ├─ AppStorageProperties.class
+│  │  │        │  ├─ AppStorageProperties$Ftps.class
+│  │  │        │  ├─ FeaturesConfig.class
+│  │  │        │  ├─ FeaturesProperties.class
+│  │  │        │  ├─ FeaturesProperties$PersistentRooms.class
+│  │  │        │  ├─ FtpsClientConfig.class
+│  │  │        │  ├─ LocaleConfig.class
+│  │  │        │  ├─ PasswordProperties.class
+│  │  │        │  ├─ PersistenceConfig.class
+│  │  │        │  ├─ StorageConfig.class
+│  │  │        │  └─ WebSocketConfig.class
+│  │  │        ├─ controller/
+│  │  │        │  ├─ GameController.class
+│  │  │        │  ├─ HealthController.class
+│  │  │        │  ├─ HomeController.class
+│  │  │        │  ├─ I18nController.class
+│  │  │        │  ├─ LocaleController.class
+│  │  │        │  ├─ RoomCheckController.class
+│  │  │        │  ├─ RoomNameCheckController.class
+│  │  │        │  ├─ SequencesController.class
+│  │  │        │  └─ SignalController.class
+│  │  │        ├─ handler/
+│  │  │        │  ├─ GameWebSocketHandler.class
+│  │  │        │  └─ GameWebSocketHandler$Conn.class
+│  │  │        ├─ model/
+│  │  │        │  ├─ CardSequences.class
+│  │  │        │  ├─ CardSequences$Range.class
+│  │  │        │  ├─ Participant.class
+│  │  │        │  └─ Room.class
+│  │  │        ├─ persistence/
+│  │  │        │  ├─ NoOpPersistentRooms.class
+│  │  │        │  └─ PersistentRooms.class
+│  │  │        ├─ rooms/
+│  │  │        │  ├─ codec/
+│  │  │        │  │  └─ RoomCodec.class
+│  │  │        │  ├─ model/
+│  │  │        │  │  ├─ StoredParticipant.class
+│  │  │        │  │  ├─ StoredRoom.class
+│  │  │        │  │  ├─ StoredRoom$HistoryItem.class
+│  │  │        │  │  ├─ StoredRoom$Settings.class
+│  │  │        │  │  └─ StoredRoom$Stats.class
+│  │  │        │  ├─ repo/
+│  │  │        │  │  ├─ FtpsRoomStore.class
+│  │  │        │  │  └─ RoomStore.class
+│  │  │        │  ├─ service/
+│  │  │        │  │  ├─ InMemoryRoomPersistenceService.class
+│  │  │        │  │  ├─ InMemoryRoomPersistenceService$Entry.class
+│  │  │        │  │  ├─ NoOpRoomPersistenceService.class
+│  │  │        │  │  ├─ RoomPersistenceService.class
+│  │  │        │  │  ├─ RoomPersistenceService$RoomMeta.class
+│  │  │        │  │  ├─ RoomSnapshotter.class
+│  │  │        │  │  ├─ RoomSnapshotter$1.class
+│  │  │        │  │  └─ StoredRoomPersistenceService.class
+│  │  │        │  └─ web/
+│  │  │        │     ├─ NameAvailabilityController.class
+│  │  │        │     ├─ RoomsController.class
+│  │  │        │     ├─ RoomsController$CheckView.class
+│  │  │        │     ├─ RoomsController$ErrorView.class
+│  │  │        │     ├─ RoomsController$ExistsView.class
+│  │  │        │     ├─ RoomsController$PasswordRequest.class
+│  │  │        │     ├─ RoomsController$SettingsView.class
+│  │  │        │     ├─ RoomsController$StoredRoomView.class
+│  │  │        │     └─ RoomsController$UpsertRequest.class
+│  │  │        ├─ security/
+│  │  │        │  └─ PasswordHasher.class
+│  │  │        ├─ service/
+│  │  │        │  ├─ GameService.class
+│  │  │        │  ├─ RoomManager.class
+│  │  │        │  ├─ StorageDiagnosticsService.class
+│  │  │        │  ├─ StorageDiagnosticsService$StorageHealth.class
+│  │  │        │  └─ StorageProbeService.class
+│  │  │        ├─ storage/
+│  │  │        │  ├─ FileStorage.class
+│  │  │        │  └─ FtpsFileStorage.class
+│  │  │        ├─ web/
+│  │  │        │  ├─ SecurityProbeController.class
+│  │  │        │  └─ StorageController.class
+│  │  │        └─ EstpokerApplication.class
+│  │  ├─ META-INF/
+│  │  │  ├─ additional-spring-configuration-metadata.json
+│  │  │  └─ spring-configuration-metadata.json
+│  │  ├─ static/
+│  │  │  ├─ flags/
+│  │  │  │  ├─ at.svg
+│  │  │  │  ├─ de.svg
+│  │  │  │  ├─ gb.svg
+│  │  │  │  └─ us.svg
+│  │  │  ├─ js/
+│  │  │  │  ├─ index-flash.js
+│  │  │  │  ├─ invite-name-check.js
+│  │  │  │  ├─ menu.js
+│  │  │  │  ├─ qr.js
+│  │  │  │  └─ room.js
+│  │  │  ├─ apple-touch-icon.png
+│  │  │  ├─ favicon-16.png
+│  │  │  ├─ favicon-16x16.png
+│  │  │  ├─ favicon-180.png
+│  │  │  ├─ favicon-192.png
+│  │  │  ├─ favicon-32.png
+│  │  │  ├─ favicon-32x32.png
+│  │  │  ├─ favicon-48.png
+│  │  │  ├─ favicon-512.png
+│  │  │  ├─ favicon.ico
+│  │  │  ├─ favicon.svg
+│  │  │  └─ styles.css
+│  │  ├─ templates/
+│  │  │  ├─ fragments/
+│  │  │  │  ├─ footer.html
+│  │  │  │  ├─ head.html
+│  │  │  │  ├─ kbase.html
+│  │  │  │  ├─ menu.html
+│  │  │  │  └─ scripts.html
+│  │  │  ├─ index.html
+│  │  │  ├─ invite.html
+│  │  │  └─ room.html
+│  │  ├─ application-local.properties
+│  │  ├─ application-prod.properties
+│  │  ├─ application.properties
+│  │  ├─ messages_de.properties
+│  │  └─ messages.properties
+│  ├─ generated-sources/
+│  │  └─ annotations/
+│  ├─ generated-test-sources/
+│  │  └─ test-annotations/
+│  ├─ maven-status/
+│  │  └─ maven-compiler-plugin/
+│  │     ├─ compile/
+│  │     │  └─ default-compile/
+│  │     │     ├─ createdFiles.lst
+│  │     │     └─ inputFiles.lst
+│  │     └─ testCompile/
+│  │        └─ default-testCompile/
+│  │           ├─ createdFiles.lst
+│  │           └─ inputFiles.lst
+│  └─ test-classes/
+│     ├─ com/
+│     │  └─ example/
+│     │     └─ estpoker/
+│     │        ├─ controller/
+│     │        │  └─ RoomNameCheckControllerTest.class
+│     │        ├─ model/
+│     │        │  └─ RoomTest.class
+│     │        ├─ rooms/
+│     │        │  ├─ service/
+│     │        │  │  └─ StoredRoomPersistenceServiceTest.class
+│     │        │  └─ web/
+│     │        │     ├─ RoomsControllerCrudTests.class
+│     │        │     ├─ RoomsControllerCrudTests$DeleteRoom.class
+│     │        │     ├─ RoomsControllerCrudTests$Exists.class
+│     │        │     ├─ RoomsControllerCrudTests$GetRoom.class
+│     │        │     ├─ RoomsControllerCrudTests$UpsertRoom.class
+│     │        │     ├─ RoomsControllerPasswordTests.class
+│     │        │     ├─ RoomsControllerPasswordTests$CheckPassword.class
+│     │        │     └─ RoomsControllerPasswordTests$SetPassword.class
+│     │        ├─ service/
+│     │        │  └─ GameServiceNameTests.class
+│     │        └─ SeleniumIT.class
+│     └─ application-test.properties
+├─ test-artifacts/
+├─ test-results/
+│  ├─ host-and-close-Host-action-3972b-alog-en-de-with-target-name/
+│  │  ├─ error-context.md
+│  │  ├─ test-failed-1.png
+│  │  ├─ test-failed-2.png
+│  │  └─ trace.zip
+│  └─ kick-flow-Kick-flow-Host-k-5fba6-and-participant-leaves-room/
+│     ├─ error-context.md
+│     ├─ test-failed-1.png
+│     ├─ test-failed-2.png
+│     └─ trace.zip
+├─ tests/
+│  ├─ _setup/
+│  │  └─ prod-helpers.js
+│  ├─ utils/
+│  │  └─ helpers.js
+│  ├─ auto-reveal.spec.js
+│  ├─ cards-reveal.spec.js
+│  ├─ duplicate-name-suffix.spec.ts
+│  ├─ host-and-close.spec.js
+│  ├─ i18n-switch.spec.js
+│  ├─ infinity-visibility.spec.js
+│  ├─ invite-name-check.spec.ts
+│  ├─ kick-flow.spec.js
+│  ├─ lang-runtime.spec.js
+│  ├─ menu-sequence.spec.js
+│  ├─ menu-smoke.spec.js
+│  ├─ participants-list.spec.js
+│  ├─ participation-spectator.spec.js
+│  ├─ persistence.spec.js
+│  ├─ prod-autoreveal.spec.js
+│  ├─ prod-deck.spec.js
+│  ├─ prod-host-spectator-icon.spec.js
+│  ├─ prod-participation.spec.js
+│  ├─ prod-sanity.spec.js
+│  ├─ prod-smoke.spec.js
+│  ├─ prod-spectator-disables.spec.js
+│  ├─ reconnect-state.spec.js
+│  ├─ reload-stays-in-room.spec.ts
+│  ├─ reset-flow.spec.js
+│  ├─ sequence-change.spec.js
+│  ├─ specials-payload.spec.js
+│  ├─ specials-stats.spec.js
+│  ├─ toggles.spec.js
+│  └─ topic-flow.spec.js
+├─ .dockerignore
+├─ .gitattributes
+├─ .gitignore
+├─ Dockerfile
+├─ global.d.ts
+├─ HELP.md
+├─ kill-8080.ps1
+├─ mvnw
+├─ mvnw.cmd
+├─ package-lock.json
+├─ package.json
+├─ playwright.config.cjs
+├─ playwright.config.ts
+├─ pom.xml
+├─ README.md
+└─ tsconfig.json

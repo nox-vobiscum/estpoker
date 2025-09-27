@@ -16,19 +16,17 @@ import java.net.URI;
 import java.net.URLDecoder;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * WebSocket handler for /gameSocket.
  * - Joins by roomCode + cid + requested name (service enforces canonical/unique name)
- * - Handles rename:<name> (service broadcasts participantRenamed + we send you{yourName})
- * - Handles intentionalLeave (service: immediate participantLeft toast + short-grace disconnect)
- * - For transport close: schedules grace disconnect (service broadcasts after grace)
- * - Keeps back-compat for legacy messages used in tests
- * - Edge hardening: reject WS open if a different CID uses the same *active* name already (redirect to invite)
+ * - Handles rename:<name>, votes, host actions, toggles
+ * - Heartbeat: replies "pong" to client pings (keeps client watchdog happy)
+ * - On unexpected close: schedules grace disconnect (GameService decides timing)
+ * - Sends initial state snapshot (best-effort, via reflection)
+ * - After join, replays the current roster to the just-joined session
  */
 @Component
 public class GameWebSocketHandler extends TextWebSocketHandler {
@@ -40,7 +38,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     /** Per WebSocket session → (room, cid, canonicalName) */
     private final Map<String, Conn> bySession = new ConcurrentHashMap<>();
 
-    /** Hard host reassignment threshold (keep consistent with service logic – currently 60 min). */
+    /** Host hard demotion safeguard window (should match service). */
     private static final long HOST_INACTIVE_MS = 3_600_000L;
 
     // accept a few common truthy/falsy spellings for boolean toggles.
@@ -67,9 +65,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
 
             log.info("WS OPEN room={} name={} cid={}", roomCode, initialName, cid);
 
-            // ------------------------------------------------------------
-            // Edge hardening: block duplicate name from a different CID.
-            // ------------------------------------------------------------
+            // Edge hardening: reject if a different CID is already active under this name.
             Room existing = gameService.getRoom(roomCode);
             if (existing != null) {
                 Participant byName = existing.getParticipant(initialName);
@@ -85,10 +81,10 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                 }
             }
 
-            // Join with (roomCode, cid, requestedName). Service enforces a unique/canonical name.
+            // Join (service will pick a canonical unique name if needed)
             Room room = gameService.join(roomCode, cid, initialName);
 
-            // Resolve canonical/effective name for this CID after join.
+            // Determine canonical name for this CID after join
             String canonicalName = null;
             try {
                 var opt = room.getParticipantByCid(cid);
@@ -97,28 +93,28 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             } catch (Throwable ignored) {}
             if (canonicalName == null) canonicalName = initialName;
 
-            // Track this session.
+            // Track this session for service broadcasts
             gameService.addSession(session, room);
             gameService.trackParticipant(session, canonicalName);
 
-            // Local index.
+            // Local index
             bySession.put(session.getId(), new Conn(roomCode, cid, canonicalName));
 
-            // Tell the client its canonical identity (may differ from request on collisions).
+            // Tell the client its identity
             gameService.sendIdentity(session, canonicalName, cid);
 
-            // Initial snapshot to just-joined session (reflection to keep BC with service).
+            // Best-effort initial state snapshot
             try {
                 sendInitialStateSnapshot(session, room, roomCode);
             } catch (Throwable t) {
                 log.warn("WS INIT snapshot failed (room={}, name={}): {}", roomCode, canonicalName, t.toString());
             }
 
-            // Ensure the new client learns existing participants immediately.
+            // Roster replay for the just-joined client
             try {
-                sendRosterReplay(session, room, canonicalName);
+                replayRosterTo(session, room, canonicalName);
             } catch (Throwable t) {
-                log.debug("WS roster replay skipped: {}", t.toString());
+                log.warn("WS ROSTER replay failed (room={}, to={}): {}", roomCode, canonicalName, t.toString());
             }
 
         } catch (Throwable t) {
@@ -142,71 +138,50 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         final String payload  = message.getPayload();
 
         try {
-            // ----------------------------------------------------------------------------
-            // EXPLICIT SYNC REQUEST from client (newly supported)
-            // ----------------------------------------------------------------------------
-            if ("requestSync".equals(payload)) {
-                Room room = gameService.getRoom(roomCode);
-                if (room != null) {
-                    // Prefer direct-to-session method when available.
-                    if (!tryInvoke(gameService, "sendRoomState",
-                            new Class<?>[]{WebSocketSession.class, Room.class},
-                            new Object[]{session, room})) {
-                        // Fallback: broadcast (the new session is already registered and will receive it)
-                        gameService.broadcastRoomState(room);
-                    }
-                }
-                return;
-            }
-
-            // ----------------------------------------------------------------------------
-            // HEARTBEAT: reply "pong" so the client watchdog sees inbound traffic.
-            // Also keep old semantics: touch() the participant on ping.
-            // Additionally send a tiny JSON so logic that only counts JSON frames
-            // will also see inbound traffic.
-            // ----------------------------------------------------------------------------
+            // HEARTBEAT: reply "pong" and touch()
             if ("ping".equals(payload)) {
                 try { gameService.touch(roomCode, cid); } catch (Throwable ignore) {}
                 try {
-                    if (session.isOpen()) {
-                        session.sendMessage(new org.springframework.web.socket.TextMessage("pong"));
-                        session.sendMessage(new org.springframework.web.socket.TextMessage("{\"type\":\"pong\"}"));
-                    }
+                    if (session.isOpen()) session.sendMessage(new org.springframework.web.socket.TextMessage("pong"));
                 } catch (Exception e) {
                     log.warn("WS pong send failed (room={}, name={}, cid={}): {}", roomCode, c.name, cid, e.toString());
                 }
                 return;
             }
 
-            // ----------------------------------------------------------------------------
+            // EXPLICIT SYNC REQUEST (from client)
+            if ("requestSync".equals(payload)) {
+                Room room = gameService.getRoom(roomCode);
+                if (room != null) {
+                    if (!tryInvoke(gameService, "sendRoomState",
+                            new Class<?>[]{WebSocketSession.class, Room.class},
+                            new Object[]{session, room})) {
+                        gameService.broadcastRoomState(room); // fallback
+                    }
+                }
+                return;
+            }
+
             // RENAME: "rename:<urlEncodedName>"
-            // ----------------------------------------------------------------------------
             if (payload.startsWith("rename:")) {
                 String requested = decode(payload.substring("rename:".length()));
                 String finalName = gameService.renameParticipant(roomCode, cid, requested);
                 if (finalName == null || finalName.isBlank()) return;
 
-                // Update local/session tracking.
                 bySession.put(session.getId(), new Conn(roomCode, cid, finalName));
                 gameService.trackParticipant(session, finalName);
                 gameService.sendIdentity(session, finalName, cid);
                 return;
             }
 
-            // ----------------------------------------------------------------------------
             // VOTE: "vote:<ignoredName>:<value>"
-            // ----------------------------------------------------------------------------
             if (payload.startsWith("vote:")) {
                 String[] parts = payload.split(":", 3);
-                if (parts.length >= 3) {
-                    gameService.setVote(roomCode, cid, parts[2]);
-                }
+                if (parts.length >= 3) gameService.setVote(roomCode, cid, parts[2]);
                 return;
             }
 
-            // ----------------------------------------------------------------------------
-            // TOPIC: save / toggle (host only)
-            // ----------------------------------------------------------------------------
+            // TOPIC save / toggle (host only)
             if (payload.startsWith("topicSave:")) {
                 if (!isHost(roomCode, c.name)) return;
                 String text = payload.substring("topicSave:".length());
@@ -220,31 +195,23 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                 return;
             }
 
-            // ----------------------------------------------------------------------------
             // PARTICIPATION toggle
-            // ----------------------------------------------------------------------------
             if (payload.startsWith("participation:")) {
                 boolean estimating = Boolean.parseBoolean(payload.substring("participation:".length()));
                 gameService.setSpectator(roomCode, cid, !estimating);
                 return;
             }
 
-            // ----------------------------------------------------------------------------
             // AUTO-REVEAL toggle (host)
-            // ----------------------------------------------------------------------------
             if (payload.startsWith("autoReveal:")) {
                 if (!isHost(roomCode, c.name)) return;
                 boolean on = Boolean.parseBoolean(payload.substring("autoReveal:".length()));
                 gameService.setAutoRevealEnabled(roomCode, on);
-                if (on && gameService.shouldAutoReveal(roomCode)) {
-                    gameService.reveal(roomCode);
-                }
+                if (on && gameService.shouldAutoReveal(roomCode)) gameService.reveal(roomCode);
                 return;
             }
 
-            // ----------------------------------------------------------------------------
             // SPECIALS toggle (host)
-            // ----------------------------------------------------------------------------
             if (payload.startsWith("specials:")) {
                 if (!isHost(roomCode, c.name)) return;
                 boolean on = parseOn(payload.substring("specials:".length()));
@@ -252,9 +219,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                 return;
             }
 
-            // ----------------------------------------------------------------------------
             // SEQUENCE change (host)
-            // ----------------------------------------------------------------------------
             if (payload.startsWith("sequence:")) {
                 if (!isHost(roomCode, c.name)) return;
                 String id = decode(payload.substring("sequence:".length()));
@@ -262,9 +227,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                 return;
             }
 
-            // ----------------------------------------------------------------------------
             // HOST / KICK (host)
-            // ----------------------------------------------------------------------------
             if (payload.startsWith("makeHost:")) {
                 if (!isHost(roomCode, c.name)) return;
                 String target = decode(payload.substring("makeHost:".length()));
@@ -279,9 +242,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                 return;
             }
 
-            // ----------------------------------------------------------------------------
             // Keywords
-            // ----------------------------------------------------------------------------
             switch (payload) {
                 case "revealCards" -> gameService.reveal(roomCode);
                 case "resetRoom"   -> gameService.reset(roomCode);
@@ -297,16 +258,13 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                     return;
                 }
 
-                case "closeRoom"  -> {
+                case "closeRoom" -> {
                     Room room = gameService.getRoom(roomCode);
                     if (room != null) {
                         Participant host = room.getHost();
                         boolean isHost = (host != null && Objects.equals(host.getName(), c.name));
-                        if (isHost) {
-                            gameService.closeRoom(room);
-                        } else {
-                            log.warn("closeRoom ignored: {} is not host of {}", c.name, roomCode);
-                        }
+                        if (isHost) gameService.closeRoom(room);
+                        else log.warn("closeRoom ignored: {} is not host of {}", c.name, roomCode);
                     }
                     return;
                 }
@@ -342,10 +300,8 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             gameService.removeSession(session);
             Room room = gameService.getRoom(roomCode);
             if (room != null) {
-                // Do NOT broadcast leave immediately here (grace on unexpected close).
-                gameService.scheduleDisconnect(room, c.name);
+                gameService.scheduleDisconnect(room, c.name); // grace on unexpected close
             }
-            // Host hard demotion safeguard (60 min inactivity).
             gameService.ensureHost(roomCode, 0L, HOST_INACTIVE_MS);
         } catch (Throwable t) {
             log.error("WS afterConnectionClosed handling failed (room={}, name={})", roomCode, c.name, t);
@@ -369,11 +325,8 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     }
 
     private static String decode(String s) {
-        try {
-            return URLDecoder.decode(s, StandardCharsets.UTF_8);
-        } catch (Exception e) {
-            return s;
-        }
+        try { return URLDecoder.decode(s, StandardCharsets.UTF_8); }
+        catch (Exception e) { return s; }
     }
 
     private String safeUri(WebSocketSession session) {
@@ -388,7 +341,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         return host != null && Objects.equals(host.getName(), name);
     }
 
-    /** Try to send an initial state snapshot to the just-joined session (reflection-based, dev-safe). */
+    /** Best-effort: send state snapshot to just-joined session via whatever method exists. */
     private void sendInitialStateSnapshot(WebSocketSession session, Room room, String roomCode) {
         if (tryInvoke(gameService, "sendRoomState", new Class<?>[]{WebSocketSession.class, Room.class}, new Object[]{session, room})) return;
         if (tryInvoke(gameService, "sendRoomState", new Class<?>[]{Room.class, WebSocketSession.class}, new Object[]{room, session})) return;
@@ -405,77 +358,104 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         log.debug("WS INIT snapshot: no suitable GameService method found; skipping explicit snapshot");
     }
 
-    /** Send participantJoined:<name> for all existing participants except the new client. */
-    private void sendRosterReplay(WebSocketSession session, Room room, String selfName) {
-        java.util.List<String> sent = new java.util.ArrayList<>();
-        try {
-            for (String name : extractParticipantNames(room)) {
-                if (name == null || name.isBlank()) continue;
-                if (Objects.equals(name, selfName)) continue;
+    /**
+     * Replay the current roster to a single session as a series of
+     * plain-text "participantJoined:<name>" events.
+     * This makes the just-joined client fully consistent even if it missed
+     * earlier join broadcasts.
+     */
+    private void replayRosterTo(WebSocketSession session, Room room, String receiverName) {
+        List<String> names = extractActiveNames(room);
+        names.removeIf(n -> n == null || n.isBlank() || Objects.equals(n, receiverName));
+        if (names.isEmpty()) return;
+
+        for (String name : names) {
+            try {
                 if (session.isOpen()) {
-                    // Important: no URL encoding here — the client expects raw names.
-                    String wire = "participantJoined:" + name;
-                    session.sendMessage(new org.springframework.web.socket.TextMessage(wire));
-                    sent.add(name);
+                    session.sendMessage(new org.springframework.web.socket.TextMessage("participantJoined:" + name));
                 }
-            }
-        } catch (Exception e) {
-            log.debug("WS roster replay failed softly: {}", e.toString());
-        }
-        log.info("WS ROSTER replay to {} ({}): {}", selfName, sent.size(), sent);
-    }
-
-    /** Best-effort extraction of participant names from Room via reflection. */
-    private java.util.Set<String> extractParticipantNames(Room room) {
-        java.util.LinkedHashSet<String> out = new java.util.LinkedHashSet<>();
-        if (room == null) return out;
-
-        // Try common accessors first.
-        try { collectNamesFromUnknown(room.getClass().getMethod("getParticipants").invoke(room), out); } catch (Throwable ignored) {}
-        try { collectNamesFromUnknown(room.getClass().getMethod("participants").invoke(room), out); } catch (Throwable ignored) {}
-        try { collectNamesFromUnknown(room.getClass().getMethod("getParticipantMap").invoke(room), out); } catch (Throwable ignored) {}
-
-        // As a last resort, scan all no-arg methods returning Collection/Map.
-        if (out.isEmpty()) {
-            for (Method m : room.getClass().getMethods()) {
-                if (m.getParameterCount() == 0) {
-                    Class<?> rt = m.getReturnType();
-                    boolean coll = java.util.Collection.class.isAssignableFrom(rt);
-                    boolean map  = java.util.Map.class.isAssignableFrom(rt);
-                    if (coll || map) {
-                        try { collectNamesFromUnknown(m.invoke(room), out); } catch (Throwable ignored) {}
-                    }
-                }
+            } catch (Exception e) {
+                log.warn("WS ROSTER send failed to {} for {}: {}", receiverName, name, e.toString());
             }
         }
-        return out;
+        log.info("WS ROSTER replay to {} ({}): {}", receiverName, names.size(), names);
     }
 
-    private void collectNamesFromUnknown(Object src, java.util.Set<String> out) {
-        if (src == null) return;
-        if (src instanceof java.util.Map<?, ?> map) {
-            for (Object v : map.values()) collectNamesFromUnknown(v, out);
-            return;
-        }
-        if (src instanceof java.util.Collection<?> coll) {
-            for (Object v : coll) collectNamesFromUnknown(v, out);
-            return;
-        }
-        // single element: Participant or String or POJO with getName()
-        if (src instanceof Participant p) {
-            String n = p.getName();
-            if (n != null && !n.isBlank()) out.add(n);
-            return;
-        }
-        if (src instanceof String s) {
-            if (!s.isBlank()) out.add(s);
-            return;
-        }
+    /** Extract active participant names from Room using reflection-friendly fallbacks. */
+    private List<String> extractActiveNames(Room room) {
+        // 1) If Room exposes getParticipants(): Map<String, Participant> OR Collection<Participant>
         try {
-            Method getName = src.getClass().getMethod("getName");
-            Object n = getName.invoke(src);
-            if (n instanceof String && !((String) n).isBlank()) out.add((String) n);
+            Method m = room.getClass().getMethod("getParticipants");
+            Object res = m.invoke(room);
+            if (res instanceof Map<?, ?> map) {
+                List<String> out = new ArrayList<>();
+                for (Object v : map.values()) {
+                    String n = readNameIfActive(v);
+                    if (n != null) out.add(n);
+                }
+                return out;
+            }
+            if (res instanceof Collection<?> col) {
+                List<String> out = new ArrayList<>();
+                for (Object v : col) {
+                    String n = readNameIfActive(v);
+                    if (n != null) out.add(n);
+                }
+                return out;
+            }
         } catch (Throwable ignored) {}
+
+        // 2) If Room exposes getActiveParticipants(): Collection<Participant>
+        try {
+            Method m = room.getClass().getMethod("getActiveParticipants");
+            Object res = m.invoke(room);
+            if (res instanceof Collection<?> col) {
+                List<String> out = new ArrayList<>();
+                for (Object v : col) {
+                    String n = readNameIfActive(v);
+                    if (n != null) out.add(n);
+                }
+                return out;
+            }
+        } catch (Throwable ignored) {}
+
+        // 3) If Room exposes getParticipantNames(): Collection<String>
+        try {
+            Method m = room.getClass().getMethod("getParticipantNames");
+            Object res = m.invoke(room);
+            if (res instanceof Collection<?> col) {
+                List<String> out = new ArrayList<>();
+                for (Object v : col) if (v != null) out.add(String.valueOf(v));
+                return out;
+            }
+        } catch (Throwable ignored) {}
+
+        // 4) Last resort: strong type List<Participant>
+        try {
+            List<Participant> list = room.getParticipants();
+            List<String> out = new ArrayList<>();
+            for (Participant p : list) {
+                if (p != null && p.isActive()) out.add(p.getName());
+            }
+            return out;
+        } catch (Throwable ignored) {}
+
+        return new ArrayList<>();
+    }
+
+    /** Returns name if object looks like an active Participant; otherwise null. */
+    private String readNameIfActive(Object maybeParticipant) {
+        if (maybeParticipant == null) return null;
+        try {
+            Method isActive = maybeParticipant.getClass().getMethod("isActive");
+            Method getName  = maybeParticipant.getClass().getMethod("getName");
+            Object active   = isActive.invoke(maybeParticipant);
+            if (active instanceof Boolean b && b) {
+                Object n = getName.invoke(maybeParticipant);
+                return n == null ? null : String.valueOf(n);
+            }
+        } catch (Throwable ignored) {}
+        return null;
     }
 
     private boolean tryInvoke(Object target, String name, Class<?>[] sig, Object[] args) {
@@ -515,7 +495,6 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     }
 
     private static String jsonRedirect(String url) {
-        // Very small JSON (no external deps). URL is safe w.r.t. quotes; still escape defensively.
         String safeUrl = url.replace("\\", "\\\\").replace("\"", "\\\"");
         return "{\"type\":\"kicked\",\"redirect\":\"" + safeUrl + "\"}";
     }
