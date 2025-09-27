@@ -203,150 +203,7 @@
   let rcAttempts = 0;
   let lastInboundAt = 0;
 
-  function connectWS() {
-  const u = wsUrl();
-
-  // Close any existing open/connecting socket before reconnecting
-  if (state.ws && (state.ws.readyState === 0 || state.ws.readyState === 1)) {
-    try { state.ws.close(4004, 'reconnect'); } catch {}
-  }
-
-  console.info(TAG, 'connect →', u);
-
-  let s;
-  try { s = new WebSocket(u); }
-  catch (e) { console.error(TAG, e); scheduleReconnect('ctor'); return; }
-
-  state.ws = s;
-  // (optional) expose for debugging
-  try { window.__epWs = s; } catch {}
-
-  s.onopen = () => {
-    state.connected = true;
-    lastInboundAt = Date.now();
-    resetReconnectBackoff();
-    startHeartbeat();
-    startWatchdog();
-
-    // identify + ask for fresh snapshot
-    try { send('rename:' + encodeURIComponent(state.youName)); } catch {}
-    try { send('requestSync'); } catch {}
-    setTimeout(() => { try { send('requestSync'); } catch {} }, 400);
-
-    try { renderParticipants(); } catch {}
-  };
-
-  s.onclose = (ev) => {
-    state.connected = false;
-    stopHeartbeat();
-
-    if (state.hardRedirect) { location.href = state.hardRedirect; return; }
-
-    // 4000 = room closed by host, 4001 = kicked by host
-    if (ev.code === 4000 || ev.code === 4001) {
-      try { sessionStorage.setItem('ep-flash', ev.code === 4001 ? 'kicked' : 'roomClosed'); } catch {}
-      // back to index (no query params); replace() avoids back-loop
-      location.replace('/');
-      return;
-    }
-
-    // 4005 = name collision → only bounce on first-time tab entries
-    if (ev.code === 4005) {
-      if (state.cidWasNew) {
-        const redirectUrl =
-          `/invite?roomCode=${encodeURIComponent(state.roomCode)}` +
-          `&participantName=${encodeURIComponent(state.youName)}` +
-          `&nameTaken=1`;
-        state.hardRedirect = redirectUrl;
-        location.replace(redirectUrl); // avoid back-loop
-        return;
-      }
-      showToast(isDe() ? 'Name bereits in Verwendung' : 'Name already in use');
-      return;
-    }
-
-    console.warn(TAG, 'onclose', ev.code, ev.reason || '');
-    scheduleReconnect('close');
-  };
-
-  s.onerror = (e) => {
-    console.warn(TAG, 'ws error', e);
-  };
-
-    s.onmessage = (ev) => {
-      // Bump watchdog on any inbound frame
-      lastInboundAt = Date.now();
-
-      // Heartbeat reply from server
-      if (ev.data === 'pong') return;
-
-      // --- NEW: JSON events (compat) ---------------------------------------------
-      try {
-        // Cheap check: JSON frames start with '{'
-        if (typeof ev.data === 'string' && ev.data.charAt(0) === '{') {
-          const msg = JSON.parse(ev.data);
-
-          switch (msg && msg.type) {
-            case 'participantJoined': {
-              const name = (msg.name || '').trim();
-              if (name) {
-                try {
-                  if (state.participants && typeof state.participants.add === 'function') {
-                    state.participants.add(name);
-                  } else if (Array.isArray(state.participants)) {
-                    if (!state.participants.includes(name)) state.participants.push(name);
-                  }
-                } catch {}
-
-                try { renderParticipants && renderParticipants(); } catch {}
-              }
-              return; // handled
-            }
-
-            case 'participantLeft': {
-              const name = (msg.name || '').trim();
-              if (name) {
-                try {
-                  if (state.participants && typeof state.participants.delete === 'function') {
-                    state.participants.delete(name);
-                  } else if (Array.isArray(state.participants)) {
-                    const i = state.participants.indexOf(name);
-                    if (i !== -1) state.participants.splice(i, 1);
-                  }
-                } catch {}
-
-                try { renderParticipants && renderParticipants(); } catch {}
-              }
-              return; // handled
-            }
-
-            // Already supported in your app, but harmless to keep here:
-            case 'kicked': {
-              if (msg.redirect) {
-                try { window.location.assign(msg.redirect); } catch { window.location.href = msg.redirect; }
-              }
-              return; // handled
-            }
-          }
-        }
-      } catch (_) {
-        // ignore JSON parse errors; fall back to legacy handling
-      }
-      // --- END NEW ----------------------------------------------------------------
-
-      try {
-        const msg = JSON.parse(ev.data);
-
-        // tiny debug ring buffer for DevTools: window.__epVU.at(-1)
-        try { (window.__epVU ||= []).push(msg); } catch {}
-
-        // proceed with normal handling
-        handleMessage(msg);
-      } catch (e) {
-        console.warn(TAG, 'Bad message', e);
-      }
-    };
-  }
+  function send(line) { if (state.ws && state.ws.readyState === 1) state.ws.send(line); }
 
   function startHeartbeat() {
     stopHeartbeat();
@@ -418,15 +275,24 @@
     }
   }
 
+  // -------- SINGLE, FINAL VERSION OF connectWS (handles text + JSON) ----------
   function connectWS() {
     const u = wsUrl();
+
+    // Close any existing open/connecting socket before reconnecting
     if (state.ws && (state.ws.readyState === 0 || state.ws.readyState === 1)) {
       try { state.ws.close(4004, 'reconnect'); } catch {}
     }
+
     console.info(TAG, 'connect →', u);
+
     let s;
-    try { s = new WebSocket(u); } catch (e) { console.error(TAG, e); scheduleReconnect('ctor'); return; }
+    try { s = new WebSocket(u); }
+    catch (e) { console.error(TAG, e); scheduleReconnect('ctor'); return; }
+
     state.ws = s;
+    // (optional) expose for debugging
+    try { window.__epWs = s; } catch {}
 
     s.onopen = () => {
       state.connected = true;
@@ -435,7 +301,7 @@
       startHeartbeat();
       startWatchdog();
 
-      // Identify & ask for a fresh snapshot
+      // identify + ask for fresh snapshot
       try { send('rename:' + encodeURIComponent(state.youName)); } catch {}
       try { send('requestSync'); } catch {}
       setTimeout(() => { try { send('requestSync'); } catch {} }, 400);
@@ -444,45 +310,119 @@
     };
 
     s.onclose = (ev) => {
-  state.connected = false;
-  stopHeartbeat();
+      state.connected = false;
+      stopHeartbeat();
 
-  if (state.hardRedirect) { location.href = state.hardRedirect; return; }
+      if (state.hardRedirect) { location.href = state.hardRedirect; return; }
 
-  // 4000 = room closed by host, 4001 = kicked by host
-  if (ev.code === 4000 || ev.code === 4001) {
-    try {
-      sessionStorage.setItem('ep-flash', ev.code === 4001 ? 'kicked' : 'roomClosed');
-    } catch {}
-    // Zurück zur Startseite – ohne Query-Parameter; replace() vermeidet Back-Loop
-    location.replace('/');
-    return;
+      // 4000 = room closed by host, 4001 = kicked by host
+      if (ev.code === 4000 || ev.code === 4001) {
+        try { sessionStorage.setItem('ep-flash', ev.code === 4001 ? 'kicked' : 'roomClosed'); } catch {}
+        // back to index (no query params); replace() avoids back-loop
+        location.replace('/');
+        return;
+      }
+
+      // 4005 = name collision → only bounce on first-time tab entries
+      if (ev.code === 4005) {
+        if (state.cidWasNew) {
+          const redirectUrl =
+            `/invite?roomCode=${encodeURIComponent(state.roomCode)}` +
+            `&participantName=${encodeURIComponent(state.youName)}` +
+            `&nameTaken=1`;
+          state.hardRedirect = redirectUrl;
+          location.replace(redirectUrl); // avoid back-loop
+          return;
+        }
+        showToast(isDe() ? 'Name bereits in Verwendung' : 'Name already in use');
+        return;
+      }
+
+      console.warn(TAG, 'onclose', ev.code, ev.reason || '');
+      scheduleReconnect('close');
+    };
+
+    s.onerror = (e) => {
+      console.warn(TAG, 'ws error', e);
+    };
+
+    s.onmessage = (ev) => {
+      // Bump watchdog on any inbound frame
+      lastInboundAt = Date.now();
+
+      // Heartbeat reply from server
+      if (ev.data === 'pong') return;
+
+      // ---- NEW: handle legacy plain-text roster frames first -----------------
+      if (typeof ev.data === 'string') {
+        if (ev.data.startsWith('participantJoined:')) {
+          const name = ev.data.slice('participantJoined:'.length).trim();
+          if (name) {
+            addParticipantLocal(name);
+            try { renderParticipants(); } catch {}
+          }
+          return;
+        }
+        if (ev.data.startsWith('participantLeft:')) {
+          const name = ev.data.slice('participantLeft:'.length).trim();
+          if (name) {
+            removeParticipantLocal(name);
+            try { renderParticipants(); } catch {}
+          }
+          return;
+        }
+      }
+      // -----------------------------------------------------------------------
+
+      // --- JSON events (compat for additional small JSON messages) -----------
+      try {
+        if (typeof ev.data === 'string' && ev.data.charAt(0) === '{') {
+          const msg = JSON.parse(ev.data);
+
+          switch (msg && msg.type) {
+            case 'participantJoined': {
+              const name = (m.name || '').trim();
+              if (name) {
+                addParticipantLocal(name);
+                try { renderParticipants && renderParticipants(); } catch {}
+              }
+              return;
+            }
+            case 'participantLeft': {
+              const name = (m.name || '').trim();
+              if (name) {
+                removeParticipantLocal(name);
+                try { renderParticipants && renderParticipants(); } catch {}
+              }
+              return;
+            }
+            case 'kicked': {
+              if (msg.redirect) {
+                try { window.location.assign(msg.redirect); } catch { window.location.href = msg.redirect; }
+              }
+              return;
+            }
+          }
+        }
+      } catch {
+        // ignore JSON-compat errors; fall through to full JSON parse below
+      }
+      // -----------------------------------------------------------------------
+
+      // Full JSON room-state messages
+      try {
+        const msg = JSON.parse(ev.data);
+
+        // tiny debug ring buffer for DevTools: window.__epVU.at(-1)
+        try { (window.__epVU ||= []).push(msg); } catch {}
+
+        handleMessage(msg);
+      } catch (e) {
+        console.warn(TAG, 'Bad message', e);
+      }
+    };
   }
-
-  // Name collision hard-reject from server
-  if (ev.code === 4005) {
-    // Only bounce on brand-new tab entries (never on reloads in same tab)
-    if (state.cidWasNew) {
-      const redirectUrl =
-        `/invite?roomCode=${encodeURIComponent(state.roomCode)}` +
-        `&participantName=${encodeURIComponent(state.youName)}` +
-        `&nameTaken=1`;
-      state.hardRedirect = redirectUrl;
-      // Use replace() so Back doesn't create a loop
-      location.replace(redirectUrl);
-      return;
-    }
-    // Existing tab (should be rare) → do not loop reconnects
-    showToast(isDe() ? 'Name bereits in Verwendung' : 'Name already in use');
-    return;
-  }
-
-  console.warn(TAG, 'onclose', ev.code, ev.reason || '');
-  scheduleReconnect('close');}
-  
-};
-
-  function send(line) { if (state.ws && state.ws.readyState === 1) state.ws.send(line); }
+  // -------- END connectWS ----------------------------------------------------
 
   // Bridge for automated tests / power-users:
   // Host-only sequence change via custom DOM event.
@@ -499,9 +439,8 @@
     }
   }, { passive: true });
 
-    /* === Confirm guards for host/kick/close-room (EN/DE, non-invasive) ====== */
+  /* === Confirm guards for host/kick/close-room (EN/DE, non-invasive) ====== */
   (() => {
-    // Reuse existing isDe() if present, otherwise a safe fallback
     function _isDe() {
       try {
         if (typeof isDe === 'function') return !!isDe();
@@ -529,8 +468,7 @@
         e.preventDefault();
         try { e.stopImmediatePropagation(); } catch {}
       }
-      // On confirm: do nothing -> existing handlers/WS send will proceed
-    }, true); // capture = true → wir sind vor evtl. bestehenden Click-Handlern
+    }, true);
 
     // 2) Make host: ask before transferring
     document.addEventListener('click', function (e) {
@@ -545,7 +483,6 @@
         e.preventDefault();
         try { e.stopImmediatePropagation(); } catch {}
       }
-      // On confirm: bestehende Handler senden weiter
     }, true);
 
     // 3) Close room: confirm CustomEvent from menu.js
@@ -558,13 +495,8 @@
         try { e.stopImmediatePropagation(); } catch {}
         return;
       }
-      // On confirm: wir lassen weitere Listener laufen (z.B. die, die den WS-Call senden)
-      // Optional: Wenn es keinen anderen Sender gibt, könnte man hier notfalls selbst senden:
-      // try { window.__epWs?.readyState === 1 && window.__epWs.send(JSON.stringify({ type: 'closeRoom' })); } catch {}
     });
   })();
-
-
 
   /*** ---------- Messages ---------- ***/
   function handleMessage(m) {
@@ -589,7 +521,6 @@
         try { renderParticipants && renderParticipants(); } catch {}
         break;
       }
-
       case 'participantLeft': {
         removeParticipantLocal((msg.name || '').trim());
         try { renderParticipants && renderParticipants(); } catch {}
@@ -785,10 +716,17 @@
   }
 
   function renderParticipants() {
-    const ul = $('#liveParticipantList'); if (!ul) return;
-    try {
-      const frag = document.createDocumentFragment();
-      (state.participants || []).forEach(p => {
+  const ul = document.querySelector('#liveParticipantList');
+  if (!ul) return;
+
+  try {
+    // Normalize: strings → { name: "…" }
+    const list = (state.participants || [])
+      .map(p => (typeof p === 'string' ? { name: p } : p))
+      .filter(p => p && p.name);
+
+    const frag = document.createDocumentFragment();
+    list.forEach(p => {
         if (!p || !p.name) return;
 
         const li = document.createElement('li');
@@ -997,7 +935,6 @@
 
     const specialsCandidate = deckSpecialsFromState.length ? deckSpecialsFromState : SPECIALS.slice();
     const specialsDedupe = [...new Set(specialsCandidate.filter(s => !deckNumbers.includes(s)))];
-
 
     const specials = state.allowSpecials ? specialsDedupe : [];
 
@@ -1566,23 +1503,37 @@
     function addParticipantLocal(name) {
     if (!name) return;
 
-    // Common: Set
+    // Variante: Set
     if (state?.participants && typeof state.participants.add === 'function') {
       state.participants.add(name);
-    }
-    // Common: Array
-    else if (Array.isArray(state?.participants)) {
-      if (!state.participants.includes(name)) state.participants.push(name);
+      return;
     }
 
-    // Map/dict by name (seen in some versions)
+    // Variante: Array -> immer als Objekt mit "name" ablegen
+    if (Array.isArray(state?.participants)) {
+      const has = state.participants.some(p =>
+        (typeof p === 'string') ? (p === name) : (p && p.name === name)
+      );
+      if (!has) {
+        state.participants.push({
+          name,
+          vote: null,
+          disconnected: false,
+          away: false,
+          isHost: false,
+          participating: true,
+          spectator: false
+        });
+      }
+      return;
+    }
+
+    // Fallbacks für seltene Modelle
     if (state?.participantsByName && typeof state.participantsByName.set === 'function') {
       if (!state.participantsByName.has(name)) state.participantsByName.set(name, { name });
     } else if (state?.participantsByName && typeof state.participantsByName === 'object') {
       state.participantsByName[name] = state.participantsByName[name] || { name };
     }
-
-    // Nested room model variants
     if (state?.room?.participants && typeof state.room.participants.add === 'function') {
       state.room.participants.add(name);
     } else if (Array.isArray(state?.room?.participants)) {
@@ -1590,14 +1541,17 @@
     }
   }
 
-  function removeParticipantLocal(name) {
+
+    function removeParticipantLocal(name) {
     if (!name) return;
 
     if (state?.participants && typeof state.participants.delete === 'function') {
       state.participants.delete(name);
     } else if (Array.isArray(state?.participants)) {
-      const i = state.participants.indexOf(name);
-      if (i !== -1) state.participants.splice(i, 1);
+      const idx = state.participants.findIndex(p =>
+        (typeof p === 'string') ? (p === name) : (p && p.name === name)
+      );
+      if (idx !== -1) state.participants.splice(idx, 1);
     }
 
     if (state?.participantsByName && typeof state.participantsByName.delete === 'function') {
@@ -1609,12 +1563,14 @@
     if (state?.room?.participants && typeof state.room.participants.delete === 'function') {
       state.room.participants.delete(name);
     } else if (Array.isArray(state?.room?.participants)) {
-      const j = state.room.participants.indexOf(name);
+      const j = state.room.participants.findIndex(p =>
+        (typeof p === 'string') ? (p === name) : (p && p.name === name)
+      );
       if (j !== -1) state.room.participants.splice(j, 1);
     }
   }
 
-  
+
   function escapeHtml(s) {
     return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   }
@@ -1646,7 +1602,7 @@
 
   document.addEventListener('ep:lang-changed', onLangChange);
 
-   /*** ---------- Name preflight: run once per (room+name) per tab ---------- ***/
+  /*** ---------- Name preflight: run once per (room+name) per tab ---------- ***/
   async function preflightNameCheck() {
     // B) Never on reload/back-forward navigations
     let isReloadLike = false;
@@ -1687,7 +1643,6 @@
       if (resp.ok) {
         const data = await resp.json();
 
-        // If taken → redirect to Invite with prefilled params (still before WS handshakes)
         if (data && data.available === false) {
           const redirectUrl = `/invite?roomCode=${encodeURIComponent(state.roomCode)}&participantName=${encodeURIComponent(state.youName)}&nameTaken=1`;
           state.hardRedirect = redirectUrl;
@@ -1695,16 +1650,12 @@
           return;
         }
 
-        // Mark OK so future navigations/reloads in THIS tab won't re-check for this (room+name)
         try { sessionStorage.setItem(pfKey, '1'); state._preflightMarkedOk = true; } catch {}
       }
-      // On non-OK responses we simply continue — permissive fallback
     } catch {
       // Network/JSON failure → be permissive and continue
     }
   }
-
-
 
   /*** ---------- Boot ---------- ***/
   function seedSelfPlaceholder() {
@@ -1732,8 +1683,8 @@
     seedSelfPlaceholder();
     // Mark page as ready immediately (before first server snapshot) so UI isn't hidden.
     try {
-    if (!document.documentElement.hasAttribute('data-ready')) {
-    document.documentElement.setAttribute('data-ready', '1');
+      if (!document.documentElement.hasAttribute('data-ready')) {
+        document.documentElement.setAttribute('data-ready', '1');
       }
     } catch {}
     wireOnce(); // this will start WS/connect, watchdog, etc.
