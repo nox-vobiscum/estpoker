@@ -106,6 +106,7 @@ public class GameService {
         Room room = getOrCreateRoom(roomCode);
         String desired = normalizeName(requestedName);
         String actor = null;
+        boolean created = false; // announce "participantJoined" only when a brand-new participant is created
 
         synchronized (room) {
             Participant byCid = room.getParticipantByCid(cid).orElse(null);
@@ -130,10 +131,18 @@ public class GameService {
                 rememberClientName(roomCode, cid, unique);
                 cancelPresenceTimers(room, unique);
                 actor = unique;
+                created = true;
             }
         }
 
+        // Send full state to everyone
         broadcastRoomState(room);
+
+        // Additionally announce a JSON participantJoined to all current sessions
+        if (created && actor != null && !actor.isBlank()) {
+            broadcastParticipantJoined(room, actor);
+        }
+
         snapshot(room, actor);
         return room;
     }
@@ -813,6 +822,15 @@ public class GameService {
         payload.put("type", "participantRenamed");
         payload.put("from", from);
         payload.put("to", to);
+        try {
+            broadcastToRoom(room, objectMapper.writeValueAsString(payload));
+        } catch (IOException ignored) { }
+    }
+
+    private void broadcastParticipantJoined(Room room, String name) {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("type", "participantJoined");
+        payload.put("name", name);
         try {
             broadcastToRoom(room, objectMapper.writeValueAsString(payload));
         } catch (IOException ignored) { }
