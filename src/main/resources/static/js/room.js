@@ -381,7 +381,7 @@
 
           switch (msg && msg.type) {
             case 'participantJoined': {
-              const name = (m.name || '').trim();
+              const name = (msg.name || '').trim();
               if (name) {
                 addParticipantLocal(name);
                 try { renderParticipants && renderParticipants(); } catch {}
@@ -389,7 +389,7 @@
               return;
             }
             case 'participantLeft': {
-              const name = (m.name || '').trim();
+              const name = (msg.name || '').trim();
               if (name) {
                 removeParticipantLocal(name);
                 try { renderParticipants && renderParticipants(); } catch {}
@@ -517,12 +517,12 @@
         break;
       }
       case 'participantJoined': {
-        addParticipantLocal((msg.name || '').trim());
+        addParticipantLocal((m.name || '').trim());
         try { renderParticipants && renderParticipants(); } catch {}
         break;
       }
       case 'participantLeft': {
-        removeParticipantLocal((msg.name || '').trim());
+        removeParticipantLocal((m.name || '').trim());
         try { renderParticipants && renderParticipants(); } catch {}
         break;
       }
@@ -966,10 +966,22 @@
 
       btn.addEventListener('click', () => {
         if (btn.disabled) return;
+
+        // optimistic local selection
         state._optimisticVote = label;
         grid.querySelectorAll('button').forEach(b => b.classList.remove('selected'));
         btn.classList.add('selected');
-        send(`vote:${state.youName}:${label}`);
+
+        // *** FIX: always send vote with cid (fallback name for legacy handlers)
+        const payload = { type: 'vote', value: label };
+        if (state.cid) payload.cid = state.cid;
+        if (state.youName) payload.name = state.youName; // harmless fallback
+        try {
+          send(JSON.stringify(payload));
+        } catch {
+          // fallback to legacy text frame if JSON fails for any reason
+          send(`vote:${state.youName}:${label}`);
+        }
       });
 
       grid.appendChild(btn);
