@@ -39,7 +39,7 @@
   }
 
   /*** ---------- Constants ---------- ***/
-  const SPECIALS = ['❓', '☕']; // Note: 💬 removed
+  const SPECIALS = ['❓', '☕']; // 💬 intentionally removed
   const INFINITY_ = '♾️';
   const INFINITY_ALT = '∞';
 
@@ -111,17 +111,14 @@
   try {
     const existing = sessionStorage.getItem(CIDKEY);
     if (existing) {
-      // Reload / same tab → no preflight by default
       state.cid = existing;
       state.cidWasNew = false;
     } else {
-      // New tab / first entry → enable preflight
       state.cid = Math.random().toString(36).slice(2) + '-' + Date.now();
       sessionStorage.setItem(CIDKEY, state.cid);
       state.cidWasNew = true;
     }
   } catch {
-    // If sessionStorage is not available, fall back (treat as first entry)
     state.cid = 'cid-' + Date.now();
     state.cidWasNew = true;
   }
@@ -202,9 +199,6 @@
   let rcTimer = null;
   let rcAttempts = 0;
   let lastInboundAt = 0;
-
-  // debounce flag for rapid vote clicks
-  let voteSendBusy = false;
 
   function send(line) { if (state.ws && state.ws.readyState === 1) state.ws.send(line); }
 
@@ -294,7 +288,6 @@
     catch (e) { console.error(TAG, e); scheduleReconnect('ctor'); return; }
 
     state.ws = s;
-    // (optional) expose for debugging
     try { window.__epWs = s; } catch {}
 
     s.onopen = () => {
@@ -307,6 +300,7 @@
       // identify + ask for fresh snapshot
       try { send('rename:' + encodeURIComponent(state.youName)); } catch {}
       try { send('requestSync'); } catch {}
+      setTimeout(() => { try { send('requestSync'); } catch {} }, 400);
 
       try { renderParticipants(); } catch {}
     };
@@ -321,7 +315,6 @@
       // 4000 = room closed by host, 4001 = kicked by host
       if (ev.code === 4000 || ev.code === 4001) {
         try { sessionStorage.setItem('ep-flash', ev.code === 4001 ? 'kicked' : 'roomClosed'); } catch {}
-        // back to index (no query params); replace() avoids back-loop
         location.replace('/');
         return;
       }
@@ -334,7 +327,7 @@
             `&participantName=${encodeURIComponent(state.youName)}` +
             `&nameTaken=1`;
           state.hardRedirect = redirectUrl;
-          location.replace(redirectUrl); // avoid back-loop
+          location.replace(redirectUrl);
           return;
         }
         showToast(isDe() ? 'Name bereits in Verwendung' : 'Name already in use');
@@ -356,47 +349,34 @@
       // Heartbeat reply from server
       if (ev.data === 'pong') return;
 
-      // ---- handle legacy plain-text roster frames first -----------------
+      // ---- legacy plain-text roster frames ---------------------------------
       if (typeof ev.data === 'string') {
         if (ev.data.startsWith('participantJoined:')) {
           const name = ev.data.slice('participantJoined:'.length).trim();
-          if (name) {
-            addParticipantLocal(name);
-            try { renderParticipants(); } catch {}
-          }
+          if (name) { addParticipantLocal(name); try { renderParticipants(); } catch {} }
           return;
         }
         if (ev.data.startsWith('participantLeft:')) {
           const name = ev.data.slice('participantLeft:'.length).trim();
-          if (name) {
-            removeParticipantLocal(name);
-            try { renderParticipants(); } catch {}
-          }
+          if (name) { removeParticipantLocal(name); try { renderParticipants(); } catch {} }
           return;
         }
       }
-      // -------------------------------------------------------------------
+      // ----------------------------------------------------------------------
 
-      // --- JSON events (compat for additional small JSON messages) --------
+      // Small JSON messages (compat)
       try {
         if (typeof ev.data === 'string' && ev.data.charAt(0) === '{') {
           const msg = JSON.parse(ev.data);
-
           switch (msg && msg.type) {
             case 'participantJoined': {
               const name = (msg.name || '').trim();
-              if (name) {
-                addParticipantLocal(name);
-                try { renderParticipants && renderParticipants(); } catch {}
-              }
+              if (name) { addParticipantLocal(name); try { renderParticipants && renderParticipants(); } catch {} }
               return;
             }
             case 'participantLeft': {
               const name = (msg.name || '').trim();
-              if (name) {
-                removeParticipantLocal(name);
-                try { renderParticipants && renderParticipants(); } catch {}
-              }
+              if (name) { removeParticipantLocal(name); try { renderParticipants && renderParticipants(); } catch {} }
               return;
             }
             case 'kicked': {
@@ -407,18 +387,12 @@
             }
           }
         }
-      } catch {
-        // ignore JSON-compat errors; fall through to full JSON parse below
-      }
-      // -------------------------------------------------------------------
+      } catch { /* ignore compat parse errors */ }
 
       // Full JSON room-state messages
       try {
         const msg = JSON.parse(ev.data);
-
-        // tiny debug ring buffer for DevTools: window.__epVU.at(-1)
         try { (window.__epVU ||= []).push(msg); } catch {}
-
         handleMessage(msg);
       } catch (e) {
         console.warn(TAG, 'Bad message', e);
@@ -426,33 +400,6 @@
     };
   }
   // -------- END connectWS ----------------------------------------------------
-
-  // Bridge for automated tests / power-users:
-  // Host-only sequence change via custom DOM event.
-  // Test dispatches: window.dispatchEvent(new CustomEvent('ep:sequence-change', { detail: { sequenceId: 'fib.enh' } }))
-  window.addEventListener('ep:sequence-change', (ev) => {
-    try {
-      const id = String(ev?.detail?.sequenceId || '').trim();
-      if (!id) return;
-      // We let the server enforce host permissions; harmless if non-host fires it.
-      // GameWebSocketHandler decodes URL-encoding on the server side.
-      send('sequence:' + encodeURIComponent(id));
-    } catch (e) {
-      console.warn('[room] ep:sequence-change handler failed:', e);
-    }
-  }, { passive: true });
-
-  /* === Confirm guard for close-room ONLY (host/kick confirm lives on buttons) ===== */
-  (() => {
-    document.addEventListener('ep:close-room', function (e) {
-      const isDe = (document.documentElement.lang || 'en').toLowerCase().startsWith('de');
-      const msg = isDe ? 'Diesen Raum für alle schließen?' : 'Close this room for everyone?';
-      if (!window.confirm(msg)) {
-        e.preventDefault();
-        try { e.stopImmediatePropagation(); } catch {}
-      }
-    });
-  })();
 
   /*** ---------- Messages ---------- ***/
   function handleMessage(m) {
@@ -473,13 +420,13 @@
         break;
       }
       case 'participantJoined': {
-        const name = (m.name || '').trim();
-        if (name) { addParticipantLocal(name); try { renderParticipants && renderParticipants(); } catch {} }
+        addParticipantLocal((m.name || '').trim());
+        try { renderParticipants && renderParticipants(); } catch {}
         break;
       }
       case 'participantLeft': {
-        const name = (m.name || '').trim();
-        if (name) { removeParticipantLocal(name); try { renderParticipants && renderParticipants(); } catch {} }
+        removeParticipantLocal((m.name || '').trim());
+        try { renderParticipants && renderParticipants(); } catch {}
         break;
       }
       case 'participantRenamed': {
@@ -676,7 +623,6 @@
     if (!ul) return;
 
     try {
-      // Normalize: strings → { name: "…" }
       const list = (state.participants || [])
         .map(p => (typeof p === 'string' ? { name: p } : p))
         .filter(p => p && p.name);
@@ -779,27 +725,23 @@
           const makeHostBtn = document.createElement('button');
           makeHostBtn.className = 'row-action host';
           makeHostBtn.type = 'button';
+          makeHostBtn.dataset.action = 'host';
+          makeHostBtn.dataset.name = p.name;
           const labelMakeHost = t('action.makeHost', isDe() ? 'Zum Host machen' : 'Make host');
           makeHostBtn.setAttribute('aria-label', labelMakeHost);
           makeHostBtn.setAttribute('title', labelMakeHost);
           makeHostBtn.innerHTML = '<span class="ra-icon">👑</span>';
-          makeHostBtn.addEventListener('click', () => {
-            const q = isDe() ? `Host-Rolle an ${p.name} übertragen?` : `Transfer host role to ${p.name}?`;
-            if (confirm(q)) send('makeHost:' + encodeURIComponent(p.name));
-          });
           right.appendChild(makeHostBtn);
 
           const kickBtn = document.createElement('button');
           kickBtn.className = 'row-action kick';
           kickBtn.type = 'button';
+          kickBtn.dataset.action = 'kick';
+          kickBtn.dataset.name = p.name;
           const labelKick = t('action.kick', isDe() ? 'Teilnehmer entfernen' : 'Kick participant');
           kickBtn.setAttribute('aria-label', labelKick);
           kickBtn.setAttribute('title', labelKick);
           kickBtn.innerHTML = '<span class="ra-icon">❌</span>';
-          kickBtn.addEventListener('click', () => {
-            const q = isDe() ? `${p.name} wirklich entfernen?` : `Remove ${p.name}?`;
-            if (confirm(q)) send('kick:' + encodeURIComponent(p.name));
-          });
           right.appendChild(kickBtn);
         }
 
@@ -899,16 +841,16 @@
     function addCardButton(val) {
       const btn = document.createElement('button');
       btn.type = 'button';
-      const label = String(val);
-      btn.textContent = label;
+      btn.dataset.val = String(val);
+      btn.textContent = String(val);
 
-      if (SPECIALS.includes(label)) {
-        if (label === '❓') {
+      if (SPECIALS.includes(btn.dataset.val)) {
+        if (btn.dataset.val === '❓') {
           const tip = msg('card.tip.question',
             'I still have questions about this requirement.',
             'Ich habe noch offene Fragen zu dieser Anforderung.');
           btn.setAttribute('title', tip); btn.setAttribute('aria-label', tip);
-        } else if (label === '☕') {
+        } else if (btn.dataset.val === '☕') {
           const tip = msg('card.tip.coffee',
             'I need a short break…',
             'Ich brauche eine Pause…');
@@ -916,26 +858,9 @@
         }
       }
 
-      if (label === INFINITY_ || label === INFINITY_ALT) btn.classList.add('card-infinity');
+      if (btn.dataset.val === INFINITY_ || btn.dataset.val === INFINITY_ALT) btn.classList.add('card-infinity');
       if (disabled) btn.disabled = true;
-      if (selectedVal != null && String(selectedVal) === label) btn.classList.add('selected');
-
-      btn.addEventListener('click', () => {
-        if (btn.disabled || voteSendBusy) return;
-
-        // do nothing if it's already selected
-        if (mySelectedValue() === label) return;
-
-        // optimistic local selection
-        state._optimisticVote = label;
-        grid.querySelectorAll('button').forEach(b => b.classList.remove('selected'));
-        btn.classList.add('selected');
-
-        // Legacy wire format expected by the server: vote:<name>:<value>
-        voteSendBusy = true;
-        try { send(`vote:${state.youName}:${label}`); }
-        finally { setTimeout(() => { voteSendBusy = false; }, 200); }
-      });
+      if (selectedVal != null && String(selectedVal) === btn.dataset.val) btn.classList.add('selected');
 
       grid.appendChild(btn);
     }
@@ -1151,14 +1076,13 @@
       actions.innerHTML =
         `<button id="topicEditBtn" class="icon-button neutral" type="button"
                 title="${escapeHtml(titleEdit)}" aria-label="${escapeHtml(titleEdit)}">✍️</button>
-        <button id="topicClearBtn" class="icon-button neutral" type="button"
+         <button id="topicClearBtn" class="icon-button neutral" type="button"
                 title="${escapeHtml(titleClear)}" aria-label="${escapeHtml(titleClear)}">🗑️</button>`;
 
       const editBtn  = $('#topicEditBtn');
       const clearBtn = $('#topicClearBtn');
       if (editBtn)  editBtn.addEventListener('click', beginTopicEdit);
       if (clearBtn) clearBtn.addEventListener('click', () => {
-        // Optimistic clear
         state.topicLabel = '';
         state.topicUrl = null;
         state.topicEditing = false;
@@ -1189,7 +1113,7 @@
       actions.innerHTML =
         `<button id="topicSaveBtn" class="icon-button neutral" type="button"
                 title="${escapeHtml(titleSave)}" aria-label="${escapeHtml(titleSave)}">✅</button>
-        <button id="topicCancelEditBtn" class="icon-button neutral" type="button"
+         <button id="topicCancelEditBtn" class="icon-button neutral" type="button"
                 title="${escapeHtml(titleCancel)}" aria-label="${escapeHtml(titleCancel)}">❌</button>`;
 
       const saveBtn   = $('#topicSaveBtn');
@@ -1427,9 +1351,61 @@
     });
   }
 
+  /*** ---------- Delegated UI handlers (cards + host/kick) ---------- ***/
+  function wireDelegatedHandlers() {
+    // Cards
+    const grid = $('#cardGrid');
+    if (grid && !grid.__epBound) {
+      grid.addEventListener('click', (e) => {
+        const btn = e.target && e.target.closest && e.target.closest('button[data-val]');
+        if (!btn || btn.disabled) return;
+
+        const label = btn.dataset.val;
+        if (!label) return;
+
+        // If already selected, do nothing
+        if (mySelectedValue() === label) return;
+
+        // Optimistic selection
+        state._optimisticVote = label;
+        try { grid.querySelectorAll('button[data-val].selected').forEach(b => b.classList.remove('selected')); } catch {}
+        btn.classList.add('selected');
+
+        try { send(`vote:${state.youName}:${label}`); } catch {}
+      });
+      grid.__epBound = true;
+    }
+
+    // Host/Kick (participants list)
+    const list = $('#liveParticipantList');
+    if (list && !list.__epBound) {
+      list.addEventListener('click', (e) => {
+        const hostBtn = e.target && e.target.closest && e.target.closest('button.row-action.host[data-action="host"]');
+        if (hostBtn) {
+          if (!state.isHost) return;
+          const name = hostBtn.dataset.name || '';
+          if (!name) return;
+          const q = isDe() ? `Host-Rolle an ${name} übertragen?` : `Transfer host role to ${name}?`;
+          if (confirm(q)) send('makeHost:' + encodeURIComponent(name));
+          return;
+        }
+        const kickBtn = e.target && e.target.closest && e.target.closest('button.row-action.kick[data-action="kick"]');
+        if (kickBtn) {
+          if (!state.isHost) return;
+          const name = kickBtn.dataset.name || '';
+          if (!name) return;
+          const q = isDe() ? `${name} wirklich entfernen?` : `Remove ${name}?`;
+          if (confirm(q)) send('kick:' + encodeURIComponent(name));
+        }
+      });
+      list.__epBound = true;
+    }
+  }
+
   function wireOnce() {
     bindCopyLink();
     wireMenuEvents();
+    wireDelegatedHandlers();
 
     const row = $('#topicRow');
     if (row) {
@@ -1452,9 +1428,9 @@
     }, true);
     window.addEventListener('focus',  () => wake('focus'),  true);
     window.addEventListener('online', () => wake('online'), true);
-    window.addEventListener('pageshow', () => {
-      wake('pageshow');
-    }, true);
+    window.addEventListener('pageshow', () => { wake('pageshow'); }, true);
+
+    startWatchdog();
 
     // Connect only if we are not already redirecting away
     if (!state.hardRedirect && !state.connected && (!state.ws || state.ws.readyState !== 1)) connectWS();
@@ -1466,13 +1442,11 @@
   function addParticipantLocal(name) {
     if (!name) return;
 
-    // Option: Set-backed participant collection
     if (state?.participants && typeof state.participants.add === 'function') {
       state.participants.add(name);
       return;
     }
 
-    // Option: Array — store as object with "name"
     if (Array.isArray(state?.participants)) {
       const has = state.participants.some(p =>
         (typeof p === 'string') ? (p === name) : (p && p.name === name)
@@ -1491,7 +1465,6 @@
       return;
     }
 
-    // Fallback shapes (rare)
     if (state?.participantsByName && typeof state.participantsByName.set === 'function') {
       if (!state.participantsByName.has(name)) state.participantsByName.set(name, { name });
     } else if (state?.participantsByName && typeof state.participantsByName === 'object') {
@@ -1544,6 +1517,7 @@
     renderAutoReveal();
     syncMenuFromState();
     syncSequenceInMenu();
+    wireDelegatedHandlers(); // ensure delegation survives full rerenders
   }
 
   async function onLangChange() {
@@ -1572,30 +1546,26 @@
       if (nav && (nav.type === 'reload' || nav.type === 'back_forward')) {
         isReloadLike = true;
       }
-    } catch { /* noop */ }
+    } catch {}
     if (isReloadLike) return;
 
-    // (room+name) key for this tab
     const pfKey = `ep-pf-ok:${state.roomCode}:${state.youName}`;
 
-    // If we've already green-lit this (room+name) in THIS tab, do nothing
     try {
       if (sessionStorage.getItem(pfKey) === '1') {
         state._preflightMarkedOk = true;
         return;
       }
-    } catch { /* sessionStorage might be blocked; fall through to a best-effort check */ }
+    } catch {}
 
-    // Optional: server preflight (?preflight=1)
     try {
-      const preflightParam = (url && url.searchParams && url.searchParams.get('preflight')) || null; // 'url' captured before canonicalization
+      const preflightParam = (url && url.searchParams && url.searchParams.get('preflight')) || null;
       if (preflightParam === '1') {
         try { sessionStorage.setItem(pfKey, '1'); state._preflightMarkedOk = true; } catch {}
         return;
       }
-    } catch { /* ignore */ }
+    } catch {}
 
-    // Best-effort availability probe (first visit of this (room+name) in this tab)
     try {
       const apiUrl = `/api/rooms/${encodeURIComponent(state.roomCode)}/name-available?name=${encodeURIComponent(state.youName)}`;
       const resp = await fetch(apiUrl, { headers: { 'Accept': 'application/json' }, cache: 'no-store' });
@@ -1606,20 +1576,19 @@
         if (data && data.available === false) {
           const redirectUrl = `/invite?roomCode=${encodeURIComponent(state.roomCode)}&participantName=${encodeURIComponent(state.youName)}&nameTaken=1`;
           state.hardRedirect = redirectUrl;
-          location.replace(redirectUrl); // replace to avoid Back-loop
+          location.replace(redirectUrl);
           return;
         }
 
         try { sessionStorage.setItem(pfKey, '1'); state._preflightMarkedOk = true; } catch {}
       }
     } catch {
-      // Network/JSON failure → be permissive and continue
+      // best-effort only
     }
   }
 
   /*** ---------- Boot ---------- ***/
   function seedSelfPlaceholder() {
-    // Show "yourself" instantly to avoid empty Participants list on cold start
     state.participants = [{
       name: state.youName || 'You',
       vote: null,
@@ -1635,19 +1604,19 @@
   async function boot() {
     preloadMessages();
 
-    // Run name preflight ONLY on first-tab entries; never on reloads
     await preflightNameCheck();
-    if (state.hardRedirect) return; // we are navigating to /invite
+    if (state.hardRedirect) return;
 
     syncHostClass();
     seedSelfPlaceholder();
-    // Mark page as ready immediately (before first server snapshot) so UI isn't hidden.
+
     try {
       if (!document.documentElement.hasAttribute('data-ready')) {
         document.documentElement.setAttribute('data-ready', '1');
       }
     } catch {}
-    wireOnce(); // this will start WS/connect, etc.
+
+    wireOnce(); // starts WS/connect, watchdog, delegated handlers, etc.
   }
 
   if (document.readyState === 'loading') {
