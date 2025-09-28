@@ -1336,65 +1336,130 @@
     });
   }
 
-  // --- Event-delegation (stable even across re-renders) ---------------------
-  let _cardGridBound = false;
-  let _plistBound = false;
+  // Fängt Fälle ab, in denen fremde Listener den bubbled click stoppen.
+let _safetyNetOn = false;
+function installClickSafetyNet() {
+  if (_safetyNetOn) return;
+  _safetyNetOn = true;
 
-  function bindDelegatedHandlers() {
-    const grid = $('#cardGrid');
-    if (grid && !_cardGridBound) {
-      grid.addEventListener('click', (e) => {
-        const btn = e.target && e.target.closest ? e.target.closest('#cardGrid button') : null;
-        if (!btn) return;
-        if (btn.disabled) return;
+  document.addEventListener('click', (e) => {
+    const t = e.target;
+    if (!t || !t.closest) return;
 
-        const label = btn.dataset.value || btn.textContent || '';
-        if (!label) return;
+    // Karten
+    const cardBtn = t.closest('#cardGrid button');
+    if (cardBtn) {
+      // Wenn bis hierher „click“ noch lebt, aber unser Handler nicht lief, auslösen:
+      const grid = document.querySelector('#cardGrid');
+      if (grid && !cardBtn.classList.contains('selected')) {
+        state._optimisticVote = String(cardBtn.dataset.value || cardBtn.textContent || '');
+        try { grid.querySelectorAll('button').forEach(b => b.classList.remove('selected')); } catch {}
+        cardBtn.classList.add('selected');
+        try { send(`vote:${state.youName}:${cardBtn.dataset.value || cardBtn.textContent || ''}`); } catch {}
+      }
+      return;
+    }
 
-        // No-op if already selected
-        if (mySelectedValue() === String(label)) return;
+    // Host/Kick
+    const actionBtn = t.closest('#liveParticipantList button.row-action');
+    if (actionBtn) {
+      const action = actionBtn.dataset.action;
+      const name = actionBtn.dataset.name || '';
+      if (!action || !name) return;
+      if (action === 'host') {
+        const q = isDe() ? `Host-Rolle an ${name} übertragen?` : `Transfer host role to ${name}?`;
+        if (!confirm(q)) return;
+        send('makeHost:' + encodeURIComponent(name));
+      } else if (action === 'kick') {
+        const q = isDe() ? `${name} wirklich entfernen?` : `Remove ${name}?`;
+        if (!confirm(q)) return;
+        send('kick:' + encodeURIComponent(name));
+      }
+    }
+  }, { capture: true, passive: true });
 
-        // Optimistic local selection
-        state._optimisticVote = String(label);
-        try {
-          grid.querySelectorAll('button').forEach(b => b.classList.remove('selected'));
+  console.info('[ROOM] click safety-net (capture) installed');
+}
+
+
+  // --- Event-delegation (robust gegen bubbled click blockers) -----------------
+    let _cardGridBound = false;
+    let _plistBound = false;
+
+    function bindDelegatedHandlers() {
+      const grid = document.querySelector('#cardGrid');
+      if (grid && !_cardGridBound) {
+        const onPick = (btn) => {
+          if (!btn || btn.disabled) return;
+          const label = btn.dataset.value || btn.textContent || '';
+          if (!label) return;
+          if (mySelectedValue() === String(label)) return;
+
+          // Optimistische Auswahl + WS senden
+          state._optimisticVote = String(label);
+          try { grid.querySelectorAll('button').forEach(b => b.classList.remove('selected')); } catch {}
           btn.classList.add('selected');
-        } catch {}
+          try { send(`vote:${state.youName}:${label}`); } catch {}
+        };
 
-        try { send(`vote:${state.youName}:${label}`); } catch {}
-      }, { passive: true });
-      _cardGridBound = true;
+        // Frühe Phase (pointerdown) + Fallback (click)
+        grid.addEventListener('pointerdown', (e) => {
+          if (e.button !== 0) return; // nur linker Button
+          const btn = e.target && e.target.closest ? e.target.closest('#cardGrid button') : null;
+          if (btn) onPick(btn);
+        }, { passive: true });
+
+        grid.addEventListener('click', (e) => {
+          const btn = e.target && e.target.closest ? e.target.closest('#cardGrid button') : null;
+          if (btn) onPick(btn);
+        }, { passive: true });
+
+        _cardGridBound = true;
+      }
+
+      const list = document.querySelector('#liveParticipantList');
+      if (list && !_plistBound) {
+        const onAction = (btn) => {
+          const action = btn.dataset.action;
+          const name = btn.dataset.name || '';
+          if (!action || !name) return;
+
+          if (action === 'host') {
+            const q = isDe() ? `Host-Rolle an ${name} übertragen?` : `Transfer host role to ${name}?`;
+            if (!confirm(q)) return;
+            send('makeHost:' + encodeURIComponent(name));
+          } else if (action === 'kick') {
+            const q = isDe() ? `${name} wirklich entfernen?` : `Remove ${name}?`;
+            if (!confirm(q)) return;
+            send('kick:' + encodeURIComponent(name));
+          }
+        };
+
+        // Frühe Phase + Fallback
+        list.addEventListener('pointerdown', (e) => {
+          if (e.button !== 0) return;
+          const btn = e.target && e.target.closest ? e.target.closest('#liveParticipantList button.row-action') : null;
+          if (btn) { e.preventDefault?.(); onAction(btn); }
+        }, { passive: false });
+
+        list.addEventListener('click', (e) => {
+          const btn = e.target && e.target.closest ? e.target.closest('#liveParticipantList button.row-action') : null;
+          if (btn) onAction(btn);
+        }, { passive: false });
+
+        _plistBound = true;
+      }
     }
 
-    const list = $('#liveParticipantList');
-    if (list && !_plistBound) {
-      list.addEventListener('click', (e) => {
-        const btn = e.target && e.target.closest ? e.target.closest('button.row-action') : null;
-        if (!btn) return;
-
-        const action = btn.dataset.action;
-        const name = btn.dataset.name || '';
-        if (!action || !name) return;
-
-        if (action === 'host') {
-          const q = isDe() ? `Host-Rolle an ${name} übertragen?` : `Transfer host role to ${name}?`;
-          if (!confirm(q)) return;
-          send('makeHost:' + encodeURIComponent(name));
-        } else if (action === 'kick') {
-          const q = isDe() ? `${name} wirklich entfernen?` : `Remove ${name}?`;
-          if (!confirm(q)) return;
-          send('kick:' + encodeURIComponent(name));
-        }
-      }, { passive: false });
-      _plistBound = true;
-    }
-  }
   // --------------------------------------------------------------------------
 
   function wireOnce() {
     bindCopyLink();
     wireMenuEvents();
     bindDelegatedHandlers();
+    bindDelegatedHandlers();
+    installClickSafetyNet();
+
 
     const row = $('#topicRow');
     if (row) {
