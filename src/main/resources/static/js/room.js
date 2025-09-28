@@ -161,7 +161,7 @@
     document.body.classList.toggle('is-host', !!state.isHost);
   }
 
-  // Presence guard for join/leave toasts (suppress self + rapid flaps)
+  // Presence guard (suppress join/leave toasts for self + rapid flaps)
   const PRESENCE_GRACE_MS = 2000;
   const PRESENCE_KEY = (n) => 'ep-presence:' + encodeURIComponent(n);
   function markAlive(name) { if (!name) return; try { localStorage.setItem(PRESENCE_KEY(name), String(Date.now())); } catch {} }
@@ -386,7 +386,7 @@
   }
   // -------- END connectWS ----------------------------------------------------
 
-  // Custom sequence change bridge
+  // Host-only sequence change bridge
   window.addEventListener('ep:sequence-change', (ev) => {
     try {
       const id = String(ev?.detail?.sequenceId || '').trim();
@@ -396,25 +396,6 @@
       console.warn('[room] ep:sequence-change handler failed:', e);
     }
   }, { passive: true });
-
-  /* === Close-room confirm only (Kick/Host confirm lives on the buttons) ==== */
-  (function () {
-    function _isDe() {
-      try { return !!isDe(); } catch {
-        const lang = (document.documentElement.lang || 'en').toLowerCase();
-        return lang.startsWith('de');
-      }
-    }
-    document.addEventListener('ep:close-room', function (e) {
-      const msg = _isDe()
-        ? 'Diesen Raum für alle schließen?'
-        : 'Close this room for everyone?';
-      if (!window.confirm(msg)) {
-        e.preventDefault();
-        try { e.stopImmediatePropagation(); } catch {}
-      }
-    });
-  })();
 
   /*** ---------- Messages ---------- ***/
   function handleMessage(m) {
@@ -1064,6 +1045,7 @@
          <button id="topicClearBtn" class="icon-button neutral" type="button"
                 title="${escapeHtml(titleClear)}" aria-label="${escapeHtml(titleClear)}">🗑️</button>`;
 
+      // Edit: inline to avoid external/global listeners
       const editBtn  = $('#topicEditBtn');
       const clearBtn = $('#topicClearBtn');
       if (editBtn)  editBtn.addEventListener('click', beginTopicEdit);
@@ -1101,9 +1083,7 @@
          <button id="topicCancelEditBtn" class="icon-button neutral" type="button"
                 title="${escapeHtml(titleCancel)}" aria-label="${escapeHtml(titleCancel)}">❌</button>`;
 
-      const saveBtn   = $('#topicSaveBtn');
-      const cancelBtn = $('#topicCancelEditBtn');
-
+      // Key handling – stays local to the input
       const doSave = () => {
         const val = displayEl.value || '';
         const parsed = clientParseTopic(val);
@@ -1115,12 +1095,15 @@
       };
       const doCancel = () => { state.topicEditing = false; renderTopic(); };
 
+      const saveBtn   = $('#topicSaveBtn');
+      const cancelBtn = $('#topicCancelEditBtn');
       if (saveBtn)   saveBtn.addEventListener('click', doSave);
       if (cancelBtn) cancelBtn.addEventListener('click', doCancel);
+
       displayEl.addEventListener('keydown', (e) => {
         if (e.key === 'Enter')  { e.preventDefault(); doSave(); }
         if (e.key === 'Escape') { e.preventDefault(); doCancel(); }
-      });
+      }, { passive: false });
     }
   }
 
@@ -1274,6 +1257,7 @@
 
   /*** ---------- Menu & lifecycle events ---------- ***/
   function wireMenuEvents() {
+    // Single, final close-room confirmation (no duplicate confirm elsewhere)
     document.addEventListener('ep:close-room', () => {
       if (!state.isHost) return;
       const msg2 = isDe() ? 'Diesen Raum für alle schließen?' : 'Close this room for everyone?';
@@ -1336,176 +1320,122 @@
     });
   }
 
-  // Fängt Fälle ab, in denen fremde Listener den bubbled click stoppen.
-let _safetyNetOn = false;
-function installClickSafetyNet() {
-  if (_safetyNetOn) return;
-  _safetyNetOn = true;
+  // --- Event-delegation (robust, no global capture) -------------------------
+  let _cardGridBound = false;
+  let _plistBound = false;
+  let _topicBound = false;
 
-  document.addEventListener('click', (e) => {
-    const t = e.target;
-    if (!t || !t.closest) return;
-
-    // Karten
-    const cardBtn = t.closest('#cardGrid button');
-    if (cardBtn) {
-      // Wenn bis hierher „click“ noch lebt, aber unser Handler nicht lief, auslösen:
-      const grid = document.querySelector('#cardGrid');
-      if (grid && !cardBtn.classList.contains('selected')) {
-        state._optimisticVote = String(cardBtn.dataset.value || cardBtn.textContent || '');
+  function bindDelegatedHandlers() {
+    // Cards
+    const grid = document.querySelector('#cardGrid');
+    if (grid && !_cardGridBound) {
+      const onPick = (btn) => {
+        if (!btn || btn.disabled) return;
+        const label = btn.dataset.value || btn.textContent || '';
+        if (!label) return;
+        if (mySelectedValue() === String(label)) return;
+        // Optimistic selection + send
+        state._optimisticVote = String(label);
         try { grid.querySelectorAll('button').forEach(b => b.classList.remove('selected')); } catch {}
-        cardBtn.classList.add('selected');
-        try { send(`vote:${state.youName}:${cardBtn.dataset.value || cardBtn.textContent || ''}`); } catch {}
-      }
-      return;
+        btn.classList.add('selected');
+        try { send(`vote:${state.youName}:${label}`); } catch {}
+      };
+
+      grid.addEventListener('pointerdown', (e) => {
+        if (e.button !== 0) return;
+        const btn = e.target && e.target.closest ? e.target.closest('#cardGrid button') : null;
+        if (btn) onPick(btn);
+      }, { passive: true });
+
+      grid.addEventListener('click', (e) => {
+        const btn = e.target && e.target.closest ? e.target.closest('#cardGrid button') : null;
+        if (btn) onPick(btn);
+      }, { passive: true });
+
+      _cardGridBound = true;
     }
 
-    // Host/Kick
-    const actionBtn = t.closest('#liveParticipantList button.row-action');
-    if (actionBtn) {
-      const action = actionBtn.dataset.action;
-      const name = actionBtn.dataset.name || '';
-      if (!action || !name) return;
-      if (action === 'host') {
-        const q = isDe() ? `Host-Rolle an ${name} übertragen?` : `Transfer host role to ${name}?`;
-        if (!confirm(q)) return;
-        send('makeHost:' + encodeURIComponent(name));
-      } else if (action === 'kick') {
-        const q = isDe() ? `${name} wirklich entfernen?` : `Remove ${name}?`;
-        if (!confirm(q)) return;
-        send('kick:' + encodeURIComponent(name));
-      }
-    }
-  }, { capture: true, passive: true });
+    // Host / Kick
+    const list = document.querySelector('#liveParticipantList');
+    if (list && !_plistBound) {
+      const onAction = (btn) => {
+        const action = btn.dataset.action;
+        const name = btn.dataset.name || '';
+        if (!action || !name) return;
 
-  console.info('[ROOM] click safety-net (capture) installed');
-}
+        if (action === 'host') {
+          const q = isDe() ? `Host-Rolle an ${name} übertragen?` : `Transfer host role to ${name}?`;
+          if (!confirm(q)) return;
+          send('makeHost:' + encodeURIComponent(name));
+        } else if (action === 'kick') {
+          const q = isDe() ? `${name} wirklich entfernen?` : `Remove ${name}?`;
+          if (!confirm(q)) return;
+          send('kick:' + encodeURIComponent(name));
+        }
+      };
 
+      list.addEventListener('pointerdown', (e) => {
+        if (e.button !== 0) return;
+        const btn = e.target && e.target.closest ? e.target.closest('#liveParticipantList button.row-action') : null;
+        if (btn) { e.preventDefault?.(); onAction(btn); }
+      }, { passive: false });
 
-  // --- Event-delegation (robust gegen bubbled click blockers) -----------------
-    let _cardGridBound = false;
-    let _plistBound = false;
-    let _topicBound = false;
+      list.addEventListener('click', (e) => {
+        const btn = e.target && e.target.closest ? e.target.closest('#liveParticipantList button.row-action') : null;
+        if (btn) onAction(btn);
+      }, { passive: false });
 
-    function bindDelegatedHandlers() {
-      const grid = document.querySelector('#cardGrid');
-      if (grid && !_cardGridBound) {
-        const onPick = (btn) => {
-          if (!btn || btn.disabled) return;
-          const label = btn.dataset.value || btn.textContent || '';
-          if (!label) return;
-          if (mySelectedValue() === String(label)) return;
-
-          // Optimistische Auswahl + WS senden
-          state._optimisticVote = String(label);
-          try { grid.querySelectorAll('button').forEach(b => b.classList.remove('selected')); } catch {}
-          btn.classList.add('selected');
-          try { send(`vote:${state.youName}:${label}`); } catch {}
-        };
-
-        // early phase (pointerdown) + Fallback (click)
-        grid.addEventListener('pointerdown', (e) => {
-          if (e.button !== 0) return;
-          const btn = e.target && e.target.closest ? e.target.closest('#cardGrid button') : null;
-          if (btn) onPick(btn);
-        }, { passive: true });
-
-        grid.addEventListener('click', (e) => {
-          const btn = e.target && e.target.closest ? e.target.closest('#cardGrid button') : null;
-          if (btn) onPick(btn);
-        }, { passive: true });
-
-        _cardGridBound = true;
-      }
-
-      const list = document.querySelector('#liveParticipantList');
-      if (list && !_plistBound) {
-        const onAction = (btn) => {
-          const action = btn.dataset.action;
-          const name = btn.dataset.name || '';
-          if (!action || !name) return;
-
-          if (action === 'host') {
-            const q = isDe() ? `Host-Rolle an ${name} übertragen?` : `Transfer host role to ${name}?`;
-            if (!confirm(q)) return;
-            send('makeHost:' + encodeURIComponent(name));
-          } else if (action === 'kick') {
-            const q = isDe() ? `${name} wirklich entfernen?` : `Remove ${name}?`;
-            if (!confirm(q)) return;
-            send('kick:' + encodeURIComponent(name));
-          }
-        };
-
-      // --- Topic row: Save/Cancel robust binden -------------------------------
-      const topic = document.querySelector('#topicRow');
-      if (topic && !_topicBound) {
-        const actions = topic.querySelector('.topic-actions') || topic;
-
-        const doSave = () => {
-          if (!state.isHost) return;
-          const input = topic.querySelector('#topicDisplay');
-          if (!input || input.tagName !== 'INPUT') return;
-          const val = input.value || '';
-          const parsed = clientParseTopic(val);
-          state.topicLabel = parsed.label;
-          state.topicUrl = parsed.url;
-          state.topicEditing = false;
-          renderTopic();
-          try { send('topicSave:' + encodeURIComponent(val)); } catch {}
-        };
-
-        const doCancel = () => {
-          if (!state.isHost) return;
-          state.topicEditing = false;
-          renderTopic();
-        };
-
-        // early phase (pointerdown) + Fallback (click)
-        actions.addEventListener('pointerdown', (e) => {
-          if (e.button !== 0) return;
-          const btn = e.target && e.target.closest ? e.target.closest('#topicSaveBtn, #topicCancelEditBtn') : null;
-          if (!btn) return;
-          e.preventDefault?.();
-          if (btn.id === 'topicSaveBtn') doSave();
-          else doCancel();
-        }, { passive: false });
-
-        actions.addEventListener('click', (e) => {
-          const btn = e.target && e.target.closest ? e.target.closest('#topicSaveBtn, #topicCancelEditBtn') : null;
-          if (!btn) return;
-          if (btn.id === 'topicSaveBtn') doSave();
-          else doCancel();
-        }, { passive: false });
-
-        _topicBound = true;
-      }
-
-
-        // early phase + fallback
-        list.addEventListener('pointerdown', (e) => {
-          if (e.button !== 0) return;
-          const btn = e.target && e.target.closest ? e.target.closest('#liveParticipantList button.row-action') : null;
-          if (btn) { e.preventDefault?.(); onAction(btn); }
-        }, { passive: false });
-
-        list.addEventListener('click', (e) => {
-          const btn = e.target && e.target.closest ? e.target.closest('#liveParticipantList button.row-action') : null;
-          if (btn) onAction(btn);
-        }, { passive: false });
-
-        _plistBound = true;
-      }
+      _plistBound = true;
     }
 
-  // --------------------------------------------------------------------------
+    // Topic row: Save / Cancel (works across DOM swaps)
+    const topic = document.querySelector('#topicRow');
+    if (topic && !_topicBound) {
+      const actions = topic.querySelector('.topic-actions') || topic;
+
+      const doSave = () => {
+        if (!state.isHost) return;
+        const input = topic.querySelector('#topicDisplay');
+        if (!input || input.tagName !== 'INPUT') return;
+        const val = input.value || '';
+        const parsed = clientParseTopic(val);
+        state.topicLabel = parsed.label;
+        state.topicUrl = parsed.url;
+        state.topicEditing = false;
+        renderTopic();
+        try { send('topicSave:' + encodeURIComponent(val)); } catch {}
+      };
+
+      const doCancel = () => {
+        if (!state.isHost) return;
+        state.topicEditing = false;
+        renderTopic();
+      };
+
+      actions.addEventListener('pointerdown', (e) => {
+        if (e.button !== 0) return;
+        const btn = e.target && e.target.closest ? e.target.closest('#topicSaveBtn, #topicCancelEditBtn') : null;
+        if (!btn) return;
+        e.preventDefault?.();
+        if (btn.id === 'topicSaveBtn') doSave();
+        else doCancel();
+      }, { passive: false });
+
+      actions.addEventListener('click', (e) => {
+        const btn = e.target && e.target.closest ? e.target.closest('#topicSaveBtn, #topicCancelEditBtn') : null;
+        if (!btn) return;
+        if (btn.id === 'topicSaveBtn') doSave();
+        else doCancel();
+      }, { passive: false });
+
+      _topicBound = true;
+    }
+  }
 
   function wireOnce() {
     bindCopyLink();
     wireMenuEvents();
     bindDelegatedHandlers();
-    bindDelegatedHandlers();
-    installClickSafetyNet();
-
 
     const row = $('#topicRow');
     if (row) {
@@ -1535,57 +1465,7 @@ function installClickSafetyNet() {
     if (!state.hardRedirect && !state.connected && (!state.ws || state.ws.readyState !== 1)) connectWS();
 
     syncSequenceInMenu();
-    bindTopicActions();
   }
-
-  // Robust, delegated handlers for Topic save/cancel.
-// Uses pointerdown (fires even if some other code swallows click).
-function bindTopicActions() {
-  try {
-    const row = document.querySelector('#topicRow');
-    if (!row || _topicBound) return;
-
-    const actions = row.querySelector('.topic-actions') || row;
-
-    const doSave = () => {
-      if (!state.isHost) return;
-      const input = row.querySelector('#topicDisplay');
-      if (!input || input.tagName !== 'INPUT') return;
-      const val = input.value || '';
-      const parsed = clientParseTopic(val);
-      state.topicLabel = parsed.label;
-      state.topicUrl = parsed.url;
-      state.topicEditing = false;
-      renderTopic();
-      try { send('topicSave:' + encodeURIComponent(val)); } catch {}
-    };
-
-    const doCancel = () => {
-      if (!state.isHost) return;
-      state.topicEditing = false;
-      renderTopic();
-    };
-
-    // Fire early
-    actions.addEventListener('pointerdown', (e) => {
-      if (e.button !== 0) return;
-      const btn = e.target && e.target.closest && e.target.closest('#topicSaveBtn, #topicCancelEditBtn');
-      if (!btn) return;
-      e.preventDefault?.(); // avoid focus stealing / double handling
-      if (btn.id === 'topicSaveBtn') doSave(); else doCancel();
-    }, { passive: false });
-
-    // Fallback if pointerdown is blocked on some platforms
-    actions.addEventListener('click', (e) => {
-      const btn = e.target && e.target.closest && e.target.closest('#topicSaveBtn, #topicCancelEditBtn');
-      if (!btn) return;
-      if (btn.id === 'topicSaveBtn') doSave(); else doCancel();
-    }, { passive: false });
-
-    _topicBound = true;
-  } catch {}
-}
-
 
   /*** ---------- Misc helpers ---------- ***/
   function addParticipantLocal(name) {
@@ -1666,7 +1546,7 @@ function bindTopicActions() {
     renderAutoReveal();
     syncMenuFromState();
     syncSequenceInMenu();
-    bindDelegatedHandlers(); // ensure still bound after DOM swaps
+    // Delegated handlers stay bound to stable parents; no rebind needed.
   }
 
   async function onLangChange() {
@@ -1685,41 +1565,6 @@ function bindTopicActions() {
   }).observe(document.documentElement, { attributes: true, attributeFilter: ['lang'] });
 
   document.addEventListener('ep:lang-changed', onLangChange);
-
-  // CLICK SAFETY NET (capture): last-resort execution if other code swallows clicks.
-// Keep it non-invasive: do not stop propagation here.
-(function installClickSafetyNet() {
-  try {
-    document.addEventListener('click', function (e) {
-      const t = e.target || null;
-      if (!t) return;
-
-      // Topic save/cancel fallback
-      const saveBtn = t.closest && t.closest('#topicSaveBtn');
-      const cancelBtn = !saveBtn && t.closest && t.closest('#topicCancelEditBtn');
-      if (saveBtn || cancelBtn) {
-        const row = document.querySelector('#topicRow');
-        if (!row) return;
-
-        if (saveBtn) {
-          const input = row.querySelector('#topicDisplay');
-          const val = (input && input.value) || '';
-          const parsed = clientParseTopic(val);
-          state.topicLabel = parsed.label;
-          state.topicUrl = parsed.url;
-          state.topicEditing = false;
-          renderTopic();
-          try { send('topicSave:' + encodeURIComponent(val)); } catch {}
-        } else {
-          state.topicEditing = false;
-          renderTopic();
-        }
-        // no stopPropagation here to avoid double prompts etc.
-      }
-    }, true); // capture phase on purpose
-  } catch {}
-})();
-
 
   /*** ---------- Name preflight: run once per (room+name) per tab ---------- ***/
   async function preflightNameCheck() {
