@@ -137,6 +137,9 @@
 
   // One-time binding guard for resize wiring
   let _topicOverflowResizeBound = false;
+  let _topicBound = false;
+  let _topicActionsEl = null;
+  let _topicMo = null;
 
   /*** ---------- Helpers ---------- ***/
   function normalizeSeq(id) {
@@ -948,7 +951,7 @@
     }
   }
 
-  /*** ---------- Topic row (optimistic topic handling) ---------- ***/
+    /*** ---------- Topic row (optimistic topic handling) ---------- ***/
   function clientParseTopic(input) {
     const MAX_LABEL = 140;
     const s = (input || '').trim();
@@ -967,7 +970,11 @@
     row.style.display = state.topicVisible ? '' : 'none';
 
     let actions = row.querySelector('.topic-actions');
-    if (!actions) { actions = document.createElement('div'); actions.className = 'topic-actions'; row.appendChild(actions); }
+    if (!actions) {
+      actions = document.createElement('div');
+      actions.className = 'topic-actions';
+      row.appendChild(actions);
+    }
 
     let displayEl = row.querySelector('#topicDisplay');
 
@@ -991,15 +998,15 @@
         btn.id = 'topicOverflowHint';
         btn.type = 'button';
         btn.className = 'topic-more-btn';
-        btn.textContent = isDe() ? 'mehr' : 'more';
-        const lab = isDe() ? 'Vollständiges Thema anzeigen' : 'Show full topic';
-        const label = t('topic.more', lab);
+        btn.textContent = 'more';
+        const label = t('topic.more', 'Show full topic');
         btn.setAttribute('aria-label', label);
         btn.setAttribute('title', label);
         hint = btn;
       }
     };
 
+    // ---- Non-host view -------------------------------------------------------
     if (!state.isHost) {
       if (!displayEl || displayEl.tagName !== 'SPAN') {
         const span = document.createElement('span');
@@ -1018,11 +1025,13 @@
       requestAnimationFrame(syncTopicOverflow);
       const full = [state.topicLabel || '', state.topicUrl || ''].filter(Boolean).join(' — ');
       hint.setAttribute('title', wrapForTitle(full, 44));
-      hint.setAttribute('aria-label', t('topic.more', isDe() ? 'Vollständiges Thema anzeigen' : 'Show full topic'));
+      hint.setAttribute('aria-label', t('topic.more', 'Show full topic'));
       return;
     }
 
+    // ---- Host view -----------------------------------------------------------
     if (!state.topicEditing) {
+      // View mode
       if (!displayEl || displayEl.tagName !== 'SPAN') {
         const span = document.createElement('span');
         span.id = 'topicDisplay';
@@ -1036,35 +1045,25 @@
       ensureHint();
       if (!hint.isConnected) row.insertBefore(hint, actions);
 
-      const titleEdit  = t('button.editTopic',  isDe() ? 'Bearbeiten'   : 'Edit');
-      const titleClear = t('button.clearTopic', isDe() ? 'Feld leeren'  : 'Clear');
+      const titleEdit  = t('button.editTopic',  'Edit');
+      const titleClear = t('button.clearTopic', 'Clear');
 
+      // Buttons without direct listeners (delegation handles them)
       actions.innerHTML =
         `<button id="topicEditBtn" class="icon-button neutral" type="button"
-                title="${escapeHtml(titleEdit)}" aria-label="${escapeHtml(titleEdit)}">✍️</button>
+                 title="${escapeHtml(titleEdit)}" aria-label="${escapeHtml(titleEdit)}">✍️</button>
          <button id="topicClearBtn" class="icon-button neutral" type="button"
-                title="${escapeHtml(titleClear)}" aria-label="${escapeHtml(titleClear)}">🗑️</button>`;
-
-      // Edit: inline to avoid external/global listeners
-      const editBtn  = $('#topicEditBtn');
-      const clearBtn = $('#topicClearBtn');
-      if (editBtn)  editBtn.addEventListener('click', beginTopicEdit);
-      if (clearBtn) clearBtn.addEventListener('click', () => {
-        state.topicLabel = '';
-        state.topicUrl = null;
-        state.topicEditing = false;
-        renderTopic();
-        send('topicSave:' + encodeURIComponent(''));
-      });
+                 title="${escapeHtml(titleClear)}" aria-label="${escapeHtml(titleClear)}">🗑️</button>`;
 
       requestAnimationFrame(syncTopicOverflow);
     } else {
+      // Edit mode
       if (!displayEl || displayEl.tagName !== 'INPUT') {
         const inp = document.createElement('input');
         inp.type = 'text';
         inp.className = 'topic-inline-input';
         inp.id = 'topicDisplay';
-        inp.placeholder = isDe() ? 'JIRA-Link einfügen oder Key eingeben' : 'Paste JIRA link or type key';
+        inp.placeholder = t('topic.placeholder', 'Paste JIRA link or type key');
         if (displayEl) displayEl.replaceWith(inp);
         else row.insertBefore(inp, row.firstChild ? row.firstChild.nextSibling : null);
         displayEl = inp;
@@ -1074,16 +1073,17 @@
 
       if (hint) hint.style.display = 'none';
 
-      const titleSave   = t('button.saveTopic', isDe() ? 'Speichern'  : 'Save');
-      const titleCancel = t('button.cancel',    isDe() ? 'Abbrechen'  : 'Cancel');
+      const titleSave   = t('button.saveTopic', 'Save');
+      const titleCancel = t('button.cancel',    'Cancel');
 
+      // Buttons without direct listeners (delegation handles them)
       actions.innerHTML =
         `<button id="topicSaveBtn" class="icon-button neutral" type="button"
-                title="${escapeHtml(titleSave)}" aria-label="${escapeHtml(titleSave)}">✅</button>
+                 title="${escapeHtml(titleSave)}" aria-label="${escapeHtml(titleSave)}">✅</button>
          <button id="topicCancelEditBtn" class="icon-button neutral" type="button"
-                title="${escapeHtml(titleCancel)}" aria-label="${escapeHtml(titleCancel)}">❌</button>`;
+                 title="${escapeHtml(titleCancel)}" aria-label="${escapeHtml(titleCancel)}">❌</button>`;
 
-      // Key handling – stays local to the input
+      // Keep keyboard handling local to the input
       const doSave = () => {
         const val = displayEl.value || '';
         const parsed = clientParseTopic(val);
@@ -1094,11 +1094,6 @@
         send('topicSave:' + encodeURIComponent(val));
       };
       const doCancel = () => { state.topicEditing = false; renderTopic(); };
-
-      const saveBtn   = $('#topicSaveBtn');
-      const cancelBtn = $('#topicCancelEditBtn');
-      if (saveBtn)   saveBtn.addEventListener('click', doSave);
-      if (cancelBtn) cancelBtn.addEventListener('click', doCancel);
 
       displayEl.addEventListener('keydown', (e) => {
         if (e.key === 'Enter')  { e.preventDefault(); doSave(); }
@@ -1121,12 +1116,13 @@
 
       const full = [state.topicLabel || '', state.topicUrl || ''].filter(Boolean).join(' — ');
       hint.setAttribute('title', full);
-      hint.setAttribute('aria-label', t('topic.more', isDe() ? 'Vollständiges Thema anzeigen' : 'Show full topic'));
+      hint.setAttribute('aria-label', t('topic.more', 'Show full topic'));
 
       const over = el.scrollWidth > el.clientWidth + 1;
       hint.style.display = over ? '' : 'none';
     } catch {}
   }
+
 
   /*** ---------- Auto-reveal badge ---------- ***/
   function renderAutoReveal() {
@@ -1323,7 +1319,6 @@
   // --- Event-delegation (robust, no global capture) -------------------------
   let _cardGridBound = false;
   let _plistBound = false;
-  let _topicBound = false;
 
   function bindDelegatedHandlers() {
     // Cards
