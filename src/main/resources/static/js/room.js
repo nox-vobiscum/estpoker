@@ -1385,6 +1385,7 @@ function installClickSafetyNet() {
   // --- Event-delegation (robust gegen bubbled click blockers) -----------------
     let _cardGridBound = false;
     let _plistBound = false;
+    let _topicBound = false;
 
     function bindDelegatedHandlers() {
       const grid = document.querySelector('#cardGrid');
@@ -1402,9 +1403,9 @@ function installClickSafetyNet() {
           try { send(`vote:${state.youName}:${label}`); } catch {}
         };
 
-        // Frühe Phase (pointerdown) + Fallback (click)
+        // early phase (pointerdown) + Fallback (click)
         grid.addEventListener('pointerdown', (e) => {
-          if (e.button !== 0) return; // nur linker Button
+          if (e.button !== 0) return;
           const btn = e.target && e.target.closest ? e.target.closest('#cardGrid button') : null;
           if (btn) onPick(btn);
         }, { passive: true });
@@ -1435,7 +1436,52 @@ function installClickSafetyNet() {
           }
         };
 
-        // Frühe Phase + Fallback
+      // --- Topic row: Save/Cancel robust binden -------------------------------
+      const topic = document.querySelector('#topicRow');
+      if (topic && !_topicBound) {
+        const actions = topic.querySelector('.topic-actions') || topic;
+
+        const doSave = () => {
+          if (!state.isHost) return;
+          const input = topic.querySelector('#topicDisplay');
+          if (!input || input.tagName !== 'INPUT') return;
+          const val = input.value || '';
+          const parsed = clientParseTopic(val);
+          state.topicLabel = parsed.label;
+          state.topicUrl = parsed.url;
+          state.topicEditing = false;
+          renderTopic();
+          try { send('topicSave:' + encodeURIComponent(val)); } catch {}
+        };
+
+        const doCancel = () => {
+          if (!state.isHost) return;
+          state.topicEditing = false;
+          renderTopic();
+        };
+
+        // early phase (pointerdown) + Fallback (click)
+        actions.addEventListener('pointerdown', (e) => {
+          if (e.button !== 0) return;
+          const btn = e.target && e.target.closest ? e.target.closest('#topicSaveBtn, #topicCancelEditBtn') : null;
+          if (!btn) return;
+          e.preventDefault?.();
+          if (btn.id === 'topicSaveBtn') doSave();
+          else doCancel();
+        }, { passive: false });
+
+        actions.addEventListener('click', (e) => {
+          const btn = e.target && e.target.closest ? e.target.closest('#topicSaveBtn, #topicCancelEditBtn') : null;
+          if (!btn) return;
+          if (btn.id === 'topicSaveBtn') doSave();
+          else doCancel();
+        }, { passive: false });
+
+        _topicBound = true;
+      }
+
+
+        // early phase + fallback
         list.addEventListener('pointerdown', (e) => {
           if (e.button !== 0) return;
           const btn = e.target && e.target.closest ? e.target.closest('#liveParticipantList button.row-action') : null;
@@ -1489,7 +1535,57 @@ function installClickSafetyNet() {
     if (!state.hardRedirect && !state.connected && (!state.ws || state.ws.readyState !== 1)) connectWS();
 
     syncSequenceInMenu();
+    bindTopicActions();
   }
+
+  // Robust, delegated handlers for Topic save/cancel.
+// Uses pointerdown (fires even if some other code swallows click).
+function bindTopicActions() {
+  try {
+    const row = document.querySelector('#topicRow');
+    if (!row || _topicBound) return;
+
+    const actions = row.querySelector('.topic-actions') || row;
+
+    const doSave = () => {
+      if (!state.isHost) return;
+      const input = row.querySelector('#topicDisplay');
+      if (!input || input.tagName !== 'INPUT') return;
+      const val = input.value || '';
+      const parsed = clientParseTopic(val);
+      state.topicLabel = parsed.label;
+      state.topicUrl = parsed.url;
+      state.topicEditing = false;
+      renderTopic();
+      try { send('topicSave:' + encodeURIComponent(val)); } catch {}
+    };
+
+    const doCancel = () => {
+      if (!state.isHost) return;
+      state.topicEditing = false;
+      renderTopic();
+    };
+
+    // Fire early
+    actions.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0) return;
+      const btn = e.target && e.target.closest && e.target.closest('#topicSaveBtn, #topicCancelEditBtn');
+      if (!btn) return;
+      e.preventDefault?.(); // avoid focus stealing / double handling
+      if (btn.id === 'topicSaveBtn') doSave(); else doCancel();
+    }, { passive: false });
+
+    // Fallback if pointerdown is blocked on some platforms
+    actions.addEventListener('click', (e) => {
+      const btn = e.target && e.target.closest && e.target.closest('#topicSaveBtn, #topicCancelEditBtn');
+      if (!btn) return;
+      if (btn.id === 'topicSaveBtn') doSave(); else doCancel();
+    }, { passive: false });
+
+    _topicBound = true;
+  } catch {}
+}
+
 
   /*** ---------- Misc helpers ---------- ***/
   function addParticipantLocal(name) {
@@ -1589,6 +1685,41 @@ function installClickSafetyNet() {
   }).observe(document.documentElement, { attributes: true, attributeFilter: ['lang'] });
 
   document.addEventListener('ep:lang-changed', onLangChange);
+
+  // CLICK SAFETY NET (capture): last-resort execution if other code swallows clicks.
+// Keep it non-invasive: do not stop propagation here.
+(function installClickSafetyNet() {
+  try {
+    document.addEventListener('click', function (e) {
+      const t = e.target || null;
+      if (!t) return;
+
+      // Topic save/cancel fallback
+      const saveBtn = t.closest && t.closest('#topicSaveBtn');
+      const cancelBtn = !saveBtn && t.closest && t.closest('#topicCancelEditBtn');
+      if (saveBtn || cancelBtn) {
+        const row = document.querySelector('#topicRow');
+        if (!row) return;
+
+        if (saveBtn) {
+          const input = row.querySelector('#topicDisplay');
+          const val = (input && input.value) || '';
+          const parsed = clientParseTopic(val);
+          state.topicLabel = parsed.label;
+          state.topicUrl = parsed.url;
+          state.topicEditing = false;
+          renderTopic();
+          try { send('topicSave:' + encodeURIComponent(val)); } catch {}
+        } else {
+          state.topicEditing = false;
+          renderTopic();
+        }
+        // no stopPropagation here to avoid double prompts etc.
+      }
+    }, true); // capture phase on purpose
+  } catch {}
+})();
+
 
   /*** ---------- Name preflight: run once per (room+name) per tab ---------- ***/
   async function preflightNameCheck() {
