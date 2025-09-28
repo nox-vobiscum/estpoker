@@ -515,6 +515,15 @@
       if (has(m, 'topicLabel'))   state.topicLabel   = m.topicLabel || '';
       if (has(m, 'topicUrl'))     state.topicUrl     = m.topicUrl || null;
 
+      if (!state.topicEditing) {
+      if (has(m, 'topicVisible')) state.topicVisible = !!m.topicVisible;
+      if (has(m, 'topicLabel'))   state.topicLabel   = m.topicLabel || '';
+      if (has(m, 'topicUrl'))     state.topicUrl     = m.topicUrl || null;
+      } else {
+      
+      state._topicIncomingWhileEditing = { label: m.topicLabel, url: m.topicUrl };
+      }
+
       // participants
       if (has(m, 'participants') && Array.isArray(m.participants)) {
         const prevByName = Object.fromEntries((state.participants || []).map(p => [p.name, p]));
@@ -951,177 +960,225 @@
     }
   }
 
-    /*** ---------- Topic row (optimistic topic handling) ---------- ***/
-  function clientParseTopic(input) {
-    const MAX_LABEL = 140;
-    const s = (input || '').trim();
-    if (!s) return { label: null, url: null };
+  /*** ---------- Topic row (optimistic, stable while editing) ---------- ***/
 
-    const isUrl = s.startsWith('http://') || s.startsWith('https://');
-    const jiraKeyMatch = s.match(/\b([A-Z][A-Z0-9]+-\d+)\b/);
-    const label = jiraKeyMatch ? jiraKeyMatch[1] : (s.length > MAX_LABEL ? (s.slice(0, MAX_LABEL) + '…') : s);
-    const url2 = isUrl ? s : null;
+    // Parse a free-form topic input. Keeps a short label; links stay clickable.
+    function clientParseTopic(input) {
+      const MAX_LABEL = 140;
+      const s = String(input || '').trim();
+      if (!s) return { label: null, url: null };
 
-    return { label, url: url2 };
-  }
+      const isUrl = s.startsWith('http://') || s.startsWith('https://');
+      const jiraKeyMatch = s.match(/\b([A-Z][A-Z0-9]+-\d+)\b/);
+      const label = jiraKeyMatch ? jiraKeyMatch[1] : (s.length > MAX_LABEL ? (s.slice(0, MAX_LABEL) + '…') : s);
+      const url2 = isUrl ? s : null;
 
-  function renderTopic() {
-    const row = $('#topicRow'); if (!row) return;
-    row.style.display = state.topicVisible ? '' : 'none';
-
-    let actions = row.querySelector('.topic-actions');
-    if (!actions) {
-      actions = document.createElement('div');
-      actions.className = 'topic-actions';
-      row.appendChild(actions);
+      return { label, url: url2 };
     }
 
-    let displayEl = row.querySelector('#topicDisplay');
-
-    const renderDisplayContent = (el) => {
-      if (state.topicLabel && state.topicUrl) {
-        el.innerHTML = `<a href="${encodeURI(state.topicUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(state.topicLabel)}</a>`;
-      } else if (state.topicLabel) {
-        el.textContent = state.topicLabel;
-      } else {
-        el.textContent = '–';
-      }
-      const full = [state.topicLabel || '', state.topicUrl || ''].filter(Boolean).join(' — ');
-      const link = el.querySelector && el.querySelector('a');
-      (link || el).setAttribute('title', wrapForTitle(full, 44));
-    };
-
-    let hint = row.querySelector('#topicOverflowHint');
-    const ensureHint = () => {
-      if (!hint) {
-        const btn = document.createElement('button');
-        btn.id = 'topicOverflowHint';
-        btn.type = 'button';
-        btn.className = 'topic-more-btn';
-        btn.textContent = 'more';
-        const label = t('topic.more', 'Show full topic');
-        btn.setAttribute('aria-label', label);
-        btn.setAttribute('title', label);
-        hint = btn;
-      }
-    };
-
-    // ---- Non-host view -------------------------------------------------------
-    if (!state.isHost) {
-      if (!displayEl || displayEl.tagName !== 'SPAN') {
-        const span = document.createElement('span');
-        span.id = 'topicDisplay';
-        span.className = 'topic-text';
-        if (displayEl) displayEl.replaceWith(span);
-        else row.insertBefore(span, row.firstChild ? row.firstChild.nextSibling : null);
-        displayEl = span;
-      }
-      renderDisplayContent(displayEl);
-
-      ensureHint();
-      if (!hint.isConnected) row.insertBefore(hint, actions);
-      actions.innerHTML = '';
-
-      requestAnimationFrame(syncTopicOverflow);
-      const full = [state.topicLabel || '', state.topicUrl || ''].filter(Boolean).join(' — ');
-      hint.setAttribute('title', wrapForTitle(full, 44));
-      hint.setAttribute('aria-label', t('topic.more', 'Show full topic'));
-      return;
+    // Begin editing locally (no server round-trip). We keep a draft string and
+    // we DO NOT overwrite the input while editing when room state re-renders.
+    function beginTopicEdit() {
+      if (!state.isHost) return;
+      state.topicEditing = true;
+      // use existing draft if any; otherwise seed from current label
+      if (state._topicDraft == null) state._topicDraft = state.topicLabel || '';
+      renderTopic();
     }
 
-    // ---- Host view -----------------------------------------------------------
-    if (!state.topicEditing) {
-      // View mode
-      if (!displayEl || displayEl.tagName !== 'SPAN') {
-        const span = document.createElement('span');
-        span.id = 'topicDisplay';
-        span.className = 'topic-text';
-        if (displayEl) displayEl.replaceWith(span);
-        else row.insertBefore(span, row.firstChild ? row.firstChild.nextSibling : null);
-        displayEl = span;
+    // Render the topic row. While editing we never overwrite the user's input;
+    // we only set the value on first render of the INPUT.
+    function renderTopic() {
+      const row = $('#topicRow'); if (!row) return;
+      row.style.display = state.topicVisible ? '' : 'none';
+
+      // Ensure actions container
+      let actions = row.querySelector('.topic-actions');
+      if (!actions) {
+        actions = document.createElement('div');
+        actions.className = 'topic-actions';
+        row.appendChild(actions);
       }
-      renderDisplayContent(displayEl);
 
-      ensureHint();
-      if (!hint.isConnected) row.insertBefore(hint, actions);
+      // Helper to render the (non-edit) text/link
+      const renderDisplayContent = (el) => {
+        if (state.topicLabel && state.topicUrl) {
+          el.innerHTML = `<a href="${encodeURI(state.topicUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(state.topicLabel)}</a>`;
+        } else if (state.topicLabel) {
+          el.textContent = state.topicLabel;
+        } else {
+          el.textContent = '–';
+        }
+        const full = [state.topicLabel || '', state.topicUrl || ''].filter(Boolean).join(' — ');
+        const link = el.querySelector && el.querySelector('a');
+        (link || el).setAttribute('title', wrapForTitle(full, 44));
+      };
 
-      const titleEdit  = t('button.editTopic',  'Edit');
-      const titleClear = t('button.clearTopic', 'Clear');
+      // "more" hint (only visible when text is truncated)
+      let hint = row.querySelector('#topicOverflowHint');
+      const ensureHint = () => {
+        if (!hint) {
+          const btn = document.createElement('button');
+          btn.id = 'topicOverflowHint';
+          btn.type = 'button';
+          btn.className = 'topic-more-btn';
+          btn.textContent = isDe() ? 'mehr' : 'more';
+          const lab = isDe() ? 'Show full topic' : 'Show full topic';
+          const label = t('topic.more', lab);
+          btn.setAttribute('aria-label', label);
+          btn.setAttribute('title', label);
+          hint = btn;
+        }
+      };
 
-      // Buttons without direct listeners (delegation handles them)
-      actions.innerHTML =
-        `<button id="topicEditBtn" class="icon-button neutral" type="button"
-                 title="${escapeHtml(titleEdit)}" aria-label="${escapeHtml(titleEdit)}">✍️</button>
-         <button id="topicClearBtn" class="icon-button neutral" type="button"
-                 title="${escapeHtml(titleClear)}" aria-label="${escapeHtml(titleClear)}">🗑️</button>`;
+      let displayEl = row.querySelector('#topicDisplay');
 
-      requestAnimationFrame(syncTopicOverflow);
-    } else {
-      // Edit mode
+      // --- Spectators / non-host: read-only view --------------------------------
+      if (!state.isHost) {
+        if (!displayEl || displayEl.tagName !== 'SPAN') {
+          const span = document.createElement('span');
+          span.id = 'topicDisplay';
+          span.className = 'topic-text';
+          if (displayEl) displayEl.replaceWith(span);
+          else row.insertBefore(span, row.firstChild ? row.firstChild.nextSibling : null);
+          displayEl = span;
+        }
+        renderDisplayContent(displayEl);
+
+        ensureHint();
+        if (!hint.isConnected) row.insertBefore(hint, actions);
+        actions.innerHTML = '';
+
+        requestAnimationFrame(syncTopicOverflow);
+        const full = [state.topicLabel || '', state.topicUrl || ''].filter(Boolean).join(' — ');
+        hint.setAttribute('title', wrapForTitle(full, 44));
+        hint.setAttribute('aria-label', t('topic.more', isDe() ? 'Show full topic' : 'Show full topic'));
+        return;
+      }
+
+      // --- Host view -------------------------------------------------------------
+      if (!state.topicEditing) {
+        // Show text + Edit / Clear buttons
+        if (!displayEl || displayEl.tagName !== 'SPAN') {
+          const span = document.createElement('span');
+          span.id = 'topicDisplay';
+          span.className = 'topic-text';
+          if (displayEl) displayEl.replaceWith(span);
+          else row.insertBefore(span, row.firstChild ? row.firstChild.nextSibling : null);
+          displayEl = span;
+        }
+        renderDisplayContent(displayEl);
+
+        ensureHint();
+        if (!hint.isConnected) row.insertBefore(hint, actions);
+
+        const titleEdit  = t('button.editTopic',  'Edit');
+        const titleClear = t('button.clearTopic', 'Clear');
+
+        actions.innerHTML =
+          `<button id="topicEditBtn" class="icon-button neutral" type="button"
+                  title="${escapeHtml(titleEdit)}" aria-label="${escapeHtml(titleEdit)}">✍️</button>
+          <button id="topicClearBtn" class="icon-button neutral" type="button"
+                  title="${escapeHtml(titleClear)}" aria-label="${escapeHtml(titleClear)}">🗑️</button>`;
+
+        const editBtn  = $('#topicEditBtn');
+        const clearBtn = $('#topicClearBtn');
+
+        if (editBtn) editBtn.addEventListener('click', () => { beginTopicEdit(); }, { passive: true });
+        if (clearBtn) clearBtn.addEventListener('click', () => {
+          state.topicLabel = '';
+          state.topicUrl = null;
+          state.topicEditing = false;
+          state._topicDraft = null;
+          renderTopic();
+          send('topicSave:' + encodeURIComponent(''));
+        }, { passive: true });
+
+        requestAnimationFrame(syncTopicOverflow);
+        return;
+      }
+
+      // --- Editing mode ----------------------------------------------------------
+      // Create input if needed; only set its value ONCE so we do not clobber typing
+      // when the room re-renders due to other updates.
       if (!displayEl || displayEl.tagName !== 'INPUT') {
         const inp = document.createElement('input');
         inp.type = 'text';
         inp.className = 'topic-inline-input';
         inp.id = 'topicDisplay';
-        inp.placeholder = t('topic.placeholder', 'Paste JIRA link or type key');
+        inp.placeholder = isDe() ? 'Paste JIRA link or type key' : 'Paste JIRA link or type key';
+        // seed value from draft or current label
+        inp.value = state._topicDraft != null ? state._topicDraft : (state.topicLabel || '');
+        // keep draft in sync
+        inp.addEventListener('input', () => { state._topicDraft = inp.value; });
         if (displayEl) displayEl.replaceWith(inp);
         else row.insertBefore(inp, row.firstChild ? row.firstChild.nextSibling : null);
         displayEl = inp;
+        // focus after attachment
+        setTimeout(() => { try { displayEl.focus(); displayEl.select(); } catch {} }, 0);
+      } else {
+        // Input already exists -> DO NOT touch displayEl.value here
       }
-      displayEl.value = state.topicLabel || '';
-      setTimeout(() => { try { displayEl.focus(); displayEl.select(); } catch {} }, 0);
 
       if (hint) hint.style.display = 'none';
 
       const titleSave   = t('button.saveTopic', 'Save');
       const titleCancel = t('button.cancel',    'Cancel');
 
-      // Buttons without direct listeners (delegation handles them)
       actions.innerHTML =
         `<button id="topicSaveBtn" class="icon-button neutral" type="button"
-                 title="${escapeHtml(titleSave)}" aria-label="${escapeHtml(titleSave)}">✅</button>
-         <button id="topicCancelEditBtn" class="icon-button neutral" type="button"
-                 title="${escapeHtml(titleCancel)}" aria-label="${escapeHtml(titleCancel)}">❌</button>`;
+                title="${escapeHtml(titleSave)}" aria-label="${escapeHtml(titleSave)}">✅</button>
+        <button id="topicCancelEditBtn" class="icon-button neutral" type="button"
+                title="${escapeHtml(titleCancel)}" aria-label="${escapeHtml(titleCancel)}">❌</button>`;
 
-      // Keep keyboard handling local to the input
       const doSave = () => {
-        const val = displayEl.value || '';
-        const parsed = clientParseTopic(val);
+        const raw = (displayEl && displayEl.value) || '';
+        const parsed = clientParseTopic(raw);
         state.topicLabel = parsed.label;
-        state.topicUrl = parsed.url;
+        state.topicUrl   = parsed.url;
         state.topicEditing = false;
+        state._topicDraft = null;
         renderTopic();
-        send('topicSave:' + encodeURIComponent(val));
+        send('topicSave:' + encodeURIComponent(raw));
       };
-      const doCancel = () => { state.topicEditing = false; renderTopic(); };
+      const doCancel = () => {
+        state.topicEditing = false;
+        state._topicDraft = null;
+        renderTopic();
+      };
 
+      const saveBtn   = $('#topicSaveBtn');
+      const cancelBtn = $('#topicCancelEditBtn');
+      if (saveBtn)   saveBtn.addEventListener('click', doSave,   { passive: true });
+      if (cancelBtn) cancelBtn.addEventListener('click', doCancel, { passive: true });
+
+      // Keyboard support stays local to the input and won’t bubble out
       displayEl.addEventListener('keydown', (e) => {
         if (e.key === 'Enter')  { e.preventDefault(); doSave(); }
         if (e.key === 'Escape') { e.preventDefault(); doCancel(); }
       }, { passive: false });
     }
-  }
 
-  function beginTopicEdit() { if (!state.isHost) return; state.topicEditing = true; renderTopic(); }
+    // Show/Hide the "more" hint depending on overflow (read-only mode only)
+    function syncTopicOverflow() {
+      try {
+        const row  = $('#topicRow'); if (!row) return;
+        const el   = row.querySelector('#topicDisplay');
+        const hint = row.querySelector('#topicOverflowHint');
+        if (!el || !hint) return;
 
-  function syncTopicOverflow() {
-    try {
-      const row  = $('#topicRow'); if (!row) return;
-      const el   = row.querySelector('#topicDisplay');
-      const hint = row.querySelector('#topicOverflowHint');
-      if (!el || !hint) return;
+        const inViewMode = el && el.tagName === 'SPAN';
+        if (!inViewMode) { hint.style.display = 'none'; return; }
 
-      const inViewMode = el && el.tagName === 'SPAN';
-      if (!inViewMode) { hint.style.display = 'none'; return; }
+        const full = [state.topicLabel || '', state.topicUrl || ''].filter(Boolean).join(' — ');
+        hint.setAttribute('title', full);
+        hint.setAttribute('aria-label', t('topic.more', 'Show full topic'));
 
-      const full = [state.topicLabel || '', state.topicUrl || ''].filter(Boolean).join(' — ');
-      hint.setAttribute('title', full);
-      hint.setAttribute('aria-label', t('topic.more', 'Show full topic'));
+        const over = el.scrollWidth > el.clientWidth + 1;
+        hint.style.display = over ? '' : 'none';
+      } catch {}
+    }
 
-      const over = el.scrollWidth > el.clientWidth + 1;
-      hint.style.display = over ? '' : 'none';
-    } catch {}
-  }
 
 
   /*** ---------- Auto-reveal badge ---------- ***/
