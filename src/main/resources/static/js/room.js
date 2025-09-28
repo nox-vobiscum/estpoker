@@ -39,7 +39,7 @@
   }
 
   /*** ---------- Constants ---------- ***/
-  const SPECIALS = ['❓', '☕']; // 💬 intentionally removed
+  const SPECIALS = ['❓', '☕']; // 💬 removed
   const INFINITY_ = '♾️';
   const INFINITY_ALT = '∞';
 
@@ -55,7 +55,7 @@
   const ds = (scriptEl && scriptEl.dataset) || {};
   const url = new URL(location.href);
 
-  // Optional: allow disabling specific specials via data-attribute (e.g., data-disabled-specials="☕")
+  // Allow disabling specific specials via data-attribute (e.g., data-disabled-specials="☕")
   const DISABLED_SPECIALS = new Set(
     String(ds.disabledSpecials || '')
       .split(',').map(s => s.trim()).filter(Boolean)
@@ -63,7 +63,6 @@
 
   /*** ---------- Client state ---------- ***/
   const state = {
-    _lastRenderSig: null,
     _chipAnimShown: false,
 
     roomCode: ds.room || url.searchParams.get('roomCode') || 'demo',
@@ -110,10 +109,8 @@
   const CIDKEY = 'ep-cid';
   try {
     const existing = sessionStorage.getItem(CIDKEY);
-    if (existing) {
-      state.cid = existing;
-      state.cidWasNew = false;
-    } else {
+    if (existing) { state.cid = existing; state.cidWasNew = false; }
+    else {
       state.cid = Math.random().toString(36).slice(2) + '-' + Date.now();
       sessionStorage.setItem(CIDKEY, state.cid);
       state.cidWasNew = true;
@@ -168,11 +165,6 @@
   const PRESENCE_GRACE_MS = 2000;
   const PRESENCE_KEY = (n) => 'ep-presence:' + encodeURIComponent(n);
   function markAlive(name) { if (!name) return; try { localStorage.setItem(PRESENCE_KEY(name), String(Date.now())); } catch {} }
-  function shouldToastPresence(name) {
-    if (!name || name === state.youName) return false;
-    let last = 0; try { last = parseInt(localStorage.getItem(PRESENCE_KEY(name)) || '0', 10) || 0; } catch {}
-    return (Date.now() - last) > PRESENCE_GRACE_MS;
-  }
 
   // Wrap long tooltips by injecting \n
   function wrapForTitle(text, max = 44) {
@@ -276,7 +268,6 @@
   function connectWS() {
     const u = wsUrl();
 
-    // Close any existing open/connecting socket before reconnecting
     if (state.ws && (state.ws.readyState === 0 || state.ws.readyState === 1)) {
       try { state.ws.close(4004, 'reconnect'); } catch {}
     }
@@ -297,7 +288,6 @@
       startHeartbeat();
       startWatchdog();
 
-      // identify + ask for fresh snapshot
       try { send('rename:' + encodeURIComponent(state.youName)); } catch {}
       try { send('requestSync'); } catch {}
       setTimeout(() => { try { send('requestSync'); } catch {} }, 400);
@@ -312,14 +302,12 @@
 
       if (state.hardRedirect) { location.href = state.hardRedirect; return; }
 
-      // 4000 = room closed by host, 4001 = kicked by host
       if (ev.code === 4000 || ev.code === 4001) {
         try { sessionStorage.setItem('ep-flash', ev.code === 4001 ? 'kicked' : 'roomClosed'); } catch {}
         location.replace('/');
         return;
       }
 
-      // 4005 = name collision → only bounce on first-time tab entries
       if (ev.code === 4005) {
         if (state.cidWasNew) {
           const redirectUrl =
@@ -343,13 +331,11 @@
     };
 
     s.onmessage = (ev) => {
-      // Bump watchdog on any inbound frame
       lastInboundAt = Date.now();
 
-      // Heartbeat reply from server
       if (ev.data === 'pong') return;
 
-      // ---- legacy plain-text roster frames ---------------------------------
+      // Legacy plain-text roster frames first
       if (typeof ev.data === 'string') {
         if (ev.data.startsWith('participantJoined:')) {
           const name = ev.data.slice('participantJoined:'.length).trim();
@@ -362,7 +348,6 @@
           return;
         }
       }
-      // ----------------------------------------------------------------------
 
       // Small JSON messages (compat)
       try {
@@ -387,7 +372,7 @@
             }
           }
         }
-      } catch { /* ignore compat parse errors */ }
+      } catch { /* ignore and fall through */ }
 
       // Full JSON room-state messages
       try {
@@ -400,6 +385,36 @@
     };
   }
   // -------- END connectWS ----------------------------------------------------
+
+  // Custom sequence change bridge
+  window.addEventListener('ep:sequence-change', (ev) => {
+    try {
+      const id = String(ev?.detail?.sequenceId || '').trim();
+      if (!id) return;
+      send('sequence:' + encodeURIComponent(id));
+    } catch (e) {
+      console.warn('[room] ep:sequence-change handler failed:', e);
+    }
+  }, { passive: true });
+
+  /* === Close-room confirm only (Kick/Host confirm lives on the buttons) ==== */
+  (function () {
+    function _isDe() {
+      try { return !!isDe(); } catch {
+        const lang = (document.documentElement.lang || 'en').toLowerCase();
+        return lang.startsWith('de');
+      }
+    }
+    document.addEventListener('ep:close-room', function (e) {
+      const msg = _isDe()
+        ? 'Diesen Raum für alle schließen?'
+        : 'Close this room for everyone?';
+      if (!window.confirm(msg)) {
+        e.preventDefault();
+        try { e.stopImmediatePropagation(); } catch {}
+      }
+    });
+  })();
 
   /*** ---------- Messages ---------- ***/
   function handleMessage(m) {
@@ -450,36 +465,16 @@
     }
   }
 
-  function renderSigFromState() {
-    const P = (state.participants || [])
-      .map(p => ({ n: p?.name || '', v: (p?.vote ?? ''), o: !!p?.spectator, d: !!p?.disconnected }))
-      .sort((a, b) => a.n.localeCompare(b.n));
-
-    return JSON.stringify({
-      r: !!state.votesRevealed,
-      a: state.averageVote ?? null,
-      m: state.medianVote ?? null,
-      g: state.range ?? null,
-      c: !!state.consensus,
-      s: state.sequenceId || '',
-      ar: !!state.autoRevealEnabled,
-      tv: !!state.topicVisible,
-      tl: state.topicLabel || '',
-      tu: state.topicUrl || null,
-      sp: !!state.allowSpecials,
-      P
-    });
-  }
-
+  /*** ---------- Apply room state ---------- ***/
   function applyVoteUpdate(m) {
     try {
       const has = (obj, k) => Object.prototype.hasOwnProperty.call(obj || {}, k);
 
-      // --- sequence id ---
+      // sequence id
       if (has(m, 'sequenceId')) state.sequenceId = normalizeSeq(m.sequenceId);
       else if (!state.sequenceId) state.sequenceId = 'fib.scrum';
 
-      // --- specials & deck ---
+      // specials / deck
       let specialsList = null;
       let allowFromServer = null;
 
@@ -512,22 +507,17 @@
       deck = deck.filter(c => !DISABLED_SPECIALS.has(String(c)));
       state.cards = deck;
 
-      // --- core flags / stats ---
+      // core flags / stats
       if (has(m, 'votesRevealed') || has(m, 'cardsRevealed') || has(m, 'revealed')) {
         state.votesRevealed = !!(has(m, 'votesRevealed') ? m.votesRevealed
                               : has(m, 'cardsRevealed')   ? m.cardsRevealed
                               : m.revealed);
       }
 
-      if (has(m, 'averageVote') || has(m, 'average')) {
-        state.averageVote = has(m, 'averageVote') ? m.averageVote : m.average;
-      }
-      if (has(m, 'medianVote') || has(m, 'median')) {
-        state.medianVote = has(m, 'medianVote') ? m.medianVote : m.median;
-      }
-      if (has(m, 'range')) {
-        state.range = m.range;
-      } else if (has(m, 'min') || has(m, 'max')) {
+      if (has(m, 'averageVote') || has(m, 'average'))  state.averageVote = has(m, 'averageVote') ? m.averageVote : m.average;
+      if (has(m, 'medianVote') || has(m, 'median'))    state.medianVote  = has(m, 'medianVote')  ? m.medianVote  : m.median;
+      if (has(m, 'range'))                              state.range       = m.range;
+      else if (has(m, 'min') || has(m, 'max')) {
         const min = m.min ?? null, max = m.max ?? null;
         state.range = (min != null && max != null) ? `${min}–${max}` : null;
       }
@@ -536,12 +526,12 @@
       if (has(m, 'outliers') && Array.isArray(m.outliers)) state.outliers = m.outliers.slice();
       if (has(m, 'autoRevealEnabled'))  state.autoRevealEnabled = !!m.autoRevealEnabled;
 
-      // --- topic / misc ---
+      // topic / misc
       if (has(m, 'topicVisible')) state.topicVisible = !!m.topicVisible;
       if (has(m, 'topicLabel'))   state.topicLabel   = m.topicLabel || '';
       if (has(m, 'topicUrl'))     state.topicUrl     = m.topicUrl || null;
 
-      // --- participants (preserve previous vote if omitted) ---
+      // participants
       if (has(m, 'participants') && Array.isArray(m.participants)) {
         const prevByName = Object.fromEntries((state.participants || []).map(p => [p.name, p]));
         const next = [];
@@ -578,13 +568,11 @@
         if (next.length) state.participants = next;
       }
 
-      // who am I (re-evaluate host)
       const me = state.participants.find(p => p && p.name === state.youName);
       state.isHost = !!(me && me.isHost);
       state._hostKnown = true;
       if (me && me.vote != null) state._optimisticVote = null;
 
-      // --- render ---
       syncHostClass();
       renderParticipants();
       renderCards();
@@ -614,9 +602,7 @@
   }
 
   /*** ---------- Participants ---------- ***/
-  function isSpectator(p) {
-    return !!(p && (p.spectator === true || p.participating === false));
-  }
+  function isSpectator(p) { return !!(p && (p.spectator === true || p.participating === false)); }
 
   function renderParticipants() {
     const ul = document.querySelector('#liveParticipantList');
@@ -712,9 +698,7 @@
                 }
               }
 
-              if (Array.isArray(state.outliers) && state.outliers.includes(p.name)) {
-                chip.classList.add('outlier');
-              }
+              if (Array.isArray(state.outliers) && state.outliers.includes(p.name)) chip.classList.add('outlier');
 
               right.appendChild(chip);
             }
@@ -841,16 +825,17 @@
     function addCardButton(val) {
       const btn = document.createElement('button');
       btn.type = 'button';
-      btn.dataset.val = String(val);
-      btn.textContent = String(val);
+      const label = String(val);
+      btn.textContent = label;
+      btn.dataset.value = label;
 
-      if (SPECIALS.includes(btn.dataset.val)) {
-        if (btn.dataset.val === '❓') {
+      if (SPECIALS.includes(label)) {
+        if (label === '❓') {
           const tip = msg('card.tip.question',
             'I still have questions about this requirement.',
             'Ich habe noch offene Fragen zu dieser Anforderung.');
           btn.setAttribute('title', tip); btn.setAttribute('aria-label', tip);
-        } else if (btn.dataset.val === '☕') {
+        } else if (label === '☕') {
           const tip = msg('card.tip.coffee',
             'I need a short break…',
             'Ich brauche eine Pause…');
@@ -858,9 +843,9 @@
         }
       }
 
-      if (btn.dataset.val === INFINITY_ || btn.dataset.val === INFINITY_ALT) btn.classList.add('card-infinity');
+      if (label === INFINITY_ || label === INFINITY_ALT) btn.classList.add('card-infinity');
       if (disabled) btn.disabled = true;
-      if (selectedVal != null && String(selectedVal) === btn.dataset.val) btn.classList.add('selected');
+      if (selectedVal != null && String(selectedVal) === label) btn.classList.add('selected');
 
       grid.appendChild(btn);
     }
@@ -1351,61 +1336,65 @@
     });
   }
 
-  /*** ---------- Delegated UI handlers (cards + host/kick) ---------- ***/
-  function wireDelegatedHandlers() {
-    // Cards
-    const grid = $('#cardGrid');
-    if (grid && !grid.__epBound) {
-      grid.addEventListener('click', (e) => {
-        const btn = e.target && e.target.closest && e.target.closest('button[data-val]');
-        if (!btn || btn.disabled) return;
+  // --- Event-delegation (stable even across re-renders) ---------------------
+  let _cardGridBound = false;
+  let _plistBound = false;
 
-        const label = btn.dataset.val;
+  function bindDelegatedHandlers() {
+    const grid = $('#cardGrid');
+    if (grid && !_cardGridBound) {
+      grid.addEventListener('click', (e) => {
+        const btn = e.target && e.target.closest ? e.target.closest('#cardGrid button') : null;
+        if (!btn) return;
+        if (btn.disabled) return;
+
+        const label = btn.dataset.value || btn.textContent || '';
         if (!label) return;
 
-        // If already selected, do nothing
-        if (mySelectedValue() === label) return;
+        // No-op if already selected
+        if (mySelectedValue() === String(label)) return;
 
-        // Optimistic selection
-        state._optimisticVote = label;
-        try { grid.querySelectorAll('button[data-val].selected').forEach(b => b.classList.remove('selected')); } catch {}
-        btn.classList.add('selected');
+        // Optimistic local selection
+        state._optimisticVote = String(label);
+        try {
+          grid.querySelectorAll('button').forEach(b => b.classList.remove('selected'));
+          btn.classList.add('selected');
+        } catch {}
 
         try { send(`vote:${state.youName}:${label}`); } catch {}
-      });
-      grid.__epBound = true;
+      }, { passive: true });
+      _cardGridBound = true;
     }
 
-    // Host/Kick (participants list)
     const list = $('#liveParticipantList');
-    if (list && !list.__epBound) {
+    if (list && !_plistBound) {
       list.addEventListener('click', (e) => {
-        const hostBtn = e.target && e.target.closest && e.target.closest('button.row-action.host[data-action="host"]');
-        if (hostBtn) {
-          if (!state.isHost) return;
-          const name = hostBtn.dataset.name || '';
-          if (!name) return;
+        const btn = e.target && e.target.closest ? e.target.closest('button.row-action') : null;
+        if (!btn) return;
+
+        const action = btn.dataset.action;
+        const name = btn.dataset.name || '';
+        if (!action || !name) return;
+
+        if (action === 'host') {
           const q = isDe() ? `Host-Rolle an ${name} übertragen?` : `Transfer host role to ${name}?`;
-          if (confirm(q)) send('makeHost:' + encodeURIComponent(name));
-          return;
-        }
-        const kickBtn = e.target && e.target.closest && e.target.closest('button.row-action.kick[data-action="kick"]');
-        if (kickBtn) {
-          if (!state.isHost) return;
-          const name = kickBtn.dataset.name || '';
-          if (!name) return;
+          if (!confirm(q)) return;
+          send('makeHost:' + encodeURIComponent(name));
+        } else if (action === 'kick') {
           const q = isDe() ? `${name} wirklich entfernen?` : `Remove ${name}?`;
-          if (confirm(q)) send('kick:' + encodeURIComponent(name));
+          if (!confirm(q)) return;
+          send('kick:' + encodeURIComponent(name));
         }
-      });
-      list.__epBound = true;
+      }, { passive: false });
+      _plistBound = true;
     }
   }
+  // --------------------------------------------------------------------------
 
   function wireOnce() {
     bindCopyLink();
     wireMenuEvents();
-    wireDelegatedHandlers();
+    bindDelegatedHandlers();
 
     const row = $('#topicRow');
     if (row) {
@@ -1422,7 +1411,7 @@
       _topicOverflowResizeBound = true;
     }
 
-    // Lifecycle: aggressive wake-ups to recover from iOS sleeps
+    // Lifecycle wake-ups
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible') wake('visibility');
     }, true);
@@ -1432,7 +1421,6 @@
 
     startWatchdog();
 
-    // Connect only if we are not already redirecting away
     if (!state.hardRedirect && !state.connected && (!state.ws || state.ws.readyState !== 1)) connectWS();
 
     syncSequenceInMenu();
@@ -1517,7 +1505,7 @@
     renderAutoReveal();
     syncMenuFromState();
     syncSequenceInMenu();
-    wireDelegatedHandlers(); // ensure delegation survives full rerenders
+    bindDelegatedHandlers(); // ensure still bound after DOM swaps
   }
 
   async function onLangChange() {
@@ -1539,13 +1527,10 @@
 
   /*** ---------- Name preflight: run once per (room+name) per tab ---------- ***/
   async function preflightNameCheck() {
-    // Never on reload/back-forward navigations
     let isReloadLike = false;
     try {
       const nav = performance?.getEntriesByType?.('navigation')?.[0];
-      if (nav && (nav.type === 'reload' || nav.type === 'back_forward')) {
-        isReloadLike = true;
-      }
+      if (nav && (nav.type === 'reload' || nav.type === 'back_forward')) isReloadLike = true;
     } catch {}
     if (isReloadLike) return;
 
@@ -1572,19 +1557,15 @@
 
       if (resp.ok) {
         const data = await resp.json();
-
         if (data && data.available === false) {
           const redirectUrl = `/invite?roomCode=${encodeURIComponent(state.roomCode)}&participantName=${encodeURIComponent(state.youName)}&nameTaken=1`;
           state.hardRedirect = redirectUrl;
           location.replace(redirectUrl);
           return;
         }
-
         try { sessionStorage.setItem(pfKey, '1'); state._preflightMarkedOk = true; } catch {}
       }
-    } catch {
-      // best-effort only
-    }
+    } catch { /* be permissive */ }
   }
 
   /*** ---------- Boot ---------- ***/
@@ -1609,14 +1590,12 @@
 
     syncHostClass();
     seedSelfPlaceholder();
-
     try {
       if (!document.documentElement.hasAttribute('data-ready')) {
         document.documentElement.setAttribute('data-ready', '1');
       }
     } catch {}
-
-    wireOnce(); // starts WS/connect, watchdog, delegated handlers, etc.
+    wireOnce();
   }
 
   if (document.readyState === 'loading') {
@@ -1624,5 +1603,4 @@
   } else {
     boot();
   }
-
-})(); // end IIFE
+})();
