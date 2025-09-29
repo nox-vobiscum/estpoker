@@ -4,12 +4,19 @@
   "scripts": {
     "check:menu-events": "node scripts/check-menu-toggle-events.js",
     "check": "npm run check:menu-events",
-    "ci:verify": "npm run check",
-    "test:e2e": "playwright test -c playwright.config.ts",
-    "test": "npm run test:e2e"
+    "e2e:buildcheck": "tsc -p tests/tsconfig.json --noEmit",
+    "e2e": "playwright test -c playwright.config.ts",
+    "e2e:headed": "playwright test -c playwright.config.ts --headed",
+    "e2e:report": "playwright show-report",
+    "e2e:smoke:local": "cross-env EP_BASE_URL=http://localhost:8080 playwright test -c playwright.config.ts tests/prod-smoke.spec.ts",
+    "test:e2e": "npm run e2e",
+    "test": "npm run e2e",
+    "ci:verify": "npm run check && npm run e2e:buildcheck"
   },
   "devDependencies": {
-    "@playwright/test": "^1.55.0",
-    "@types/node": "^20"
+    "@playwright/test": "^1.55.1",
+    "@types/node": "^20.19.17",
+    "cross-env": "^7.0.3",
+    "typescript": "^5.9.2"
   }
 }

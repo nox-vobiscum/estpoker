@@ -1,18 +1,4 @@
 {
-  "compilerOptions": {
-    "noEmit": true,
-    "target": "ES2020",
-    "module": "CommonJS",
-    "moduleResolution": "node",
-    "lib": ["ES2020"],
-    "types": ["node", "@playwright/test"],
-    "skipLibCheck": true,
-    "strict": false,
-    "resolveJsonModule": true
-  },
-  "include": [
-    "playwright.config.ts",
-    "tests/**/*",
-    "global.d.ts"
-  ]
+  "files": [],
+  "references": [{ "path": "./tests" }]
 }

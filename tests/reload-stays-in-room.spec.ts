@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, Page, Browser } from '@playwright/test';
 
 test('Reload in room keeps the user in the room (no invite redirect, no preflight)', async ({ page }) => {
   const room = `pw-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
