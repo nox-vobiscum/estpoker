@@ -37,4 +37,4 @@ build/
 
 # Playwright artifacts
 /playwright-report/
-/test-results/
+/test-results/scripts/bin/cloudflared.exe
