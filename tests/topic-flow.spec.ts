@@ -1,15 +1,16 @@
 // Topic flow E2E (stable):
 // - Show/Hide via menu toggle propagates to all clients
 // - Edit & Save updates label for all clients
-// - Clear resets label to "—" on all clients
+// - Clear resets label to "–" on all clients
 // Run:
-//   npx playwright test tests/topic-flow.spec.js
+//   EP_BASE_URL=http://localhost:8080 npx playwright test -c playwright.config.ts tests/topic-flow.spec.ts
 
 import { test, expect, Page, Browser } from '@playwright/test';
+import { waitTopicVisibility } from './utils/topic';
 
 function baseUrl() { return process.env.EP_BASE_URL || 'http://localhost:8080'; }
 function newRoomCode() { return `TPC-${Date.now().toString(36).slice(-6)}`; }
-function roomUrlFor(name, roomCode) {
+function roomUrlFor(name: string, roomCode: string) {
   const full = process.env.EP_ROOM_URL;
   if (full) {
     const u = new URL(full);
@@ -23,47 +24,29 @@ function roomUrlFor(name, roomCode) {
   return u.toString();
 }
 
-async function ensureMenuOpen(page) {
+async function ensureMenuOpen(page: Page) {
   const overlay = page.locator('#appMenuOverlay');
-  if (!(await overlay.isVisible().catch(()=>false))) {
+  if (!(await overlay.isVisible().catch(() => false))) {
     await page.locator('#menuButton').click();
     await expect(overlay).toBeVisible();
   }
 }
-async function ensureMenuClosed(page) {
+async function ensureMenuClosed(page: Page) {
   const overlay = page.locator('#appMenuOverlay');
-  if (await overlay.isVisible().catch(()=>false)) {
+  if (await overlay.isVisible().catch(() => false)) {
     await page.locator('#menuButton').click();
     await expect(overlay).toBeHidden();
   }
 }
-async function ensureToggleState(page, selector, desiredChecked) {
+async function ensureToggleState(page: Page, selector: string, desiredChecked: boolean) {
   const el = page.locator(selector);
   await expect(el).toHaveCount(1);
   const now = await el.isChecked();
   if (now !== desiredChecked) {
     await el.click({ force: true });
   }
-  // give WS a moment
-  await page.waitForTimeout(180);
-}
-
-// Visible helper: robust against style-toggling
-async function waitRowVisible(page, timeout = 3500) {
-  await page.waitForFunction(() => {
-    const el = document.querySelector('#topicRow');
-    if (!el) return false;
-    const style = getComputedStyle(el);
-    return style.display !== 'none' && style.visibility !== 'hidden';
-  }, null, { timeout });
-}
-async function waitRowHidden(page, timeout = 3500) {
-  await page.waitForFunction(() => {
-    const el = document.querySelector('#topicRow');
-    if (!el) return true;
-    const style = getComputedStyle(el);
-    return style.display === 'none' || style.visibility === 'hidden';
-  }, null, { timeout });
+  // tiny debounce for WS roundtrip
+  await page.waitForTimeout(120);
 }
 
 test.describe('Topic flow', () => {
@@ -78,38 +61,35 @@ test.describe('Topic flow', () => {
     await host.goto(roomUrlFor('Host', roomCode),  { waitUntil: 'domcontentloaded' });
     await guest.goto(roomUrlFor('Guest', roomCode), { waitUntil: 'domcontentloaded' });
 
-    // Ensure both pages have the row
     await expect(host.locator('#topicRow')).toHaveCount(1);
     await expect(guest.locator('#topicRow')).toHaveCount(1);
 
-    // Toggle ON → both visible
+    // ON → both visible
     await ensureMenuOpen(host);
     await ensureToggleState(host, '#menuTopicToggle', true);
     await ensureMenuClosed(host);
 
-    await waitRowVisible(host);
-    await guest.waitForTimeout(120);
-    await waitRowVisible(guest);
+    await waitTopicVisibility(host, true, 10_000);
+    await waitTopicVisibility(guest, true, 10_000);
 
-    // Toggle OFF → both hidden
+    // OFF → both hidden
     await ensureMenuOpen(host);
     await ensureToggleState(host, '#menuTopicToggle', false);
     await ensureMenuClosed(host);
 
-    await waitRowHidden(host);
-    await guest.waitForTimeout(120);
-    await waitRowHidden(guest);
+    await waitTopicVisibility(host, false, 10_000);
+    await waitTopicVisibility(guest, false, 10_000);
 
-    // Toggle ON again → both visible
+    // ON again → both visible
     await ensureMenuOpen(host);
     await ensureToggleState(host, '#menuTopicToggle', true);
     await ensureMenuClosed(host);
 
-    await waitRowVisible(host);
-    await guest.waitForTimeout(120);
-    await waitRowVisible(guest);
+    await waitTopicVisibility(host, true, 10_000);
+    await waitTopicVisibility(guest, true, 10_000);
 
-    await ctxHost.close(); await ctxGuest.close();
+    await ctxHost.close();
+    await ctxGuest.close();
   });
 
   test('Edit & Clear topic label propagates to host & guest', async ({ browser }) => {
@@ -123,50 +103,56 @@ test.describe('Topic flow', () => {
     await host.goto(roomUrlFor('Host', roomCode),  { waitUntil: 'domcontentloaded' });
     await guest.goto(roomUrlFor('Guest', roomCode), { waitUntil: 'domcontentloaded' });
 
-    // Make sure topic is visible before editing
+    // Ensure topic row is visible before editing
     await ensureMenuOpen(host);
     await ensureToggleState(host, '#menuTopicToggle', true);
     await ensureMenuClosed(host);
-    await waitRowVisible(host);
+    await waitTopicVisibility(host, true, 10_000);
+    await waitTopicVisibility(guest, true, 10_000);
 
+    // Locators (note: #topicDisplay is <span> in view-mode and <input> in edit-mode)
     const editBtn   = host.locator('#topicEditBtn');
-    const editBox   = host.locator('#topicEdit');
-    const input     = host.locator('#topicInput');
     const saveBtn   = host.locator('#topicSaveBtn');
+    const cancelBtn = host.locator('#topicCancelEditBtn');
     const clearBtn  = host.locator('#topicClearBtn');
     const dispHost  = host.locator('#topicDisplay');
     const dispGuest = guest.locator('#topicDisplay');
 
     await expect(editBtn).toBeVisible();
-    await expect(clearBtn).toHaveCount(1);
+    await expect(clearBtn).toBeVisible();
 
-    // Edit & save
+    // Enter edit mode
     await editBtn.click();
-    await expect(editBox).toBeVisible();
+
+    // In edit mode: input present and save/cancel visible
+    const input = host.locator('#topicDisplay'); // becomes <input> in edit mode
+    await expect(input).toBeVisible();
+    await expect(host.locator('#topicSaveBtn')).toBeVisible();
+    await expect(host.locator('#topicCancelEditBtn')).toBeVisible();
+
+    // Fill & save
     const label = `Story ${Date.now().toString(36).slice(-4)}`;
     await input.fill(label);
-    await saveBtn.click();
-    await expect(editBox).toBeHidden();
+    await host.locator('#topicSaveBtn').click();
+
+    // Back to view mode: save/cancel gone, edit/clear back
+    await expect(host.locator('#topicSaveBtn')).toHaveCount(0);
+    await expect(host.locator('#topicCancelEditBtn')).toHaveCount(0);
+    await expect(host.locator('#topicEditBtn')).toBeVisible();
+    await expect(host.locator('#topicClearBtn')).toBeVisible();
 
     // Label shows on host and guest
-    await host.waitForTimeout(180);
-    const hostText = (await dispHost.textContent() || '').trim();
-    expect(hostText.includes(label)).toBeTruthy();
+    await expect(dispHost).toContainText(label, { timeout: 6_000 });
+    await expect(dispGuest).toContainText(label, { timeout: 6_000 });
 
-    await guest.waitForTimeout(200);
-    const guestText = (await dispGuest.textContent() || '').trim();
-    expect(guestText.includes(label)).toBeTruthy();
+    // Clear on host
+    await host.locator('#topicClearBtn').click();
 
-    // Clear
-    await expect(clearBtn).toBeVisible();
-    await clearBtn.click();
+    // Expect "–" (en dash) on both sides
+    await expect(dispHost).toHaveText('–', { timeout: 6_000 });
+    await expect(dispGuest).toHaveText('–', { timeout: 6_000 });
 
-    await host.waitForTimeout(180);
-    const hostAfter = (await dispHost.textContent() || '').trim();
-    const guestAfter = (await dispGuest.textContent() || '').trim();
-    expect(hostAfter).toBe('—');
-    expect(guestAfter).toBe('—');
-
-    await ctxHost.close(); await ctxGuest.close();
+    await ctxHost.close();
+    await ctxGuest.close();
   });
 });
