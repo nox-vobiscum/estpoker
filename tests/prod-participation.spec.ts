@@ -4,6 +4,7 @@
 
 import { test, expect, Page, Browser } from '@playwright/test';
 import { roomUrlFor, newRoomCode, ensureMenuOpen, ensureMenuClosed } from './_setup/prod-helpers.js';
+import { baseUrl } from './utils/env';
 
 test('Participation toggle on prod: Spectator disables voting and updates host list', async ({ page }) => {
   const room = newRoomCode('PROD-OBS');
@@ -43,7 +44,7 @@ test('Participation toggle on prod: Spectator disables voting and updates host l
   // On user's page: all card buttons must be disabled
   await user.waitForFunction(() => {
     const btns = Array.from(document.querySelectorAll('#cardGrid button'));
-    return btns.length > 0 && btns.every(b => b.disabled);
+    return btns.length > 0 && btns.every(b => (b as HTMLButtonElement).disabled)
   });
 
   // On host page: spectator eye chip must appear on the viewer's row
@@ -59,7 +60,7 @@ test('Participation toggle on prod: Spectator disables voting and updates host l
   // On user's page: at least one card button becomes enabled again
   await user.waitForFunction(() => {
     const btns = Array.from(document.querySelectorAll('#cardGrid button'));
-    return btns.length > 0 && btns.some(b => !b.disabled);
+    return btns.length > 0 && btns.some(b => !(b as HTMLButtonElement).disabled)
   });
 
   // On host page: spectator eye chip disappears from the viewer's row

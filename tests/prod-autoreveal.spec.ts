@@ -4,6 +4,7 @@
 
 import { test, expect, Page, Browser } from '@playwright/test';
 import { roomUrlFor, ensureMenuOpen, ensureMenuClosed } from './_setup/prod-helpers.js';
+import { baseUrl } from './utils/env';
 
 const EP_BASE_URL = process.env.EP_BASE_URL || '';
 const EP_ROOM_URL = process.env.EP_ROOM_URL || '';

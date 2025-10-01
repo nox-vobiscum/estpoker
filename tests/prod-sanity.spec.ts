@@ -1,6 +1,7 @@
 // tests/prod-sanity.spec.js
 import { test, expect, Page, Browser } from '@playwright/test';
 import { roomUrlFor, newRoomCode, ensureMenuOpen } from './_setup/prod-helpers.js';
+import { baseUrl } from './utils/env';
 
 test.describe('Prod sanity', () => {
   test('room loads, menu opens, core selectors exist', async ({ page }) => {

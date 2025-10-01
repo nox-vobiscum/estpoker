@@ -51,7 +51,7 @@ test('Observer toggle disables/enables card buttons on user client (prod-safe)',
   // Wait until all buttons become disabled (allow WS/DOM roundtrip)
   await user.waitForFunction(() => {
     const btns = Array.from(document.querySelectorAll('#cardGrid button'));
-    return btns.length > 0 && btns.every(b => b.disabled === true);
+    return btns.length > 0 && btns.every((b: any) => (b as any).disabled === true);
   });
   const afterOff = await countEnabledButtons(user);
   expect(afterOff.enabled).toBe(0);
@@ -68,7 +68,7 @@ test('Observer toggle disables/enables card buttons on user client (prod-safe)',
   // Wait until at least one button is enabled again
   await user.waitForFunction(() => {
     const btns = Array.from(document.querySelectorAll('#cardGrid button'));
-    return btns.length > 0 && btns.some(b => b.disabled === false);
+    return btns.length > 0 && btns.some((b: any) => (b as any).disabled === false);
   });
   const afterOn = await countEnabledButtons(user);
   expect(afterOn.enabled).toBeGreaterThan(0);

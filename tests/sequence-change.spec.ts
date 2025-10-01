@@ -64,7 +64,7 @@ async function clickCardExact(page, label) {
 async function getSelectedSequenceId(page) {
   return await page.evaluate(() => {
     const sel = document.querySelector('#menuSeqChoice input[name="menu-seq"]:checked');
-    return sel ? sel.value : null;
+    return sel ? (sel as HTMLSelectElement).value : null;
   });
 }
 
@@ -72,7 +72,7 @@ async function getSelectedSequenceId(page) {
 async function waitRadioEnabled(page, value) {
   await page.waitForFunction((val) => {
     const el = document.querySelector(`#menuSeqChoice input[name="menu-seq"][value="${val}"]`);
-    return !!el && !el.disabled;
+    return !!el && !(el as HTMLButtonElement).disabled;
   }, value, { timeout: 5000 });
 }
 
@@ -108,8 +108,8 @@ test('Host-only sequence change resets round and syncs to guest', async ({ brows
 
   // Guest radios should be disabled (non-host)
   const guestRadios = guest.locator('#menuSeqChoice input[name="menu-seq"]');
-  await expect(guestRadios).toHaveCountGreaterThan(0);
-  const guestDisabledFlags = await guestRadios.evaluateAll(list => list.map(el => el.disabled));
+  await expect(await guestRadios.count()).toBeGreaterThan(0);
+  const guestDisabledFlags = await guestRadios.evaluateAll(list => list.map((el: any) => (el as HTMLInputElement).disabled));
   expect(guestDisabledFlags.every(Boolean)).toBeTruthy();
   const initiallyCheckedOnGuest = await getSelectedSequenceId(guest);
 

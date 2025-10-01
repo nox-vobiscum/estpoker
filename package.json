@@ -3,7 +3,8 @@
   "private": true,
   "scripts": {
     "check:menu-events": "node scripts/check-menu-toggle-events.js",
-    "check": "npm run check:menu-events",
+    "check:e2e:helpers": "node scripts/check-e2e-helpers.js",
+    "check": "npm run check:menu-events && npm run check:e2e:helpers",
     "e2e:buildcheck": "tsc -p tests/tsconfig.json --noEmit",
     "e2e": "playwright test -c playwright.config.ts",
     "e2e:headed": "playwright test -c playwright.config.ts --headed",
@@ -11,12 +12,17 @@
     "e2e:smoke:local": "cross-env EP_BASE_URL=http://localhost:8080 playwright test -c playwright.config.ts tests/prod-smoke.spec.ts",
     "test:e2e": "npm run e2e",
     "test": "npm run e2e",
-    "ci:verify": "npm run check && npm run e2e:buildcheck"
+    "ci:verify": "npm run check && npm run e2e:buildcheck",
+    "codemod:e2e:env": "node scripts/codemod-unify-env-helpers.js",
+    "tunnel": "bash scripts/tunnel.sh 8080",
+    "tunnel:app": "cross-env PORT=8080 OPEN_QR=1 OPEN_DESKTOP=0 COPY_CLIPBOARD=1 bash scripts/run-and-tunnel.sh",
+    "tunnel:app:browser": "cross-env PORT=8080 OPEN_QR=0 OPEN_DESKTOP=1 COPY_CLIPBOARD=0 bash scripts/run-and-tunnel.sh",
+    "tunnel:app:qr": "cross-env PORT=8080 OPEN_QR=1 OPEN_DESKTOP=0 COPY_CLIPBOARD=0 bash scripts/run-and-tunnel.sh"
   },
   "devDependencies": {
     "@playwright/test": "^1.55.1",
-    "@types/node": "^20.19.17",
-    "cross-env": "^7.0.3",
-    "typescript": "^5.9.2"
+    "@types/node": "^22.18.7",
+    "glob": "^7.2.3",
+    "typescript": "5.6"
   }
 }

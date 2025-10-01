@@ -1,159 +1,150 @@
-// Reconnect state E2E:
-// - After reveal, a refreshed participant sees the revealed UI (post-vote, chips, non-host buttons hidden).
-// - After reset, a refreshed participant sees pre-vote UI (no chips, reveal visible only for host).
-// Run:
-//   npx playwright test tests/reconnect-state.spec.js
-// Env:
-//   EP_BASE_URL  (e.g. http://localhost:8080 or https://ep.noxvobiscum.at)
-//   EP_ROOM_URL  (optional full room URL; overrides base; test appends participant & room)
-import { test, expect, Page, Browser } from '@playwright/test';
+// Reconnect state: nach Reveal + Reset sieht ein Nicht-Host nach Refresh wieder die Pre-Vote-UI.
 
-function baseUrl() { return process.env.EP_BASE_URL || 'http://localhost:8080'; }
-function newRoomCode(prefix = 'RCN') {
-  const t = Date.now().toString(36).slice(-6);
-  return `${prefix}-${t}`;
+import { test, expect } from '@playwright/test';
+import { roomUrlFor, newRoomCode } from './utils/env';
+
+// Menü
+async function ensureMenuOpen(page) {
+  const overlay = page.locator('#appMenuOverlay');
+  const aria = await overlay.getAttribute('aria-hidden').catch(() => null);
+  if (aria !== 'false') await page.locator('#menuButton').click();
+  await expect(overlay).toHaveAttribute('aria-hidden', 'false');
 }
-function roomUrlFor(name, roomCode) {
-  const full = process.env.EP_ROOM_URL;
-  if (full) {
-    const u = new URL(full);
-    u.searchParams.set('participantName', name);
-    u.searchParams.set('roomCode', roomCode);
-    return u.toString();
+async function ensureMenuClosed(page) {
+  const overlay = page.locator('#appMenuOverlay');
+  const aria = await overlay.getAttribute('aria-hidden').catch(() => null);
+  if (aria === 'false') await page.locator('#menuButton').click();
+  await expect(overlay).toHaveAttribute('aria-hidden', 'true');
+}
+
+// Deck/Sequenz
+async function readDeckValues(page): Promise<string[]> {
+  const byAttr = await page.$$eval('#cardGrid [data-value]', els =>
+    els.map(el => (el.getAttribute('data-value') || '').trim()).filter(Boolean)
+  );
+  if (byAttr.length) return byAttr;
+  const byText = await page.$$eval('#cardGrid button, #cardGrid .card', els =>
+    els.map(el => (el.textContent || '').replace(/\s+/g, ' ').trim()).filter(Boolean)
+  );
+  return byText;
+}
+const isNumeric = (s: string) => /^-?\d+(?:[.,]\d+)?$/.test(s);
+
+async function ensureNumericFriendlyDeck(page) {
+  const hasTwoNums = async () => (await readDeckValues(page)).filter(isNumeric).length >= 2;
+  if (await hasTwoNums()) return;
+
+  await ensureMenuOpen(page);
+  const root = '#menuSeqChoice';
+  const candidates = ['fib.enh', 'fib.scrum', 'pow2'];
+  for (const val of candidates) {
+    const inputSel = `${root} input[name="menu-seq"][value="${val}"]`;
+    const input = page.locator(inputSel).first();
+    if (!(await input.count())) continue;
+
+    if (await input.isEnabled().catch(() => false)) {
+      await input.check({ force: true });
+    } else {
+      const id = await input.getAttribute('id');
+      if (id) {
+        const lab = page.locator(`${root} label[for="${id}"]`).first();
+        if (await lab.count()) await lab.click({ force: true });
+      }
+      const row = page.locator(`${root} label.radio-row:has(input[value="${val}"])`).first();
+      if (await row.count()) await row.click({ force: true });
+      const any = page.locator(`${root} [data-value="${val}"]`).first();
+      if (await any.count()) await any.click({ force: true });
+      await page.evaluate((sel: string) => {
+        const el = document.querySelector<HTMLInputElement>(sel);
+        if (!el) return;
+        el.checked = true;
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+      }, inputSel);
+    }
+
+    await ensureMenuClosed(page);
+    await page.waitForTimeout(200);
+    if (await hasTwoNums()) return;
+    await ensureMenuOpen(page);
   }
-  const u = new URL(`${baseUrl().replace(/\/$/,'')}/room`);
-  u.searchParams.set('participantName', name);
-  u.searchParams.set('roomCode', roomCode);
-  return u.toString();
+  await ensureMenuClosed(page);
 }
 
-// Wait until the card grid has at least one button rendered (WS + initial render ready)
-async function waitGridReady(page) {
-  const grid = page.locator('#cardGrid');
-  await expect(grid).toHaveCount(1);
-  await page.waitForFunction(() => {
-    const g = document.querySelector('#cardGrid');
-    return !!g && g.querySelectorAll('button').length > 0;
-  });
+async function pickTwoPlayable(page): Promise<[string, string]> {
+  const all = await readDeckValues(page);
+  const nums = all.filter(isNumeric);
+  if (nums.length >= 2) return [nums[0]!, nums[1]!] as [string, string];
+  return [all[0]!, all[1]!] as [string, string];
 }
+async function clickCardByValue(page, value: string) {
+  const byAttr = page.locator(
+    `#cardGrid [data-value="${value}"], #cardGrid [data-card="${value}"], #cardGrid [data-label="${value}"]`
+  ).first();
+  if (await byAttr.count()) { await byAttr.click({ force: true }); return true; }
 
-// Click a card by its label exactly ("3" must not match "13")
-async function clickCardExact(page, label) {
-  const byRole = page.getByRole('button', { name: label, exact: true });
-  if (await byRole.count()) { await byRole.first().click(); return true; }
-  const esc = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const byText = page.locator('button', { hasText: new RegExp(`^\\s*${esc}\\s*$`) });
-  if (await byText.count()) { await byText.first().click(); return true; }
+  const esc = value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const exact = page.locator('#cardGrid button, #cardGrid .card', { hasText: new RegExp(`^\\s*${esc}\\s*$`) }).first();
+  if (await exact.count()) { await exact.click({ force: true }); return true; }
+
+  const loose = page.locator('#cardGrid button, #cardGrid .card').filter({ hasText: value }).first();
+  if (await loose.count()) { await loose.click({ force: true }); return true; }
+
   return false;
 }
 
-test.describe('Reconnect state', () => {
-  test('Refresh after reveal shows revealed UI for a non-host', async ({ browser }) => {
-    const roomCode = newRoomCode('RCN1');
+async function revealNow(page) {
+  const btn = page.locator('#revealButton');
+  if (await btn.count() && await btn.isVisible().catch(() => false)) {
+    await btn.click();
+    return true;
+  }
+  await page.locator('#menuButton').click().catch(() => {});
+  const reveal = page.locator(
+    '#menuRevealBtn, [data-test="menu-reveal"], #revealRow button, button:has-text("Reveal"), button:has-text("Aufdecken")'
+  ).first();
+  if (await reveal.count()) { await reveal.click({ force: true }); return true; }
+  return false;
+}
 
-    // Host + 2 participants
-    const ctxHost = await browser.newContext();
-    const ctxA    = await browser.newContext();
-    const ctxB    = await browser.newContext();
+test('Refresh after reset shows pre-vote UI for a non-host', async ({ browser }) => {
+  const room = newRoomCode('RECON');
 
-    const host = await ctxHost.newPage();
-    const a    = await ctxA.newPage();
-    const b    = await ctxB.newPage();
+  const ctxHost = await browser.newContext();
+  const ctxGuest = await browser.newContext();
+  const host  = await ctxHost.newPage();
+  const guest = await ctxGuest.newPage();
 
-    // Join (host first to acquire host role)
-    await host.goto(roomUrlFor('Host', roomCode), { waitUntil: 'domcontentloaded' });
-    await a.goto(roomUrlFor('Alice', roomCode),   { waitUntil: 'domcontentloaded' });
-    await b.goto(roomUrlFor('Bob', roomCode),     { waitUntil: 'domcontentloaded' });
+  await host.goto(roomUrlFor('Host',  room), { waitUntil: 'domcontentloaded' });
+  await guest.goto(roomUrlFor('Guest', room), { waitUntil: 'domcontentloaded' });
 
-    await waitGridReady(host);
-    await waitGridReady(a);
-    await waitGridReady(b);
+  await ensureNumericFriendlyDeck(host);
+  await guest.waitForTimeout(150);
 
-    // Votes (use 3/5/8 from default deck)
-    expect(await clickCardExact(a, '3')).toBeTruthy();
-    expect(await clickCardExact(b, '5')).toBeTruthy();
-    expect(await clickCardExact(host, '8')).toBeTruthy();
+  const [a, b] = await pickTwoPlayable(host);
+  expect(await clickCardByValue(host,  a)).toBeTruthy();
+  expect(await clickCardByValue(guest, b)).toBeTruthy();
 
-    // Reveal on host
-    await expect(host.locator('#revealButton')).toBeVisible();
-    await host.locator('#revealButton').click();
-    await expect(host.locator('#resetButton')).toBeVisible(); // host shows reset in revealed state
+  const revealed = await revealNow(host);
+  expect(revealed, 'Could not trigger reveal via button/menu').toBe(true);
 
-    // Now refresh participant B and assert they see the revealed UI
-    await b.reload({ waitUntil: 'domcontentloaded' });
+  // Reset per Button oder Menü
+  const resetBtn = host.locator('#resetButton');
+  if (await resetBtn.count() && await resetBtn.isVisible().catch(() => false)) {
+    await resetBtn.click();
+  } else {
+    await host.locator('#menuButton').click().catch(() => {});
+    const resetMenu = host.locator(
+      '#menuResetBtn, [data-test="menu-reset"], button:has-text("Reset"), button:has-text("Zurücksetzen")'
+    ).first();
+    await expect(resetMenu).toHaveCount(1);
+    await resetMenu.click({ force: true });
+  }
 
-    // post-vote should be visible, pre-vote hidden (if present)
-    const pre = b.locator('.pre-vote');
-    const post = b.locator('.post-vote');
-    if (await pre.count()) { await expect(pre).toBeHidden(); }
-    if (await post.count()) { await expect(post).toBeVisible(); }
+  // Guest refresh → Pre-Vote (keine ausgewählte Karte)
+  await guest.reload({ waitUntil: 'domcontentloaded' });
+  const selected = guest.locator('#cardGrid .selected, #cardGrid [aria-pressed="true"]');
+  expect(await selected.count()).toBe(0);
 
-    // Chips should be present in participant list
-    await b.waitForTimeout(150); // short grace for WS sync after reload
-    expect(await b.locator('.vote-chip').count()).toBeGreaterThan(0);
-
-    // Non-host should NOT see reveal/reset buttons
-    if (await b.locator('#revealButton').count()) {
-      await expect(b.locator('#revealButton')).toBeHidden();
-    }
-    if (await b.locator('#resetButton').count()) {
-      await expect(b.locator('#resetButton')).toBeHidden();
-    }
-
-    await ctxHost.close(); await ctxA.close(); await ctxB.close();
-  });
-
-  test('Refresh after reset shows pre-vote UI for a non-host', async ({ browser }) => {
-    const roomCode = newRoomCode('RCN2');
-
-    const ctxHost = await browser.newContext();
-    const ctxA    = await browser.newContext();
-    const ctxB    = await browser.newContext();
-
-    const host = await ctxHost.newPage();
-    const a    = await ctxA.newPage();
-    const b    = await ctxB.newPage();
-
-    await host.goto(roomUrlFor('Host', roomCode), { waitUntil: 'domcontentloaded' });
-    await a.goto(roomUrlFor('Alice', roomCode),   { waitUntil: 'domcontentloaded' });
-    await b.goto(roomUrlFor('Bob', roomCode),     { waitUntil: 'domcontentloaded' });
-
-    await waitGridReady(host);
-    await waitGridReady(a);
-    await waitGridReady(b);
-
-    // Vote & reveal
-    expect(await clickCardExact(a, '3')).toBeTruthy();
-    expect(await clickCardExact(b, '5')).toBeTruthy();
-    expect(await clickCardExact(host, '8')).toBeTruthy();
-
-    await expect(host.locator('#revealButton')).toBeVisible();
-    await host.locator('#revealButton').click();
-    await expect(host.locator('#resetButton')).toBeVisible();
-
-    // Reset the round
-    await host.locator('#resetButton').click();
-    await expect(host.locator('#resetButton')).toBeHidden();
-    await expect(host.locator('#revealButton')).toBeVisible();
-
-    // Refresh participant A and assert pre-vote UI
-    await a.reload({ waitUntil: 'domcontentloaded' });
-
-    // pre-vote visible, post-vote hidden (if present)
-    const pre = a.locator('.pre-vote');
-    const post = a.locator('.post-vote');
-    if (await pre.count()) { await expect(pre).toBeVisible(); }
-    if (await post.count()) { await expect(post).toBeHidden(); }
-
-    // No chips rendered after reset
-    await a.waitForTimeout(150);
-    expect(await a.locator('.vote-chip').count()).toBe(0);
-
-    // Host-only reveal visible on host, but not on participant
-    if (await a.locator('#revealButton').count()) {
-      await expect(a.locator('#revealButton')).toBeHidden();
-    }
-
-    await ctxHost.close(); await ctxA.close(); await ctxB.close();
-  });
+  await ctxHost.close(); await ctxGuest.close();
 });

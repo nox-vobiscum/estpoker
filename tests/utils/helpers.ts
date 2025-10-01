@@ -1,34 +1,54 @@
-// tests/utils/helpers.js
+// tests/utils/helpers.ts
+// Bridge module: re-export canonical ENV helpers and keep UI helpers here.
 
-export function roomUrlFor(name, roomCode) {
-  const base =
-    process.env.EP_ROOM_URL ||
-    process.env.EP_BASE_URL && `${process.env.EP_BASE_URL.replace(/\/$/, '')}/room` ||
-    'http://localhost:8080/room';
-  const qs = new URLSearchParams({ participantName: name, roomCode });
-  return `${base}?${qs.toString()}`;
-}
+export { baseUrl, roomUrlFor, newRoomCode } from './env';
 
-export async function ensureMenuOpen(page) {
+import type { Page } from '@playwright/test';
+
+/**
+ * Ensures the app menu is open. Uses aria-hidden instead of relying on CSS visibility.
+ */
+export async function ensureMenuOpen(page: Page): Promise<void> {
   const btn = page.locator('#menuButton');
   const overlay = page.locator('#appMenuOverlay');
-  await btn.click();
+
+  // If not open yet, toggle open
+  const aria = await overlay.getAttribute('aria-hidden');
+  if (aria !== 'false') {
+    await btn.click();
+  }
+
+  // Wait until aria-hidden="false"
+  await overlay.waitFor({ state: 'attached' });
   await page.waitForFunction(() => {
-    const ov = document.querySelector('#appMenuOverlay');
-    return ov && ov.getAttribute('aria-hidden') === 'false';
+    const el = document.getElementById('appMenuOverlay');
+    return !!el && el.getAttribute('aria-hidden') === 'false';
   });
-  await overlay.waitFor({ state: 'visible' });
 }
 
-export async function ensureMenuClosed(page) {
+/**
+ * Ensures the app menu is closed. Prefer toggling via the button, attribute-based waiting.
+ */
+export async function ensureMenuClosed(page: Page): Promise<void> {
+  const btn = page.locator('#menuButton');
   const overlay = page.locator('#appMenuOverlay');
-  const isOpen = await overlay.isVisible();
+
+  await overlay.waitFor({ state: 'attached' });
+
+  const isOpen = (await overlay.getAttribute('aria-hidden')) === 'false';
   if (isOpen) {
-    // backdrop click closes
-    await page.locator('.menu-backdrop').click({ position: { x: 5, y: 5 } });
-    await page.waitForFunction(() => {
-      const ov = document.querySelector('#appMenuOverlay');
-      return ov && ov.getAttribute('aria-hidden') === 'true';
-    });
+    await btn.click();
   }
+
+  // Wait until aria-hidden="true"
+  await page.waitForFunction(() => {
+    const el = document.getElementById('appMenuOverlay');
+    return !!el && el.getAttribute('aria-hidden') === 'true';
+  });
+
+  // Best-effort: in many builds the 'hidden' class returns as well
+  await page.waitForFunction(() => {
+    const el = document.getElementById('appMenuOverlay');
+    return !!el && el.classList.contains('hidden');
+  }).catch(() => { /* optional; not all builds add the class */ });
 }

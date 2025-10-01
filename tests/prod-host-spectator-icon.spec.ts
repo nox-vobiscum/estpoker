@@ -4,6 +4,7 @@
 
 import { test, expect, Page, Browser } from '@playwright/test';
 import { roomUrlFor, newRoomCode, ensureMenuOpen, ensureMenuClosed } from './_setup/prod-helpers.js';
+import { baseUrl } from './utils/env';
 
 test('Host list shows/removes observer icon when user toggles participation', async ({ page }) => {
   const room = newRoomCode('PROD-HOST-OBS');
