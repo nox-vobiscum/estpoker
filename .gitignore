@@ -64,3 +64,9 @@ Thumbs.db
 playwright-report/
 test-results/
 **/.last-run.json
+
+# Dev/CI noise
+node_modules/
+playwright-report/
+test-results/
+**/.last-run.json
