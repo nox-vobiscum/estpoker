@@ -134,78 +134,27 @@ _No batching of unrelated edits. Prefer one change per step/commit._
 
 ---
 
-## 6) Testing (expanded)
+## 6) Playwright E2E Testing (Executive Summary)
 
-Testing spans three layers: **unit/component**, **web/controller**, and **E2E (Playwright)**.
+We use **Playwright** (TypeScript) for end‑to‑end tests. The suite is designed to tolerate small DOM variations across profiles (local/prod/e2e). All UI quirks are encapsulated in helpers under `tests/utils/helpers.ts`.
 
-### 6.1 Unit/Component (JUnit 5, Mockito)
-- Scope: domain logic and services (e.g., `Room`, `StoredRoom`, `StoredRoomPersistenceService`).  
-- Command (fast loop):  
-  `./mvnw -q -DskipITs -DskipE2E test`  
-- Tips:  
-  - Prefer pure unit tests without Spring context.  
-  - Use constructor injection in prod code to make mocking easy.  
-  - Keep assertions focused and deterministic.
-
-### 6.2 Web/Controller tests
-- When needed, test MVC endpoints with Spring’s MockMvc slices.  
-- Keep these **small** and **stateless**; avoid DBs (we don’t use DB in prod).
-
-### 6.3 E2E/UI (Playwright)
-Goal: verify core user flows end‑to‑end in a real browser.
-
-**Prereqs**
-- Node.js LTS installed.  
-- In the repo root (or `tests/e2e` if you keep them there):
+- Quick start:
   ```bash
-  npm i -D @playwright/test
-  npx playwright install
+  npm ci
+  npx playwright install --with-deps
+  EP_BASE_URL=http://localhost:8080 npx playwright test -c playwright.config.ts --retries=1 --trace=retain-on-failure
   ```
+- Prefer running the app with a **stable test profile**:
+  ```bash
+  java -jar target/estpoker-<version>.jar --spring.profiles.active=e2e
+  ```
+- Build sanity check:
+  ```bash
+  npm run e2e:buildcheck   # runs: tsc -p tests/tsconfig.json --noEmit
+  ```
+- Useful helpers (import from `tests/utils/helpers.ts`): `ensureMenuOpen/Closed`, `clickByValue`, `revealNow`, `resetNow`, `revealedNow`, `readAverage`, `readNumericChips`, `pickTwoNumeric`, `setSequence`, `waitSequenceOn`, `waitSequenceSync`, `voteAnyNumber`.
 
-**Config (example `playwright.config.ts`)**
-```ts
-import { defineConfig } from '@playwright/test';
-
-export default defineConfig({
-  testDir: './e2e',
-  timeout: 30_000,
-  use: {
-    baseURL: process.env.BASE_URL || 'http://localhost:8080',
-    trace: 'retain-on-failure',
-    video: 'retain-on-failure',
-    screenshot: 'only-on-failure',
-    headless: true
-  },
-});
-```
-
-**Running locally**
-```bash
-# App running locally on :8080
-npx playwright test
-# or override base URL explicitly
-BASE_URL=http://localhost:8080 npx playwright test
-```
-
-**Test structure (examples)**
-- `e2e/landing.spec.ts` — loads `/`, basic smoke (title, join form visible)  
-- `e2e/invite.spec.ts` — deep link to `/invite?roomCode=...` shows prefilled code  
-- `e2e/room.spec.ts` — join flow → room loads → vote → reveal → average shown  
-- `e2e/topic.spec.ts` — host edits topic; optimistic input; JIRA link auto-extraction
-
-**Selector strategy**
-- Prefer **roles/labels** for stability: `getByRole('button', { name: /save/i })`, `getByLabel('Name')`.  
-- Add `data-testid` **sparingly** for hard-to-reach elements; keep names stable.  
-- Avoid brittle CSS/xpath selectors.
-
-**CI/Artifacts**
-- Keep Playwright artifacts on failures (trace, screenshot, video).  
-- Document the CI command here when added (same `BASE_URL` approach).
-
-**Done criteria**
-- Tests run reliably against `http://localhost:8080`.  
-- Core flows covered (join room, vote, reveal, topic edit).  
-- Failure artifacts are useful for debugging (trace viewer).
+For detailed instructions, troubleshooting, CI recipe, and full command list, see **`docs/E2E-TESTING.md`**.
 
 ---
 
@@ -350,23 +299,7 @@ Backlog items are maintained in `docs/BACKLOG.md`. Current examples include:
 
 ---
 
-## Appendix E — Playwright (next steps)
-
-Goal: restore green E2E smoke against local http://localhost:8080.
-
-Plan (tracked in BACKLOG):
-- Minimal playwright.config.ts with BASE_URL (inherit via env).
-- One smoke spec: open /, join a room, see your name, basic vote, reveal.
-- Keep selectors aligned with the UI: prefer roles/labels; add data-testid only where ARIA/roles are unstable.
-- Capture trace/screenshot on failure.
-- Command sketch (once added):
-    npx playwright test --headed
-    # or
-    BASE_URL=http://localhost:8080 npx playwright test
-
----
-
-## Appendix F – Identity & Name Handling
+## Appendix E – Identity & Name Handling
 
 - **Per-tab Client ID (`cid`)**  
   Each browser tab gets a stable `cid` via `sessionStorage` (`ep-cid`). The `cid` is sent on `/gameSocket` connect and bound to the participant identity server-side.

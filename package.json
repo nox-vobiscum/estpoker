@@ -12,6 +12,10 @@
     "e2e:smoke:local": "cross-env EP_BASE_URL=http://localhost:8080 playwright test -c playwright.config.ts tests/prod-smoke.spec.ts",
     "test:e2e": "npm run e2e",
     "test": "npm run e2e",
+    "e2e:prep": "echo Preparing E2E build... && mvn -q -DskipTests package",
+    "e2e:server": "mvn -q -DskipTests spring-boot:run -Dspring-boot.run.profiles=e2e -Dspring-boot.run.jvmArguments=\"-Dep.buildTag=e2e-$(git rev-parse --short HEAD)\"",
+    "e2e:server:jar": "java -Dep.buildTag=e2e-$(git rev-parse --short HEAD) -Dspring.profiles.active=e2e -jar target/*.jar",
+    "e2e:test": "EP_BASE_URL=http://localhost:8080 npx playwright test -c tests/pw.e2e.config.ts --retries=1 --trace=retain-on-failure",
     "ci:verify": "npm run check && npm run e2e:buildcheck",
     "codemod:e2e:env": "node scripts/codemod-unify-env-helpers.js",
     "tunnel": "bash scripts/tunnel.sh 8080",
@@ -21,7 +25,7 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.55.1",
-    "@types/node": "^22.18.7",
+    "@types/node": "^22.18.8",
     "glob": "^7.2.3",
     "typescript": "5.6"
   }
