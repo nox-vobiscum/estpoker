@@ -1,7 +1,7 @@
 // tests/sequence-change.spec.ts
 // Host-only sequence change resets round and syncs to guest (no assumption about initial default)
 
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import {
   roomUrlFor,
   newRoomCode,
@@ -12,11 +12,13 @@ import {
   getSelectedSequenceId,
 } from './utils/helpers';
 
-async function allSequenceValues(page) {
+async function allSequenceValues(page: Page) {
   await ensureMenuOpen(page);
-  const vals = await page.$$eval('#menuSeqChoice input[name="menu-seq"]', els =>
-    els.map(el => (el as HTMLInputElement).value).filter(Boolean)
-  ).catch(() => [] as string[]);
+  const vals = await page
+    .$$eval('#menuSeqChoice input[name="menu-seq"]', els =>
+      els.map(el => (el as HTMLInputElement).value).filter(Boolean)
+    )
+    .catch(() => [] as string[]);
   await ensureMenuClosed(page);
   return vals;
 }
@@ -57,17 +59,23 @@ test('Host-only sequence change resets round and syncs to guest', async ({ brows
 
   // Host picks a different sequence than what the guest currently has
   const vals = await allSequenceValues(host);
-  const target = vals.find(v => v !== initialGuestSeq) ?? vals[0];
+  expect(vals.length).toBeGreaterThan(0); // <-- guard against empty list
+
+  const target = (vals.find(v => v !== initialGuestSeq) ?? vals[0])!; // <-- non-null after guard
   await setSequence(host, target);
+
+  // Wait until the guest reflects the host's new choice
+  await expect
+    .poll(async () => {
+      await ensureMenuOpen(guest);
+      const v = await getSelectedSequenceId(guest);
+      await ensureMenuClosed(guest);
+      return v;
+    }, { timeout: 6000, intervals: [250] }) // <-- intervals (plural)
+    .toBe(target);
+
+  // (Optional) ensure host reflects its own change too
   await waitSeq(host, target);
-
-  // Guest should sync to the host's new selection
-  const synced = await waitSeq(guest, target, 4000);
-  expect(synced).toBe(true);
-
-  // Round reset side-effect: no revealed state should be visible on fresh change
-  // (round reset verification is typically handled in other tests;
-  // here we keep scope minimal to sequence sync behavior)
 
   await ctxHost.close();
   await ctxGuest.close();

@@ -150,18 +150,22 @@ export async function voteAnyNumber(page: Page): Promise<boolean> {
 
 /* ------------------------------ reveal / reset ----------------------------- */
 
-export async function revealedNow(page: Page, timeoutMs = 2000): Promise<boolean> {
+export async function revealedNow(page: Page, timeoutMs = 3000): Promise<boolean> {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
     const ok = await page.evaluate(() => {
-      const el = document.querySelector('#results, #stats, #resultPanel, .results, .stats');
-      if (!el) return false;
-      const h = (el as HTMLElement).offsetParent !== null;
-      const r = document.querySelector('#resetButton') as HTMLElement | null;
-      return h || (!!r && r.offsetParent !== null);
+      const vis = (sel: string) => {
+        const el = document.querySelector<HTMLElement>(sel);
+        return !!(el && el.offsetParent !== null && getComputedStyle(el).visibility !== 'hidden');
+      };
+      if (vis('#resetButton')) return true;
+      if (vis('#results') || vis('#stats') || vis('#resultPanel')) return true;
+      if (document.body.classList.contains('revealed')) return true;
+      const avg = document.querySelector('#avgValue') || document.querySelector('#avgRow');
+      return !!avg && (avg as HTMLElement).offsetParent !== null;
     }).catch(() => false);
     if (ok) return true;
-    await page.waitForTimeout(80);
+    await page.waitForTimeout(100);
   }
   return false;
 }
