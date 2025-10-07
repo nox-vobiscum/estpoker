@@ -122,6 +122,7 @@
       <div class="menu-section" th:if="${showRoom}">
         <div class="section-title" data-i18n="menu.roomFunctions">Room functions [👑]</div>
 
+        <!-- Auto-reveal -->
         <div class="menu-item switch"
              role="group"
              id="rowAutoReveal"
@@ -142,6 +143,7 @@
                  aria-label="Auto-reveal">
         </div>
 
+        <!-- Topic show/hide -->
         <div class="menu-item switch"
              role="group"
              id="rowTopic"
@@ -162,7 +164,7 @@
                  aria-label="Ticket/Story">
         </div>
 
-        <!-- Allow special cards toggle -->
+        <!-- Allow special cards -->
         <div class="menu-item switch"
              role="group"
              id="rowSpecials"
@@ -184,7 +186,7 @@
                  aria-label="Allow special cards">
         </div>
 
-        <!-- Hard mode toggle -->
+        <!-- Hard mode -->
         <div class="menu-item switch"
              role="group"
              id="rowHardMode"
@@ -203,6 +205,29 @@
                  th:attr="aria-label=#{menu.hardmode}"
                  data-i18n-attr="aria-label:menu.hardmode"
                  aria-label="Hard mode">
+        </div>
+
+        <!-- Host actions: Reveal / Reset (stable IDs for tests) -->
+        <div class="menu-item action-row" role="group" aria-label="Round actions">
+          <button id="menuRevealBtn"
+                  data-test="menu-reveal"
+                  type="button"
+                  class="button small"
+                  th:text="#{button.reveal}"
+                  th:attr="title=#{button.reveal},aria-label=#{button.reveal}"
+                  data-i18n="button.reveal"
+                  data-i18n-attr="title:button.reveal;aria-label:button.reveal"
+                  onclick="revealCards()">Reveal cards</button>
+
+          <button id="menuResetBtn"
+                  data-test="menu-reset"
+                  type="button"
+                  class="button small"
+                  th:text="#{button.reset}"
+                  th:attr="title=#{button.reset},aria-label=#{button.reset}"
+                  data-i18n="button.reset"
+                  data-i18n-attr="title:button.reset;aria-label:button.reset"
+                  onclick="resetRoom()">Start new round</button>
         </div>
       </div>
 
