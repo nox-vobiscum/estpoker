@@ -5,8 +5,7 @@ import { test, expect } from '@playwright/test';
 import {
   roomUrlFor,
   newRoomCode,
-  pickTwoNumeric,
-  clickByValue,
+  voteAnyNumber,
   revealNow,
   resetNow,
   waitPreVote,
@@ -28,17 +27,14 @@ test('After reveal, Reset clears chips and restores pre-vote UI', async ({ brows
   await setSequence(host, 'fib.scrum');
   await Promise.all([waitSeq(host, 'fib.scrum'), waitSeq(guest, 'fib.scrum')]);
 
-  const pair = await pickTwoNumeric(host);
-  expect(pair).not.toBeNull();
-  const [a, b] = pair!;
-  expect(await clickByValue(host, a)).toBeTruthy();
-  expect(await clickByValue(guest, b)).toBeTruthy();
+  // Robust: irgendeine Zahl auf beiden Seiten
+  expect(await voteAnyNumber(host)).toBeTruthy();
+  expect(await voteAnyNumber(guest)).toBeTruthy();
 
-  // Reveal then reset
   expect(await revealNow(host)).toBe(true);
-  expect(await resetNow(host)).toBe(true);
 
-  // Both in pre-vote state
+  // Reset and assert pre-vote
+  expect(await resetNow(host)).toBe(true);
   expect(await waitPreVote(host, 3000)).toBe(true);
   expect(await waitPreVote(guest, 3000)).toBe(true);
 

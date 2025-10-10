@@ -34,66 +34,45 @@
     <ul id="liveParticipantList"></ul>
 
     <!-- Topic compact row (inline edit) -->
-    <div id="topicRow" class="topic-row" data-test="topic-row" style="display:none;">
+    <div id="topicRow" class="topic-row is-hidden" hidden>
       <span class="topic-label" aria-hidden="true">📝</span>
-
-      <!-- Display mode -->
-      <span id="topicDisplay" class="topic-text" data-test="topic-display">–</span>
-
-      <!-- Inline editor (hidden by default; JS toggles visibility) -->
-      <form id="topicEditForm" class="hidden" onsubmit="return false">
-        <input id="topicInput" data-test="topic-input" name="topic" type="text"
-               th:attr="placeholder=#{topic.input.placeholder}" />
-        <button id="topicSaveBtn" data-test="topic-save" type="button"
-                th:text="#{button.saveTopic}">Save</button>
-      </form>
-
-      <!-- Affordances -->
-      <div class="topic-actions">
-        <button id="topicEditBtn" data-test="topic-edit" type="button"
-                th:text="#{button.editTopic}"
-                aria-label="Edit Topic">✏️</button>
-        <button id="topicClearBtn" data-test="topic-clear" type="button"
-                th:text="#{button.clearTopic}"
-                aria-label="Clear Topic">Clear</button>
-      </div>
+      <span id="topicDisplay" class="topic-text">–</span>
+      <div class="topic-actions"></div>
     </div>
 
-    <!-- Result row (reserved space; hidden until reveal) -->
+
+    <!-- Result row (always present; space is reserved even when hidden) -->
     <p id="resultRow"
        class="average-label consensus-row result-row is-hidden"
        role="status" aria-live="polite" aria-atomic="true">
 
-      <!-- Existing labels -->
+      <!-- Long+short labels + dedicated consensus label -->
       <span id="resultLabel" class="label">
         <span class="label-average" th:text="#{label.average}" data-i18n="label.average">Average:</span>
         <span class="label-consensus" hidden>🎉 Consensus</span>
       </span>
 
-      <!-- Existing numeric slots -->
       <span id="averageVote" class="value">–</span>
+
       <span id="medianSep" class="sep" hidden aria-hidden="true"> • </span>
+
       <span id="medianWrap" class="stat" hidden>
         <span id="medianLabel" class="label" th:text="#{label.median}" data-i18n="label.median">Median:</span>
         <span id="medianVote" class="value">–</span>
       </span>
+
       <span id="rangeSep" class="sep" hidden aria-hidden="true"> • </span>
+
       <span id="rangeWrap" class="stat" hidden>
         <span id="rangeLabel" class="label" th:text="#{label.range}" data-i18n="label.range">Range:</span>
         <span id="rangeVote" class="value">–</span>
       </span>
-
-      <!-- *** Added stable hooks for tests (non-breaking): avgRow/avgValue *** -->
-      <span id="avgRow" style="display: inline;">
-        <span id="avgValue" data-test="avg-value">–</span>
-      </span>
-      <!-- /hooks -->
     </p>
 
     <!-- Card grid (always visible; disabled after reveal via body class + JS) -->
     <div class="card-grid" id="cardGrid"></div>
 
-    <!-- Actions (host): only buttons are toggled, container persists -->
+    <!-- Actions (host): we toggle only buttons, never the container -->
     <div class="vote-actions">
       <button type="button" id="revealButton" class="button" hidden
               th:text="#{button.reveal}" data-i18n="button.reveal"
@@ -116,7 +95,7 @@
   <!-- Room connector (bump v-param if clients cache JS) -->
   <script defer th:src="@{/js/room.js?v=43}"
           th:attr="data-participant=${participantName},data-room=${roomCode}"></script>
-
+  
   <div th:replace="~{fragments/footer :: footer}"></div>
 </body>
 </html>

@@ -2,6 +2,12 @@
 // Robust to UIs with/without explicit "average" row.
 import { test, expect, Page } from '@playwright/test';
 import { roomUrlFor, newRoomCode } from './utils/env';
+import {
+  ensureMenuOpen as ensureMenuOpenH,
+  ensureMenuClosed as ensureMenuClosedH,
+  hasCoffeeCard as hasCoffeeCardH,
+} from './utils/helpers';
+
 
 function must<T>(v: T | null | undefined, msg: string): NonNullable<T> {
   if (v == null) throw new Error(msg);
@@ -195,6 +201,22 @@ test('Specials do not affect average — votes [num, ☕, num] ⇒ mean(numbers)
   expect(await hasCoffeeCard(host)).toBeTruthy();
 
   expect(await clickByValue(host, a)).toBeTruthy();
+
+  // ensure specials are enabled so ☕ exists in the deck
+  await ensureMenuOpenH(host);
+  const specials = host.locator('#menuSpecialsToggle').first();
+  if (await specials.count()) {
+    const aria = await specials.getAttribute('aria-checked').catch(() => null);
+    const isOn = aria === 'true' ? true : aria === 'false' ? false : await specials.isChecked().catch(() => false);
+    if (!isOn) await specials.click({ force: true }).catch(() => {});
+  }
+  await ensureMenuClosedH(host);
+
+  // wait until coffee is present on all clients
+  await expect.poll(() => hasCoffeeCardH(host), { timeout: 3000, intervals: [150, 250] }).toBeTruthy();
+  await expect.poll(() => hasCoffeeCardH(g1),   { timeout: 3000, intervals: [150, 250] }).toBeTruthy();
+  await expect.poll(() => hasCoffeeCardH(g2),   { timeout: 3000, intervals: [150, 250] }).toBeTruthy();
+
   const coffee = g1.locator('#cardGrid button, #cardGrid .card', { hasText: '☕' }).first();
   if (await coffee.count()) { await coffee.click({ force: true }); } else { expect(await clickByValue(g1, '☕')).toBeTruthy(); }
   expect(await clickByValue(g2, b)).toBeTruthy();
