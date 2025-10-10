@@ -106,6 +106,35 @@ Status tags:
 
 ---
 
+---
+## [P3] Quick Tunnel helper (Windows) – robust URL detection & cleanup ⏳
+**Goal:** Make `scripts/run-and-tunnel.sh` reliably detect the Cloudflare Quick Tunnel URL on Windows/Git-Bash and ensure clean startup/teardown.
+
+**Scope**
+- Capture Cloudflared logs that print the `*.trycloudflare.com` URL by piping **stderr to stdout**:
+  - `bash scripts/tunnel.sh 2>&1 | tee "$TUN_LOG" &` (instead of only stdout).
+- Harden URL extraction:
+  - Grep `https://[a-z0-9-]+\.trycloudflare\.com` with a short backoff loop; if not found, show last 50 log lines for diagnosis.
+- Process handling & cleanup:
+  - Ensure we kill the *cloudflared* process (not just `tee`) on exit; verify PID tracking works on Git-Bash.
+- Polishing (nice-to-have):
+  - Optional `COPY_CLIPBOARD=1` copies the detected URL; optional QR open remains.
+  - Brief README note under `scripts/` describing usage & common issues.
+
+**Acceptance**
+- On Windows/Git-Bash, `npm run tunnel:app`:
+  - prints the detected `https://*.trycloudflare.com` URL within ~10s,
+  - (optionally) copies it to clipboard when `COPY_CLIPBOARD=1`,
+  - waits for HTTP 200 probe on the URL (best-effort),
+  - cleans up both the Spring app and cloudflared on Ctrl+C.
+- No regressions on macOS/Linux shells.
+
+
+
+
+
+--------------------------------------------------------------------------------------------------
+
 ## Parking lot / Ideas
 - Multi-tracker link patterns (JIRA + others) using a pluggable regex map per room (low priority).
 - Visual diff/“last change by …” badges for topic changes (host-only preview).

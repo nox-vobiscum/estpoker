@@ -1,63 +1,88 @@
+################################################################################
+# Documentation / misc
+################################################################################
 HELP.md
-target/
-.mvn/wrapper/maven-wrapper.jar
-!**/src/main/**/target/
-!**/src/test/**/target/
 
-### STS ###
-.apt_generated
-.classpath
-.factorypath
+################################################################################
+# Build outputs (Java / JVM)
+################################################################################
+# Maven outputs
+target/
+
+# Gradle outputs
+.gradle/
+**/build/
+out/
+
+# Compiled classes (just in case)
+**/classes/
+
+################################################################################
+# Maven wrapper
+# (We intentionally do NOT track the wrapper JAR here.
+#  If you prefer to commit it, remove the following line.)
+################################################################################
+.mvn/wrapper/maven-wrapper.jar
+
+################################################################################
+# Local Spring Boot config (do not commit secrets)
+################################################################################
+/src/main/resources/application-local.properties
+/src/main/resources/application-local.yml
+/src/main/resources/application-*.local.*
+
+################################################################################
+# Node / Playwright artifacts
+################################################################################
+node_modules/
+playwright-report/
+test-results/
+*.trace.zip
+*.webm
+*.mp4
+*.har
+
+# Coverage reports
+coverage/
+*.lcov
+
+# Logs
+logs/
+*.log
+
+################################################################################
+# IDE settings
+################################################################################
+# VS Code
+.vscode/
+
+# IntelliJ IDEA
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Eclipse / Spring Tools Suite
 .project
-.settings
+.classpath
+.settings/
+.apt_generated
+.factorypath
 .springBeans
 .sts4-cache
 
-### IntelliJ IDEA ###
-.idea
-*.iws
-*.iml
-*.ipr
-
-### NetBeans ###
+# NetBeans
 /nbproject/private/
 /nbbuild/
 /dist/
 /nbdist/
 /.nb-gradle/
-build/
-!**/src/main/**/build/
-!**/src/test/**/build/
 
-### VS Code ###
-.vscode/
-
-### spring boot local config ###
-/src/main/resources/application-local.properties
-
-# Playwright artifacts
-/playwright-report/
-/test-results/
-node_modules/
-*.trace.zip
-*.mp4
-*.webm
-*.har
-
-# --- Java / Spring ---
-build/
-.gradle/
-out/
-
-# --- IDE / OS ---
-.idea/
-*.iml
+################################################################################
+# OS files
+################################################################################
 .DS_Store
 Thumbs.db
 
-# --- Sonstiges ---
-coverage/
-logs/
-*.log
-.env
-.env.*
+# Keep tests in TypeScript only
+tests/**/*.js

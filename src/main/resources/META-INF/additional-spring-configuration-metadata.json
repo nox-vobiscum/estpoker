@@ -44,6 +44,19 @@
     { "name": "features.securityProbe.enabled",   "type": "java.lang.Boolean", "defaultValue": false, "description": "Enable optional security probe endpoints." },
 
     { "name": "app.security.password.bcrypt-cost","type": "java.lang.Integer", "description": "BCrypt cost factor for room passwords." },
-    { "name": "app.security.password.pepper",     "type": "java.lang.String",  "description": "Optional global pepper appended before hashing." }
+    { "name": "app.security.password.pepper",     "type": "java.lang.String",  "description": "Optional global pepper appended before hashing." },
+
+
+    { "name": "ep.e2e", "type": "java.lang.Boolean", "description": "Enable predictable UI baseline for E2E testing.", "defaultValue": false },
+    { "name": "ep.default-language", "type": "java.lang.String", "description": "Default UI language (en|de).", "defaultValue": "en" },
+    { "name": "ep.default-sequence", "type": "java.lang.String", "description": "Default planning-poker sequence id.", "defaultValue": "fib.scrum" },
+
+    { "name": "ep.features.reveal.menu", "type": "java.lang.Boolean", "description": "Show reveal action in menu.", "defaultValue": true },
+    { "name": "ep.features.reveal.button", "type": "java.lang.Boolean", "description": "Show reveal button inline.", "defaultValue": true },
+    { "name": "ep.features.autoReveal.enabled", "type": "java.lang.Boolean", "description": "Enable auto-reveal when all votes are in or minVotes reached.", "defaultValue": false },
+    { "name": "ep.features.autoReveal.minVotes", "type": "java.lang.Integer", "description": "Min votes required for auto-reveal.", "defaultValue": 2 },
+
+    { "name": "ep.flags.allExperimentsOff", "type": "java.lang.Boolean", "description": "Disable any AB flags/experiments.", "defaultValue": true }
+
   ]
 }

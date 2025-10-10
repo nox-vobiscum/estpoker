@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, Page, Browser } from '@playwright/test';
 
 test.describe('Invite name availability check', () => {
 
