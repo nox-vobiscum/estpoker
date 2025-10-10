@@ -3,13 +3,30 @@
   "private": true,
   "scripts": {
     "check:menu-events": "node scripts/check-menu-toggle-events.js",
-    "check": "npm run check:menu-events",
-    "ci:verify": "npm run check",
-    "test:e2e": "playwright test -c playwright.config.ts",
-    "test": "npm run test:e2e"
+    "check:e2e:helpers": "node scripts/check-e2e-helpers.js",
+    "check": "npm run check:menu-events && npm run check:e2e:helpers",
+    "e2e:buildcheck": "tsc -p tests/tsconfig.json --noEmit",
+    "e2e": "playwright test -c playwright.config.ts",
+    "e2e:headed": "playwright test -c playwright.config.ts --headed",
+    "e2e:report": "playwright show-report",
+    "e2e:smoke:local": "cross-env EP_BASE_URL=http://localhost:8080 playwright test -c playwright.config.ts tests/prod-smoke.spec.ts",
+    "test:e2e": "npm run e2e",
+    "test": "npm run e2e",
+    "e2e:prep": "echo Preparing E2E build... && mvn -q -DskipTests package",
+    "e2e:server": "mvn -q -DskipTests spring-boot:run -Dspring-boot.run.profiles=e2e -Dspring-boot.run.jvmArguments=\"-Dep.buildTag=e2e-$(git rev-parse --short HEAD)\"",
+    "e2e:server:jar": "java -Dep.buildTag=e2e-$(git rev-parse --short HEAD) -Dspring.profiles.active=e2e -jar target/*.jar",
+    "e2e:test": "EP_BASE_URL=http://localhost:8080 npx playwright test -c tests/pw.e2e.config.ts --retries=1 --trace=retain-on-failure",
+    "ci:verify": "npm run check && npm run e2e:buildcheck",
+    "codemod:e2e:env": "node scripts/codemod-unify-env-helpers.js",
+    "tunnel": "bash scripts/tunnel.sh 8080",
+    "tunnel:app": "cross-env PORT=8080 OPEN_QR=1 OPEN_DESKTOP=0 COPY_CLIPBOARD=1 bash scripts/run-and-tunnel.sh",
+    "tunnel:app:browser": "cross-env PORT=8080 OPEN_QR=0 OPEN_DESKTOP=1 COPY_CLIPBOARD=0 bash scripts/run-and-tunnel.sh",
+    "tunnel:app:qr": "cross-env PORT=8080 OPEN_QR=1 OPEN_DESKTOP=0 COPY_CLIPBOARD=0 bash scripts/run-and-tunnel.sh"
   },
   "devDependencies": {
-    "@playwright/test": "^1.55.0",
-    "@types/node": "^20"
+    "@playwright/test": "^1.55.1",
+    "@types/node": "^22.18.8",
+    "glob": "^7.2.3",
+    "typescript": "5.6"
   }
 }

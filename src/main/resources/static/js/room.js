@@ -1047,6 +1047,7 @@ function ensureTopicDelegates() {
 function renderTopic() {
   const row = $('#topicRow'); if (!row) return;
   row.style.display = state.topicVisible ? '' : 'none';
+  row.setAttribute('data-visible', state.topicVisible ? '1' : '0');
 
   // Ensure actions container
   let actions = row.querySelector('.topic-actions');

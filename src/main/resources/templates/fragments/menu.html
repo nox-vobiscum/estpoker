@@ -13,17 +13,11 @@
           title="Open menu">☰</button>
 
   <!-- Overlay root -->
-  <div id="appMenuOverlay"
-       class="menu-overlay hidden"
-       aria-hidden="true">
-
+  <div id="appMenuOverlay" class="menu-overlay hidden" aria-hidden="true">
     <div class="menu-backdrop" data-close></div>
 
-    <div class="menu-panel"
-         role="dialog"
-         aria-modal="true"
-         data-i18n-attr="aria-label:menu.settings"
-         aria-label="Settings">
+    <div class="menu-panel" role="dialog" aria-modal="true"
+         data-i18n-attr="aria-label:menu.settings" aria-label="Settings">
 
       <!-- Header / title -->
       <div class="menu-header">
@@ -33,16 +27,10 @@
       <!-- Language -->
       <div class="menu-section">
         <div class="section-title" data-i18n="menu.language">Language</div>
-
-        <!-- One-line language switch row -->
-        <div id="langRow"
-             class="menu-item"
-             tabindex="0"
-             role="button"
+        <div id="langRow" class="menu-item" tabindex="0" role="button"
              th:attr="title=#{menu.language},aria-label=#{menu.language}"
              data-i18n-attr="title:menu.language;aria-label:menu.language"
-             aria-label="Language"
-             title="Language">
+             aria-label="Language" title="Language">
           <span class="mi-icon" aria-hidden="true">🌐</span>
           <div class="lang-inline">
             <span class="flag-split" aria-hidden="true">
@@ -58,30 +46,19 @@
       <div class="menu-section">
         <div class="section-title" data-i18n="menu.theme">Theme</div>
         <div class="menu-choice">
-          <button id="themeLight"
-                  type="button"
-                  class="choice-btn"
-                  aria-pressed="false"
+          <button id="themeLight"  type="button" class="choice-btn" aria-pressed="false"
                   th:attr="title=#{theme.light},aria-label=#{theme.light}"
                   data-i18n-attr="title:theme.light;aria-label:theme.light">
             <span class="mi-icon" aria-hidden="true">☀️</span>
             <span data-i18n="theme.light">Light</span>
           </button>
-
-          <button id="themeDark"
-                  type="button"
-                  class="choice-btn"
-                  aria-pressed="false"
+          <button id="themeDark"   type="button" class="choice-btn" aria-pressed="false"
                   th:attr="title=#{theme.dark},aria-label=#{theme.dark}"
                   data-i18n-attr="title:theme.dark;aria-label:theme.dark">
             <span class="mi-icon" aria-hidden="true">🌙</span>
             <span data-i18n="theme.dark">Dark</span>
           </button>
-
-          <button id="themeSystem"
-                  type="button"
-                  class="choice-btn"
-                  aria-pressed="false"
+          <button id="themeSystem" type="button" class="choice-btn" aria-pressed="false"
                   th:attr="title=#{theme.system},aria-label=#{theme.system}"
                   data-i18n-attr="title:theme.system;aria-label:theme.system">
             <span class="mi-icon" aria-hidden="true">🖥️</span>
@@ -93,7 +70,6 @@
       <!-- Card sequence -->
       <div class="menu-section" th:if="${showSeq}">
         <div class="section-title" data-i18n="menu.sequence">Card sequence [👑]</div>
-        <!-- Titles for previews are set by menu.js -->
         <fieldset id="menuSeqChoice" class="menu-choice vertical">
           <label class="radio-row">
             <input type="radio" name="menu-seq" value="fib.scrum" checked>
@@ -122,121 +98,78 @@
       <div class="menu-section" th:if="${showRoom}">
         <div class="section-title" data-i18n="menu.roomFunctions">Room functions [👑]</div>
 
-        <div class="menu-item switch"
-             role="group"
-             id="rowAutoReveal"
-             th:attr="title=#{menu.autoreveal}"
-             data-i18n-attr="title:menu.autoreveal">
+        <!-- Auto-reveal -->
+        <div class="menu-item switch" role="group" id="rowAutoReveal"
+             th:attr="title=#{menu.autoreveal}" data-i18n-attr="title:menu.autoreveal">
           <span class="mi-icon" aria-hidden="true">⚡</span>
           <div class="switch-text">
             <strong data-i18n="menu.autoreveal">Auto-reveal</strong>
             <span id="menuArStatus" data-i18n="toggle.off">Off</span>
           </div>
-          <input id="menuAutoRevealToggle"
-                 class="switch-control"
-                 type="checkbox"
-                 role="switch"
-                 aria-checked="false"
-                 th:attr="aria-label=#{menu.autoreveal}"
-                 data-i18n-attr="aria-label:menu.autoreveal"
-                 aria-label="Auto-reveal">
+          <input id="menuAutoRevealToggle" class="switch-control" type="checkbox" role="switch"
+                 aria-checked="false" th:attr="aria-label=#{menu.autoreveal}"
+                 data-i18n-attr="aria-label:menu.autoreveal" aria-label="Auto-reveal">
         </div>
 
-        <div class="menu-item switch"
-             role="group"
-             id="rowTopic"
-             th:attr="title=#{menu.topic}"
-             data-i18n-attr="title:menu.topic">
+        <!-- Topic toggle -->
+        <div class="menu-item switch" role="group" id="rowTopic"
+             th:attr="title=#{menu.topic}" data-i18n-attr="title:menu.topic">
           <span class="mi-icon" aria-hidden="true">🧾</span>
           <div class="switch-text">
             <strong data-i18n="label.topic">Ticket/Story</strong>
             <span id="menuTopicStatus" data-i18n="toggle.off">Off</span>
           </div>
-          <input id="menuTopicToggle"
-                 class="switch-control"
-                 type="checkbox"
-                 role="switch"
-                 aria-checked="false"
-                 th:attr="aria-label=#{label.topic}"
-                 data-i18n-attr="aria-label:label.topic"
-                 aria-label="Ticket/Story">
+          <input id="menuTopicToggle" class="switch-control" type="checkbox" role="switch"
+                 aria-checked="false" th:attr="aria-label=#{label.topic}"
+                 data-i18n-attr="aria-label:label.topic" aria-label="Ticket/Story">
         </div>
 
-        <!-- Allow special cards toggle -->
-        <div class="menu-item switch"
-             role="group"
-             id="rowSpecials"
-             th:attr="title=#{menu.specials}"
-             data-i18n-attr="title:menu.specials">
+        <!-- Specials -->
+        <div class="menu-item switch" role="group" id="rowSpecials"
+             th:attr="title=#{menu.specials}" data-i18n-attr="title:menu.specials">
           <span class="mi-icon" aria-hidden="true">🎴</span>
           <div class="switch-text">
             <strong data-i18n="menu.specials">Allow special cards</strong>
             <span id="menuSpecialsStatus" data-i18n="toggle.on">On</span>
           </div>
-          <input id="menuSpecialsToggle"
-                 class="switch-control"
-                 type="checkbox"
-                 role="switch"
-                 aria-checked="true"
-                 checked
-                 th:attr="aria-label=#{menu.specials}"
-                 data-i18n-attr="aria-label:menu.specials"
-                 aria-label="Allow special cards">
+          <input id="menuSpecialsToggle" class="switch-control" type="checkbox" role="switch"
+                 aria-checked="true" checked th:attr="aria-label=#{menu.specials}"
+                 data-i18n-attr="aria-label:menu.specials" aria-label="Allow special cards">
         </div>
 
-        <!-- Hard mode toggle -->
-        <div class="menu-item switch"
-             role="group"
-             id="rowHardMode"
-             th:attr="title=#{menu.hardmode}"
-             data-i18n-attr="title:menu.hardmode">
+        <!-- Hard mode -->
+        <div class="menu-item switch" role="group" id="rowHardMode"
+             th:attr="title=#{menu.hardmode}" data-i18n-attr="title:menu.hardmode">
           <span class="mi-icon" aria-hidden="true">🧱</span>
           <div class="switch-text">
             <strong data-i18n="menu.hardmode">Hard mode</strong>
             <span id="menuHardStatus" data-i18n="toggle.off">Off</span>
           </div>
-          <input id="menuHardModeToggle"
-                 class="switch-control"
-                 type="checkbox"
-                 role="switch"
-                 aria-checked="false"
-                 th:attr="aria-label=#{menu.hardmode}"
-                 data-i18n-attr="aria-label:menu.hardmode"
-                 aria-label="Hard mode">
+          <input id="menuHardModeToggle" class="switch-control" type="checkbox" role="switch"
+                 aria-checked="false" th:attr="aria-label=#{menu.hardmode}"
+                 data-i18n-attr="aria-label:menu.hardmode" aria-label="Hard mode">
         </div>
       </div>
 
       <!-- Personal functions -->
       <div class="menu-section">
         <div class="section-title" data-i18n="menu.personalFunctions">Personal functions</div>
-
-        <div class="menu-item switch"
-             role="group"
-             id="rowParticipation"
-             th:attr="title=#{menu.participation}"
-             data-i18n-attr="title:menu.participation">
+        <div class="menu-item switch" role="group" id="rowParticipation"
+             th:attr="title=#{menu.participation}" data-i18n-attr="title:menu.participation">
           <span class="mi-icon" aria-hidden="true">🧑‍💻</span>
           <div class="switch-text">
             <strong data-i18n="menu.participation">Participation</strong>
             <span id="menuPartStatus" data-i18n="participation.imIn">I'm estimating</span>
           </div>
-          <input id="menuParticipationToggle"
-                 class="switch-control"
-                 type="checkbox"
-                 role="switch"
-                 aria-checked="true"
-                 checked
-                 th:attr="aria-label=#{menu.participation}"
-                 data-i18n-attr="aria-label:menu.participation"
-                 aria-label="Participation">
+          <input id="menuParticipationToggle" class="switch-control" type="checkbox" role="switch"
+                 aria-checked="true" checked th:attr="aria-label=#{menu.participation}"
+                 data-i18n-attr="aria-label:menu.participation" aria-label="Participation">
         </div>
       </div>
 
       <!-- Close room -->
       <div class="menu-section" th:if="${showRoom}">
-        <button id="closeRoomBtn"
-                type="button"
-                class="menu-item danger"
+        <button id="closeRoomBtn" type="button" class="menu-item danger"
                 th:attr="title=#{room.close},aria-label=#{room.close}"
                 data-i18n-attr="title:room.close;aria-label:room.close"
                 aria-label="Close room for everyone">
@@ -244,9 +177,44 @@
           <span class="truncate-1" data-i18n="room.close">Close room for everyone</span>
         </button>
       </div>
-
     </div>
   </div>
+
+  <!-- *** Tiny bridge: keeps topic toggle ↔ row in sync *** -->
+  <script>
+  (function(){
+    function $(id){ return document.getElementById(id); }
+    function setTopicVisible(on){
+      var row = $('topicRow');
+      if (row){
+        row.classList.toggle('is-hidden', !on);
+        row.hidden = !on;
+        try { row.style.display = on ? '' : 'none'; } catch {}
+      }
+      if (document.body) document.body.dataset.topicVisible = String(!!on);
+      try { document.dispatchEvent(new CustomEvent('ep:topic:set', { detail:{ visible: !!on } })); } catch {}
+    }
+    function init(){
+      var t = $('menuTopicToggle'), s = $('menuTopicStatus');
+      if (!t) return;
+      // initial apply from aria-checked/checked
+      var aria = t.getAttribute('aria-checked');
+      var on = aria === 'true' ? true : aria === 'false' ? false : !!t.checked;
+      setTopicVisible(on);
+      if (s) s.textContent = on ? (document.querySelector('[data-i18n="menu.on"]')?.textContent || 'On')
+                                : (document.querySelector('[data-i18n="menu.off"]')?.textContent || 'Off');
+      t.addEventListener('change', function(){
+        var aria = t.getAttribute('aria-checked');
+        var on = aria === 'true' ? true : aria === 'false' ? false : !!t.checked;
+        setTopicVisible(on);
+      });
+      // expose for tests / other scripts
+      window.setTopicVisible = setTopicVisible;
+    }
+    if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', init); }
+    else { init(); }
+  })();
+  </script>
 
   <!-- Load JS -->
   <script defer src="/js/menu.js?v=38"></script>

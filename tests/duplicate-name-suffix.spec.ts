@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, Page, Browser } from '@playwright/test';
 
 test('Second user with the same requested name is redirected to /invite (server 4005)', async ({ page, browser }) => {
   const room = `dupe-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;

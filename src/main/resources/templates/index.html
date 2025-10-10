@@ -62,7 +62,7 @@
     });
 
     form.addEventListener('submit', async (e) => {
-      e.preventDefault(); // we will submit manually after checks
+      e.preventDefault(); // manual submit after checks
 
       const n = (nameI.value || '').trim();
       const r = (roomI.value || '').trim();
@@ -73,13 +73,12 @@
         return;
       }
 
-      // persist last inputs for convenience
       try {
         localStorage.setItem('ep-name', n);
         localStorage.setItem('ep-room', r);
       } catch {}
 
-      // async name-taken check against in-memory room state
+      // async name-taken check (best-effort)
       try {
         const url = `/api/rooms/${encodeURIComponent(r)}/name-taken?name=${encodeURIComponent(n)}`;
         const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
@@ -91,10 +90,7 @@
             return;
           }
         }
-        // if non-200 or parse error ⇒ fall through and submit (server remains authoritative)
-      } catch {
-        // network error ⇒ submit anyway; server will enforce uniqueness behavior
-      }
+      } catch {}
 
       form.submit();
     });
