@@ -31,7 +31,20 @@
     </dl>
 
     <h2 th:text="#{label.participants}" data-i18n="label.participants">Participants</h2>
-    <ul id="liveParticipantList"></ul>
+
+    <!-- Live participants list.
+         ARIA: polite live region so screen readers get updates without being too disruptive. -->
+    <ul id="liveParticipantList" role="list" aria-live="polite" aria-busy="false"></ul>
+
+    <!-- Host label template: JS can clone this when marking a participant as Host.
+         Accessible: title + aria-label; i18n-ready via data-i18n-attr.
+         Visual styling will be added in styles.css using the .host-label selector. -->
+    <template id="hostLabelTpl">
+      <span class="host-label"
+            title="Host"
+            aria-label="Host"
+            data-i18n-attr="title:label.host;aria-label:label.host">👑</span>
+    </template>
 
     <!-- Topic compact row (inline edit) -->
     <div id="topicRow" class="topic-row is-hidden" hidden>
@@ -39,7 +52,6 @@
       <span id="topicDisplay" class="topic-text">–</span>
       <div class="topic-actions"></div>
     </div>
-
 
     <!-- Result row (always present; space is reserved even when hidden) -->
     <p id="resultRow"
@@ -93,9 +105,9 @@
   </div>
 
   <!-- Room connector (bump v-param if clients cache JS) -->
-  <script defer th:src="@{/js/room.js?v=43}"
+  <script defer th:src="@{/js/room.js?v=46}"
           th:attr="data-participant=${participantName},data-room=${roomCode}"></script>
-  
+
   <div th:replace="~{fragments/footer :: footer}"></div>
 </body>
 </html>

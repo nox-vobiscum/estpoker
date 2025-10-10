@@ -1,4 +1,4 @@
-/* === styles.css (consolidated, zero‑risk tidy) ===========================
+/* === styles.css (consolidated, zero-risk tidy) ===========================
    Scope of changes:
    - Kept all functional blocks; removed only trivial duplicates.
    - Grouped sections; added comments for future maintenance.
@@ -283,10 +283,20 @@ li{margin-bottom:.4rem;line-height:1.5;font-size:1rem}
 #liveParticipantList .participant-row{display:grid;grid-template-columns:var(--icon-col-width) 1fr 1fr;align-items:center;column-gap:.4rem;margin-bottom:.4rem;padding:6px 8px;border-bottom:1px solid var(--border);border-radius:6px}
 #liveParticipantList .participant-row.is-host{background:rgba(0,122,204,.08);outline:1px solid rgba(0,122,204,.22)}
 :root[data-theme="light"] #liveParticipantList .participant-row.is-host{background:#e8f1ff;outline-color:rgba(37,99,235,.35)}
+:root[data-theme="light"] .host-label{background:var(--host-pill-bg);border-color:var(--host-pill-border);color:var(--host-pill-text);}
 
 .participant-icon{width:var(--icon-col-width);display:inline-flex;justify-content:center;align-items:center;line-height:1}
 .participant-icon.host{font-size:1.1rem}
 .name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;color:var(--text)}
+
+/* Host label (left of name) */
+.host-label{
+  display:inline-flex; align-items:center; justify-content:center;
+  width:1.2em; height:1.2em; margin-right:.35rem;
+  line-height:1; font-size:1.05em; vertical-align:middle;
+  transform:translateY(var(--emoji-nudge-y, -0.5px));
+}
+.host-label[hidden]{ display:none !important; }
 
 /* Inactive/Disconnected row */
 #liveParticipantList li.disconnected{font-style:normal;color:var(--inactive-fg)}

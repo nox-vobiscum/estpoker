@@ -633,6 +633,13 @@
         name.className = 'name';
         name.textContent = p.name;
         li.appendChild(name);
+        // Put the hidden host-label into the icon cell (no visual impact)
+        if (p.isHost) {
+        const sr = document.createElement('span');
+        sr.className = 'host-label sr-only';
+        sr.textContent = t('label.host', 'Host');
+        left.appendChild(sr);
+  }
 
         const right = document.createElement('div');
         right.className = 'row-right';
@@ -1048,6 +1055,14 @@ function renderTopic() {
   const row = $('#topicRow'); if (!row) return;
   row.style.display = state.topicVisible ? '' : 'none';
   row.setAttribute('data-visible', state.topicVisible ? '1' : '0');
+  // Keep [hidden] attribute and "is-hidden" class in sync with visibility
+  if (state.topicVisible) {
+  row.removeAttribute('hidden');
+  row.classList.remove('is-hidden');
+  } else {
+  row.setAttribute('hidden', '');
+  row.classList.add('is-hidden');
+  }
 
   // Ensure actions container
   let actions = row.querySelector('.topic-actions');
