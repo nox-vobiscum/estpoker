@@ -38,3 +38,26 @@ build/
 # Playwright artifacts
 /playwright-report/
 /test-results/
+node_modules/
+*.trace.zip
+*.mp4
+*.webm
+*.har
+
+# --- Java / Spring ---
+build/
+.gradle/
+out/
+
+# --- IDE / OS ---
+.idea/
+*.iml
+.DS_Store
+Thumbs.db
+
+# --- Sonstiges ---
+coverage/
+logs/
+*.log
+.env
+.env.*
