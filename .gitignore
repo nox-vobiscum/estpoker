@@ -43,36 +43,27 @@ build/
 
 # Playwright artifacts
 /playwright-report/
-/test-results/scripts/bin/cloudflared.exe
-
-# Playwright / test artifacts
-playwright-report/
-test-results/
-**/.last-run.json
+/test-results/
 node_modules/
+*.trace.zip
+*.mp4
+*.webm
+*.har
 
-playwright-report/
-test-results/
-**/.last-run.json
-scripts/bin/
-node_modules/
+# --- Java / Spring ---
+build/
+.gradle/
+out/
 
-playwright-report/
-test-results/
-**/.last-run.json
-scripts/bin/
-
-.vscode/
+# --- IDE / OS ---
 .idea/
+*.iml
 .DS_Store
 Thumbs.db
 
-playwright-report/
-test-results/
-**/.last-run.json
-
-# Dev/CI noise
-node_modules/
-playwright-report/
-test-results/
-**/.last-run.json
+# --- Sonstiges ---
+coverage/
+logs/
+*.log
+.env
+.env.*
