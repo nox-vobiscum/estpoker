@@ -1,0 +1,85 @@
+################################################################################
+# Documentation / misc
+################################################################################
+HELP.md
+
+################################################################################
+# Build outputs (Java / JVM)
+################################################################################
+# Maven outputs
+target/
+
+# Gradle outputs
+.gradle/
+**/build/
+out/
+
+# Compiled classes (just in case)
+**/classes/
+
+################################################################################
+# Maven wrapper
+# (We intentionally do NOT track the wrapper JAR here.
+#  If you prefer to commit it, remove the following line.)
+################################################################################
+.mvn/wrapper/maven-wrapper.jar
+
+################################################################################
+# Local Spring Boot config (do not commit secrets)
+################################################################################
+/src/main/resources/application-local.properties
+/src/main/resources/application-local.yml
+/src/main/resources/application-*.local.*
+
+################################################################################
+# Node / Playwright artifacts
+################################################################################
+node_modules/
+playwright-report/
+test-results/
+*.trace.zip
+*.webm
+*.mp4
+*.har
+
+# Coverage reports
+coverage/
+*.lcov
+
+# Logs
+logs/
+*.log
+
+################################################################################
+# IDE settings
+################################################################################
+# VS Code
+.vscode/
+
+# IntelliJ IDEA
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Eclipse / Spring Tools Suite
+.project
+.classpath
+.settings/
+.apt_generated
+.factorypath
+.springBeans
+.sts4-cache
+
+# NetBeans
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+
+################################################################################
+# OS files
+################################################################################
+.DS_Store
+Thumbs.db
