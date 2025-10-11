@@ -590,8 +590,9 @@ html.light .vote-chip.heat, body.light .vote-chip.heat, :root[data-theme="light"
 @media (prefers-reduced-motion: reduce) { .kbase details > summary::after { transition: none; } }
 
 /* Result row slot (visible/hidden) ---------------------------------------- */
-.result-row{ min-height:1.25rem; margin:18px 0 6px; }
-.result-row.is-hidden{ visibility:hidden; }
+.result-row{min-height:1.25rem;margin:18px 0 6px;transition: opacity .18s ease;opacity: 1;}
+.result-row.is-hidden{ visibility:hidden; opacity:0; }
+
 
 /* Actions spacing & reveal state ----------------------------------------- */
 .vote-actions { margin-top: 14px; }

@@ -79,6 +79,10 @@
         <span id="rangeLabel" class="label" th:text="#{label.range}" data-i18n="label.range">Range:</span>
         <span id="rangeVote" class="value">–</span>
       </span>
+
+      <!-- SR-only live region: compact sentence for screen readers -->
+      <span id="resultAnnounce" class="sr-only" aria-live="polite" aria-atomic="true"></span>
+
     </p>
 
     <!-- Card grid (always visible; disabled after reveal via body class + JS) -->
@@ -105,7 +109,7 @@
   </div>
 
   <!-- Room connector (bump v-param if clients cache JS) -->
-  <script defer th:src="@{/js/room.js?v=46}"
+  <script defer th:src="@{/js/room.js?v=50}"
           th:attr="data-participant=${participantName},data-room=${roomCode}"></script>
 
   <div th:replace="~{fragments/footer :: footer}"></div>

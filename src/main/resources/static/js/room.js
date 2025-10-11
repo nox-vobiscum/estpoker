@@ -889,6 +889,54 @@
     }
   } // end renderCards()
 
+    // Locale-aware number formatting (0–2 decimals)
+  function fmtNumber(n){
+    try {
+      return new Intl.NumberFormat(isDe() ? 'de' : 'en', { maximumFractionDigits: 2 }).format(n);
+    } catch { return String(n); }
+  }
+  function fmtStat(val){
+    if (val == null || val === '') return null;
+    const s = String(val).trim();
+    if (s === '∞' || s === '♾️') return s;
+    if (s === '½' || s === '1/2') return isDe() ? '0,5' : '0.5';
+    const x = Number(s.replace(',', '.'));
+    return Number.isFinite(x) ? fmtNumber(x) : s;
+  }
+  function fmtRange(s){
+    if (s == null || s === '') return null;
+    const parts = String(s).split(/[-–—]/);
+    if (parts.length === 2) return `${fmtStat(parts[0].trim())}–${fmtStat(parts[1].trim())}`;
+    return String(s);
+  }
+
+  // Screen-reader announcement: always English (per project rule)
+  function announceResultForSR_EN() {
+    const sink = document.getElementById('resultAnnounce');
+    if (!sink) return;
+
+    if (!state.votesRevealed) { sink.textContent = ''; return; }
+
+    const toS = (v) => (v == null || v === '' ? null : String(v));
+    const avg    = toS(fmtStat(state.averageVote));
+    const median = toS(fmtStat(state.medianVote));
+    let   range  = toS(fmtRange(state.range));
+    if (range) range = range.replace('–', ' to '); // SR-friendly connector
+
+    let msg = '';
+    if (state.consensus && avg) {
+      msg = `🎉 Consensus ${avg}`;
+    } else {
+      const parts = [];
+      if (avg)    parts.push(`Average: ${avg}`);
+      if (median) parts.push(`Median: ${median}`);
+      if (range)  parts.push(`Range: ${range}`);
+      msg = parts.join(', ');
+    }
+    sink.textContent = msg;
+  }
+
+
   /*** ---------- Result bar ---------- ***/
   function renderResultBar() {
     document.body.classList.toggle('votes-revealed', !!state.votesRevealed);
@@ -927,9 +975,9 @@
     const CONS_LABEL = t('label.consensus', isDe() ? '🎉 Konsens' : '🎉 Consensus');
 
     if (avgEl) {
-      const avgTxt = withInf(toStr(state.averageVote));
-      avgEl.textContent = avgTxt ?? (state.votesRevealed ? 'N/A' : '');
-    }
+    const avgTxt = withInf(toStr(fmtStat(state.averageVote)));
+    avgEl.textContent = avgTxt ?? (state.votesRevealed ? 'N/A' : '');
+  } 
 
     if (row) {
       if (state.consensus) {
@@ -940,6 +988,9 @@
         if (medianWrap) medianWrap.hidden = true;
         if (rangeSep)  rangeSep.hidden  = true;
         if (rangeWrap) rangeWrap.hidden = true;
+        // Announce for screen readers even in the consensus branch (which returns early)
+        // SR (English only) before early return
+        announceResultForSR_EN();
         return;
       } else {
         row.classList.remove('consensus');
@@ -952,7 +1003,7 @@
     if (medianWrap) {
       showMedian = state.votesRevealed && toStr(state.medianVote) != null;
       medianWrap.hidden = !showMedian;
-      if (showMedian) setText('#medianVote', withInf(toStr(state.medianVote)));
+      if (showMedian) setText('#medianVote', withInf(toStr(fmtStat(state.medianVote))));
     }
     if (medianSep) {
       medianSep.hidden = !showMedian;
@@ -963,11 +1014,12 @@
       const showRange = state.votesRevealed && toStr(state.range) != null;
       rangeWrap.hidden = !showRange;
       rangeSep.hidden  = !showRange;
-      if (showRange) setText('#rangeVote', withInf(toStr(state.range)));
+      if (showRange) setText('#rangeVote', withInf(toStr(fmtRange(state.range))));
     }
+    announceResultForSR_EN();
   }
 
-  /*** ---------- Topic row (robust, delegated, optimistic) ---------- ***/
+/*** ---------- Topic row (robust, delegated, optimistic) ---------- ***/
 
 // Parse free-form topic into {label,url}
 function clientParseTopic(input) {
