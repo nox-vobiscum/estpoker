@@ -784,6 +784,31 @@
     return Math.round(Math.max(0, Math.min(120, hue)));
   }
 
+
+      // Default client-side deck (until server sends one)
+    function defaultDeck(seqId = 'fib.scrum', allowSpecials = true) {
+      const base = ['0', '1/2', '1', '2', '3', '5', '8', '13', '20', '40', '100'];
+      const withInfinity = [...base, '♾️']; // only for fib.enh
+      const core = (seqId === 'fib.enh') ? withInfinity : base;
+
+      const specials = allowSpecials ? ['❓','☕'] : [];
+      return [...core, ...specials];
+    }
+
+    // Ensure we have a clickable deck before any server sync arrives
+    function ensureBootstrapDeck() {
+      if (!Array.isArray(state.cards) || state.cards.length === 0) {
+        state.sequenceId = normalizeSeq(state.sequenceId || 'fib.scrum');
+        let deck = defaultDeck(state.sequenceId, state.allowSpecials);
+        if (state.sequenceId !== 'fib.enh') {
+          deck = deck.filter(c => c !== INFINITY_ && c !== INFINITY_ALT);
+        }
+        // honor disabled specials
+        deck = deck.filter(c => !DISABLED_SPECIALS.has(String(c)));
+        state.cards = deck;
+      }
+    }
+
   /*** ---------- Cards ---------- ***/
   function mySelectedValue() {
     const me = state.participants.find(pp => pp.name === state.youName);
@@ -1390,7 +1415,41 @@ function syncTopicOverflow() {
   }
 
   /*** ---------- Menu & lifecycle events ---------- ***/
-  function wireMenuEvents() {
+    function wireSequenceRadios() {
+    const root = document.getElementById('menuSeqChoice');
+    if (!root || root.__seqBound) return;
+    root.__seqBound = true;
+
+    root.addEventListener('change', (e) => {
+      const t = e.target;
+      if (!(t instanceof HTMLInputElement)) return;
+      if (t.name !== 'menu-seq') return;
+
+      const id = normalizeSeq(t.value);
+      if (!id) return;
+
+      // Optimistic local update so UI doesn’t snap back
+      state.sequenceId = id;
+      state.votesRevealed = false;
+      state._optimisticVote = null;
+
+      // Keep deck consistent with sequence (esp. infinity)
+      let deck = Array.isArray(state.cards) ? state.cards.slice() : defaultDeck(id, state.allowSpecials);
+      if (id !== 'fib.enh') deck = deck.filter(c => c !== INFINITY_ && c !== INFINITY_ALT);
+      state.cards = deck.length ? deck : defaultDeck(id, state.allowSpecials);
+
+      renderCards();
+      renderResultBar();
+      syncSequenceInMenu();
+
+      // Tell server if we are host
+      if (state.isHost) {
+        try { send('sequence:' + encodeURIComponent(id)); } catch {}
+      }
+    });
+  }
+
+    function wireMenuEvents() {
     // Single, final close-room confirmation (no duplicate confirm elsewhere)
     document.addEventListener('ep:close-room', () => {
       if (!state.isHost) return;
@@ -1399,10 +1458,27 @@ function syncTopicOverflow() {
     });
 
     document.addEventListener('ep:sequence-change', (ev) => {
-      const id = normalizeSeq(ev?.detail?.id); if (!id) return;
+      const id = normalizeSeq(ev?.detail?.id || ev?.detail?.sequenceId);
+      if (!id) return;
       if (!state.isHost) return;
-      send('sequence:' + encodeURIComponent(id));
+
+      // Optimistic local update
+      state.sequenceId = id;
+      state.votesRevealed = false;
+      state._optimisticVote = null;
+
+      let deck = Array.isArray(state.cards) ? state.cards.slice() : defaultDeck(id, state.allowSpecials);
+      if (id !== 'fib.enh') deck = deck.filter(c => c !== INFINITY_ && c !== INFINITY_ALT);
+      state.cards = deck.length ? deck : defaultDeck(id, state.allowSpecials);
+
+      renderCards();
+      renderResultBar();
+      syncSequenceInMenu();
+
+      // Notify server
+      try { send('sequence:' + encodeURIComponent(id)); } catch {}
     });
+
 
     document.addEventListener('ep:auto-reveal-toggle', (ev) => {
       if (!state.isHost) return;
@@ -1568,6 +1644,7 @@ function syncTopicOverflow() {
   function wireOnce() {
     bindCopyLink();
     wireMenuEvents();
+    wireSequenceRadios();
     bindDelegatedHandlers();
 
     const row = $('#topicRow');
@@ -1756,19 +1833,22 @@ function syncTopicOverflow() {
     try { renderParticipants(); } catch {}
   }
 
-  async function boot() {
+    async function boot() {
     preloadMessages();
 
     await preflightNameCheck();
     if (state.hardRedirect) return;
 
     syncHostClass();
+    ensureBootstrapDeck();            // <-- ADD
     seedSelfPlaceholder();
     try {
       if (!document.documentElement.hasAttribute('data-ready')) {
         document.documentElement.setAttribute('data-ready', '1');
       }
     } catch {}
+
+    renderCards();                    // <-- ADD (so votes are clickable immediately)
     wireOnce();
   }
 
