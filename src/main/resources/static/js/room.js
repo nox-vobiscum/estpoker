@@ -92,6 +92,7 @@
     // client-only toggles
     hardMode: false,
     allowSpecials: true,
+    selfSpectator: false, // local mirror for immediate UI response to participation toggle
 
     // topic edit
     topicEditing: false,
@@ -102,7 +103,11 @@
 
     // preflight guards
     cidWasNew: true,
-    _preflightMarkedOk: false
+    _preflightMarkedOk: false,
+
+    // short pending guard for local sequence changes
+    _pendingSeq: null,
+    _pendingSeqUntil: 0
   };
 
   /*** ---------- Stable per-tab client id ---------- ***/
@@ -138,8 +143,6 @@
   // One-time binding guard for resize wiring
   let _topicOverflowResizeBound = false;
   let _topicBound = false;
-  let _topicActionsEl = null;
-  let _topicMo = null;
 
   /*** ---------- Helpers ---------- ***/
   function normalizeSeq(id) {
@@ -150,6 +153,25 @@
     if (s === 't-shirt')  return 'tshirt';
     return s;
   }
+
+    /*** ---------- Early bridge for programmatic sequence changes ---------- ***/
+    // Some tests (and potential integrations) dispatch on window; others on document.
+    // Bind early so we don't miss events that might fire right after data-ready.
+    function onSequenceChange(ev) {
+      const id = normalizeSeq(ev?.detail?.id || ev?.detail?.sequenceId);
+      if (!id) return;
+      // Sequence remains host-only; guests are ignored once host info is known.
+      if (state._hostKnown && !state.isHost) return;
+
+      applyLocalSequence(id);   // optimistic UI update
+      notifySequence(id);       // tell the server + request echo
+    }
+
+    // Bind on both targets; capture=true to be resilient to shadowing/bubbling quirks.
+    document.addEventListener('ep:sequence-change', onSequenceChange, { capture: true });
+    window.addEventListener('ep:sequence-change', onSequenceChange, { capture: true });
+
+
   function isDe() {
     return (document.documentElement.lang || 'en').toLowerCase().startsWith('de');
   }
@@ -164,18 +186,65 @@
     document.body.classList.toggle('is-host', !!state.isHost);
   }
 
+  function syncHostClass() {
+    document.body.classList.toggle('is-host', !!state.isHost);
+  }
+
+  // Early sequence-change event bridge (binds before data-ready)
+    (function bindEarlySeqBridge() {
+    try {
+      if (window.__epSeqBridgeBound) return;
+      window.__epSeqBridgeBound = true;
+
+      const applyWanted = (wanted) => {
+        // Respect host-gate once known
+        if (state._hostKnown && !state.isHost) return;
+
+        const current = normalizeSeq(state.sequenceId || 'fib.scrum');
+        if (current === wanted && !state._pendingSeq) return;
+
+        applyLocalSequence(wanted);
+        notifySequence(wanted);
+      };
+
+      const onSeq = (ev) => {
+        const raw = ev?.detail?.id ?? ev?.detail?.sequenceId;
+        const id = normalizeSeq(raw);
+        if (!id) return;
+
+        // 1) immediately
+        applyWanted(id);
+
+        // 2) once more on the next macrotask — survives a late bootstrap/render pass
+        setTimeout(() => {
+          const cur = normalizeSeq(state.sequenceId || 'fib.scrum');
+          if (cur !== id) applyWanted(id);
+        }, 80);
+
+        // 3) and once after the next frame (covers animation/layout swaps)
+        requestAnimationFrame(() => {
+          const cur = normalizeSeq(state.sequenceId || 'fib.scrum');
+          if (cur !== id) applyWanted(id);
+        });
+      };
+
+      document.addEventListener('ep:sequence-change', onSeq, { capture: false });
+      window.addEventListener('ep:sequence-change', onSeq, { capture: false });
+    } catch {}
+  })();
+
   // Presence guard (suppress join/leave toasts for self + rapid flaps)
-  const PRESENCE_GRACE_MS = 2000;
   const PRESENCE_KEY = (n) => 'ep-presence:' + encodeURIComponent(n);
   function markAlive(name) { if (!name) return; try { localStorage.setItem(PRESENCE_KEY(name), String(Date.now())); } catch {} }
 
-  // Wrap long tooltips by injecting \n
+  // Wrap long tooltips by injecting \n  (no lookbehind → broader browser support)
   function wrapForTitle(text, max = 44) {
     const words = String(text || '').trim().split(/\s+/);
     const out = []; let line = '';
     for (let w of words) {
       if (w.length > max) {
-        w = w.replace(/(?<=\/)/g, '\n').replace(/(?<=-)/g, '\n').replace(/(?<=_)/g, '\n').replace(/(?<=\.)/g, '\n');
+        // Break after separators: / - _ .
+        w = w.replace(/[\/\-_\.]/g, m => m + '\n');
       }
       for (const chunk of w.split('\n')) {
         if (!chunk) continue;
@@ -186,6 +255,47 @@
     }
     if (line) out.push(line);
     return out.join('\n');
+  }
+
+  /*** ---------- Deck bootstrap & number formatting ---------- ***/
+  function defaultDeck(seqId = 'fib.scrum', allowSpecials = true) {
+    const base = ['0', '1/2', '1', '2', '3', '5', '8', '13', '20', '40', '100'];
+    const withInfinity = [...base, '♾️']; // only for fib.enh
+    const core = (seqId === 'fib.enh') ? withInfinity : base;
+    const specials = allowSpecials ? ['❓','☕'] : [];
+    return [...core, ...specials];
+  }
+
+  function ensureBootstrapDeck() {
+    if (!Array.isArray(state.cards) || state.cards.length === 0) {
+      state.sequenceId = normalizeSeq(state.sequenceId || 'fib.scrum');
+      let deck = defaultDeck(state.sequenceId, state.allowSpecials);
+      if (state.sequenceId !== 'fib.enh') {
+        deck = deck.filter(c => c !== INFINITY_ && c !== INFINITY_ALT);
+      }
+      deck = deck.filter(c => !DISABLED_SPECIALS.has(String(c)));
+      state.cards = deck;
+    }
+  }
+
+  function fmtNumber(n){
+    try {
+      return new Intl.NumberFormat(isDe() ? 'de' : 'en', { maximumFractionDigits: 2 }).format(n);
+    } catch { return String(n); }
+  }
+  function fmtStat(val){
+    if (val == null || val === '') return null;
+    const s = String(val).trim();
+    if (s === '∞' || s === '♾️') return s;
+    if (s === '½' || s === '1/2') return isDe() ? '0,5' : '0.5';
+    const x = Number(s.replace(',', '.'));
+    return Number.isFinite(x) ? fmtNumber(x) : s;
+  }
+  function fmtRange(s){
+    if (s == null || s === '') return null;
+    const parts = String(s).split(/[-–—]/);
+    if (parts.length === 2) return `${fmtStat(parts[0].trim())}–${fmtStat(parts[1].trim())}`;
+    return String(s);
   }
 
   /*** ---------- WebSocket + liveness ---------- ***/
@@ -214,7 +324,7 @@
       if (ws && ws.readyState === 1) {
         const age = Date.now() - lastInboundAt;
         if (age > WATCHDOG_STALE_MS) {
-          console.warn(TAG, 'watchdog: stale socket (age', age, 'ms) → reconnect');
+          console.warn(TAG, 'watchdog: stale socket → reconnect');
           try { ws.close(4002, 'stale'); } catch {}
           scheduleReconnect('watchdog-stale');
         }
@@ -267,7 +377,7 @@
     }
   }
 
-  // -------- SINGLE, FINAL VERSION OF connectWS (handles text + JSON) ----------
+  // Single, final version of connectWS (handles text + JSON)
   function connectWS() {
     const u = wsUrl();
 
@@ -387,18 +497,6 @@
       }
     };
   }
-  // -------- END connectWS ----------------------------------------------------
-
-  // Host-only sequence change bridge
-  window.addEventListener('ep:sequence-change', (ev) => {
-    try {
-      const id = String(ev?.detail?.sequenceId || '').trim();
-      if (!id) return;
-      send('sequence:' + encodeURIComponent(id));
-    } catch (e) {
-      console.warn('[room] ep:sequence-change handler failed:', e);
-    }
-  }, { passive: true });
 
   /*** ---------- Messages ---------- ***/
   function handleMessage(m) {
@@ -454,9 +552,26 @@
     try {
       const has = (obj, k) => Object.prototype.hasOwnProperty.call(obj || {}, k);
 
-      // sequence id
-      if (has(m, 'sequenceId')) state.sequenceId = normalizeSeq(m.sequenceId);
-      else if (!state.sequenceId) state.sequenceId = 'fib.scrum';
+      // sequence id (guard against reverting a very recent local change)
+      if (has(m, 'sequenceId')) {
+        const incoming = normalizeSeq(m.sequenceId);
+        const now = Date.now();
+        if (state._pendingSeq && now < state._pendingSeqUntil) {
+          // Ignore mismatching old server snapshot during short pending window
+          if (incoming === state._pendingSeq) {
+            state.sequenceId = incoming;       // server confirms our choice
+            state._pendingSeq = null;
+            state._pendingSeqUntil = 0;
+          }
+        } else {
+          state.sequenceId = incoming;
+        }
+      } else if (!state.sequenceId) {
+        state.sequenceId = 'fib.scrum';
+      }
+
+      // mirror into menu radios immediately
+      updateAllSeqRadiosChecked(state.sequenceId);
 
       // specials / deck
       let specialsList = null;
@@ -480,15 +595,32 @@
       }
       if (allowFromServer !== null) state.allowSpecials = allowFromServer;
 
-      let deck = has(m, 'cards') && Array.isArray(m.cards) ? m.cards.slice()
-               : Array.isArray(state.cards) ? state.cards.slice()
-               : [];
-
       const seqId = state.sequenceId || 'fib.scrum';
+
+      // If server didn’t send cards, derive from the sequence
+      let deck;
+      if (has(m, 'cards') && Array.isArray(m.cards)) {
+        deck = m.cards.slice();
+      } else {
+        deck = defaultDeck(seqId, state.allowSpecials);
+      }
+
+      // Infinity only for enh
       if (seqId !== 'fib.enh') deck = deck.filter(c => c !== INFINITY_ && c !== INFINITY_ALT);
 
-      if (specialsList !== null) deck = deck.filter(c => !SPECIALS.includes(c)).concat(specialsList);
+      // Apply server specials (if provided)
+      if (specialsList !== null) {
+        deck = deck.filter(c => !SPECIALS.includes(c)).concat(specialsList);
+      }
+
+      // Honor local disabled specials
       deck = deck.filter(c => !DISABLED_SPECIALS.has(String(c)));
+
+      // Safety
+      if (!deck.length) {
+        deck = defaultDeck(seqId, state.allowSpecials);
+        if (seqId !== 'fib.enh') deck = deck.filter(c => c !== INFINITY_ && c !== INFINITY_ALT);
+      }
       state.cards = deck;
 
       // core flags / stats
@@ -510,21 +642,18 @@
       if (has(m, 'outliers') && Array.isArray(m.outliers)) state.outliers = m.outliers.slice();
       if (has(m, 'autoRevealEnabled'))  state.autoRevealEnabled = !!m.autoRevealEnabled;
 
-      // topic / misc
-      if (has(m, 'topicVisible')) state.topicVisible = !!m.topicVisible;
-      if (has(m, 'topicLabel'))   state.topicLabel   = m.topicLabel || '';
-      if (has(m, 'topicUrl'))     state.topicUrl     = m.topicUrl || null;
-
-      // topic fields — protect user input during editing
+      // topic (protect user edits)
       if (!state.topicEditing) {
-      if (has(m, 'topicVisible')) state.topicVisible = !!m.topicVisible;
-      if (has(m, 'topicLabel'))   state.topicLabel   = m.topicLabel || '';
-      if (has(m, 'topicUrl'))     state.topicUrl     = m.topicUrl || null;
-      } else {      
-      state._topicIncomingWhileEditing = { label: m.topicLabel, url: m.topicUrl };
+        if (has(m, 'topicVisible')) state.topicVisible = !!m.topicVisible;
+        if (has(m, 'topicLabel'))   state.topicLabel   = m.topicLabel || '';
+        if (has(m, 'topicUrl'))     state.topicUrl     = m.topicUrl || null;
+      } else {
+        state._topicIncomingWhileEditing = { label: m.topicLabel, url: m.topicUrl };
       }
 
-      // participants
+      // participants; only mark host-known if authoritative data is present
+      let hostInfoUpdated = false;
+
       if (has(m, 'participants') && Array.isArray(m.participants)) {
         const prevByName = Object.fromEntries((state.participants || []).map(p => [p.name, p]));
         const next = [];
@@ -559,11 +688,26 @@
         }
 
         if (next.length) state.participants = next;
+
+        const meNow = state.participants.find(p => p && p.name === state.youName);
+        if (meNow && typeof meNow.isHost === 'boolean') {
+          state.isHost = !!meNow.isHost;
+          state.selfSpectator = !!(meNow.spectator === true || meNow.participating === false);
+          hostInfoUpdated = true;
+        }
+      }
+
+      // optional flat isHost on message
+      if (!hostInfoUpdated && has(m, 'isHost')) {
+        state.isHost = !!m.isHost;
+        hostInfoUpdated = true;
+      }
+
+      if (hostInfoUpdated) {
+        state._hostKnown = true;
       }
 
       const me = state.participants.find(p => p && p.name === state.youName);
-      state.isHost = !!(me && me.isHost);
-      state._hostKnown = true;
       if (me && me.vote != null) state._optimisticVote = null;
 
       syncHostClass();
@@ -633,13 +777,15 @@
         name.className = 'name';
         name.textContent = p.name;
         li.appendChild(name);
-        // Put the hidden host-label into the icon cell (no visual impact)
+
+        // SR-only host label (inside icon cell, no visual change)
+        const srLabel = t('label.host', 'Host');
         if (p.isHost) {
-        const sr = document.createElement('span');
-        sr.className = 'host-label sr-only';
-        sr.textContent = t('label.host', 'Host');
-        left.appendChild(sr);
-  }
+          const sr = document.createElement('span');
+          sr.className = 'host-label sr-only';
+          sr.textContent = srLabel;
+          left.appendChild(sr);
+        }
 
         const right = document.createElement('div');
         right.className = 'row-right';
@@ -784,31 +930,6 @@
     return Math.round(Math.max(0, Math.min(120, hue)));
   }
 
-
-      // Default client-side deck (until server sends one)
-    function defaultDeck(seqId = 'fib.scrum', allowSpecials = true) {
-      const base = ['0', '1/2', '1', '2', '3', '5', '8', '13', '20', '40', '100'];
-      const withInfinity = [...base, '♾️']; // only for fib.enh
-      const core = (seqId === 'fib.enh') ? withInfinity : base;
-
-      const specials = allowSpecials ? ['❓','☕'] : [];
-      return [...core, ...specials];
-    }
-
-    // Ensure we have a clickable deck before any server sync arrives
-    function ensureBootstrapDeck() {
-      if (!Array.isArray(state.cards) || state.cards.length === 0) {
-        state.sequenceId = normalizeSeq(state.sequenceId || 'fib.scrum');
-        let deck = defaultDeck(state.sequenceId, state.allowSpecials);
-        if (state.sequenceId !== 'fib.enh') {
-          deck = deck.filter(c => c !== INFINITY_ && c !== INFINITY_ALT);
-        }
-        // honor disabled specials
-        deck = deck.filter(c => !DISABLED_SPECIALS.has(String(c)));
-        state.cards = deck;
-      }
-    }
-
   /*** ---------- Cards ---------- ***/
   function mySelectedValue() {
     const me = state.participants.find(pp => pp.name === state.youName);
@@ -832,7 +953,7 @@
     grid.innerHTML = '';
 
     const me = state.participants.find(pp => pp.name === state.youName);
-    const isSpectatorMe = !!(me && isSpectator(me));
+    const isSpectatorMe = state.selfSpectator || !!(me && isSpectator(me));
     const disabled = state.votesRevealed || isSpectatorMe;
 
     const deckSpecialsFromState = (state.cards || [])
@@ -889,7 +1010,9 @@
     const resetBtn  = $('#resetButton');
     const hardGateOK = !state.hardMode || allEligibleVoted();
 
-    const showReveal = (!state.votesRevealed && state.isHost);
+    // Optimistic: until host is known, do not hide the reveal button.
+    // The server will reject a non-host reveal anyway; this avoids false negatives just after room creation.
+    const showReveal = (!state.votesRevealed && (state.isHost || !state._hostKnown));
     const showReset  = ( state.votesRevealed && state.isHost);
 
     if (revealBtn) {
@@ -914,28 +1037,7 @@
     }
   } // end renderCards()
 
-    // Locale-aware number formatting (0–2 decimals)
-  function fmtNumber(n){
-    try {
-      return new Intl.NumberFormat(isDe() ? 'de' : 'en', { maximumFractionDigits: 2 }).format(n);
-    } catch { return String(n); }
-  }
-  function fmtStat(val){
-    if (val == null || val === '') return null;
-    const s = String(val).trim();
-    if (s === '∞' || s === '♾️') return s;
-    if (s === '½' || s === '1/2') return isDe() ? '0,5' : '0.5';
-    const x = Number(s.replace(',', '.'));
-    return Number.isFinite(x) ? fmtNumber(x) : s;
-  }
-  function fmtRange(s){
-    if (s == null || s === '') return null;
-    const parts = String(s).split(/[-–—]/);
-    if (parts.length === 2) return `${fmtStat(parts[0].trim())}–${fmtStat(parts[1].trim())}`;
-    return String(s);
-  }
-
-  // Screen-reader announcement: always English (per project rule)
+  // SR announcement: concise sentence for screen readers (English only)
   function announceResultForSR_EN() {
     const sink = document.getElementById('resultAnnounce');
     if (!sink) return;
@@ -946,7 +1048,7 @@
     const avg    = toS(fmtStat(state.averageVote));
     const median = toS(fmtStat(state.medianVote));
     let   range  = toS(fmtRange(state.range));
-    if (range) range = range.replace('–', ' to '); // SR-friendly connector
+    if (range) range = range.replace('–', ' to ');
 
     let msg = '';
     if (state.consensus && avg) {
@@ -960,7 +1062,6 @@
     }
     sink.textContent = msg;
   }
-
 
   /*** ---------- Result bar ---------- ***/
   function renderResultBar() {
@@ -1000,21 +1101,20 @@
     const CONS_LABEL = t('label.consensus', isDe() ? '🎉 Konsens' : '🎉 Consensus');
 
     if (avgEl) {
-    const avgTxt = withInf(toStr(fmtStat(state.averageVote)));
-    avgEl.textContent = avgTxt ?? (state.votesRevealed ? 'N/A' : '');
-  } 
+      const avgTxt = withInf(toStr(fmtStat(state.averageVote)));
+      avgEl.textContent = avgTxt ?? (state.votesRevealed ? 'N/A' : '');
+    }
 
     if (row) {
       if (state.consensus) {
         row.classList.add('consensus');
-        if (avgWrap) avgWrap.hidden = true;
+        if (avgWrap)  avgWrap.hidden = true;
         if (consEl) { consEl.hidden = false; consEl.textContent = CONS_LABEL; }
         if (medianSep) { medianSep.hidden = true; medianSep.setAttribute('aria-hidden', 'true'); }
         if (medianWrap) medianWrap.hidden = true;
         if (rangeSep)  rangeSep.hidden  = true;
         if (rangeWrap) rangeWrap.hidden = true;
-        // Announce for screen readers even in the consensus branch (which returns early)
-        // SR (English only) before early return
+        // SR announce in consensus branch
         announceResultForSR_EN();
         return;
       } else {
@@ -1041,251 +1141,258 @@
       rangeSep.hidden  = !showRange;
       if (showRange) setText('#rangeVote', withInf(toStr(fmtRange(state.range))));
     }
+
     announceResultForSR_EN();
   }
 
-/*** ---------- Topic row (robust, delegated, optimistic) ---------- ***/
+  /*** ---------- Topic row (robust, delegated, optimistic) ---------- ***/
+  function clientParseTopic(input) {
+    const MAX_LABEL = 140;
+    const s = String(input || '').trim();
+    if (!s) return { label: null, url: null };
 
-// Parse free-form topic into {label,url}
-function clientParseTopic(input) {
-  const MAX_LABEL = 140;
-  const s = String(input || '').trim();
-  if (!s) return { label: null, url: null };
+    const isUrl = s.startsWith('http://') || s.startsWith('https://');
+    const jiraKeyMatch = s.match(/\b([A-Z][A-Z0-9]+-\d+)\b/);
+    const label = jiraKeyMatch ? jiraKeyMatch[1] : (s.length > MAX_LABEL ? (s.slice(0, MAX_LABEL) + '…') : s);
+    const url2 = isUrl ? s : null;
+    return { label, url: url2 };
+  }
 
-  const isUrl = s.startsWith('http://') || s.startsWith('https://');
-  const jiraKeyMatch = s.match(/\b([A-Z][A-Z0-9]+-\d+)\b/);
-  const label = jiraKeyMatch ? jiraKeyMatch[1] : (s.length > MAX_LABEL ? (s.slice(0, MAX_LABEL) + '…') : s);
-  const url2 = isUrl ? s : null;
-  return { label, url: url2 };
-}
-
-// Begin local edit (no server round-trip)
-function beginTopicEdit() {
-  if (!state.isHost) return;
-  state.topicEditing = true;
-  if (state._topicDraft == null) state._topicDraft = state.topicLabel || '';
-  renderTopic();
-}
-
-// One-time, delegated handlers on #topicRow (resilient to DOM swaps)
-function ensureTopicDelegates() {
-  const row = document.querySelector('#topicRow');
-  if (!row || row.__topicDelegatesBound) return;
-  row.__topicDelegatesBound = true;
-
-  const act = (id) => {
+  function beginTopicEdit() {
     if (!state.isHost) return;
-
-    // Helper actions (reuse exactly in pointer + click paths)
-    const doClear = () => {
-      state.topicLabel = '';
-      state.topicUrl = null;
-      state.topicEditing = false;
-      state._topicDraft = null;
-      renderTopic();
-      try { send('topicSave:' + encodeURIComponent('')); } catch {}
-    };
-    const doSave = () => {
-      const input = row.querySelector('#topicDisplay');
-      const raw = (input && input.tagName === 'INPUT') ? input.value : (state._topicDraft ?? '');
-      const parsed = clientParseTopic(raw);
-      state.topicLabel = parsed.label;
-      state.topicUrl = parsed.url;
-      state.topicEditing = false;
-      state._topicDraft = null;
-      renderTopic();
-      try { send('topicSave:' + encodeURIComponent(raw)); } catch {}
-    };
-    const doCancel = () => {
-      state.topicEditing = false;
-      state._topicDraft = null;
-      renderTopic();
-    };
-
-    if (id === 'topicEditBtn')   return beginTopicEdit();
-    if (id === 'topicClearBtn')  return doClear();
-    if (id === 'topicSaveBtn')   return doSave();
-    if (id === 'topicCancelEditBtn') return doCancel();
-  };
-
-  // Early capture: fire before any bubbling listeners or DOM swaps
-  row.addEventListener('pointerdown', (e) => {
-    if (e.button !== 0) return;
-    const btn = e.target && e.target.closest &&
-      e.target.closest('#topicEditBtn,#topicClearBtn,#topicSaveBtn,#topicCancelEditBtn');
-    if (!btn) return;
-    e.preventDefault?.();      // avoid focus/selection races
-    act(btn.id);
-  }, { capture: true, passive: false });
-
-  // Fallback if pointerdown is blocked on some platforms
-  row.addEventListener('click', (e) => {
-    const btn = e.target && e.target.closest &&
-      e.target.closest('#topicEditBtn,#topicClearBtn,#topicSaveBtn,#topicCancelEditBtn');
-    if (!btn) return;
-    act(btn.id);
-  }, { capture: true, passive: true });
-}
-
-// Render topic row. While editing we never overwrite the input value.
-function renderTopic() {
-  const row = $('#topicRow'); if (!row) return;
-  row.style.display = state.topicVisible ? '' : 'none';
-  row.setAttribute('data-visible', state.topicVisible ? '1' : '0');
-  // Keep [hidden] attribute and "is-hidden" class in sync with visibility
-  if (state.topicVisible) {
-  row.removeAttribute('hidden');
-  row.classList.remove('is-hidden');
-  } else {
-  row.setAttribute('hidden', '');
-  row.classList.add('is-hidden');
+    state.topicEditing = true;
+    if (state._topicDraft == null) state._topicDraft = state.topicLabel || '';
+    renderTopic();
   }
 
-  // Ensure actions container
-  let actions = row.querySelector('.topic-actions');
-  if (!actions) {
-    actions = document.createElement('div');
-    actions.className = 'topic-actions';
-    row.appendChild(actions);
+  function ensureTopicDelegates() {
+    const row = document.querySelector('#topicRow');
+    if (!row || row.__topicDelegatesBound) return;
+    row.__topicDelegatesBound = true;
+
+    const act = (id) => {
+      if (!state.isHost) return;
+
+      const doClear = () => {
+        state.topicLabel = '';
+        state.topicUrl = null;
+        state.topicEditing = false;
+        state._topicDraft = null;
+        renderTopic();
+        try { send('topicSave:' + encodeURIComponent('')); } catch {}
+      };
+      const doSave = () => {
+        const input = row.querySelector('#topicDisplay');
+        const raw = (input && input.tagName === 'INPUT') ? input.value : (state._topicDraft ?? '');
+        const parsed = clientParseTopic(raw);
+        state.topicLabel = parsed.label;
+        state.topicUrl = parsed.url;
+        state.topicEditing = false;
+        state._topicDraft = null;
+        renderTopic();
+        try { send('topicSave:' + encodeURIComponent(raw)); } catch {}
+      };
+      const doCancel = () => {
+        state.topicEditing = false;
+        state._topicDraft = null;
+        renderTopic();
+      };
+
+      if (id === 'topicEditBtn')   return beginTopicEdit();
+      if (id === 'topicClearBtn')  return doClear();
+      if (id === 'topicSaveBtn')   return doSave();
+      if (id === 'topicCancelEditBtn') return doCancel();
+    };
+
+    // Early capture
+    row.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0) return;
+      const btn = e.target && e.target.closest &&
+        e.target.closest('#topicEditBtn,#topicClearBtn,#topicSaveBtn,#topicCancelEditBtn');
+      if (!btn) return;
+      e.preventDefault?.();
+      act(btn.id);
+    }, { capture: true, passive: false });
+
+    // Fallback click
+    row.addEventListener('click', (e) => {
+      const btn = e.target && e.target.closest &&
+        e.target.closest('#topicEditBtn,#topicClearBtn,#topicSaveBtn,#topicCancelEditBtn');
+      if (!btn) return;
+      act(btn.id);
+    }, { capture: true, passive: true });
   }
 
-  // Ensure a single delegate is bound (idempotent)
-  ensureTopicDelegates();
-
-  // Helper to render read-only text/link
-  const renderDisplayContent = (el) => {
-    if (state.topicLabel && state.topicUrl) {
-      el.innerHTML = `<a href="${encodeURI(state.topicUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(state.topicLabel)}</a>`;
-    } else if (state.topicLabel) {
-      el.textContent = state.topicLabel;
+  function renderTopic() {
+    const row = $('#topicRow'); if (!row) return;
+    row.style.display = state.topicVisible ? '' : 'none';
+    row.setAttribute('data-visible', state.topicVisible ? '1' : '0');
+    // Keep [hidden] attribute and "is-hidden" class in sync
+    if (state.topicVisible) {
+      row.removeAttribute('hidden');
+      row.classList.remove('is-hidden');
     } else {
-      el.textContent = '–';
+      row.setAttribute('hidden', '');
+      row.classList.add('is-hidden');
     }
-    const full = [state.topicLabel || '', state.topicUrl || ''].filter(Boolean).join(' — ');
-    const link = el.querySelector && el.querySelector('a');
-    (link || el).setAttribute('title', wrapForTitle(full, 44));
-  };
 
-  // "more" hint
-  let hint = row.querySelector('#topicOverflowHint');
-  const ensureHint = () => {
-    if (!hint) {
-      const btn = document.createElement('button');
-      btn.id = 'topicOverflowHint';
-      btn.type = 'button';
-      btn.className = 'topic-more-btn';
-      btn.textContent = 'more';
-      const label = t('topic.more', 'Show full topic');
-      btn.setAttribute('aria-label', label);
-      btn.setAttribute('title', label);
-      hint = btn;
+    // Ensure actions container
+    let actions = row.querySelector('.topic-actions');
+    if (!actions) {
+      actions = document.createElement('div');
+      actions.className = 'topic-actions';
+      row.appendChild(actions);
     }
-  };
 
-  let displayEl = row.querySelector('#topicDisplay');
+    // Ensure a single delegate is bound
+    ensureTopicDelegates();
 
-  // Non-host: read-only view
-  if (!state.isHost) {
-    if (!displayEl || displayEl.tagName !== 'SPAN') {
-      const span = document.createElement('span');
-      span.id = 'topicDisplay';
-      span.className = 'topic-text';
-      if (displayEl) displayEl.replaceWith(span);
-      else row.insertBefore(span, row.firstChild ? row.firstChild.nextSibling : null);
-      displayEl = span;
+    // Helper to render read-only text/link (no innerHTML)
+    const renderDisplayContent = (el) => {
+      el.textContent = ''; // reset
+      if (state.topicLabel && state.topicUrl) {
+        const a = document.createElement('a');
+        a.rel = 'noopener noreferrer';
+        a.target = '_blank';
+        a.textContent = state.topicLabel;
+        try { a.href = state.topicUrl; } catch { a.href = '#'; }
+        el.appendChild(a);
+      } else if (state.topicLabel) {
+        el.textContent = state.topicLabel;
+      } else {
+        el.textContent = '–';
+      }
+      const full = [state.topicLabel || '', state.topicUrl || ''].filter(Boolean).join(' — ');
+      const link = el.querySelector && el.querySelector('a');
+      (link || el).setAttribute('title', wrapForTitle(full, 44));
+    };
+
+    // "more" hint
+    let hint = row.querySelector('#topicOverflowHint');
+    const ensureHint = () => {
+      if (!hint) {
+        const btn = document.createElement('button');
+        btn.id = 'topicOverflowHint';
+        btn.type = 'button';
+        btn.className = 'topic-more-btn';
+        btn.textContent = 'more';
+        const label = t('topic.more', 'Show full topic');
+        btn.setAttribute('aria-label', label);
+        btn.setAttribute('title', label);
+        hint = btn;
+      }
+    };
+
+    let displayEl = row.querySelector('#topicDisplay');
+
+    // Non-host: read-only
+    if (!state.isHost) {
+      if (!displayEl || displayEl.tagName !== 'SPAN') {
+        const span = document.createElement('span');
+        span.id = 'topicDisplay';
+        span.className = 'topic-text';
+        if (displayEl) displayEl.replaceWith(span);
+        else row.insertBefore(span, row.firstChild ? row.firstChild.nextSibling : null);
+        displayEl = span;
+      }
+      renderDisplayContent(displayEl);
+
+      ensureHint();
+      if (!hint.isConnected) row.insertBefore(hint, actions);
+      actions.innerHTML = '';
+
+      requestAnimationFrame(syncTopicOverflow);
+      const full = [state.topicLabel || '', state.topicUrl || ''].filter(Boolean).join(' — ');
+      hint.setAttribute('title', wrapForTitle(full, 44));
+      hint.setAttribute('aria-label', t('topic.more', 'Show full topic'));
+      return;
     }
-    renderDisplayContent(displayEl);
 
-    ensureHint();
-    if (!hint.isConnected) row.insertBefore(hint, actions);
-    actions.innerHTML = '';
+    // Host: not editing
+    if (!state.topicEditing) {
+      if (!displayEl || displayEl.tagName !== 'SPAN') {
+        const span = document.createElement('span');
+        span.id = 'topicDisplay';
+        span.className = 'topic-text';
+        if (displayEl) displayEl.replaceWith(span);
+        else row.insertBefore(span, row.firstChild ? row.firstChild.nextSibling : null);
+        displayEl = span;
+      }
+      renderDisplayContent(displayEl);
 
-    requestAnimationFrame(syncTopicOverflow);
-    const full = [state.topicLabel || '', state.topicUrl || ''].filter(Boolean).join(' — ');
-    hint.setAttribute('title', wrapForTitle(full, 44));
-    hint.setAttribute('aria-label', t('topic.more', 'Show full topic'));
-    return;
-  }
+      ensureHint();
+      if (!hint.isConnected) row.insertBefore(hint, actions);
 
-  // Host: not editing
-  if (!state.topicEditing) {
-    if (!displayEl || displayEl.tagName !== 'SPAN') {
-      const span = document.createElement('span');
-      span.id = 'topicDisplay';
-      span.className = 'topic-text';
-      if (displayEl) displayEl.replaceWith(span);
-      else row.insertBefore(span, row.firstChild ? row.firstChild.nextSibling : null);
-      displayEl = span;
+      const titleEdit  = t('button.editTopic',  'Edit');
+      const titleClear = t('button.clearTopic', 'Clear');
+
+      actions.innerHTML =
+        `<button id="topicEditBtn" class="icon-button neutral" type="button"
+                 title="${escapeHtml(titleEdit)}" aria-label="${escapeHtml(titleEdit)}">✍️</button>
+         <button id="topicClearBtn" class="icon-button neutral" type="button"
+                 title="${escapeHtml(titleClear)}" aria-label="${escapeHtml(titleClear)}">🗑️</button>`;
+
+      requestAnimationFrame(syncTopicOverflow);
+      return;
     }
-    renderDisplayContent(displayEl);
 
-    ensureHint();
-    if (!hint.isConnected) row.insertBefore(hint, actions);
+    // Host: editing
+    if (!displayEl || displayEl.tagName !== 'INPUT') {
+      const inp = document.createElement('input');
+      inp.type = 'text';
+      inp.className = 'topic-inline-input';
+      inp.id = 'topicDisplay';
+      inp.placeholder = t('topic.placeholder', 'Paste JIRA link or type key');
+      inp.value = state._topicDraft != null ? state._topicDraft : (state.topicLabel || '');
+      inp.addEventListener('input', () => { state._topicDraft = inp.value; });
+      if (displayEl) displayEl.replaceWith(inp);
+      else row.insertBefore(inp, row.firstChild ? row.firstChild.nextSibling : null);
+      displayEl = inp;
+      setTimeout(() => { try { displayEl.focus(); displayEl.select(); } catch {} }, 0);
+    }
+    if (hint) hint.style.display = 'none';
 
-    const titleEdit  = t('button.editTopic',  'Edit');
-    const titleClear = t('button.clearTopic', 'Clear');
+    const titleSave   = t('button.saveTopic', 'Save');
+    const titleCancel = t('button.cancel',    'Cancel');
 
     actions.innerHTML =
-      `<button id="topicEditBtn" class="icon-button neutral" type="button"
-               title="${escapeHtml(titleEdit)}" aria-label="${escapeHtml(titleEdit)}">✍️</button>
-       <button id="topicClearBtn" class="icon-button neutral" type="button"
-               title="${escapeHtml(titleClear)}" aria-label="${escapeHtml(titleClear)}">🗑️</button>`;
+      `<button id="topicSaveBtn" class="icon-button neutral" type="button"
+               title="${escapeHtml(titleSave)}" aria-label="${escapeHtml(titleSave)}">✅</button>
+       <button id="topicCancelEditBtn" class="icon-button neutral" type="button"
+               title="${escapeHtml(titleCancel)}" aria-label="${escapeHtml(titleCancel)}">❌</button>`;
 
-    requestAnimationFrame(syncTopicOverflow);
-    return;
+    // Local keyboard support
+    displayEl.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter')  { e.preventDefault(); const b = $('#topicSaveBtn');   b && b.click(); }
+      if (e.key === 'Escape') { e.preventDefault(); const b = $('#topicCancelEditBtn'); b && b.click(); }
+    }, { passive: false });
   }
 
-  // Host: editing
-  if (!displayEl || displayEl.tagName !== 'INPUT') {
-    const inp = document.createElement('input');
-    inp.type = 'text';
-    inp.className = 'topic-inline-input';
-    inp.id = 'topicDisplay';
-    inp.placeholder = t('topic.placeholder', 'Paste JIRA link or type key');
-    inp.value = state._topicDraft != null ? state._topicDraft : (state.topicLabel || '');
-    inp.addEventListener('input', () => { state._topicDraft = inp.value; });
-    if (displayEl) displayEl.replaceWith(inp);
-    else row.insertBefore(inp, row.firstChild ? row.firstChild.nextSibling : null);
-    displayEl = inp;
-    setTimeout(() => { try { displayEl.focus(); displayEl.select(); } catch {} }, 0);
+  function syncTopicOverflow() {
+    try {
+      const row  = $('#topicRow');
+      if (!row) return;
+
+      const el   = row.querySelector('#topicDisplay');
+      const hint = row.querySelector('#topicOverflowHint');
+      if (!el || !hint) return;
+
+      const inViewMode = el && el.tagName === 'SPAN';
+      if (!inViewMode) {
+        hint.style.display = 'none';
+        return;
+      }
+
+      const full = [state.topicLabel || '', state.topicUrl || '']
+        .filter(Boolean)
+        .join(' — ');
+      hint.setAttribute('title', full);
+      hint.setAttribute('aria-label', t('topic.more', 'Show full topic'));
+
+      const over = el.scrollWidth > el.clientWidth + 1;
+      hint.style.display = over ? '' : 'none';
+    } catch {}
   }
-  if (hint) hint.style.display = 'none';
-
-  const titleSave   = t('button.saveTopic', 'Save');
-  const titleCancel = t('button.cancel',    'Cancel');
-
-  actions.innerHTML =
-    `<button id="topicSaveBtn" class="icon-button neutral" type="button"
-             title="${escapeHtml(titleSave)}" aria-label="${escapeHtml(titleSave)}">✅</button>
-     <button id="topicCancelEditBtn" class="icon-button neutral" type="button"
-             title="${escapeHtml(titleCancel)}" aria-label="${escapeHtml(titleCancel)}">❌</button>`;
-
-  // Local keyboard support (no bubbles)
-  displayEl.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter')  { e.preventDefault(); const b = $('#topicSaveBtn');   b && b.click(); }
-    if (e.key === 'Escape') { e.preventDefault(); const b = $('#topicCancelEditBtn'); b && b.click(); }
-  }, { passive: false });
-}
-
-// Show/hide the "more" hint depending on overflow in read-only mode
-function syncTopicOverflow() {
-  try {
-    const row  = $('#topicRow'); if (!row) return;
-    const el   = row.querySelector('#topicDisplay');
-    const hint = row.querySelector('#topicOverflowHint');
-    if (!el || !hint) return;
-
-    const inViewMode = el && el.tagName === 'SPAN';
-    if (!inViewMode) { hint.style.display = 'none'; return; }
-
-    const full = [state.topicLabel || '', state.topicUrl || ''].filter(Boolean).join(' — ');
-    hint.setAttribute('title', full);
-    hint.setAttribute('aria-label', t('topic.more', 'Show full topic'));
-
-    const over = el.scrollWidth > el.clientWidth + 1;
-    hint.style.display = over ? '' : 'none';
-  } catch {}
-}
 
   /*** ---------- Auto-reveal badge ---------- ***/
   function renderAutoReveal() {
@@ -1300,10 +1407,64 @@ function syncTopicOverflow() {
   function setRowDisabled(inputId, disabled) {
     const input = document.getElementById(inputId);
     const row = input ? input.closest('.menu-item.switch') : null;
-    if (input) { input.disabled = !!disabled; input.setAttribute('aria-disabled', String(!!disabled)); }
-    if (row) { row.classList.toggle('disabled', !!disabled); }
+    if (input) {
+      input.disabled = !!disabled;
+      input.setAttribute('aria-disabled', String(!!disabled));
+    }
+    if (row) row.classList.toggle('disabled', !!disabled);
   }
+
+  // --- sequence radio helpers ---
+  function seqVariants(id) {
+    const s = normalizeSeq(id || 'fib.scrum');
+    return [s, s.replace('.', '-')]; // e.g. fib.enh / fib-enh
+  }
+  function updateAllSeqRadiosChecked(seqIdRaw) {
+    const vars = new Set(seqVariants(seqIdRaw));
+    const radios = document.querySelectorAll('input[type="radio"][name="menu-seq"]');
+    radios.forEach(r => {
+      const v = String(r.value || '').toLowerCase().trim();
+      const checked = vars.has(v);
+      if (r.checked !== checked) r.checked = checked;
+      r.setAttribute('aria-checked', checked ? 'true' : 'false');
+    });
+  }
+  function syncSequenceRadiosAndMenu() {
+    const radios = document.querySelectorAll('input[type="radio"][name="menu-seq"]');
+    const shouldDisable = state._hostKnown ? !state.isHost : false;
+
+    radios.forEach(r => {
+      r.disabled = !!shouldDisable;
+      r.setAttribute('aria-disabled', String(!!shouldDisable));
+      const lab = r.closest('label');
+      if (lab) lab.classList.toggle('disabled', !!shouldDisable);
+    });
+
+    updateAllSeqRadiosChecked(state.sequenceId || 'fib.scrum');
+  }
+
+  // --- robust reconciliation for radio selection (covers label/script/.check) ---
+  function domSelectedSeq() {
+    const el = document.querySelector('input[type="radio"][name="menu-seq"]:checked');
+    return el ? normalizeSeq(el.value) : null;
+  }
+  function reconcileSeqFromDOM() {
+    const sel = domSelectedSeq();
+    if (!sel) return;
+    if (state._hostKnown && !state.isHost) {
+      updateAllSeqRadiosChecked(state.sequenceId || 'fib.scrum');
+      return;
+    }
+    if (sel !== (state.sequenceId || 'fib.scrum')) {
+      applyLocalSequence(sel);
+      notifySequence(sel);
+    } else {
+      updateAllSeqRadiosChecked(sel);
+    }
+  }
+
   function syncMenuFromState() {
+    // Disable guest controls once host info is known
     setRowDisabled('menuAutoRevealToggle', !state.isHost && state._hostKnown);
     setRowDisabled('menuTopicToggle',      !state.isHost && state._hostKnown);
     setRowDisabled('menuSpecialsToggle',   !state.isHost && state._hostKnown);
@@ -1314,7 +1475,8 @@ function syncTopicOverflow() {
     if (mSt)  mSt.textContent = state.topicVisible ? (isDe() ? 'An' : 'On') : (isDe() ? 'Aus' : 'Off');
 
     const me = state.participants.find(p => p.name === state.youName);
-    const spectatorMe = !!(me && isSpectator(me));
+    const spectatorMe = state.selfSpectator || !!(me && isSpectator(me));
+
     const mPTgl = $('#menuParticipationToggle');
     const mPSt  = $('#menuPartStatus');
     if (mPTgl) { mPTgl.checked = !spectatorMe; mPTgl.setAttribute('aria-checked', String(!spectatorMe)); }
@@ -1334,22 +1496,66 @@ function syncTopicOverflow() {
     if (mHRSt)  mHRSt.textContent = state.hardMode ? (isDe() ? 'An' : 'On') : (isDe() ? 'Aus' : 'Off');
   }
   function syncSequenceInMenu() {
-    const root = $('#menuSeqChoice'); if (!root) return;
-    root.querySelectorAll('input[type="radio"][name="menu-seq"]').forEach(r => {
-      const shouldDisable = state._hostKnown ? !state.isHost : false;
-      r.disabled = !!shouldDisable;
-      r.setAttribute('aria-disabled', String(!!shouldDisable));
-      const lab = r.closest('label');
-      if (lab) lab.classList.toggle('disabled', !!shouldDisable);
-    });
-    const esc = (s) => (window.CSS && typeof CSS.escape === 'function') ? CSS.escape(s) : String(s).replace(/"/g, '\\"');
-    const id = state.sequenceId || '';
-    const sel =
-      root.querySelector(`input[type="radio"][name="menu-seq"][value="${esc(id)}"]`) ||
-      root.querySelector(`input[type="radio"][name="menu-seq"][value="${esc(id.replace('.', '-'))}"]`);
-    if (sel) { sel.checked = true; sel.setAttribute('aria-checked', 'true'); }
+    syncSequenceRadiosAndMenu();
   }
-  document.addEventListener('ep:menu-open', () => { syncMenuFromState(); syncSequenceInMenu(); });
+
+  document.addEventListener('ep:menu-open', () => {
+    wireSequenceRadios();           // ensure radios are wired even on first open
+    wireMenuTogglesDom();
+    syncMenuFromState();
+    syncSequenceInMenu();
+    // if Playwright already toggled the radio, reconcile now
+    queueMicrotask(reconcileSeqFromDOM);
+  });
+
+  // Wire real DOM switches to our app events (idempotent)
+  function wireMenuTogglesDom() {
+    const byId = (id) => document.getElementById(id);
+
+    const bindSwitch = (id, handler) => {
+      const el = byId(id);
+      if (!el || el.__bound) return;
+      el.__bound = true;
+      el.addEventListener('change', () => {
+        const checked = !!el.checked;
+        el.setAttribute('aria-checked', String(checked));
+        handler(checked, el);
+      }, { passive: true });
+    };
+
+    // Participation: user-controlled, not host-gated
+    bindSwitch('menuParticipationToggle', (on /*= estimating*/, _el) => {
+      document.dispatchEvent(new CustomEvent('ep:participation-toggle', { detail: { estimating: on } }));
+    });
+
+    // Host-only switches: revert UI immediately if a guest tries to toggle
+    const hostGuard = (next, el) => {
+      if (state._hostKnown && !state.isHost) {
+        const cur = !!el.checked;
+        el.checked = !cur;
+        el.setAttribute('aria-checked', String(!cur));
+        return;
+      }
+      next();
+    };
+
+    bindSwitch('menuAutoRevealToggle', (on, el) => hostGuard(() => {
+      document.dispatchEvent(new CustomEvent('ep:auto-reveal-toggle', { detail: { on } }));
+    }, el));
+
+    bindSwitch('menuTopicToggle', (on, el) => hostGuard(() => {
+      document.dispatchEvent(new CustomEvent('ep:topic-toggle', { detail: { on } }));
+    }, el));
+
+    bindSwitch('menuSpecialsToggle', (on, el) => hostGuard(() => {
+      document.dispatchEvent(new CustomEvent('ep:specials-toggle', { detail: { on } }));
+    }, el));
+
+    bindSwitch('menuHardModeToggle', (on, el) => hostGuard(() => {
+      document.dispatchEvent(new CustomEvent('ep:hard-mode-toggle', { detail: { on } }));
+    }, el));
+  }
+
 
   /*** ---------- Global actions ---------- ***/
   function revealCards() {
@@ -1415,11 +1621,54 @@ function syncTopicOverflow() {
   }
 
   /*** ---------- Menu & lifecycle events ---------- ***/
-    function wireSequenceRadios() {
+
+  // Helper that applies the local UI state for a sequence change
+  function applyLocalSequence(id) {
+    const seq = normalizeSeq(id);
+    if (!seq) return;
+
+    // short window to ignore old server snapshot
+    const now = Date.now();
+    state._pendingSeq = seq;
+    state._pendingSeqUntil = now + 1200;
+
+    state.sequenceId = seq;
+    state.votesRevealed = false;
+    state._optimisticVote = null;
+
+    let deck = defaultDeck(seq, state.allowSpecials);
+    if (seq !== 'fib.enh') deck = deck.filter(c => c !== INFINITY_ && c !== INFINITY_ALT);
+    deck = deck.filter(c => !DISABLED_SPECIALS.has(String(c)));
+    state.cards = deck;
+
+    renderCards();
+    renderResultBar();
+    syncSequenceInMenu();
+  }
+
+  // Send with limited backward-compat payloads + fast server echo
+  function notifySequence(id) {
+    const norm = normalizeSeq(id);
+    const val = encodeURIComponent(norm);
+    const payloads = [
+      `sequence:${val}`,      // primary
+      `seq:${val}`,           // compat
+      `setSequence:${val}`,   // compat
+    ];
+    for (const p of payloads) {
+      try { send(p); } catch {}
+    }
+    // Nudge server so tests don't wait for a lazy echo
+    try { pokeServerAndSync(); } catch {}
+    setTimeout(() => { try { pokeServerAndSync(); } catch {} }, 120);
+  }
+
+  function wireSequenceRadios() {
     const root = document.getElementById('menuSeqChoice');
     if (!root || root.__seqBound) return;
     root.__seqBound = true;
 
+    // regular change
     root.addEventListener('change', (e) => {
       const t = e.target;
       if (!(t instanceof HTMLInputElement)) return;
@@ -1428,56 +1677,119 @@ function syncTopicOverflow() {
       const id = normalizeSeq(t.value);
       if (!id) return;
 
-      // Optimistic local update so UI doesn’t snap back
-      state.sequenceId = id;
-      state.votesRevealed = false;
-      state._optimisticVote = null;
-
-      // Keep deck consistent with sequence (esp. infinity)
-      let deck = Array.isArray(state.cards) ? state.cards.slice() : defaultDeck(id, state.allowSpecials);
-      if (id !== 'fib.enh') deck = deck.filter(c => c !== INFINITY_ && c !== INFINITY_ALT);
-      state.cards = deck.length ? deck : defaultDeck(id, state.allowSpecials);
-
-      renderCards();
-      renderResultBar();
-      syncSequenceInMenu();
-
-      // Tell server if we are host
-      if (state.isHost) {
-        try { send('sequence:' + encodeURIComponent(id)); } catch {}
+      if (state._hostKnown && !state.isHost) {
+        updateAllSeqRadiosChecked(state.sequenceId || 'fib.scrum');
+        return;
       }
+
+      applyLocalSequence(id);
+      updateAllSeqRadiosChecked(id);
+      notifySequence(id);
+    });
+
+    // also react to input (some UIs dispatch both)
+    root.addEventListener('input', (e) => {
+      const t = e.target;
+      if (!(t instanceof HTMLInputElement)) return;
+      if (t.name !== 'menu-seq') return;
+      queueMicrotask(reconcileSeqFromDOM);
     });
   }
 
-    function wireMenuEvents() {
-    // Single, final close-room confirmation (no duplicate confirm elsewhere)
+  // Global capture fallback for radios, resilient to DOM swaps/re-mounts
+  document.addEventListener('change', (e) => {
+    const t = e.target;
+    if (!(t instanceof HTMLInputElement)) return;
+
+    // Guest-bounce for menu checkboxes (toggles) — EXCEPT participation (user-controlled)
+    if (t.type === 'checkbox' && t.closest('#appMenuOverlay')) {
+      if (t.id !== 'menuParticipationToggle' && state._hostKnown && !state.isHost) {
+        const before = t.checked;
+        queueMicrotask(() => {
+          t.checked = !before;
+          t.setAttribute('aria-checked', String(t.checked));
+          const row = t.closest('.menu-item.switch');
+          if (row) row.classList.add('disabled');
+        });
+        e.preventDefault?.();
+        e.stopPropagation?.();
+        return;
+      }
+    }
+
+    // sequence radios
+    if (t.type === 'radio' && t.name === 'menu-seq') {
+      const id = normalizeSeq(t.value);
+      if (!id) return;
+
+      if (state._hostKnown && !state.isHost) {
+        updateAllSeqRadiosChecked(state.sequenceId || 'fib.scrum');
+        e.preventDefault?.();
+        return;
+      }
+
+      applyLocalSequence(id);
+      notifySequence(id);
+    }
+  }, true); // capture: true
+
+
+  // Also reconcile on raw input events (covers .check() etc.)
+  document.addEventListener('input', (e) => {
+    const t = e.target;
+    if (!(t instanceof HTMLInputElement)) return;
+    if (t.type === 'radio' && t.name === 'menu-seq') {
+      queueMicrotask(reconcileSeqFromDOM);
+    }
+  }, true);
+
+  // Observe attribute-level changes to `checked` to catch non-event flips
+  (function observeSeqRadiosChecked() {
+    const mo = new MutationObserver((muts) => {
+      for (const m of muts) {
+        if (m.type === 'attributes' && m.attributeName === 'checked') {
+          const el = m.target;
+          if (el instanceof HTMLInputElement && el.name === 'menu-seq') {
+            queueMicrotask(reconcileSeqFromDOM);
+          }
+        } else if (m.type === 'childList' && (m.addedNodes?.length)) {
+          for (const node of m.addedNodes) {
+            if (!(node instanceof Element)) continue;
+            if (node.matches?.('input[type="radio"][name="menu-seq"]:checked') ||
+                node.querySelector?.('input[type="radio"][name="menu-seq"]:checked')) {
+              queueMicrotask(reconcileSeqFromDOM);
+            }
+          }
+        }
+      }
+    });
+    mo.observe(document.documentElement, {
+      subtree: true,
+      childList: true,
+      attributes: true,
+      attributeFilter: ['checked']
+    });
+  })();
+
+  function wireMenuEvents() {
+    // Single, final close-room confirmation
     document.addEventListener('ep:close-room', () => {
       if (!state.isHost) return;
-      const msg2 = isDe() ? 'Diesen Raum für alle schließen?' : 'Close this room for everyone?';
+      const msg2 = t('confirm.closeRoom', 'Close this room for everyone?');
       if (confirm(msg2)) send('closeRoom');
     });
 
-    document.addEventListener('ep:sequence-change', (ev) => {
-      const id = normalizeSeq(ev?.detail?.id || ev?.detail?.sequenceId);
-      if (!id) return;
-      if (!state.isHost) return;
-
-      // Optimistic local update
-      state.sequenceId = id;
-      state.votesRevealed = false;
-      state._optimisticVote = null;
-
-      let deck = Array.isArray(state.cards) ? state.cards.slice() : defaultDeck(id, state.allowSpecials);
-      if (id !== 'fib.enh') deck = deck.filter(c => c !== INFINITY_ && c !== INFINITY_ALT);
-      state.cards = deck.length ? deck : defaultDeck(id, state.allowSpecials);
-
-      renderCards();
-      renderResultBar();
-      syncSequenceInMenu();
-
-      // Notify server
-      try { send('sequence:' + encodeURIComponent(id)); } catch {}
-    });
+        // Programmatic sequence changes (optimistic) — already bound early.
+    // Only register here if the early bridge was not bound for any reason.
+    if (!window.__epSeqBridgeBound) {
+      document.addEventListener('ep:sequence-change', (ev) => {
+        const id = normalizeSeq(ev?.detail?.id || ev?.detail?.sequenceId);
+        if (!id) return;
+        if (state._hostKnown && !state.isHost) return;
+        applyLocalSequence(id);
+        notifySequence(id);
+      });
+    }
 
 
     document.addEventListener('ep:auto-reveal-toggle', (ev) => {
@@ -1489,22 +1801,38 @@ function syncTopicOverflow() {
     document.addEventListener('ep:topic-toggle', (ev) => {
       if (!state.isHost) return;
       const on = !!(ev && ev.detail && ev.detail.on);
+
       if (!on) state.topicEditing = false;
-      send(`topicVisible:${on}`);
+
+      // Update local state immediately (no visual lag)
+      state.topicVisible = on;
+
+      // Re-render affected UI
       renderTopic();
+
+      // Also mirror status text / toggle in the menu right away
+      syncMenuFromState();
+
+      // Tell the server
+      send(`topicVisible:${on}`);
     });
 
     document.addEventListener('ep:participation-toggle', (ev) => {
       const estimating = !!(ev && ev.detail && ev.detail.estimating);
 
+      // Immediate local mirror (prevents UI lag before server echo)
+      state.selfSpectator = !estimating;
+
       const me = state.participants.find(p => p && p.name === state.youName);
       if (me) {
         me.spectator = !estimating;
         me.participating = estimating;
-        renderParticipants();
-        renderCards();
-        syncMenuFromState();
       }
+
+      // Re-render even if "me" is not in the list yet
+      renderParticipants();
+      renderCards();
+      syncMenuFromState();
 
       send(`participation:${estimating}`);
     });
@@ -1530,7 +1858,7 @@ function syncTopicOverflow() {
     });
   }
 
-  // --- Event-delegation (robust, no global capture) -------------------------
+  // Event-delegation (robust, no global capture)
   let _cardGridBound = false;
   let _plistBound = false;
 
@@ -1645,6 +1973,7 @@ function syncTopicOverflow() {
     bindCopyLink();
     wireMenuEvents();
     wireSequenceRadios();
+    wireMenuTogglesDom();
     bindDelegatedHandlers();
 
     const row = $('#topicRow');
@@ -1756,7 +2085,6 @@ function syncTopicOverflow() {
     renderAutoReveal();
     syncMenuFromState();
     syncSequenceInMenu();
-    // Delegated handlers stay bound to stable parents; no rebind needed.
   }
 
   async function onLangChange() {
@@ -1833,14 +2161,14 @@ function syncTopicOverflow() {
     try { renderParticipants(); } catch {}
   }
 
-    async function boot() {
+  async function boot() {
     preloadMessages();
 
     await preflightNameCheck();
     if (state.hardRedirect) return;
 
     syncHostClass();
-    ensureBootstrapDeck();            // <-- ADD
+    ensureBootstrapDeck();     // make cards available immediately on first paint
     seedSelfPlaceholder();
     try {
       if (!document.documentElement.hasAttribute('data-ready')) {
@@ -1848,7 +2176,7 @@ function syncTopicOverflow() {
       }
     } catch {}
 
-    renderCards();                    // <-- ADD (so votes are clickable immediately)
+    renderCards();             // allow immediate voting before first server sync
     wireOnce();
   }
 

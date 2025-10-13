@@ -15,9 +15,13 @@
  */
 
 // Bridge module: re-export canonical ENV helpers and keep UI helpers here.
-export { baseUrl, roomUrlFor, newRoomCode } from './env';
+import type { Page, Browser } from '@playwright/test';
 
-import type { Page } from '@playwright/test';
+// Pull env values into local scope so we can use them here…
+import { baseUrl, roomUrlFor, newRoomCode } from './env';
+
+// …and re-export them to keep the public surface identical.
+export { baseUrl, roomUrlFor, newRoomCode };
 
 /* ---------------------------- tiny util helpers ---------------------------- */
 
@@ -28,6 +32,51 @@ export function must<T>(v: T | null | undefined, msg: string): NonNullable<T> {
 
 export const isNumeric = (s: string) => /^-?\d+(?:[.,]\d+)?$/.test(s);
 export const toNum = (s: string) => parseFloat(s.replace(',', '.'));
+
+// Open two independent clients (host + guest) in the same room.
+export async function openTwoClients(browser: Browser) {
+  const code = newRoomCode();
+  const hostName = 'Host';
+  const guestName = 'Guest';
+
+  const mkUrl = (name: string) =>
+    `${baseUrl.replace(/\/$/, '')}/room` +
+    `?roomCode=${encodeURIComponent(code)}` +
+    `&participantName=${encodeURIComponent(name)}` +
+    `&preflight=1`;
+
+  const ctxHost = await browser.newContext();
+  const ctxGuest = await browser.newContext();
+
+  const hostPage = await ctxHost.newPage();
+  const guestPage = await ctxGuest.newPage();
+
+  await Promise.all([
+    hostPage.goto(mkUrl(hostName), { waitUntil: 'domcontentloaded' }),
+    guestPage.goto(mkUrl(guestName), { waitUntil: 'domcontentloaded' }),
+  ]);
+
+  // Wait until the app is usable
+  const waitReady = (p: Page) =>
+    p.waitForFunction(
+      () =>
+        !!document.getElementById('cardGrid') ||
+        document.documentElement.hasAttribute('data-ready'),
+      { timeout: 5000 }
+    ).catch(() => {});
+
+  await Promise.all([waitReady(hostPage), waitReady(guestPage)]);
+
+  return {
+    code,
+    host: { page: hostPage, name: hostName },
+    guest: { page: guestPage, name: guestName },
+    closeAll: async () => {
+      await Promise.allSettled([ctxGuest.close(), ctxHost.close()]);
+    },
+  };
+}
+
 
 /* --------------------------------- menu ----------------------------------- */
 
@@ -515,3 +564,86 @@ export async function readAverage(page: Page): Promise<number | null> {
 
   return null;
 }
+
+  // ── Sequence helpers (UI-independent) ─────────────────────────────────────────
+  
+  /** Fire the same app event the menu would produce (stable, host-only). */
+  export async function setSequenceViaEvent(page: Page, id: string) {
+    await page.evaluate((seq) => {
+      document.dispatchEvent(new CustomEvent('ep:sequence-change', { detail: { id: seq } }));
+    }, id);
+  }
+
+  /** Oracle: is the infinity card in the grid? (⇔ fib.enh is active) */
+  export async function deckHasInfinity(page: Page): Promise<boolean> {
+    return page.evaluate(() =>
+      Array.from(document.querySelectorAll<HTMLButtonElement>('#cardGrid button'))
+        .some(b => (b.textContent || '').trim() === '♾️')
+    );
+  }
+
+  /** Read the most recent sequenceId from the front-end event buffer (__epVU). */
+  export async function lastSeqFromBus(page: Page): Promise<string | null> {
+    return page.evaluate(() => {
+      const bus = (window as any).__epVU as any[] | undefined;
+      if (!bus || !bus.length) return null;
+      for (let i = bus.length - 1; i >= 0; i--) {
+        const m = bus[i];
+        const sid = m?.sequenceId ?? (m?.type === 'voteUpdate' ? m.sequenceId : null);
+        if (sid) return String(sid);
+      }
+      return null;
+    });
+  }
+
+  // ---- App readiness & host-role waits ---------------------------------------
+
+export async function waitAppReady(page: Page, timeoutMs = 4000): Promise<void> {
+  await page
+    .waitForFunction(
+      () => document.documentElement.hasAttribute('data-ready'),
+      { timeout: timeoutMs }
+    )
+    .catch(() => {});
+}
+
+export async function waitHostRole(page: Page, timeoutMs = 4000): Promise<void> {
+  await page
+    .waitForFunction(
+      () => document.body.classList.contains('is-host'),
+      { timeout: timeoutMs }
+    )
+    .catch(() => {});
+}
+
+export async function waitWsOpen(page: Page, timeoutMs = 4000): Promise<void> {
+  await page
+    .waitForFunction(
+      () => (window as any).__epWs && (window as any).__epWs.readyState === 1,
+      { timeout: timeoutMs }
+    )
+    .catch(() => {});
+}
+
+  /**
+   * Try to set sequence via app event; if the deck does not reflect it, fall back to radio.
+   * Returns true if the deck looks correct after the operation.
+   */
+  export async function setSequenceRobust(page: Page, id: string): Promise<boolean> {
+    await waitAppReady(page);
+    // 1) programmatic (menu would do this under the hood)
+    await setSequenceViaEvent(page, id).catch(() => {});
+    await page.waitForTimeout(60);
+
+    const wantInfinity = id === 'fib.enh';
+    const hasInf1 = await deckHasInfinity(page);
+
+    if (wantInfinity === hasInf1) return true;
+
+    // 2) fallback to radio path
+    await setSequence(page, id);
+    await page.waitForTimeout(120);
+
+    const hasInf2 = await deckHasInfinity(page);
+    return wantInfinity === hasInf2;
+  }
