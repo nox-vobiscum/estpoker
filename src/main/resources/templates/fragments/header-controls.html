@@ -1,29 +1,45 @@
 <!-- templates/fragments/header-controls.html -->
-<div class="header-controls" th:fragment="headerControls">
-  <!-- Language segmented control -->
-<div class="hc-group hc-lang" id="hcLangGroup" role="group" aria-label="Language">
-  <button class="seg" id="hcLangEn" data-lang="en" title="Language: English" aria-label="Language: English">
-    <span class="flag-pair">
-      <img class="flag flag-a" src="/flags/us.svg" alt="" width="16" height="16">
-      <img class="flag flag-b" src="/flags/gb.svg" alt="" width="16" height="16">
-    </span>
-  </button>
-  <button class="seg" id="hcLangDe" data-lang="de" title="Sprache: Deutsch" aria-label="Sprache: Deutsch">
-    <span class="flag-pair">
-      <img class="flag flag-a" src="/flags/de.svg" alt="" width="16" height="16">
-      <img class="flag flag-b" src="/flags/at.svg" alt="" width="16" height="16">
-    </span>
-  </button>
-</div>
+<div th:fragment="headerControls">
+  <div class="header-controls" role="group" aria-label="Header controls">
 
+    <!-- Language (segmented) -->
+    <div class="hc-group" id="hcLang" role="group" aria-label="Language">
+      <button class="seg" id="hcLangEN" type="button" aria-pressed="false"
+              title="Language: English" aria-label="Language: English">
+        <span class="flag-pair">
+          <img class="flag flag-a" id="hcLangENFlagA" alt="">
+          <img class="flag flag-b" id="hcLangENFlagB" alt="">
+        </span>
+      </button>
 
-  <!-- Theme segmented control -->
-  <div class="hc-group hc-theme" id="hcThemeGroup" role="group" aria-label="Theme">
-    <button class="seg" id="hcThemeLight"  data-mode="light"  title="Theme: Light"  aria-label="Theme: Light"><span class="icon">☀️</span></button>
-    <button class="seg" id="hcThemeDark"   data-mode="dark"   title="Theme: Dark"   aria-label="Theme: Dark"><span class="icon">🌙</span></button>
-    <button class="seg" id="hcThemeSystem" data-mode="system" title="Theme: System" aria-label="Theme: System"><span class="icon">🖥️</span></button>
+      <button class="seg" id="hcLangDE" type="button" aria-pressed="false"
+              title="Language: German" aria-label="Language: German">
+        <span class="flag-pair">
+          <img class="flag flag-a" id="hcLangDEFlagA" alt="">
+          <img class="flag flag-b" id="hcLangDEFlagB" alt="">
+        </span>
+      </button>
+    </div>
+
+    <!-- Theme (segmented: Light / Dark / System) -->
+    <div class="hc-group" id="hcTheme" role="group" aria-label="Theme">
+      <button id="hcThemeLight"  class="seg" type="button" data-mode="light"
+              aria-pressed="false" title="Theme: Light"  aria-label="Theme: Light">
+        <span class="icon">☀️</span>
+      </button>
+
+      <button id="hcThemeDark"   class="seg" type="button" data-mode="dark"
+              aria-pressed="false" title="Theme: Dark"   aria-label="Theme: Dark">
+        <span class="icon">🌙</span>
+      </button>
+
+      <button id="hcThemeSystem" class="seg" type="button" data-mode="system"
+              aria-pressed="false" title="Theme: System" aria-label="Theme: System">
+        <span class="icon">💻</span>
+      </button>
+    </div>
   </div>
 
-  <!-- load behavior once -->
-  <script defer src="/js/header-controls.js?v=3"></script>
+  <!-- Load JS wherever the fragment is included -->
+  <script defer src="/js/header-controls.js?v=5"></script>
 </div>

@@ -36,13 +36,13 @@
   const themeSystem = $('#themeSystem');
   const closeBtn    = $('#closeRoomBtn');
 
-  // read lang from <html lang=...> OR persisted localStorage
-  const isDe = () => (document.documentElement.lang || localStorage.getItem('lang') || 'en')
-  .toLowerCase()
-  .startsWith('de');
-
-  const getLang = () => (localStorage.getItem('lang') || (isDe() ? 'de' : 'en'));
-
+  /* ---------- language helpers ---------- */
+  const LANG_KEY = 'lang';
+  const normalizeLang = (v) => (String(v || '').toLowerCase().startsWith('de') ? 'de' : 'en');
+  const htmlLang = () => (document.documentElement.lang || '').toLowerCase();
+  const savedLang = () => (localStorage.getItem(LANG_KEY) || '').toLowerCase();
+  const getLang = () => normalizeLang(savedLang() || htmlLang() || 'en');
+  const isDe = () => getLang() === 'de';
 
   /* ---------- i18n store ---------- */
   const MSG = Object.create(null);
@@ -72,9 +72,8 @@
   function setMenuButtonState(open) {
     if (!btnOpen) return;
     btnOpen.textContent = open ? '✕' : '☰';
-    const de = isDe();
-    const labelOpen  = t('menu.open',  de ? 'Menü öffnen'   : 'Open menu');
-    const labelClose = t('menu.close', de ? 'Menü schließen' : 'Close menu');
+    const labelOpen  = t('menu.open',  'Open menu');
+    const labelClose = t('menu.close', 'Close menu');
     btnOpen.setAttribute('aria-expanded', open ? 'true' : 'false');
     btnOpen.setAttribute('aria-label', open ? labelClose : labelOpen);
     btnOpen.setAttribute('title',       open ? labelClose : labelOpen);
@@ -138,17 +137,15 @@
     });
   }
 
-  // NEW: dynamic message support for elements with data-i18n-dyn
+  // dynamic message support: data-i18n-dyn with {0}/{name} placeholders
   function applyDynamicMessages(root = document) {
     $$('[data-i18n-dyn]', root).forEach((el) => {
       const key = el.getAttribute('data-i18n-dyn');
       const tmpl = key ? MSG[key] : null;
       if (!tmpl) return;
-      // Collect numbered args: data-arg0, data-arg1, ...
       const params = {};
       Object.entries(el.dataset).forEach(([k, v]) => {
         if (/^arg\d+$/.test(k)) params[Number(k.slice(3))] = v;
-        // Also allow named params: any data-* except i18nDyn/argN
         else if (k !== 'i18nDyn') params[k] = v;
       });
       el.innerHTML = formatMsg(tmpl, params);
@@ -157,24 +154,23 @@
 
   /* ---------- Titles / tooltips ---------- */
   function setThemeTooltips(code) {
-    const titleLight  = t('title.theme.light',  code === 'de' ? 'Design: Hell'   : 'Theme: Light');
-    const titleDark   = t('title.theme.dark',   code === 'de' ? 'Design: Dunkel' : 'Theme: Dark');
-    const titleSystem = t('title.theme.system', code === 'de' ? 'Design: System' : 'Theme: System');
+    const titleLight  = t('title.theme.light',  'Theme: Light');
+    const titleDark   = t('title.theme.dark',   'Theme: Dark');
+    const titleSystem = t('title.theme.system', 'Theme: System');
     const apply = (btn, text) => { if (btn) { btn.setAttribute('title', text); btn.setAttribute('aria-label', text); } };
     apply(themeLight,  titleLight);
     apply(themeDark,   titleDark);
     apply(themeSystem, titleSystem);
   }
   function setFunctionalTooltips(code) {
-    const de = (code === 'de');
     const T = {
-      auto : t('hint.autoreveal',    de ? 'Automatisch aufdecken, sobald alle geschätzt haben' : 'Automatically reveal once everyone voted'),
-      topic: t('hint.topic.toggle',  de ? 'Ticket/Story-Zeile ein- oder ausblenden'            : 'Show or hide the Ticket/Story row'),
-      specials: t('hint.specials',   de ? 'Spezialkarten erlauben (❓ 💬 ☕)'                   : 'Allow special cards (❓ 💬 ☕)'),
-      hard : t('hint.hardmode',      de ? 'Nur aufdecken, wenn alle gewählt haben'             : 'Reveal only when everyone voted'),
-      part : t('hint.participation', de ? 'Zwischen Schätzer:in und Beobachter:in umschalten'  : 'Toggle between estimator and spectator'),
-      lang : t('title.lang.to',      de ? 'Sprache wechseln → {0}'                             : 'Switch language → {0}', {0: de ? 'English' : 'Deutsch'}),
-      close: t('room.close.hint',    de ? 'Schließt diesen Raum für alle und kehrt zur Startseite zurück.' : 'Closes this room for all participants and returns to the start page.')
+      auto    : t('hint.autoreveal',   'Automatically reveal once everyone voted'),
+      topic   : t('hint.topic.toggle', 'Show or hide the Ticket/Story row'),
+      specials: t('hint.specials',     'Allow special cards (❓ 💬 ☕)'),
+      hard    : t('hint.hardmode',     'Reveal only when everyone voted'),
+      part    : t('hint.participation','Toggle between estimator and spectator'),
+      lang    : t('title.lang.to',     'Switch language → {0}', {0: isDe() ? 'English' : 'Deutsch'}),
+      close   : t('room.close.hint',   'Closes this room for all participants and returns to the start page.')
     };
     rowLang?.setAttribute('title', T.lang);
     rowAuto?.setAttribute('title', T.auto);
@@ -184,66 +180,60 @@
     rowPart?.setAttribute('title', T.part);
     if (closeBtn) closeBtn.setAttribute('title', T.close);
   }
-  function setCloseBtnLabel(code) {
+  function setCloseBtnLabel() {
     if (!closeBtn) return;
     const labelEl = closeBtn.querySelector('.truncate-1') || closeBtn;
-    labelEl.textContent = t('room.close', code === 'de' ? 'Raum für alle schließen' : 'Close room for everyone');
+    labelEl.textContent = t('room.close', 'Close room for everyone');
     labelEl.classList.add('truncate-1');
     labelEl.style.whiteSpace = 'nowrap';
     labelEl.style.overflow = 'hidden';
     labelEl.style.textOverflow = 'ellipsis';
   }
 
-  /* ---------- Language switch ---------- */
+  /* ---------- Language switch (core) ---------- */
   async function switchLanguage(to) {
+    const code = normalizeLang(to);
+    // Guard: avoid redundant work if already set
+    if (normalizeLang(document.documentElement.lang) === code && getLang() === code) {
+      return;
+    }
     try {
-      document.documentElement.lang = to;
-      setFlagsFor(to);
-      if (langLabel) langLabel.textContent = (to === 'de') ? 'Deutsch' : 'English';
+      // persist + reflect
+      localStorage.setItem(LANG_KEY, code);
+      document.documentElement.lang = code;
+      setFlagsFor(code);
+      if (langLabel) langLabel.textContent = (code === 'de') ? 'Deutsch' : 'English';
 
-      await fetchMessages(to);
+      // load & apply
+      await fetchMessages(code);
       applyMessages(MSG, document);
-      applyDynamicMessages(document);     // <-- NEW
+      applyDynamicMessages(document);
       stripLangParamFromUrl();
 
-      setThemeTooltips(to);
-      setFunctionalTooltips(to);
-      setCloseBtnLabel(to);
-
+      // refresh tooltips/labels and layout tweaks
+      setThemeTooltips(code);
+      setFunctionalTooltips(code);
+      setCloseBtnLabel();
       forceRowLayout();
       setMenuButtonState(isMenuOpen());
     } catch (err) {
       console.warn('[i18n] switch failed:', err);
       stripLangParamFromUrl();
-      setThemeTooltips(to);
-      setFunctionalTooltips(to);
-      setCloseBtnLabel(to);
+      setThemeTooltips(code);
+      setFunctionalTooltips(code);
+      setCloseBtnLabel();
       forceRowLayout();
       setMenuButtonState(isMenuOpen());
     }
-    // --- Bridge for header-controls.js -----------------------------------------
-    // Allow header-controls to call us directly:
-    window.setLanguage = (code) => {
-      try { switchLanguage(code); } catch (e) { console.warn('[menu] setLanguage failed', e); }
-    };
-
-    // Or listen to a custom event from header-controls:
-    window.addEventListener('est:lang-change', (e) => {
-      try {
-        const d = e?.detail || {};
-        const to = d.lang || d.to || (getLang() === 'de' ? 'en' : 'de');
-        switchLanguage(to);
-      } catch (err) {
-        console.warn('[menu] est:lang-change failed', err);
-      }
-    });
-
   }
 
+  // Language toggle from the menu row (if present)
   rowLang?.addEventListener('click', () => {
     const next = getLang() === 'de' ? 'en' : 'de';
-    switchLanguage(next);
-    try { document.dispatchEvent(new CustomEvent('ep:lang-changed', { detail: { to: next } })); } catch {}
+    window.setLanguage(next); // public API
+    try {
+      window.dispatchEvent(new CustomEvent('est:lang-change', { detail: { lang: next, source: 'menu' } }));
+    } catch {}
   });
 
   /* ---------- Theme ---------- */
@@ -388,6 +378,7 @@
     if (savedTheme) applyTheme(savedTheme);
 
     const code = getLang();
+    localStorage.setItem(LANG_KEY, code);
     document.documentElement.lang = code;
     setFlagsFor(code);
     if (langLabel) langLabel.textContent = (code === 'de') ? 'Deutsch' : 'English';
@@ -396,14 +387,14 @@
     try {
       await fetchMessages(code);
       applyMessages(MSG, document);
-      applyDynamicMessages(document);   // <-- NEW
+      applyDynamicMessages(document);
     } catch (e) {
       console.warn('[menu] initial i18n apply failed', e);
     }
 
     setThemeTooltips(code);
     setFunctionalTooltips(code);
-    setCloseBtnLabel(code);
+    setCloseBtnLabel();
 
     setMenuButtonState(false);
     if (isMenuOpen()) setMenuButtonState(true);
@@ -411,4 +402,19 @@
     forceRowLayout();
     initSequenceTooltips();
   })();
+
+  // ---- public bridge for header-controls.js (single source of truth) ----
+  window.setLanguage = (code) => {
+    try { return switchLanguage(code); }
+    catch(e){ console.warn('[menu] setLanguage failed', e); }
+  };
+  window.addEventListener('est:lang-change', (e) => {
+    try {
+      const d = e?.detail || {};
+      const to = d.lang || d.to;
+      if (to && normalizeLang(to) !== getLang()) window.setLanguage(to);
+    } catch (err) {
+      console.warn('[menu] est:lang-change handler failed', err);
+    }
+  });
 })();
