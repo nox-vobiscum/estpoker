@@ -5,6 +5,7 @@
 
   <!-- App menu (minimal on invite) -->
   <div th:replace="~{fragments/menu :: appMenu(showSeq=${false}, showAuto=${false}, showRoom=${false})}"></div>
+  <div th:replace="~{fragments/header-controls :: headerControls}"></div>
 
   <!-- Use 'rc' as a safe roomCode (model or query param) -->
   <div class="container landing-container" th:with="rc=${roomCode != null ? roomCode : param.roomCode}">
