@@ -5,6 +5,7 @@
 
   <!-- App menu (index: no seq/room controls) -->
   <div th:replace="~{fragments/menu :: appMenu(showSeq=${false}, showAuto=${false}, showRoom=${false})}"></div>
+  <div th:replace="~{fragments/header-controls :: headerControls}"></div>
 
   <div class="container">
     <h1 class="app-title">
