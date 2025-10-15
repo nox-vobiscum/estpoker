@@ -1,4 +1,4 @@
-// /static/js/header-controls.js  (v6 with safe i18n fallback)
+// /static/js/header-controls.js  (v7 - robust i18n apply)
 (function () {
   const root = document.documentElement;
   const LS = window.localStorage;
@@ -10,51 +10,70 @@
     const m = ["light", "dark", "system"].includes(mode) ? mode : "system";
     if (m === "system") root.removeAttribute("data-theme"); else root.setAttribute("data-theme", m);
     setThemeLS(m);
-    try { window.dispatchEvent(new CustomEvent("est:theme-change", { detail: { mode: m, source: "header" } })); } catch (_) {}
+    try { window.dispatchEvent(new CustomEvent("est:theme-change", { detail: { mode: m, source: "header" } })); } catch {}
   };
 
   /* ---------------- Language helpers ---------------- */
-  const normalizeLang = (l) => (l === "de" || l === "en") ? l : "en";
-  const getLang = () => normalizeLang(LS.getItem("lang") || root.getAttribute("lang") || "en");
+  const norm = (l) => (l === "de" || l === "en") ? l : "en";
+  const getLang = () => norm(LS.getItem("lang") || root.getAttribute("lang") || "en");
 
-  // Minimal i18n apply/fallback (used only if menu.js bridge is missing)
-  async function fallbackApplyI18n(lang) {
-    try {
-      const res = await fetch(`/i18n/messages?lang=${encodeURIComponent(lang)}`, { credentials: "same-origin" });
-      if (!res.ok) return;
-      const map = await res.json();
-
-      // apply [data-i18n]
-      document.querySelectorAll("[data-i18n]").forEach(el => {
-        const key = el.getAttribute("data-i18n");
-        if (key && map[key] != null) el.textContent = map[key];
-      });
-      // apply [data-i18n-attr]="title:foo;aria-label:bar"
-      document.querySelectorAll("[data-i18n-attr]").forEach(el => {
-        const spec = el.getAttribute("data-i18n-attr") || "";
-        spec.split(";").forEach(pair => {
-          const [attr, key] = pair.split(":").map(s => s?.trim());
-          if (attr && key && map[key] != null) el.setAttribute(attr, map[key]);
-        });
-      });
-    } catch (_) {/* silent */}
+  // format "Hello {0}" / "Hi {name}"
+  function fmt(str, params) {
+    if (!str || !params) return str;
+    return String(str).replace(/\{(\w+)\}/g, (_, k) => {
+      if (Object.prototype.hasOwnProperty.call(params, k)) return params[k];
+      const i = Number(k);
+      return Number.isFinite(i) && params[i] != null ? params[i] : `{${k}}`;
+    });
   }
 
-  // Set LS + <html lang>, then route via central API if available; else emit & fallback.
-  const setLang = async (lang) => {
-    const l = normalizeLang(lang);
+  // Apply i18n maps to the page (static + attr + dynamic)
+  function applyI18nMap(map) {
+    if (!map) return;
+    document.querySelectorAll("[data-i18n]").forEach(el => {
+      const key = el.getAttribute("data-i18n");
+      if (key && map[key] != null) el.textContent = map[key];
+    });
+    document.querySelectorAll("[data-i18n-attr]").forEach(el => {
+      const spec = el.getAttribute("data-i18n-attr") || "";
+      spec.split(";").forEach(pair => {
+        const [attr, key] = pair.split(":").map(s => s?.trim());
+        if (attr && key && map[key] != null) el.setAttribute(attr, map[key]);
+      });
+    });
+    document.querySelectorAll("[data-i18n-dyn]").forEach(el => {
+      const key = el.getAttribute("data-i18n-dyn");
+      const tmpl = key ? map[key] : null;
+      if (!tmpl) return;
+      const params = {};
+      Object.entries(el.dataset).forEach(([k, v]) => {
+        if (/^arg\d+$/.test(k)) params[Number(k.slice(3))] = v;
+        else if (k !== "i18nDyn") params[k] = v;
+      });
+      el.innerHTML = fmt(tmpl, params);
+    });
+  }
+
+  // Always performs the full language switch + local i18n apply.
+  async function setLang(lang) {
+    const l = norm(lang);
+    // Persist + reflect
     LS.setItem("lang", l);
     root.setAttribute("lang", l);
 
-    if (typeof window.setLanguage === "function") {
-      try { window.setLanguage(l); } catch (_) {}
-    } else {
-      try { window.dispatchEvent(new CustomEvent("est:lang-change", { detail: { lang: l, source: "header" } })); } catch (_) {}
-      // robust fallback so prod still updates even if menu.js is old
-      await fallbackApplyI18n(l);
-    }
+    // Call menu bridge if present (no harm if also doing local apply)
+    try { typeof window.setLanguage === "function" && window.setLanguage(l); } catch {}
+
+    // ALWAYS fetch & apply locally – this makes header self-sufficient
+    try {
+      const res = await fetch(`/i18n/messages?lang=${encodeURIComponent(l)}`, { credentials: "same-origin" });
+      if (res.ok) applyI18nMap(await res.json());
+    } catch {}
+
+    // Notify other listeners (room.js, etc.)
+    try { window.dispatchEvent(new CustomEvent("est:lang-change", { detail: { lang: l, source: "header" } })); } catch {}
     return l;
-  };
+  }
 
   /* ---------------- Flag helpers ---------------- */
   function setFlagPair(containerEl, lang) {
@@ -68,14 +87,11 @@
 
   /* ---------------- Reflect UI states ---------------- */
   function reflectThemeUI(mode) {
-    const ids = ["hcThemeLight","hcThemeDark","hcThemeSystem"];
-    ids.forEach(id => {
+    ["hcThemeLight","hcThemeDark","hcThemeSystem"].forEach(id => {
       const btn = document.getElementById(id);
       if (!btn) return;
       if (!btn.dataset.mode) {
-        if (id.endsWith("Light")) btn.dataset.mode = "light";
-        else if (id.endsWith("Dark")) btn.dataset.mode = "dark";
-        else btn.dataset.mode = "system";
+        btn.dataset.mode = id.endsWith("Light") ? "light" : id.endsWith("Dark") ? "dark" : "system";
       }
       const on = btn.dataset.mode === mode;
       btn.classList.toggle("active", on);
@@ -86,10 +102,9 @@
   }
 
   function reflectLangUI(lang) {
+    const isDE = lang === "de";
     const enBtn = document.getElementById("hcLangEN");
     const deBtn = document.getElementById("hcLangDE");
-    const isDE = lang === "de";
-
     if (enBtn) {
       setFlagPair(enBtn, "en");
       enBtn.classList.toggle("active", !isDE);
@@ -111,46 +126,30 @@
     const themeLight  = document.getElementById("hcThemeLight");
     const themeDark   = document.getElementById("hcThemeDark");
     const themeSystem = document.getElementById("hcThemeSystem");
-
     const langEN = document.getElementById("hcLangEN");
     const langDE = document.getElementById("hcLangDE");
 
-    // Theme: set current + listeners
+    // Theme current + listeners
     const t = getTheme();
     applyTheme(t);
     reflectThemeUI(t);
-
     themeLight?.addEventListener("click",  () => { applyTheme("light");  reflectThemeUI("light");  });
     themeDark?.addEventListener("click",   () => { applyTheme("dark");   reflectThemeUI("dark");   });
     themeSystem?.addEventListener("click", () => { applyTheme("system"); reflectThemeUI("system"); });
 
-    // Language: set current + listeners
+    // Language current + listeners
     const l = getLang();
-    // persist/align on first load (and trigger menu.js if present)
-    setLang(l);
+    setLang(l);           // align LS/html and apply i18n on first load
     reflectLangUI(l);
+    langEN?.addEventListener("click", async () => { const cur = getLang(); if (cur !== "en") reflectLangUI(await setLang("en")); });
+    langDE?.addEventListener("click", async () => { const cur = getLang(); if (cur !== "de") reflectLangUI(await setLang("de")); });
 
-    langEN?.addEventListener("click", async () => {
-      const cur = getLang();
-      if (cur !== "en") reflectLangUI(await setLang("en"));
-    });
-    langDE?.addEventListener("click", async () => {
-      const cur = getLang();
-      if (cur !== "de") reflectLangUI(await setLang("de"));
-    });
-
-    // Stay in sync if menu.js (or others) change things
+    // keep in sync if others change it
     window.addEventListener("est:lang-change", (e) => {
-      try {
-        const next = normalizeLang(e?.detail?.lang || e?.detail?.to || getLang());
-        reflectLangUI(next);
-      } catch (_) {}
+      try { reflectLangUI(norm(e?.detail?.lang || e?.detail?.to || getLang())); } catch {}
     });
     window.addEventListener("est:theme-change", (e) => {
-      try {
-        const next = (e?.detail?.mode) || getTheme();
-        reflectThemeUI(next);
-      } catch (_) {}
+      try { reflectThemeUI(e?.detail?.mode || getTheme()); } catch {}
     });
   }
 
