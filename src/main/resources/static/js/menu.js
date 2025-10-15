@@ -36,8 +36,13 @@
   const themeSystem = $('#themeSystem');
   const closeBtn    = $('#closeRoomBtn');
 
-  const isDe = () => (document.documentElement.lang || 'en').toLowerCase().startsWith('de');
-  const getLang = () => (isDe() ? 'de' : 'en');
+  // read lang from <html lang=...> OR persisted localStorage
+  const isDe = () => (document.documentElement.lang || localStorage.getItem('lang') || 'en')
+  .toLowerCase()
+  .startsWith('de');
+
+  const getLang = () => (localStorage.getItem('lang') || (isDe() ? 'de' : 'en'));
+
 
   /* ---------- i18n store ---------- */
   const MSG = Object.create(null);
@@ -216,6 +221,23 @@
       forceRowLayout();
       setMenuButtonState(isMenuOpen());
     }
+    // --- Bridge for header-controls.js -----------------------------------------
+    // Allow header-controls to call us directly:
+    window.setLanguage = (code) => {
+      try { switchLanguage(code); } catch (e) { console.warn('[menu] setLanguage failed', e); }
+    };
+
+    // Or listen to a custom event from header-controls:
+    window.addEventListener('est:lang-change', (e) => {
+      try {
+        const d = e?.detail || {};
+        const to = d.lang || d.to || (getLang() === 'de' ? 'en' : 'de');
+        switchLanguage(to);
+      } catch (err) {
+        console.warn('[menu] est:lang-change failed', err);
+      }
+    });
+
   }
 
   rowLang?.addEventListener('click', () => {
@@ -366,6 +388,7 @@
     if (savedTheme) applyTheme(savedTheme);
 
     const code = getLang();
+    document.documentElement.lang = code;
     setFlagsFor(code);
     if (langLabel) langLabel.textContent = (code === 'de') ? 'Deutsch' : 'English';
     stripLangParamFromUrl();
