@@ -786,3 +786,200 @@ body.menu-open .header-controls{
   opacity: 0.5;
   pointer-events: none;
 }
+
+
+
+/* === Mobile polish ≤420px (CSS-only, no markup changes) ================== */
+@media (max-width: 420px){
+
+  /* 1) Header: tighter */
+  h1.app-title{
+    margin: .35rem 0  .6rem;
+    gap: .4rem;
+  }
+  .app-title .logo{ width:20px; height:20px; }
+  h1.app-title span{ font-size: .98rem; line-height: 1.15; }
+
+  /* 2) "You / Room" as single-line chips */
+  .main-info{
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin: .25rem 0 .4rem;
+  }
+  .main-info dt{ display: none; } /* Hide labels */
+  .main-info dd{
+    margin: 0;
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 6px 10px; line-height: 1;
+    border-radius: 999px;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    font-size: .92rem;
+  }
+  /* Chip icons by position (1st dd = You, 2nd dd = Room) */
+  .main-info dd:nth-of-type(1)::before{ content:"👤"; }
+  .main-info dd:nth-of-type(2)::before{ content:"🆔"; }
+
+  /* Copy-link button slightly smaller, tap target still large enough */
+  .main-info .icon-button{
+    width: 32px; height: 32px; border-radius: 10px;
+  }
+
+  /* 3) Cards: 3 columns + large buttons */
+  .card-grid{
+    grid-template-columns: repeat(3, minmax(var(--card-min-mobile), 1fr)) !important;
+    gap: 8px;
+  }
+  .card-grid.fixed4{
+    grid-template-columns: repeat(3, minmax(var(--card-min-mobile), 1fr)) !important;
+  }
+  .card-grid button{
+    min-height: 64px;                 /* large tap targets */
+    font-size: 1.05rem;
+    aspect-ratio: unset;               /* height dominates */
+  }
+
+  /* 4) Participants: compact — status on right, hide row controls */
+  #liveParticipantList .participant-row{
+    grid-template-columns: var(--icon-col-width) 1fr max-content;
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  /* Hide host/kick buttons on mobile (we can reintroduce via a details toggle later) */
+  #liveParticipantList .row-right .row-action{ display: none; }
+  /* Show when focused via keyboard (a11y) */
+  #liveParticipantList .participant-row:focus-within .row-action{ display: grid; }
+
+  /* 5) Stats: de-emphasized — thin status line below cards */
+  #resultRow{
+    font-size: .82rem;
+    color: var(--text-dim);
+    margin: 10px 0 4px;
+  }
+  body.votes-revealed #resultRow{ color: var(--text); } /* after reveal, back to normal contrast */
+
+  /* 6) Sticky CTA sizing */
+  :root{ --h-button: 52px; } /* target height 48–56 px */
+  #revealButton,#resetButton{
+    height: var(--h-button);
+    font-size: 1rem;
+    border-radius: 12px;
+  }
+
+  /* 7) Chips/badges: slightly softer on mobile */
+  .vote-chip{ box-shadow: 0 0 6px rgba(0,0,0,.18); }
+}
+
+/* === Header controls: compact ≤420px ===================================== */
+@media (max-width: 420px){
+
+  /* Group: minimal chrome */
+  .header-controls .hc-group{
+    padding: 3px;
+    gap: 0;
+    background: transparent;
+    border-color: transparent;
+    box-shadow: none;
+  }
+
+  /* Segments as single round pills */
+  .header-controls .hc-group .seg{
+    position: relative;
+    width: 32px;
+    height: 32px;
+    border-radius: 9999px;
+    padding: 0;
+    line-height: 1;
+  }
+
+  /* Show only the active segment → looks like a single icon */
+  #hcLang  .seg[aria-pressed="false"],
+  #hcTheme .seg[aria-pressed="false"]{
+    display: none !important;
+  }
+
+  /* Active segment styled as a button */
+  .header-controls .hc-group .seg[aria-pressed="true"]{
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    box-shadow:
+      inset 0 0 0 var(--hc-active-ring, 1px) var(--hc-active-ring-color, rgba(255,255,255,.45));
+  }
+
+  /* Slightly larger invisible hit area (no layout shift) */
+  .header-controls .hc-group .seg::after{
+    content:"";
+    position:absolute;
+    inset:-4px;            /* effective tap target ~40px */
+    border-radius:inherit;
+  }
+
+  /* Flag icon slightly larger for visual balance */
+  .header-controls .hc-group .flag-pair{
+    width: 18px;
+    height: 18px;
+  }
+
+  /* Theme icon (sun/moon/laptop) slightly larger */
+  .header-controls .hc-group .seg .icon{
+    font-size: 18px;
+    line-height: 1;
+  }
+
+  /* App title + header spacing (slightly tighter) */
+  h1.app-title{
+    margin: .35rem 0 .6rem;
+    gap: .4rem;
+  }
+  .app-title .logo{ width:20px; height:20px; }
+  h1.app-title span{ font-size:.98rem; line-height:1.15; }
+}
+
+/* ≤340px: follow existing fallback rule — drop controls below hamburger if too tight */
+@media (max-width: 340px){
+  .header-controls{
+    top: calc(var(--hamburger-top) + var(--hamburger-size) + 8px);
+    right: var(--hamburger-right);
+  }
+}
+
+/* === Special cards: slim row (≤420px, no markup changes) ================= */
+@media (max-width: 420px){
+
+  /* Ensure the divider spans the grid */
+  .card-grid .grid-break{
+    grid-column: 1 / -1;
+    height: 0;
+    pointer-events: none;
+  }
+
+  /* All buttons after the divider = specials row (❓ ☕) */
+  .card-grid .grid-break ~ button{
+    min-height: 44px;           /* clear, but calmer than 64px numeric buttons */
+    padding: .45rem .55rem;
+    font-size: .95rem;
+    background: var(--panel-2);
+    border-color: var(--border);
+    box-shadow: none;           /* reduce flicker on mobile */
+    aspect-ratio: unset;        /* height governs */
+  }
+
+  /* Add a tiny extra gap above the first special */
+  .card-grid .grid-break ~ button:first-of-type{
+    margin-top: .25rem;
+  }
+
+  /* Subtle hover so specials don't visually dominate the numbers */
+  .card-grid .grid-break ~ button:hover{
+    background: var(--panel-2-hover);
+    transform: translateY(-1px);
+    box-shadow: 0 0 6px rgba(0,0,0,.12);
+  }
+
+  /* Keep a clear “selected” state for specials without overdoing it */
+  .card-grid .grid-break ~ button.selected{
+    transform: scale(1.02);
+  }
+}
