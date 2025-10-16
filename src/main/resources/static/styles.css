@@ -707,3 +707,87 @@ html.light .vote-chip.heat, body.light .vote-chip.heat, :root[data-theme="light"
 
 /* keep perceived alignment when hamburger has focus ring */
 .menu-button:focus-visible{outline-offset:2px}
+
+/* === Participant actions — robust text-link fallback ===================== */
+/* Always show actions as subtle text links */
+#liveParticipantList .row-right .row-action{
+  display: inline-block !important;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  width: auto !important;
+  height: auto !important;
+  padding: 0;
+  border-radius: 0 !important;
+  cursor: pointer;
+  position: relative;
+}
+
+/* If a real .ra-label exists, use it (icons remain hidden) */
+#liveParticipantList .row-right .row-action .ra-icon{ display: none !important; }
+#liveParticipantList .row-right .row-action .ra-label{
+  display: inline !important;
+  font-size: .86rem;
+  color: var(--text-dim);
+  line-height: 1.2;
+  text-decoration: none;
+  border-bottom: 1px dotted transparent;
+}
+
+/* Fallback: no .ra-label → render text from aria-label / title */
+#liveParticipantList .row-right .row-action:not(:has(.ra-label))[aria-label]::after{
+  content: attr(aria-label);
+  font-size: .86rem;
+  color: var(--text-dim);
+  line-height: 1.2;
+  border-bottom: 1px dotted transparent;
+}
+#liveParticipantList .row-right .row-action:not(:has(.ra-label)):not([aria-label])[title]::after{
+  content: attr(title);
+  font-size: .86rem;
+  color: var(--text-dim);
+  line-height: 1.2;
+  border-bottom: 1px dotted transparent;
+}
+
+/* Separator “ | ” between links (works with or without .ra-label) */
+#liveParticipantList .row-right .row-action + .row-action .ra-label::before{
+  content: " | ";
+  opacity: .45;
+  margin: 0 .35rem 0 .3rem;
+}
+#liveParticipantList .row-right .row-action + .row-action:not(:has(.ra-label))::before{
+  content: " | ";
+  opacity: .45;
+  margin: 0 .35rem 0 .3rem;
+  color: var(--text-dim);
+}
+
+/* Hover/focus */
+#liveParticipantList .row-right .row-action:hover .ra-label,
+#liveParticipantList .row-right .row-action:focus-visible .ra-label,
+#liveParticipantList .row-right .row-action:not(:has(.ra-label)):hover::after,
+#liveParticipantList .row-right .row-action:not(:has(.ra-label)):focus-visible::after{
+  color: var(--text-strong);
+  border-bottom-color: currentColor;
+  text-decoration: none;
+}
+#liveParticipantList .row-right .row-action:focus-visible{
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Tone “Kick” a bit */
+#liveParticipantList .row-right .row-action.kick .ra-label,
+#liveParticipantList .row-right .row-action.kick:not(:has(.ra-label))::after{ color: #fca5a5; }
+#liveParticipantList .row-right .row-action.kick:hover .ra-label,
+#liveParticipantList .row-right .row-action.kick:focus-visible .ra-label,
+#liveParticipantList .row-right .row-action.kick:not(:has(.ra-label)):hover::after,
+#liveParticipantList .row-right .row-action.kick:not(:has(.ra-label)):focus-visible::after{ color: #f87171; }
+
+/* Disabled state */
+#liveParticipantList .row-right .row-action:disabled .ra-label,
+#liveParticipantList .row-right .row-action:disabled:not(:has(.ra-label))::after{
+  opacity: .55; border-bottom-color: transparent; cursor: not-allowed;
+}
