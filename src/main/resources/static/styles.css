@@ -749,3 +749,89 @@ body.votes-revealed .card-grid button:focus { outline:2px solid var(--accent); }
   .header-controls .hc-group{ height: var(--hc-height); }
   .header-controls .hc-group .seg{ width: var(--hc-seg-size); height: var(--hc-seg-size); }
 }
+
+/* =======================================================================
+   Participant actions: text-link variant (global override)
+   Drop-in: paste at the END of styles.css. No markup/JS changes needed.
+   ======================================================================= */
+
+/* spacing on the right column */
+#liveParticipantList .row-right{
+  gap: 10px;
+  min-height: 1.6rem; /* keep row height stable */
+}
+
+/* turn pill buttons into subtle text links */
+#liveParticipantList .row-right .row-action{
+  /* override earlier pill styles and iOS tweaks */
+  display: inline-block !important;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  width: auto !important;
+  height: auto !important;
+  padding: 0;
+  border-radius: 0 !important;
+  cursor: pointer;
+  position: relative; /* for enlarged hit area pseudo element */
+}
+
+/* hide emoji, show label */
+#liveParticipantList .row-right .row-action .ra-icon{ display: none !important; }
+#liveParticipantList .row-right .row-action .ra-label{
+  display: inline !important;
+  font-size: .86rem;
+  color: var(--text-dim);
+  line-height: 1.2;
+  text-decoration: none;
+  border-bottom: 1px dotted transparent; /* subtle hover affordance */
+}
+
+/* inline separator between links → "Host | Kick" */
+#liveParticipantList .row-right .row-action + .row-action .ra-label::before{
+  content: " | ";
+  opacity: .45;
+  margin: 0 .35rem 0 .3rem;
+}
+
+/* hover/focus */
+#liveParticipantList .row-right .row-action:hover .ra-label,
+#liveParticipantList .row-right .row-action:focus-visible .ra-label{
+  color: var(--text-strong);
+  border-bottom-color: currentColor;
+  text-decoration: none;
+}
+#liveParticipantList .row-right .row-action:focus-visible{
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px; /* visual focus corner */
+}
+
+/* keep "Kick" toned but readable */
+#liveParticipantList .row-right .row-action.kick .ra-label{ color: #fca5a5; }
+#liveParticipantList .row-right .row-action.kick:hover .ra-label,
+#liveParticipantList .row-right .row-action.kick:focus-visible .ra-label{ color: #f87171; }
+
+/* disabled */
+#liveParticipantList .row-right .row-action:disabled .ra-label{
+  opacity: .55;
+  border-bottom-color: transparent;
+  cursor: not-allowed;
+}
+
+/* was: mobile hides row-action → override to show links on small screens */
+@media (max-width: 420px){
+  #liveParticipantList .row-right{ gap: 8px; }
+  #liveParticipantList .row-right .row-action{ display: inline-block !important; }
+  #liveParticipantList .row-right .row-action .ra-label{ font-size: .90rem; }
+}
+
+/* slightly larger invisible hit area on touch devices */
+@media (any-pointer: coarse){
+  #liveParticipantList .row-right .row-action::after{
+    content: "";
+    position: absolute;
+    inset: -6px -4px;       /* expands tap target without layout shift */
+    border-radius: 6px;
+  }
+}

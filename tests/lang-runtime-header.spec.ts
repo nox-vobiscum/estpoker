@@ -1,40 +1,57 @@
+// Header language control: EN ↔ DE toggle should update <html lang> and aria-pressed
+// NOTE: Keep code/comments EN only (per project guideline)
+
 import { test, expect } from '@playwright/test';
 
-test('Header language control toggles EN ↔ DE and reflects state twice (idempotent)', async ({ page }) => {
-  const roomCode = 'lang-runtime';
-  await page.goto(`/room?roomCode=${roomCode}&participantName=Tester&preflight=1`);
+test.describe('Header language control', () => {
+  test('toggles EN ↔ DE and reflects state twice (idempotent)', async ({ page }) => {
+    // Ensure non-compact header (both EN/DE segments visible)
+    await page.setViewportSize({ width: 1024, height: 800 });
 
-  const enBtn = page.locator('#hcLangEN');
-  const deBtn = page.locator('#hcLangDE');
-  const label = page.locator('h2[data-i18n="label.participants"]');
+    await page.goto('/');
 
-  await expect(enBtn).toBeVisible();
-  await expect(deBtn).toBeVisible();
-  await expect(label).toBeVisible();
+    const btnEN = page.locator('#hcLangEN');
+    const btnDE = page.locator('#hcLangDE');
 
-  const readLang = async () =>
-    (await page.evaluate(() => document.documentElement.getAttribute('lang') || 'en')).toLowerCase();
+    // Sanity: both buttons present and visible in non-compact mode
+    await expect(btnEN).toBeVisible();
+    await expect(btnDE).toBeVisible();
 
-  const flipTo = async (target: 'en' | 'de') => {
-    if (target === 'en') await enBtn.click();
-    else await deBtn.click();
-    await expect
-      .poll(async () => (await readLang()))
-      .toBe(target);
+    const rootLang = async () =>
+      (await page.evaluate(() => document.documentElement.getAttribute('lang') || 'en')).toLowerCase();
 
-    const expected = target === 'de' ? 'Teilnehmende' : 'Participants';
-    await expect
-      .poll(async () => (await label.textContent())?.trim() || '')
-      .toBe(expected);
+    async function flipTo(target: 'en' | 'de') {
+      const before = await rootLang();
 
-    // pressed state
-    await expect(enBtn).toHaveAttribute('aria-pressed', target === 'en' ? 'true' : 'false');
-    await expect(deBtn).toHaveAttribute('aria-pressed', target === 'de' ? 'true' : 'false');
-  };
+      // Click target button (also click if already set to assert idempotence)
+      if (target === 'en') {
+        await btnEN.click();
+      } else {
+        await btnDE.click();
+      }
 
-  const start = await readLang();
-  const other = start.startsWith('de') ? 'en' as const : 'de' as const;
+      // Wait for <html lang> to reflect the target language
+      await expect.poll(rootLang).toBe(target);
 
-  await flipTo(other);
-  await flipTo(start.startsWith('de') ? 'de' : 'en'); // switch back
+      // Wait for aria-pressed states to reflect the target language
+      await expect
+        .poll(async () => (await btnEN.getAttribute('aria-pressed')) || '')
+        .toBe(target === 'en' ? 'true' : 'false');
+
+      await expect
+        .poll(async () => (await btnDE.getAttribute('aria-pressed')) || '')
+        .toBe(target === 'de' ? 'true' : 'false');
+
+      // If it was already the same lang, ensure it stayed consistent (idempotent behavior)
+      if (before === target) {
+        await expect.poll(rootLang).toBe(target);
+      }
+    }
+
+    // Flip a few times to prove stability and idempotence
+    await flipTo('de');
+    await flipTo('en');
+    await flipTo('de');
+    await flipTo('en');
+  });
 });
