@@ -983,3 +983,72 @@ body.menu-open .header-controls{
     transform: scale(1.02);
   }
 }
+
+/* === Align language pill with hamburger ================================== */
+@media (max-width: 420px){
+  :root{
+    /* match .menu-button { top:12px; width/height:40px } */
+    --hamburger-top: 12px;
+    --hamburger-size: 40px;
+  }
+
+  /* (the .header-controls rule already uses these vars; this just corrects them) */
+  .header-controls{
+    top: calc(var(--hamburger-top) + (var(--hamburger-size) - var(--hc-height)) / 2);
+    right: calc(var(--hamburger-right) + var(--hamburger-size) + var(--header-gap));
+  }
+}
+
+
+/* === Unify main-info chip heights ======================================= */
+@media (max-width: 420px){
+  :root{ --chip-h-mobile: 36px; }
+
+  .main-info{
+    align-items: center;
+  }
+  .main-info dd{
+    height: var(--chip-h-mobile);
+    padding: 0 10px;                 /* equalize vertical rhythm */
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    line-height: 1;
+  }
+  .main-info dd strong{ line-height: 1; }
+
+  /* Copy icon sized to chip height, keeps target big enough */
+  .main-info .icon-button{
+    width: calc(var(--chip-h-mobile) - 4px);
+    height: calc(var(--chip-h-mobile) - 4px);
+    border-radius: 10px;
+  }
+}
+
+
+/* === Card grid: smaller numeric buttons, slimmer specials row ============ */
+@media (max-width: 420px){
+  /* numeric cards */
+  .card-grid{
+    grid-template-columns: repeat(3, minmax(var(--card-min-mobile), 1fr)) !important;
+    gap: 8px;
+  }
+  .card-grid.fixed4{
+    grid-template-columns: repeat(3, minmax(var(--card-min-mobile), 1fr)) !important;
+  }
+  .card-grid button{
+    min-height: 52px;               /* was ~64px */
+    padding: .45rem .55rem;
+    font-size: .98rem;
+    aspect-ratio: unset;            /* height drives scale */
+  }
+
+  /* specials row (after .grid-break) stays calmer */
+  .card-grid .grid-break ~ button{
+    min-height: 40px;               /* was 44px */
+    font-size: .92rem;
+    padding: .4rem .5rem;
+  }
+}
+
+
