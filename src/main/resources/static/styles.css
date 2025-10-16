@@ -791,3 +791,45 @@ html.light .vote-chip.heat, body.light .vote-chip.heat, :root[data-theme="light"
 #liveParticipantList .row-right .row-action:disabled:not(:has(.ra-label))::after{
   opacity: .55; border-bottom-color: transparent; cursor: not-allowed;
 }
+
+/* === Result row: centered + no-wrap (desktop/tablet), keep mobile stacking === */
+
+/* Default (≥641px): center and keep in one line */
+#resultRow{
+  display: flex;
+  justify-content: center;
+  align-items: baseline;
+  gap: .35rem .6rem;
+  flex-wrap: nowrap;           /* prevent wrapping on wide viewports */
+  text-align: center;
+}
+
+/* Keep label/value chunks together so they don't split */
+#resultRow #resultLabel,
+#resultRow #averageVote,
+#resultRow #medianWrap,
+#resultRow #rangeWrap{
+  white-space: nowrap;
+}
+
+/* Nicer spacing for the separators */
+#resultRow .sep{
+  opacity: .6;
+  margin: 0 .45rem;
+}
+
+/* Mobile (≤640px): keep your existing stacked layout, but center it */
+@media (max-width: 640px){
+  #resultRow{
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;   /* center the stacked lines */
+    align-items: baseline;
+    gap: .25rem .5rem;
+  }
+  #resultRow .sep{ display: none !important; }
+  #medianWrap, #rangeWrap{
+    flex: 0 0 100%;
+    text-align: center;
+  }
+}
