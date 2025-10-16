@@ -1,21 +1,22 @@
-// /static/js/header-controls.js  (v8 - compact-mode cycling + robust i18n apply)
+// /static/js/header-controls.js  (v9 - header = language-only; theme handled by menu)
 (function () {
   'use strict';
 
   const root = document.documentElement;
   const LS = window.localStorage;
 
-  /* ---------------- Theme helpers ---------------- */
+  /* ---------- Theme (no UI here; keep persistence + initial apply) ---------- */
   const getTheme = () => LS.getItem('theme') || LS.getItem('themeMode') || 'system';
   const setThemeLS = (mode) => { LS.setItem('theme', mode); LS.setItem('themeMode', mode); };
   const applyTheme = (mode) => {
     const m = ['light', 'dark', 'system'].includes(mode) ? mode : 'system';
     if (m === 'system') root.removeAttribute('data-theme'); else root.setAttribute('data-theme', m);
     setThemeLS(m);
+    // Still broadcast so menu / pages react consistently
     try { window.dispatchEvent(new CustomEvent('est:theme-change', { detail: { mode: m, source: 'header' } })); } catch {}
   };
 
-  /* ---------------- Language helpers ---------------- */
+  /* ---------- Language helpers ---------- */
   const norm = (l) => (l === 'de' || l === 'en') ? l : 'en';
   const getLang = () => norm(LS.getItem('lang') || root.getAttribute('lang') || 'en');
 
@@ -56,13 +57,13 @@
     });
   }
 
-  // Always fetch + apply i18n locally; also updates <html lang> and LS
+  // Fetch + apply i18n locally; also updates <html lang> and LS
   async function setLang(lang) {
     const l = norm(lang);
     LS.setItem('lang', l);
     root.setAttribute('lang', l);
 
-    // Optional bridge if menu provides it (no-op if missing)
+    // Optional bridge if present
     try { typeof window.setLanguage === 'function' && window.setLanguage(l); } catch {}
 
     // Local apply to keep header self-contained
@@ -75,7 +76,7 @@
     return l;
   }
 
-  /* ---------------- Flag helpers ---------------- */
+  /* ---------- Flag helpers ---------- */
   function setFlagPair(containerEl, lang) {
     if (!containerEl) return;
     const a = containerEl.querySelector('.flag-a');
@@ -85,22 +86,7 @@
     if (b) { b.src = `/flags/${pair[1]}.svg`; b.alt = ''; }
   }
 
-  /* ---------------- UI reflection ---------------- */
-  function reflectThemeUI(mode) {
-    ['hcThemeLight', 'hcThemeDark', 'hcThemeSystem'].forEach(id => {
-      const btn = document.getElementById(id);
-      if (!btn) return;
-      if (!btn.dataset.mode) {
-        btn.dataset.mode = id.endsWith('Light') ? 'light' : id.endsWith('Dark') ? 'dark' : 'system';
-      }
-      const on = btn.dataset.mode === mode;
-      btn.classList.toggle('active', on);
-      btn.setAttribute('aria-pressed', on ? 'true' : 'false');
-      btn.title = `Theme: ${btn.dataset.mode}`;
-      btn.setAttribute('aria-label', btn.title);
-    });
-  }
-
+  /* ---------- Reflect Language UI ---------- */
   function reflectLangUI(lang) {
     const isDE = lang === 'de';
     const enBtn = document.getElementById('hcLangEN');
@@ -121,14 +107,13 @@
     }
   }
 
-  /* ---------------- Compact-mode helpers (≤420px) ---------------- */
+  /* ---------- Compact-mode helpers (≤420px) ---------- */
   function visibleSegCount(groupEl) {
     if (!groupEl) return 0;
     const segs = groupEl.querySelectorAll('.seg');
     let cnt = 0;
     segs.forEach(seg => {
       const cs = window.getComputedStyle(seg);
-      // display:none or zero size → not visible/clickable
       if (cs.display !== 'none' && (seg.offsetWidth > 0 || seg.offsetHeight > 0)) cnt++;
     });
     return cnt;
@@ -136,47 +121,27 @@
   function isCompactGroup(groupEl) {
     return visibleSegCount(groupEl) <= 1;
   }
-
   async function cycleLang() {
     const next = getLang() === 'en' ? 'de' : 'en';
     const l = await setLang(next);
     reflectLangUI(l);
   }
 
-  function cycleTheme() {
-    const order = ['light', 'dark', 'system'];
-    const cur = getTheme();
-    const idx = Math.max(0, order.indexOf(cur));
-    const next = order[(idx + 1) % order.length];
-    applyTheme(next);
-    reflectThemeUI(next);
-  }
-
-  /* ---------------- Init & events ---------------- */
+  /* ---------- Init ---------- */
   function init() {
-    const themeLight  = document.getElementById('hcThemeLight');
-    const themeDark   = document.getElementById('hcThemeDark');
-    const themeSystem = document.getElementById('hcThemeSystem');
+    // Apply persisted theme once at startup (UI lives in menu)
+    applyTheme(getTheme());
+
     const langEN = document.getElementById('hcLangEN');
     const langDE = document.getElementById('hcLangDE');
-
-    const themeGroup = document.getElementById('hcTheme');
     const langGroup  = document.getElementById('hcLang');
 
-    // Apply current states once
-    const t = getTheme();
-    applyTheme(t);
-    reflectThemeUI(t);
-
+    // Language: current + listeners
     const l = getLang();
-    setLang(l);         // align LS/html and apply i18n on first load
+    setLang(l);     // align LS/html and apply i18n on first load
     reflectLangUI(l);
 
     // Regular per-button behavior (desktop / non-compact)
-    themeLight?.addEventListener('click',  () => { applyTheme('light');  reflectThemeUI('light');  });
-    themeDark?.addEventListener('click',   () => { applyTheme('dark');   reflectThemeUI('dark');   });
-    themeSystem?.addEventListener('click', () => { applyTheme('system'); reflectThemeUI('system'); });
-
     langEN?.addEventListener('click', async () => {
       const cur = getLang(); if (cur !== 'en') reflectLangUI(await setLang('en'));
     });
@@ -184,43 +149,32 @@
       const cur = getLang(); if (cur !== 'de') reflectLangUI(await setLang('de'));
     });
 
-    // Compact-mode behavior: cycle on a single visible segment
+    // Compact-mode: single visible segment toggles EN↔DE
     const stop = (e) => { e.preventDefault?.(); e.stopPropagation?.(); };
-
     function bindCompactCycler(groupEl, onCycle) {
       if (!groupEl) return;
-      // Click
       groupEl.addEventListener('click', (e) => {
-        if (!isCompactGroup(groupEl)) return; // let normal per-button clicks run
-        stop(e);
-        onCycle();
+        if (!isCompactGroup(groupEl)) return;
+        stop(e); onCycle();
       });
-      // Keyboard (Enter/Space)
       groupEl.addEventListener('keydown', (e) => {
         if (!isCompactGroup(groupEl)) return;
-        const k = e.key;
-        if (k === 'Enter' || k === ' ') {
-          stop(e);
-          onCycle();
-        }
+        if (e.key === 'Enter' || e.key === ' ') { stop(e); onCycle(); }
       });
-      // Touch/pointer (avoid double-activations on some mobiles)
       groupEl.addEventListener('pointerdown', (e) => {
         if (!isCompactGroup(groupEl)) return;
-        // Let the click handler handle it; just prevent ghosting
         stop(e);
       }, { passive: false });
     }
-
-    bindCompactCycler(themeGroup, cycleTheme);
-    bindCompactCycler(langGroup,  cycleLang);
+    bindCompactCycler(langGroup, cycleLang);
 
     // Keep in sync if others change it
     window.addEventListener('est:lang-change', (e) => {
       try { reflectLangUI(norm(e?.detail?.lang || e?.detail?.to || getLang())); } catch {}
     });
+    // If menu changes theme, still honor it here (no UI reflection needed)
     window.addEventListener('est:theme-change', (e) => {
-      try { reflectThemeUI(e?.detail?.mode || getTheme()); } catch {}
+      try { applyTheme(e?.detail?.mode || getTheme()); } catch {}
     });
   }
 
