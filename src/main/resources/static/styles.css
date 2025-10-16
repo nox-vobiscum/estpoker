@@ -1,10 +1,8 @@
-/* === styles.css (consolidated, zero-risk tidy) ===========================
-   Scope of changes:
-   - Kept all functional blocks; removed only trivial duplicates.
-   - Grouped sections; added comments for future maintenance.
-   - Unified repeated rules (e.g., .vote-chip.empty, row-action margin push).
-   - Did NOT change layout strategy (both .topic-row grid and #topicRow flex remain).
-============================================================================= */
+/* === styles.css (consolidated & gently refactored) ========================
+   - Removed duplicate mobile blocks and repeated header-controls rules
+   - Kept final values for smaller cards and unified chip heights
+   - Avoided behavioral changes; structure grouped for maintenance
+=========================================================================== */
 
 /* ---------- Theme tokens (dark default) ---------------------------------- */
 :root{
@@ -51,6 +49,21 @@
   --field-fg:#e5e7eb;
   --field-placeholder:rgba(255,255,255,.45);
   --field-focus:#60a5fa;
+
+  /* hamburger + header-controls geometry */
+  --hamburger-right: 12px;
+  --hamburger-top: 10px;
+  --hamburger-size: 40px;
+  --header-gap: 8px;
+  --hc-height: 36px;
+  --hc-pad: 4px;
+  --hc-gap: 4px;
+  --hc-seg-size: 28px;
+  --hc-active-ring: 1px;
+  --hc-active-ring-color: rgba(255,255,255,0.45);
+
+  /* header-controls nudge */
+  --hc-nudge-y: 0px;
 }
 
 :root[data-theme="light"]{
@@ -66,10 +79,8 @@
 
   --switch-off-track:#d2d6de; --switch-off-border:#b8bec9;
 
-  /* inactive text color (light) */
   --inactive-fg:#9ca3af;
 
-  /* inputs (light) */
   --field-bg:#fff;
   --field-border:rgba(0,0,0,.20);
   --field-fg:#111827;
@@ -82,8 +93,8 @@
 html,body{height:100%}
 body{
   background:var(--bg); color:var(--text); font-family:Consolas,monospace;
-  padding:2rem; margin:0; -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
-  padding-bottom:var(--footer-h);   /* reserve footer space */
+  margin:0; padding:2rem; -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
+  padding-bottom:var(--footer-h);
 }
 button,input,select,textarea{font:inherit;color:inherit}
 body.menu-open{overflow:hidden}
@@ -111,11 +122,12 @@ strong{color:var(--text-strong)}
 .topic-text a{color:inherit;text-decoration:none}
 .topic-text a:hover{text-decoration:underline}
 .topic-actions{display:flex;align-items:center;gap:6px}
-/* edit block (kept although not in current HTML, harmless if unused) */
+
+/* edit block (harmless if unused) */
 .topic-edit{display:grid;grid-template-columns:1fr max-content;gap:8px;align-items:center;margin:1.2rem 0 1rem;padding:8px 10px;background:var(--panel-2);border:1px solid var(--border);border-radius:10px}
 .topic-input{height:36px;border-radius:8px;border:1px solid var(--border);background:var(--panel);color:var(--text);padding:0 .75rem}
 
-/* Override layout for the actual #topicRow used in Room (flex for ellipsis hint) */
+/* #topicRow override used in Room (flex for ellipsis hint) */
 #topicRow { display:flex; align-items:center; gap:.5rem; }
 #topicRow .topic-text { flex:1 1 auto; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 #topicOverflowHint.topic-more-btn{flex:0 0 auto;background:transparent;border:0;padding:0;margin-left:.25rem;font:inherit;font-size:.9em;line-height:1;opacity:.8;cursor:help;text-decoration:underline dotted}
@@ -150,9 +162,7 @@ strong{color:var(--text-strong)}
 
 #appMenuOverlay[hidden],
 #appMenuOverlay.is-hidden,
-#appMenuOverlay[aria-hidden="true"] {
-  pointer-events: none !important;
-}
+#appMenuOverlay[aria-hidden="true"] { pointer-events: none !important; }
 
 /* rows */
 .menu-item{
@@ -216,7 +226,7 @@ strong{color:var(--text-strong)}
 .icon-button:hover{background:var(--panel-2-hover);border-color:var(--accent);box-shadow:0 0 0 2px rgba(0,122,204,.12)}
 .icon-button:active{transform:translateY(1px) scale(.98)}
 :root[data-theme="light"] .icon-button:hover{box-shadow:0 0 0 2px rgba(37,99,235,.12)}
-.icon-button.neutral {display:inline-flex;align-items:center;justify-content:center;width:32px; height:32px;border:1px solid var(--outline-3);border-radius:10px;background:transparent;color:var(--text-2);line-height:1;}
+.icon-button.neutral {display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border:1px solid var(--outline-3);border-radius:10px;background:transparent;color:var(--text-2);line-height:1;}
 .icon-button.neutral:hover { border-color: var(--outline-4); }
 .icon-button.neutral:focus-visible { outline:2px solid var(--focus); outline-offset:2px; }
 
@@ -341,7 +351,7 @@ li{margin-bottom:.4rem;line-height:1.5;font-size:1rem}
 .vote-chip.outlier{box-shadow:0 0 0 3px rgba(255,213,79,.22), inset 0 0 0 1px rgba(255,213,79,.55)}
 :root[data-theme="light"] .vote-chip.outlier{box-shadow:0 0 0 3px rgba(255,213,79,.28), inset 0 0 0 1px rgba(234,179,8,.55)}
 
-/* "no vote" — transparent outline chip (unified) */
+/* "no vote" — transparent outline chip */
 #liveParticipantList .vote-chip.empty,
 .vote-chip.empty{
   background:transparent !important;
@@ -376,15 +386,10 @@ li{margin-bottom:.4rem;line-height:1.5;font-size:1rem}
 .row-action:active{transform:translateY(1px) scale(.98)}
 .row-action:disabled{opacity:.6;cursor:not-allowed}
 
-/* iOS touch tweaks */
+/* iOS touch tweaks (no duplicate margin-left rules) */
 @supports (-webkit-touch-callout:none){
-  #liveParticipantList .row-action{
-    width:40px;height:40px;border-radius:50%;
-    -webkit-appearance:none;appearance:none;background-clip:padding-box;
-  }
-  #liveParticipantList .row-action .ra-icon{width:1.25em;height:1.25em;font-size:20px}
-  #liveParticipantList .row-right > .row-action:first-of-type{margin-left:auto}
-  #liveParticipantList .row-right :where(.status-icon,.vote-chip) ~ .row-action:first-of-type{margin-left:auto}
+  #liveParticipantList .row-action{ width:40px;height:40px;border-radius:50%; -webkit-appearance:none;appearance:none;background-clip:padding-box; }
+  #liveParticipantList .row-action .ra-icon{ width:1.25em;height:1.25em;font-size:20px }
 }
 @media (max-width:600px) and (-webkit-touch-callout:none){#liveParticipantList .row-right{gap:6px}}
 
@@ -453,7 +458,7 @@ li{margin-bottom:.4rem;line-height:1.5;font-size:1rem}
   #medianWrap .label,#rangeWrap .label{margin-right:.25rem}
 }
 
-/* ===== Menu compact sizing (kept – final values only) ==================== */
+/* ===== Menu compact sizing (final values) ================================= */
 .menu-panel{font-size:.85em;width:min(92vw,380px);padding:10px 12px}
 .menu-header h3{font-size:1em;margin:4px 0 6px}
 .menu-section{margin:10px 0}
@@ -526,7 +531,7 @@ li{margin-bottom:.4rem;line-height:1.5;font-size:1rem}
   @media (prefers-color-scheme: light) { .vote-chip.heat{ background: hsl(var(--_h) 90% 90%); } }
 }
 
-/* Optional: explicit light theme */
+/* explicit light theme */
 html.light .vote-chip, body.light .vote-chip, :root[data-theme="light"] .vote-chip,
 html.light .participant-row .mini-chip, body.light .participant-row .mini-chip, :root[data-theme="light"] .participant-row .mini-chip { color: #0f172a; font-weight: 600; }
 html.light .vote-chip.heat, body.light .vote-chip.heat, :root[data-theme="light"] .vote-chip.heat{
@@ -550,7 +555,7 @@ html.light .vote-chip.heat, body.light .vote-chip.heat, :root[data-theme="light"
 .result-row-placeholder{ min-height:inherit; }
 .post-vote{ min-height: 1.6rem; }
 
-/* Knowledge bites --------------------------------------------------------- */
+/* Knowledge bites ---------------------------------------------------------- */
 .knowledge-bites{
   margin-top: 5.25rem;
   padding-bottom: max(24px, calc(var(--footer-h) + var(--cta-offset, 8px) + env(safe-area-inset-bottom)));
@@ -589,179 +594,66 @@ html.light .vote-chip.heat, body.light .vote-chip.heat, :root[data-theme="light"
 .kbase details > summary:hover::after { opacity: 1; }
 @media (prefers-reduced-motion: reduce) { .kbase details > summary::after { transition: none; } }
 
-/* Result row slot (visible/hidden) ---------------------------------------- */
+/* Result row visibility toggle */
 .result-row{min-height:1.25rem;margin:18px 0 6px;transition: opacity .18s ease;opacity: 1;}
 .result-row.is-hidden{ visibility:hidden; opacity:0; }
 
-
-/* Actions spacing & reveal state ----------------------------------------- */
+/* Actions spacing & reveal state */
 .vote-actions { margin-top: 14px; }
 body.votes-revealed .card-grid { pointer-events:none; opacity:.6; filter:saturate(.85); }
 body.votes-revealed .card-grid button:focus { outline:2px solid var(--accent); }
 
-/* --- inline name-availability notice --- */
-.notice-inline {
-  margin-top: 0.5rem;
-  padding: 0.75rem 0.9rem;
-  border-radius: 8px;
-  font-size: 0.95rem;
-  line-height: 1.35;
-  border: 1px solid transparent;
-}
-.notice-warn {
-  background: #fff8e1;
-  border-color: var(--notice-warn-border, #ffe0a3);
-}
-:root[data-theme="dark"] {
-  --notice-warn-bg: #3a2e1a;
-  --notice-warn-border: #a38a5e;
-}
-:root[data-theme="light"] {
-  --notice-warn-bg: #fff8e1;
-  --notice-warn-border: #ffe0a3;
-}
-.notice-content .notice-title {
-  font-weight: 600;
-  margin-bottom: 0.25rem;
-}
-.notice-content .notice-text {
-  margin-bottom: 0.5rem;
-}
-.notice-actions {
-  display: flex;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-}
-.btn {
-  display: inline-block;
-  padding: 0.4rem 0.7rem;
-  border-radius: 8px;
-  border: 1px solid transparent;
-  cursor: pointer;
-  font: inherit;
-}
-.btn-primary {
-  border-color: var(--btn-primary-bg);
-  background: var(--btn-primary-bg);
-  color: #fff;
-}
-.btn-link {
-  background: transparent;
-  color: var(--accent);
-  border: none;
-  padding-left: 0;
-  padding-right: 0;
-  text-decoration: underline;
-}
+/* inline name-availability notice */
+.notice-inline { margin-top: .5rem; padding: .75rem .9rem; border-radius: 8px; font-size: .95rem; line-height: 1.35; border: 1px solid transparent; }
+.notice-warn { background: #fff8e1; border-color: var(--notice-warn-border, #ffe0a3); }
+:root[data-theme="dark"] { --notice-warn-bg: #3a2e1a; --notice-warn-border: #a38a5e; }
+:root[data-theme="light"]{ --notice-warn-bg: #fff8e1; --notice-warn-border: #ffe0a3; }
+.notice-content .notice-title { font-weight: 600; margin-bottom: .25rem; }
+.notice-content .notice-text { margin-bottom: .5rem; }
+.notice-actions { display: flex; gap: .5rem; flex-wrap: wrap; }
+.btn { display: inline-block; padding: .4rem .7rem; border-radius: 8px; border: 1px solid transparent; cursor: pointer; font: inherit; }
+.btn-primary { border-color: var(--btn-primary-bg); background: var(--btn-primary-bg); color: #fff; }
+.btn-link { background: transparent; color: var(--accent); border: none; padding-left: 0; padding-right: 0; text-decoration: underline; }
 
-/* --- Header Controls (language + theme segmented) ------------------------ */
-:root{
-  /* hamburger geometry used by your menu */
-  --hamburger-right: 12px;
-  --hamburger-top: 10px;
-  --hamburger-size: 40px;
-
-  /* header controls */
-  --header-gap: 8px;          /* gap to hamburger */
-  --hc-height: 36px;          /* overall control height */
-  --hc-pad: 4px;              /* inner padding of segmented container */
-  --hc-gap: 4px;              /* gap between segments inside a group */
-  --hc-seg-size: 28px;        /* each segment width/height */
-
-  --hc-active-ring: 1px;      /* active ring thickness */
-  --hc-active-ring-color: rgba(255,255,255,0.45);
-}
-
+/* ---------- Header Controls (language pill) ------------------------------- */
 .header-controls{
   position: fixed;
-  top: calc(var(--hamburger-top) + (var(--hamburger-size) - var(--hc-height)) / 2);
+  top: calc(var(--hamburger-top) + (var(--hamburger-size) - var(--hc-height)) / 2 + var(--hc-nudge-y));
   right: calc(var(--hamburger-right) + var(--hamburger-size) + var(--header-gap));
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  z-index: 90;               /* menu overlay should be above (e.g. 200) */
-  pointer-events: auto;
+  display: flex; align-items: center; gap: 10px; z-index: 90; pointer-events: auto;
 }
 
-/* segmented container */
 .hc-group{
-  display: inline-flex;
-  align-items: center;
-  height: var(--hc-height);
-  padding: var(--hc-pad);
-  gap: var(--hc-gap);
-  border-radius: 9999px;
+  display:inline-flex; align-items:center; height:var(--hc-height);
+  padding:var(--hc-pad); gap:var(--hc-gap); border-radius:9999px;
   background: var(--surface-2, rgba(255,255,255,0.08));
-  border: 1px solid var(--border-1, rgba(255,255,255,0.12));
+  border:1px solid var(--border-1, rgba(255,255,255,0.12));
   box-shadow: var(--shadow-1, 0 2px 8px rgba(0,0,0,0.2));
 }
 
-/* individual segment */
 .hc-group .seg{
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--hc-seg-size);
-  height: var(--hc-seg-size);
-  border: 0;
-  border-radius: 9999px;
-  background: transparent;
-  color: inherit;
-  cursor: pointer;
-  user-select: none;
-  padding: 0;
-  line-height: 1;
+  display:inline-flex; align-items:center; justify-content:center;
+  width:var(--hc-seg-size); height:var(--hc-seg-size);
+  border:0; border-radius:9999px; background:transparent; color:inherit; cursor:pointer; user-select:none; padding:0; line-height:1;
 }
-
-/* hover (dezent) */
-.hc-group .seg:hover{
-  background: var(--surface-3, rgba(255,255,255,0.10));
-}
-
-/* active – 1px inner ring, kein Layout-Shift */
-.hc-group .seg[aria-pressed="true"],
-.hc-group .seg.active{
+.hc-group .seg:hover{ background: var(--surface-3, rgba(255,255,255,0.10)); }
+.hc-group .seg[aria-pressed="true"], .hc-group .seg.active{
   background: var(--surface-3, rgba(255,255,255,0.12));
-  box-shadow:
-    inset 0 0 0 var(--hc-active-ring) var(--hc-active-ring-color),
-    inset 0 0 0 9999px rgba(255,255,255,0.04);
+  box-shadow: inset 0 0 0 var(--hc-active-ring) var(--hc-active-ring-color), inset 0 0 0 9999px rgba(255,255,255,0.04);
   border-color: rgba(255,255,255,0.35);
 }
-
-/* icons inside theme segments */
 .hc-group .seg .icon{ font-size: 18px; }
 
-/* language: diagonally split flag ---------------------------------------- */
+/* language: diagonally split flag */
 .flag-pair{
-  position: relative;
-  width: 20px;
-  height: 20px;
-  border-radius: 999px;
-  overflow: hidden;
+  position:relative; width:20px; height:20px; border-radius:999px; overflow:hidden;
   box-shadow: inset 0 0 0 1px var(--border-1, rgba(255,255,255,0.18));
 }
+.flag-pair .flag{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+.flag-pair .flag-a{ -webkit-mask-image: linear-gradient(135deg, #000 0 49%, transparent 51% 100%); mask-image: linear-gradient(135deg, #000 0 49%, transparent 51% 100%); }
+.flag-pair .flag-b{ -webkit-mask-image: linear-gradient(135deg, transparent 0 49%, #000 51% 100%); mask-image: linear-gradient(135deg, transparent 0 49%, #000 51% 100%); }
 
-.flag-pair .flag{
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-/* upper-left triangle (mit 49%/51% overlap → keine Haarlinie) */
-.flag-pair .flag-a{
-  -webkit-mask-image: linear-gradient(135deg, #000 0 49%, transparent 51% 100%);
-          mask-image: linear-gradient(135deg, #000 0 49%, transparent 51% 100%);
-}
-
-/* lower-right triangle */
-.flag-pair .flag-b{
-  -webkit-mask-image: linear-gradient(135deg, transparent 0 49%, #000 51% 100%);
-          mask-image: linear-gradient(135deg, transparent 0 49%, #000 51% 100%);
-}
-
-/* ≤420px: tighten a bit so everything still fits */
+/* compact: ≤420px */
 @media (max-width: 420px){
   :root{
     --hamburger-size: 36px;
@@ -770,322 +662,90 @@ body.votes-revealed .card-grid button:focus { outline:2px solid var(--accent); }
     --hc-seg-size: 26px;
     --hc-gap: 3px;
   }
-}
-
-/* ≤340px: drop controls below hamburger if space is too tight */
-@media (max-width: 340px){
-  .header-controls{
-    top: calc(var(--hamburger-top) + var(--hamburger-size) + 8px);
-    right: var(--hamburger-right);
-  }
-}
-
-/* disable interactions while menu is open (if you add menu-open class) */
-html.menu-open .header-controls,
-body.menu-open .header-controls{
-  opacity: 0.5;
-  pointer-events: none;
-}
-
-
-
-/* === Mobile polish ≤420px (CSS-only, no markup changes) ================== */
-@media (max-width: 420px){
-
-  /* 1) Header: tighter */
-  h1.app-title{
-    margin: .35rem 0  .6rem;
-    gap: .4rem;
-  }
-  .app-title .logo{ width:20px; height:20px; }
-  h1.app-title span{ font-size: .98rem; line-height: 1.15; }
-
-  /* 2) "You / Room" as single-line chips */
-  .main-info{
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-wrap: wrap;
-    margin: .25rem 0 .4rem;
-  }
-  .main-info dt{ display: none; } /* Hide labels */
-  .main-info dd{
-    margin: 0;
-    display: inline-flex; align-items: center; gap: 6px;
-    padding: 6px 10px; line-height: 1;
-    border-radius: 999px;
-    background: var(--panel-2);
-    border: 1px solid var(--border);
-    font-size: .92rem;
-  }
-  /* Chip icons by position (1st dd = You, 2nd dd = Room) */
-  .main-info dd:nth-of-type(1)::before{ content:"👤"; }
-  .main-info dd:nth-of-type(2)::before{ content:"🆔"; }
-
-  /* Copy-link button slightly smaller, tap target still large enough */
-  .main-info .icon-button{
-    width: 32px; height: 32px; border-radius: 10px;
-  }
-
-  /* 3) Cards: 3 columns + large buttons */
-  .card-grid{
-    grid-template-columns: repeat(3, minmax(var(--card-min-mobile), 1fr)) !important;
-    gap: 8px;
-  }
-  .card-grid.fixed4{
-    grid-template-columns: repeat(3, minmax(var(--card-min-mobile), 1fr)) !important;
-  }
-  .card-grid button{
-    min-height: 64px;                 /* large tap targets */
-    font-size: 1.05rem;
-    aspect-ratio: unset;               /* height dominates */
-  }
-
-  /* 4) Participants: compact — status on right, hide row controls */
-  #liveParticipantList .participant-row{
-    grid-template-columns: var(--icon-col-width) 1fr max-content;
-    padding: 6px 8px;
-    border-bottom: 1px solid var(--border);
-  }
-  /* Hide host/kick buttons on mobile (we can reintroduce via a details toggle later) */
-  #liveParticipantList .row-right .row-action{ display: none; }
-  /* Show when focused via keyboard (a11y) */
-  #liveParticipantList .participant-row:focus-within .row-action{ display: grid; }
-
-  /* 5) Stats: de-emphasized — thin status line below cards */
-  #resultRow{
-    font-size: .82rem;
-    color: var(--text-dim);
-    margin: 10px 0 4px;
-  }
-  body.votes-revealed #resultRow{ color: var(--text); } /* after reveal, back to normal contrast */
-
-  /* 6) Sticky CTA sizing */
-  :root{ --h-button: 52px; } /* target height 48–56 px */
-  #revealButton,#resetButton{
-    height: var(--h-button);
-    font-size: 1rem;
-    border-radius: 12px;
-  }
-
-  /* 7) Chips/badges: slightly softer on mobile */
-  .vote-chip{ box-shadow: 0 0 6px rgba(0,0,0,.18); }
-}
-
-/* === Header controls: compact ≤420px ===================================== */
-@media (max-width: 420px){
-
-  /* Group: minimal chrome */
   .header-controls .hc-group{
-    padding: 3px;
-    gap: 0;
-    background: transparent;
-    border-color: transparent;
-    box-shadow: none;
+    padding:3px; gap:0; background:transparent; border-color:transparent; box-shadow:none;
   }
-
-  /* Segments as single round pills */
   .header-controls .hc-group .seg{
-    position: relative;
-    width: 32px;
-    height: 32px;
-    border-radius: 9999px;
-    padding: 0;
-    line-height: 1;
+    position:relative; width:32px; height:32px; border-radius:9999px; padding:0; line-height:1;
   }
-
-  /* Show only the active segment → looks like a single icon */
-  #hcLang  .seg[aria-pressed="false"],
-  #hcTheme .seg[aria-pressed="false"]{
-    display: none !important;
-  }
-
-  /* Active segment styled as a button */
+  /* show only active segment → behaves like a single icon */
+  #hcLang .seg[aria-pressed="false"]{ display:none !important; }
   .header-controls .hc-group .seg[aria-pressed="true"]{
-    background: var(--panel-2);
-    border: 1px solid var(--border);
-    box-shadow:
-      inset 0 0 0 var(--hc-active-ring, 1px) var(--hc-active-ring-color, rgba(255,255,255,.45));
+    background:var(--panel-2); border:1px solid var(--border);
+    box-shadow: inset 0 0 0 var(--hc-active-ring, 1px) var(--hc-active-ring-color, rgba(255,255,255,.45));
   }
-
-  /* Slightly larger invisible hit area (no layout shift) */
   .header-controls .hc-group .seg::after{
-    content:"";
-    position:absolute;
-    inset:-4px;            /* effective tap target ~40px */
-    border-radius:inherit;
+    content:""; position:absolute; inset:-4px; border-radius:inherit; /* enlarge tap target (~40px) */
   }
+  .header-controls .hc-group .flag-pair{ width:18px; height:18px; }
+}
 
-  /* Flag icon slightly larger for visual balance */
-  .header-controls .hc-group .flag-pair{
-    width: 18px;
-    height: 18px;
-  }
+/* fallback position when space is tight */
+@media (max-width: 340px){
+  .header-controls{ top: calc(var(--hamburger-top) + var(--hamburger-size) + 8px); right: var(--hamburger-right); }
+}
 
-  /* Theme icon (sun/moon/laptop) slightly larger */
-  .header-controls .hc-group .seg .icon{
-    font-size: 18px;
-    line-height: 1;
-  }
+/* keep alignment perceptually centered when hamburger has focus ring */
+.menu-button:focus-visible{ outline-offset:2px; }
 
-  /* App title + header spacing (slightly tighter) */
-  h1.app-title{
-    margin: .35rem 0 .6rem;
-    gap: .4rem;
-  }
+/* ---------- Mobile polish ≤420px (final, unified) ------------------------- */
+@media (max-width: 420px){
+
+  /* App title: tighter */
+  h1.app-title{ margin:.35rem 0 .6rem; gap:.4rem; }
   .app-title .logo{ width:20px; height:20px; }
   h1.app-title span{ font-size:.98rem; line-height:1.15; }
-}
 
-/* ≤340px: follow existing fallback rule — drop controls below hamburger if too tight */
-@media (max-width: 340px){
-  .header-controls{
-    top: calc(var(--hamburger-top) + var(--hamburger-size) + 8px);
-    right: var(--hamburger-right);
-  }
-}
-
-/* === Special cards: slim row (≤420px, no markup changes) ================= */
-@media (max-width: 420px){
-
-  /* Ensure the divider spans the grid */
-  .card-grid .grid-break{
-    grid-column: 1 / -1;
-    height: 0;
-    pointer-events: none;
-  }
-
-  /* All buttons after the divider = specials row (❓ ☕) */
-  .card-grid .grid-break ~ button{
-    min-height: 44px;           /* clear, but calmer than 64px numeric buttons */
-    padding: .45rem .55rem;
-    font-size: .95rem;
-    background: var(--panel-2);
-    border-color: var(--border);
-    box-shadow: none;           /* reduce flicker on mobile */
-    aspect-ratio: unset;        /* height governs */
-  }
-
-  /* Add a tiny extra gap above the first special */
-  .card-grid .grid-break ~ button:first-of-type{
-    margin-top: .25rem;
-  }
-
-  /* Subtle hover so specials don't visually dominate the numbers */
-  .card-grid .grid-break ~ button:hover{
-    background: var(--panel-2-hover);
-    transform: translateY(-1px);
-    box-shadow: 0 0 6px rgba(0,0,0,.12);
-  }
-
-  /* Keep a clear “selected” state for specials without overdoing it */
-  .card-grid .grid-break ~ button.selected{
-    transform: scale(1.02);
-  }
-}
-
-/* === Align language pill with hamburger ================================== */
-@media (max-width: 420px){
-  :root{
-    /* match .menu-button { top:12px; width/height:40px } */
-    --hamburger-top: 12px;
-    --hamburger-size: 40px;
-  }
-
-  /* (the .header-controls rule already uses these vars; this just corrects them) */
-  .header-controls{
-    top: calc(var(--hamburger-top) + (var(--hamburger-size) - var(--hc-height)) / 2);
-    right: calc(var(--hamburger-right) + var(--hamburger-size) + var(--header-gap));
-  }
-}
-
-
-/* === Unify main-info chip heights ======================================= */
-@media (max-width: 420px){
+  /* "You / Room" as single-line chips, unified height */
   :root{ --chip-h-mobile: 36px; }
-
-  .main-info{
-    align-items: center;
-  }
+  .main-info{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:.25rem 0 .4rem; }
+  .main-info dt{ display:none; }
   .main-info dd{
     height: var(--chip-h-mobile);
-    padding: 0 10px;                 /* equalize vertical rhythm */
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    line-height: 1;
+    margin:0; display:inline-flex; align-items:center; gap:6px;
+    padding:0 10px; line-height:1; border-radius:999px;
+    background:var(--panel-2); border:1px solid var(--border); font-size:.92rem;
   }
-  .main-info dd strong{ line-height: 1; }
+  .main-info dd:nth-of-type(1)::before{ content:"👤"; }
+  .main-info dd:nth-of-type(2)::before{ content:"🆔"; }
+  .main-info .icon-button{ width:32px; height:32px; border-radius:10px; }
 
-  /* Copy icon sized to chip height, keeps target big enough */
-  .main-info .icon-button{
-    width: calc(var(--chip-h-mobile) - 4px);
-    height: calc(var(--chip-h-mobile) - 4px);
-    border-radius: 10px;
+  /* Cards: 3 columns, smaller numeric; slim specials row */
+  .card-grid{ grid-template-columns: repeat(3, minmax(var(--card-min-mobile), 1fr)) !important; gap:8px; }
+  .card-grid.fixed4{ grid-template-columns: repeat(3, minmax(var(--card-min-mobile), 1fr)) !important; }
+  .card-grid button{ min-height:52px; padding:.45rem .55rem; font-size:.98rem; aspect-ratio:unset; }
+  .card-grid .grid-break{ grid-column:1 / -1; height:0; pointer-events:none; }
+  .card-grid .grid-break ~ button{ min-height:40px; font-size:.92rem; padding:.4rem .5rem; background:var(--panel-2); border-color:var(--border); box-shadow:none; }
+  .card-grid .grid-break ~ button:hover{ background:var(--panel-2-hover); transform:translateY(-1px); box-shadow:0 0 6px rgba(0,0,0,.12); }
+  .card-grid .grid-break ~ button.selected{ transform:scale(1.02); }
+
+  /* Participants: compact; status on right; hide row controls (keyboard focus reveals) */
+  #liveParticipantList .participant-row{
+    grid-template-columns: var(--icon-col-width) 1fr max-content;
+    padding:6px 8px; border-bottom:1px solid var(--border);
   }
+  #liveParticipantList .row-right .row-action{ display:none; }
+  #liveParticipantList .participant-row:focus-within .row-action{ display:grid; }
+
+  /* Stats line below cards */
+  #resultRow{ font-size:.82rem; color:var(--text-dim); margin:10px 0 4px; }
+  body.votes-revealed #resultRow{ color:var(--text); }
+
+  /* Sticky CTA sizing */
+  :root{ --h-button: 52px; }
+  #revealButton,#resetButton{ height:var(--h-button); font-size:1rem; border-radius:12px; }
+
+  /* Slightly softer chips on mobile */
+  .vote-chip{ box-shadow:0 0 6px rgba(0,0,0,.18); }
 }
 
-
-/* === Card grid: smaller numeric buttons, slimmer specials row ============ */
-@media (max-width: 420px){
-  /* numeric cards */
-  .card-grid{
-    grid-template-columns: repeat(3, minmax(var(--card-min-mobile), 1fr)) !important;
-    gap: 8px;
-  }
-  .card-grid.fixed4{
-    grid-template-columns: repeat(3, minmax(var(--card-min-mobile), 1fr)) !important;
-  }
-  .card-grid button{
-    min-height: 52px;               /* was ~64px */
-    padding: .45rem .55rem;
-    font-size: .98rem;
-    aspect-ratio: unset;            /* height drives scale */
-  }
-
-  /* specials row (after .grid-break) stays calmer */
-  .card-grid .grid-break ~ button{
-    min-height: 40px;               /* was 44px */
-    font-size: .92rem;
-    padding: .4rem .5rem;
-  }
-}
-
-/* === Header language pill: pixel-perfect vertical centering ============== */
-/* Uses your existing --hamburger-top / --hamburger-size geometry.          */
-/* Add a small per-breakpoint nudge to account for borders/focus rings.     */
-
-:root{
-  /* default (mobile first) */
-  --hc-nudge-y: 0px;
-}
-
-/* Desktop/tablet: visually center to hamburger, incl. 1px border optics */
+/* ---------- Desktop/tablet alignment nudge for header pill ---------------- */
 @media (min-width: 421px){
-  :root{ --hc-nudge-y: 1px; } /* tweak to taste: 0–2px */
-
+  :root{ --hc-nudge-y: 1px; } /* 0–2px depending on perceived centering */
   .header-controls{
-    top: calc(
-      var(--hamburger-top)
-      + (var(--hamburger-size) - var(--hc-height)) / 2
-      + var(--hc-nudge-y)
-    );
+    top: calc(var(--hamburger-top) + (var(--hamburger-size) - var(--hc-height)) / 2 + var(--hc-nudge-y));
     right: calc(var(--hamburger-right) + var(--hamburger-size) + var(--header-gap));
   }
-
-  /* Ensure the group height matches our math precisely */
   .header-controls .hc-group{ height: var(--hc-height); }
-
-  /* Keep segments crisp; no size change, just explicit for consistency */
-  .header-controls .hc-group .seg{
-    width: var(--hc-seg-size);
-    height: var(--hc-seg-size);
-  }
+  .header-controls .hc-group .seg{ width: var(--hc-seg-size); height: var(--hc-seg-size); }
 }
-
-/* Optional: when the hamburger shows a focus ring, keep perceived alignment */
-.menu-button:focus-visible{
-  /* the outline is outside the box; our calc centers on the box */
-  outline-offset: 2px; /* keep it subtle so the pill still looks centered */
-}
-
