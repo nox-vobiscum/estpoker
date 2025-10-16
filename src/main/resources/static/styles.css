@@ -1051,4 +1051,41 @@ body.menu-open .header-controls{
   }
 }
 
+/* === Header language pill: pixel-perfect vertical centering ============== */
+/* Uses your existing --hamburger-top / --hamburger-size geometry.          */
+/* Add a small per-breakpoint nudge to account for borders/focus rings.     */
+
+:root{
+  /* default (mobile first) */
+  --hc-nudge-y: 0px;
+}
+
+/* Desktop/tablet: visually center to hamburger, incl. 1px border optics */
+@media (min-width: 421px){
+  :root{ --hc-nudge-y: 1px; } /* tweak to taste: 0–2px */
+
+  .header-controls{
+    top: calc(
+      var(--hamburger-top)
+      + (var(--hamburger-size) - var(--hc-height)) / 2
+      + var(--hc-nudge-y)
+    );
+    right: calc(var(--hamburger-right) + var(--hamburger-size) + var(--header-gap));
+  }
+
+  /* Ensure the group height matches our math precisely */
+  .header-controls .hc-group{ height: var(--hc-height); }
+
+  /* Keep segments crisp; no size change, just explicit for consistency */
+  .header-controls .hc-group .seg{
+    width: var(--hc-seg-size);
+    height: var(--hc-seg-size);
+  }
+}
+
+/* Optional: when the hamburger shows a focus ring, keep perceived alignment */
+.menu-button:focus-visible{
+  /* the outline is outside the box; our calc centers on the box */
+  outline-offset: 2px; /* keep it subtle so the pill still looks centered */
+}
 
