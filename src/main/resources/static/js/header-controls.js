@@ -1,4 +1,4 @@
-// /static/js/header-controls.js  (v9 - header = language-only; theme handled by menu)
+// /static/js/header-controls.js  (v10 - header = language-only; theme handled by menu)
 (function () {
   'use strict';
 
@@ -12,8 +12,10 @@
     const m = ['light', 'dark', 'system'].includes(mode) ? mode : 'system';
     if (m === 'system') root.removeAttribute('data-theme'); else root.setAttribute('data-theme', m);
     setThemeLS(m);
-    // Still broadcast so menu / pages react consistently
-    try { window.dispatchEvent(new CustomEvent('est:theme-change', { detail: { mode: m, source: 'header' } })); } catch {}
+    // Broadcast so the menu or other listeners can react.
+    try {
+      window.dispatchEvent(new CustomEvent('est:theme-change', { detail: { mode: m, source: 'header' } }));
+    } catch {}
   };
 
   /* ---------- Language helpers ---------- */
@@ -57,22 +59,24 @@
     });
   }
 
-  // Fetch + apply i18n locally; also updates <html lang> and LS
+  // Fetch + apply i18n locally; also updates <html lang> and localStorage
   async function setLang(lang) {
     const l = norm(lang);
     LS.setItem('lang', l);
     root.setAttribute('lang', l);
 
-    // Optional bridge if present
+    // Optional app-level bridge
     try { typeof window.setLanguage === 'function' && window.setLanguage(l); } catch {}
 
-    // Local apply to keep header self-contained
+    // Local apply keeps the header self-sufficient
     try {
       const res = await fetch(`/i18n/messages?lang=${encodeURIComponent(l)}`, { credentials: 'same-origin' });
       if (res.ok) applyI18nMap(await res.json());
     } catch {}
 
-    try { window.dispatchEvent(new CustomEvent('est:lang-change', { detail: { lang: l, source: 'header' } })); } catch {}
+    try {
+      window.dispatchEvent(new CustomEvent('est:lang-change', { detail: { lang: l, source: 'header' } }));
+    } catch {}
     return l;
   }
 
@@ -91,6 +95,7 @@
     const isDE = lang === 'de';
     const enBtn = document.getElementById('hcLangEN');
     const deBtn = document.getElementById('hcLangDE');
+
     if (enBtn) {
       setFlagPair(enBtn, 'en');
       enBtn.classList.toggle('active', !isDE);
@@ -129,19 +134,19 @@
 
   /* ---------- Init ---------- */
   function init() {
-    // Apply persisted theme once at startup (UI lives in menu)
+    // Apply persisted theme once at startup (theme UI lives in the menu).
     applyTheme(getTheme());
 
     const langEN = document.getElementById('hcLangEN');
     const langDE = document.getElementById('hcLangDE');
-    const langGroup  = document.getElementById('hcLang');
+    const langGroup = document.getElementById('hcLang');
 
     // Language: current + listeners
     const l = getLang();
-    setLang(l);     // align LS/html and apply i18n on first load
+    setLang(l); // align LS/<html lang> and apply i18n on first load
     reflectLangUI(l);
 
-    // Regular per-button behavior (desktop / non-compact)
+    // Desktop/non-compact per-button behavior
     langEN?.addEventListener('click', async () => {
       const cur = getLang(); if (cur !== 'en') reflectLangUI(await setLang('en'));
     });
@@ -172,12 +177,15 @@
     window.addEventListener('est:lang-change', (e) => {
       try { reflectLangUI(norm(e?.detail?.lang || e?.detail?.to || getLang())); } catch {}
     });
-    // If menu changes theme, still honor it here (no UI reflection needed)
+    // If the menu changes theme, reflect it (no header UI to update, just apply).
     window.addEventListener('est:theme-change', (e) => {
       try { applyTheme(e?.detail?.mode || getTheme()); } catch {}
     });
   }
 
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });
-  else init();
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init, { once: true });
+  } else {
+    init();
+  }
 })();
