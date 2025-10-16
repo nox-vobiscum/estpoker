@@ -1,92 +1,51 @@
-// i18n runtime smoke: switching language updates <html lang>, label, flags, and tooltips exist
-// Run:
-//   npx playwright test tests/i18n-switch.spec.js
-// Env:
-//   EP_BASE_URL  (e.g. http://localhost:8080 or https://ep.noxvobiscum.at)
-//   EP_ROOM_URL  (optional full room URL; overrides base; test appends participant & room)
+import { test, expect } from '@playwright/test';
 
-import { test, expect, Page, Browser } from '@playwright/test';
+test('i18n switch: header language buttons flip <html lang> and update UI text', async ({ page }) => {
+  // Go directly to room to have a clearly translated label on the page.
+  // preflight=1 skips name-availability redirect.
+  const roomCode = 'i18n-e2e';
+  await page.goto(`/room?roomCode=${roomCode}&participantName=Tester&preflight=1`);
 
-function resolveRoomUrl() {
-  const base = process.env.EP_BASE_URL || 'http://localhost:8080';
-  const room = process.env.EP_ROOM_URL || `${base.replace(/\/$/, '')}/room?participantName=I18N&roomCode=I18N-${Date.now().toString(36).slice(-6)}`;
-  if (process.env.EP_ROOM_URL) {
-    const u = new URL(room);
-    if (!u.searchParams.get('participantName')) u.searchParams.set('participantName', 'I18N');
-    if (!u.searchParams.get('roomCode')) u.searchParams.set('roomCode', `I18N-${Date.now().toString(36).slice(-6)}`);
-    return u.toString();
+  // Header language buttons
+  const enBtn = page.locator('#hcLangEN');
+  const deBtn = page.locator('#hcLangDE');
+
+  await expect(enBtn).toBeVisible();
+  await expect(deBtn).toBeVisible();
+
+  const beforeLang = (await page.evaluate(() => document.documentElement.getAttribute('lang') || 'en')).toLowerCase();
+  const targetLang = beforeLang.startsWith('de') ? 'en' : 'de';
+
+  // Click the opposite language
+  if (targetLang === 'de') {
+    await deBtn.click();
+  } else {
+    await enBtn.click();
   }
-  return room;
-}
 
-async function ensureMenuOpen(page) {
-  const overlay = page.locator('#appMenuOverlay');
-  if (!(await overlay.isVisible().catch(() => false))) {
-    await page.locator('#menuButton').click();
-    await expect(overlay).toBeVisible();
+  // <html lang> should flip
+  await expect
+    .poll(async () => (await page.evaluate(() => document.documentElement.getAttribute('lang') || '')))
+    .toBe(targetLang);
+
+  // A visible translated label should change (Participants ↔ Teilnehmende)
+  const participantsLabel = page.locator('h2[data-i18n="label.participants"]');
+  await expect(participantsLabel).toBeVisible();
+
+  const expectedText = targetLang === 'de' ? 'Teilnehmende' : 'Participants';
+  await expect
+    .poll(async () => (await participantsLabel.textContent())?.trim() || '')
+    .toBe(expectedText);
+
+  // Buttons reflect pressed state
+  const enPressed = await enBtn.getAttribute('aria-pressed');
+  const dePressed = await deBtn.getAttribute('aria-pressed');
+  expect([enPressed, dePressed].every(v => v === 'true' || v === 'false')).toBe(true);
+  if (targetLang === 'de') {
+    expect(dePressed).toBe('true');
+    expect(enPressed).toBe('false');
+  } else {
+    expect(enPressed).toBe('true');
+    expect(dePressed).toBe('false');
   }
-}
-
-test.describe('i18n switch', () => {
-  test('clicking language row flips lang, label and flags', async ({ page }) => {
-    await page.goto(resolveRoomUrl(), { waitUntil: 'domcontentloaded' });
-    await ensureMenuOpen(page);
-
-    // Attach a listener for the custom lang-changed event (best-effort)
-    await page.evaluate(() => {
-      window.__epE2E_langEv = 0;
-      document.addEventListener('ep:lang-changed', () => { window.__epE2E_langEv++; });
-    });
-
-    // Snapshot initial state
-    const initialLang = (await page.evaluate(() => document.documentElement.getAttribute('lang') || 'en')).toLowerCase();
-    const targetLang = initialLang.startsWith('de') ? 'en' : 'de';
-    const beforeLabel = (await page.locator('#langCurrent').textContent() || '').trim();
-
-    // Also capture theme-light tooltip existence (should exist after switch)
-    const beforeTip = await page.locator('#themeLight').getAttribute('title');
-
-    // Click the language row
-    await page.locator('#langRow').click();
-    await page.waitForTimeout(25);
-
-    // Wait for <html lang> to flip OR the custom event to fire
-    await page.waitForFunction((lang) => {
-      const htmlLang = (document.documentElement.getAttribute('lang') || '').toLowerCase();
-      return htmlLang.startsWith(lang) || (window.__epE2E_langEv || 0) > 0;
-    }, targetLang);
-
-    // Verify <html lang>
-    const afterLang = (await page.evaluate(() => document.documentElement.getAttribute('lang') || '')).toLowerCase();
-    expect(afterLang.startsWith(targetLang)).toBeTruthy();
-
-    // Label must match the language chosen (menu.js sets this explicitly)
-    const afterLabel = (await page.locator('#langCurrent').textContent() || '').trim();
-    if (targetLang === 'de') {
-      expect(afterLabel).toBe('Deutsch');
-    } else {
-      expect(afterLabel).toBe('English');
-    }
-
-    // Flags should match the language split
-    const flagA = page.locator('#langRow .flag-a');
-    const flagB = page.locator('#langRow .flag-b');
-    const srcA = (await flagA.getAttribute('src')) || '';
-    const srcB = (await flagB.getAttribute('src')) || '';
-    if (targetLang === 'de') {
-      expect(srcA.endsWith('/flags/de.svg')).toBeTruthy();
-      expect(srcB.endsWith('/flags/at.svg')).toBeTruthy();
-    } else {
-      expect(srcA.endsWith('/flags/us.svg')).toBeTruthy();
-      expect(srcB.endsWith('/flags/gb.svg')).toBeTruthy();
-    }
-
-    // Theme button tooltip should exist (content may differ per locale, but must not be empty)
-    const tipLight = await page.locator('#themeLight').getAttribute('title');
-    expect(tipLight && tipLight.trim().length > 0).toBeTruthy();
-
-    // Close the menu to avoid overlay intercepts for any follow-up tests
-    await page.locator('#menuButton').click();
-    await expect(page.locator('#appMenuOverlay')).toBeHidden();
-  });
 });
