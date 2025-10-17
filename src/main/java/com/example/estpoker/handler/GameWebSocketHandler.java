@@ -225,6 +225,36 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                 return;
             }
 
+            // SPECIALS (IDs): "specials:set:<id,id,...>"  → map to emojis and apply (host only)
+                if (payload.startsWith("specials:set:")) {
+                    if (!isHost(roomCode, c.name)) return;
+                    String tail = decode(payload.substring("specials:set:".length()));
+                    // Parse CSV of ids (e.g. "coffee,speech")
+                    List<String> ids = Arrays.stream(tail.split(","))
+                            .map(String::trim)
+                            .filter(s -> !s.isEmpty())
+                            .toList();
+
+                    // Map IDs → Emojis; fallback: ignore unknown ids
+                    Map<String, String> idToEmoji = Map.of(
+                            "coffee", "☕",
+                            "speech", "💬",
+                            "telescope", "🔭",
+                            "waiting", "⏳",
+                            "dependency", "🔗",
+                            "risk", "⚠️",
+                            "relevance", "🎯"
+                    );
+                    List<String> emojis = ids.stream()
+                            .map(idToEmoji::get)
+                            .filter(Objects::nonNull)
+                            .toList();
+
+                    gameService.setSpecialsSelected(roomCode, emojis);
+                    return;
+                }
+
+
             if (payload.startsWith("sequence:") || payload.startsWith("seq:") || payload.startsWith("setSequence:")) {
                 if (!isHost(roomCode, c.name)) return;
                 String raw = payload.substring(payload.indexOf(':') + 1);
