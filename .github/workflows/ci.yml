@@ -5,11 +5,9 @@ on:
     branches: [ "main" ]
   pull_request:
 
-# Least-privilege perms for checkout
 permissions:
   contents: read
 
-# Cancel previous runs on the same ref to save minutes
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
@@ -43,21 +41,22 @@ jobs:
             echo "::error file=$file::BRIEFING too short ($lc lines; expected >=200)"
             exit 1
           fi
+          # Required headings (regex)
+          patterns=(
+            "^# RBS' Estimation Poker — BRIEFING"
+            "^## 4) Coding & Style Rules"
+            "^## 5) Collaboration Workflow \(Dev ↔ AI\)"
+            "^### 5\.2 Change workflow = small, reviewable steps"
+            "^## 6) Playwright E2E Testing \(Executive Summary\)"
+            "^## Appendix E – Identity & Name Handling"
+          )
           missing=0
-          while IFS= read -r re; do
-            [[ -z "$re" ]] && continue
+          for re in "${patterns[@]}"; do
             if ! grep -Eq "$re" "$file"; then
               echo "::error file=$file::Missing required section: $re"
               missing=1
             fi
-          done <<'PATTERNS'
-^# RBS' Estimation Poker — BRIEFING
-^## 4) Coding & Style Rules
-^## 5) Collaboration Workflow \(Dev ↔ AI\)
-^### 5\.2 Change workflow = small, reviewable steps
-^## 6) Playwright E2E Testing \(Executive Summary\)
-^## Appendix E – Identity & Name Handling
-PATTERNS
+          done
           if [[ $missing -ne 0 ]]; then
             exit 1
           fi
@@ -82,11 +81,9 @@ PATTERNS
       - name: Make Maven Wrapper executable
         run: chmod +x mvnw
 
-      # Fast packaging; unit tests can run in a separate workflow if desired
       - name: Maven package (skip tests)
         run: ./mvnw -B -DskipTests --no-transfer-progress package
 
-      # Optional: publish the built JAR for convenience (ignored if none)
       - name: Upload JAR artifact
         if: ${{ always() }}
         uses: actions/upload-artifact@v4
