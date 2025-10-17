@@ -851,29 +851,42 @@
           }
         }
 
-        if (state.isHost && !p.isHost) {
+                if (state.isHost && !p.isHost) {
+          // --- Make Host ----------------------------------------------------
           const makeHostBtn = document.createElement('button');
           makeHostBtn.className = 'row-action host';
           makeHostBtn.type = 'button';
           makeHostBtn.dataset.action = 'host';
           makeHostBtn.dataset.name = p.name;
+
           const labelMakeHost = t('action.makeHost', isDe() ? 'Zum Host machen' : 'Make host');
           makeHostBtn.setAttribute('aria-label', labelMakeHost);
           makeHostBtn.setAttribute('title', labelMakeHost);
-          makeHostBtn.innerHTML = '<span class="ra-icon">👑</span>';
+
+          // visible: short text + icon (icon hidden via CSS)
+          makeHostBtn.innerHTML =
+            '<span class="ra-icon" aria-hidden="true">👑</span><span class="ra-label">Host</span>';
+
           right.appendChild(makeHostBtn);
 
+          // --- Kick ---------------------------------------------------------
           const kickBtn = document.createElement('button');
           kickBtn.className = 'row-action kick';
           kickBtn.type = 'button';
           kickBtn.dataset.action = 'kick';
           kickBtn.dataset.name = p.name;
+
           const labelKick = t('action.kick', isDe() ? 'Teilnehmer entfernen' : 'Kick participant');
           kickBtn.setAttribute('aria-label', labelKick);
           kickBtn.setAttribute('title', labelKick);
-          kickBtn.innerHTML = '<span class="ra-icon">❌</span>';
+
+          // visible: short text + icon (icon hidden via CSS)
+          kickBtn.innerHTML =
+            '<span class="ra-icon" aria-hidden="true">❌</span><span class="ra-label">Kick</span>';
+
           right.appendChild(kickBtn);
         }
+
 
         li.appendChild(right);
         frag.appendChild(li);
@@ -2103,73 +2116,7 @@
   }).observe(document.documentElement, { attributes: true, attributeFilter: ['lang'] });
 
   document.addEventListener('ep:lang-changed', onLangChange);
-
-  // --- Host/Kick short labels (integrated) -----------------------------------
-  // Visible label: "Host" | "Kick"
-  // Tooltip/aria: keep long, localized strings from i18n (title/aria-label)
-  (function () {
-    'use strict';
-
-    const SHORT = { host: 'Host', kick: 'Kick' };
-
-    function shortifyHostActionLabels(root = document) {
-      const list = root.querySelector('#liveParticipantList');
-      if (!list) return;
-
-      list.querySelectorAll('.row-right .row-action').forEach(btn => {
-        const labelEl = btn.querySelector('.ra-label');
-        if (!labelEl) return;
-
-        // Cache/derive long (localized) text from attrs or current label
-        if (!btn.dataset.longLabel) {
-          const current = (labelEl.textContent || '').trim();
-          const longLabel =
-            btn.getAttribute('title') ||
-            btn.getAttribute('aria-label') ||
-            current;
-          if (longLabel) btn.dataset.longLabel = longLabel;
-        }
-
-        // Ensure tooltip / a11y stay long + localized
-        if (btn.dataset.longLabel) {
-          btn.setAttribute('title', btn.dataset.longLabel);
-          btn.setAttribute('aria-label', btn.dataset.longLabel);
-        }
-
-        // Set short, visible label
-        labelEl.textContent = btn.classList.contains('kick') ? SHORT.kick : SHORT.host;
-        labelEl.style.whiteSpace = 'nowrap'; // guard against wrapping when devtools shrink width
-      });
-    }
-
-    function installHostActionShortener() {
-      shortifyHostActionLabels();
-
-      // Re-apply whenever the list mutates (rows added/updated)
-      const list = document.getElementById('liveParticipantList');
-      if (list) {
-        const mo = new MutationObserver(() => shortifyHostActionLabels());
-        mo.observe(list, { childList: true, subtree: true });
-      }
-
-      // Re-apply on language changes (tooltips change via i18n)
-      window.addEventListener('est:lang-change', () => {
-        // Drop cached longLabel so we pick up the new translation
-        document.querySelectorAll('#liveParticipantList .row-right .row-action')
-          .forEach(b => { delete b.dataset.longLabel; });
-        shortifyHostActionLabels();
-      });
-    }
-
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', installHostActionShortener, { once: true });
-    } else {
-      // Run after current init tick
-      queueMicrotask(installHostActionShortener);
-    }
-  })();
-
-
+  
   /*** ---------- Name preflight: run once per (room+name) per tab ---------- ***/
   async function preflightNameCheck() {
     let isReloadLike = false;

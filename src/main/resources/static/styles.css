@@ -358,16 +358,13 @@ li{margin-bottom:.4rem;line-height:1.5;font-size:1rem}
   color:#0b1220 !important;
 }
 
-/* =======================================================================
-   Participant actions: text-link variant (global override)
-   ======================================================================= */
+/* === Participant actions: short text links ("Host | Kick") =============== */
 
 #liveParticipantList .row-right{
   gap: 10px;
   min-height: 1.6rem;
 }
 
-/* turn pill buttons into subtle text links */
 #liveParticipantList .row-right .row-action{
   display: inline-block !important;
   background: transparent !important;
@@ -378,17 +375,19 @@ li{margin-bottom:.4rem;line-height:1.5;font-size:1rem}
   padding: 0;
   border-radius: 0 !important;
   cursor: pointer;
-  position: relative; /* for enlarged tap target */
+  position: relative; /* enlarge tap target on touch */
 }
 
-/* label only (short), keep on one line and a bit smaller */
-#liveParticipantList .row-right .row-action .ra-icon{ display: none !important; }
+#liveParticipantList .row-right .row-action .ra-icon{
+  display: none !important; /* keep for a11y, hide visually */
+}
+
 #liveParticipantList .row-right .row-action .ra-label{
   display: inline !important;
-  font-size: .82rem;            /* smaller text */
+  font-size: .82rem;         /* one–two steps smaller */
   line-height: 1.2;
   color: var(--text-dim);
-  white-space: nowrap;          /* prevent "Zum | Host | machen" wrapping */
+  white-space: nowrap;       /* prevent wrapping */
   text-decoration: none;
   border-bottom: 1px dotted transparent;
 }
@@ -424,13 +423,6 @@ li{margin-bottom:.4rem;line-height:1.5;font-size:1rem}
   cursor: not-allowed;
 }
 
-/* mobile: keep them visible; slightly bigger for touch */
-@media (max-width: 420px){
-  #liveParticipantList .row-right{ gap: 8px; }
-  #liveParticipantList .row-right .row-action{ display: inline-block !important; }
-  #liveParticipantList .row-right .row-action .ra-label{ font-size: .90rem; }
-}
-
 /* larger invisible hit area on touch devices */
 @media (any-pointer: coarse){
   #liveParticipantList .row-right .row-action::after{
@@ -441,6 +433,11 @@ li{margin-bottom:.4rem;line-height:1.5;font-size:1rem}
   }
 }
 
+/* phone: a tick larger for tap comfort */
+@media (max-width: 420px){
+  #liveParticipantList .row-right{ gap: 8px; }
+  #liveParticipantList .row-right .row-action .ra-label{ font-size: .90rem; }
+}
 
 /* ---------- Results / average -------------------------------------------- */
 .pre-vote{margin-top:var(--pre-vote-margin-desktop)}
@@ -498,14 +495,46 @@ li{margin-bottom:.4rem;line-height:1.5;font-size:1rem}
 .topic-row.editable{cursor:pointer}
 .topic-row.editable:hover{background:rgba(148,163,184,.08);border-radius:6px}
 
-/* ===== Result row: responsive stacking =================================== */
-@media (max-width:640px){
-  #resultRow{display:flex;flex-wrap:wrap;align-items:baseline;gap:.25rem .5rem}
-  #resultRow .sep{display:none !important}
-  #resultLabel,#averageVote{flex:0 0 auto}
-  #medianWrap,#rangeWrap{flex:0 0 100%}
-  #medianWrap .label,#rangeWrap .label{margin-right:.25rem}
+/* === Result row: centered on desktop/tablet, stacked on mobile =========== */
+
+#resultRow{
+  display: flex;
+  justify-content: center;
+  align-items: baseline;
+  gap: .35rem .6rem;
+  flex-wrap: nowrap;          /* keep one line on wide viewports */
+  text-align: center;
 }
+
+/* keep label/value chunks together */
+#resultRow #resultLabel,
+#resultRow #averageVote,
+#resultRow #medianWrap,
+#resultRow #rangeWrap{
+  white-space: nowrap;
+}
+
+/* nicer spacing for separators */
+#resultRow .sep{
+  opacity: .6;
+  margin: 0 .45rem;
+}
+
+/* mobile (≤640px): stacked, but centered */
+@media (max-width: 640px){
+  #resultRow{
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: baseline;
+    gap: .25rem .5rem;
+  }
+  #resultRow .sep{ display: none !important; }
+  #medianWrap, #rangeWrap{
+    flex: 0 0 100%;
+    text-align: center;
+  }
+}
+
 
 /* ===== Menu compact sizing (final values) ================================= */
 .menu-panel{font-size:.85em;width:min(92vw,380px);padding:10px 12px}
@@ -730,21 +759,6 @@ body:not(.votes-revealed) #resultRow{visibility: hidden;}
 /* keep perceived alignment when hamburger has focus ring */
 .menu-button:focus-visible{outline-offset:2px}
 
-/* === Participant actions — robust text-link fallback ===================== */
-/* Always show actions as subtle text links */
-#liveParticipantList .row-right .row-action{
-  display: inline-block !important;
-  background: transparent !important;
-  border: 0 !important;
-  box-shadow: none !important;
-  width: auto !important;
-  height: auto !important;
-  padding: 0;
-  border-radius: 0 !important;
-  cursor: pointer;
-  position: relative;
-}
-
 /* If a real .ra-label exists, use it (icons remain hidden) */
 #liveParticipantList .row-right .row-action .ra-icon{ display: none !important; }
 #liveParticipantList .row-right .row-action .ra-label{
@@ -853,79 +867,5 @@ body:not(.votes-revealed) #resultRow{visibility: hidden;}
   #medianWrap, #rangeWrap{
     flex: 0 0 100%;
     text-align: center;
-  }
-}
-
-/* Text-link variant: show short labels “Host” / “Kick”, smaller font */
-#liveParticipantList .row-right .row-action{
-  display: inline-block !important;
-  background: transparent !important;
-  border: 0 !important;
-  box-shadow: none !important;
-  width: auto !important;
-  height: auto !important;
-  padding: 0;
-  border-radius: 0 !important;
-  cursor: pointer;
-  position: relative;
-}
-
-/* hide the original (long) label text visually and inject short label */
-#liveParticipantList .row-right .row-action .ra-label{
-  font-size: 0;               /* hide original text visually */
-  line-height: 1;
-  color: var(--text-dim);
-}
-
-/* short labels */
-#liveParticipantList .row-right .row-action.host .ra-label::after{
-  content: "Host";
-  font-size: .82rem;          /* 1–2 steps smaller */
-  color: var(--text-dim);
-}
-#liveParticipantList .row-right .row-action.kick .ra-label::after{
-  content: "Kick";
-  font-size: .82rem;
-  color: #fca5a5;             /* toned red */
-}
-
-/* hover/focus */
-#liveParticipantList .row-right .row-action:hover .ra-label::after,
-#liveParticipantList .row-right .row-action:focus-visible .ra-label::after{
-  color: var(--text-strong);
-}
-#liveParticipantList .row-right .row-action.kick:hover .ra-label::after,
-#liveParticipantList .row-right .row-action.kick:focus-visible .ra-label::after{
-  color: #f87171;
-}
-#liveParticipantList .row-right .row-action:focus-visible{
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-  border-radius: 4px;
-}
-
-/* separator between the two links */
-#liveParticipantList .row-right .row-action + .row-action .ra-label::before{
-  content: " | ";
-  opacity: .45;
-  margin: 0 .35rem 0 .3rem;
-  font-size: .82rem;          /* explicit size since parent has font-size:0 */
-}
-
-/* disabled state */
-#liveParticipantList .row-right .row-action:disabled .ra-label::after{
-  opacity: .55;
-  cursor: not-allowed;
-}
-#liveParticipantList .row-right .row-action:disabled .ra-label::before{
-  opacity: .35;
-}
-
-/* mobile: keep them visible & a tick larger for tap comfort */
-@media (max-width: 420px){
-  #liveParticipantList .row-right .row-action{ display: inline-block !important; }
-  #liveParticipantList .row-right .row-action.host .ra-label::after,
-  #liveParticipantList .row-right .row-action.kick .ra-label::after{
-    font-size: .86rem;
   }
 }
