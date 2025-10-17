@@ -384,20 +384,27 @@ li{margin-bottom:.4rem;line-height:1.5;font-size:1rem}
 
 #liveParticipantList .row-right .row-action .ra-label{
   display: inline !important;
-  font-size: .82rem;         /* one–two steps smaller */
+  font-size: .8rem;
   line-height: 1.2;
   color: var(--text-dim);
-  white-space: nowrap;       /* prevent wrapping */
+  white-space: nowrap;
   text-decoration: none;
   border-bottom: 1px dotted transparent;
 }
 
-/* inline separator → "Host | Kick" */
-#liveParticipantList .row-right .row-action + .row-action .ra-label::before{
+/* separator outside the label to avoid underlining the pipe */
+#liveParticipantList .row-right .row-action + .row-action::before{
   content: " | ";
   opacity: .45;
   margin: 0 .35rem 0 .3rem;
+  color: var(--text-dim);
 }
+
+/* ensure no separator is injected inside the label */
+#liveParticipantList .row-right .row-action .ra-label::before{
+  content: none !important;
+}
+
 
 /* hover/focus */
 #liveParticipantList .row-right .row-action:hover .ra-label,
