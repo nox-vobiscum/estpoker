@@ -149,7 +149,13 @@ strong{color:var(--text-strong)}
 }
 @keyframes slideIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
 .menu-panel fieldset{border:0;padding:0;margin:0;min-inline-size:auto}
-.menu-header{display:flex;align-items:center;justify-content:space-between;padding:6px 6px 8px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--panel);z-index:20}
+
+/* --- CHANGED: header not sticky anymore --------------------------------- */
+.menu-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:6px 6px 8px;border-bottom:1px solid var(--border);
+  position:static; top:auto; background:transparent; z-index:auto; /* was sticky */
+} /* // Header now scrolls with the content */
 .menu-header h3{margin:0;font-size:1rem;color:var(--text-strong)}
 .menu-section{display:flex;flex-direction:column;gap:10px;padding:8px 4px 10px}
 .section-title{margin:6px 8px 6px;font-weight:600;font-size:.9rem;opacity:.85;color:var(--text-strong)}
@@ -516,7 +522,7 @@ li{margin-bottom:.4rem;line-height:1.5;font-size:1rem}
   #revealButton,#resetButton{
     position:fixed;left:16px;right:16px;
     bottom:calc(var(--cta-offset) + var(--footer-h) + env(safe-area-inset-bottom));
-    z-index:20;box-shadow:0 10px 24px rgba(0,0,0,.22);
+    z-index:20;box-shadow:var(--shadow);
   }
   .container{padding-bottom:calc(var(--footer-h) + 120px)}
 }
@@ -827,9 +833,9 @@ body:not(.votes-revealed) #resultRow{visibility: hidden;}
 #liveParticipantList .row-right .row-action.host::after{ font-size:.82rem;content:"Host"; }
 #liveParticipantList .row-right .row-action.kick::after{ font-size:.82rem;content:"Kick"; color:#fca5a5; }
 
-/* separator between the two links */
+/* separator between the two links (NBSP to prevent break) */
 #liveParticipantList .row-right .row-action + .row-action::before{
-  content:" | ";
+  content:"\00a0|\00a0";
   opacity:.45;
   margin:0 .35rem 0 .3rem;
 }
@@ -898,34 +904,48 @@ body:not(.votes-revealed) #resultRow{visibility: hidden;}
   }
 }
 
-#appMenuOverlay .menu-item.specials .palette {
-  display: grid;
-  grid-template-columns: repeat(7, minmax(28px, 1fr));
-  gap: 8px;
-  margin-top: 8px;
+/* === Specials palette inside the toggle block ============================ */
+/* --- CHANGED: visually attach specials to the toggle row, one horizontal line */
+#appMenuOverlay .section-title:has(+ .menu-item.specials){display:none;} /* hide "Zusätzliche Spezialkarten" title if present */
+
+#appMenuOverlay .menu-item.specials{
+  background:transparent; border:0; padding:4px 0 0; margin:0; cursor:default;
+} /* // looks like part of the switch above */
+
+#appMenuOverlay .menu-item.specials .palette{
+  display:flex; align-items:center; gap:8px;
+  overflow-x:auto; overflow-y:hidden; padding:2px 2px 6px;
+  -webkit-overflow-scrolling:touch; scrollbar-width:thin;
+} /* // single row; scrolls horizontally when needed */
+
+#appMenuOverlay .menu-item.specials label{
+  display:inline-flex; align-items:center; justify-content:center;
+  min-width:28px; min-height:28px; padding:6px;
+  border-radius:8px; border:1px solid rgba(255,255,255,.08);
+  transition:transform .12s, filter .15s, opacity .15s, border-color .15s;
+  cursor:pointer; user-select:none;
+  filter:grayscale(65%); opacity:.55;   /* inactive look */
 }
-#appMenuOverlay .menu-item.specials label {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 6px;
-  border-radius: 8px;
-  border: 1px solid rgba(0,0,0,.1);
+:root[data-theme="light"] #appMenuOverlay .menu-item.specials label{border-color:rgba(0,0,0,.10)}
+
+#appMenuOverlay .menu-item.specials input[type="checkbox"]{
+  position:absolute; opacity:0; pointer-events:none;
 }
-#appMenuOverlay .menu-item.specials input[type="checkbox"] {
-  position: absolute;
-  opacity: 0;
-  pointer-events: none;
+#appMenuOverlay .menu-item.specials label span{pointer-events:none}
+
+#appMenuOverlay .menu-item.specials input[type="checkbox"]:checked + span{
+  outline:2px solid currentColor; outline-offset:2px; border-radius:6px;
 }
-#appMenuOverlay .menu-item.specials label span {
-  pointer-events: none;
-}
-#appMenuOverlay .menu-item.specials input[type="checkbox"]:checked + span {
-  outline: 2px solid currentColor;
-  outline-offset: 2px;
-  border-radius: 6px;
-}
-#appMenuOverlay .menu-item.specials.disabled {
-  opacity: .6;
-  pointer-events: none;
-}
+
+#appMenuOverlay .menu-item.specials input[type="checkbox"]:checked ~ span,
+#appMenuOverlay .menu-item.specials input[type="checkbox"]:checked + span{
+  filter:none; opacity:1;
+} /* // active look */
+
+#appMenuOverlay .menu-item.specials label:hover{transform:translateY(-1px);filter:grayscale(35%);opacity:.8}
+#appMenuOverlay .menu-item.specials.disabled{opacity:.6;pointer-events:none}
+
+/* subtle scrollbars */
+#appMenuOverlay .menu-item.specials .palette::-webkit-scrollbar{height:6px}
+#appMenuOverlay .menu-item.specials .palette::-webkit-scrollbar-thumb{background:rgba(255,255,255,.15);border-radius:999px}
+:root[data-theme="light"] #appMenuOverlay .menu-item.specials .palette::-webkit-scrollbar-thumb{background:rgba(0,0,0,.15)}
