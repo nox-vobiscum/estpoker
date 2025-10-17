@@ -51,6 +51,9 @@ public class GameService {
     private final Map<WebSocketSession, Room> sessionToRoomMap = new ConcurrentHashMap<>();
     private final Map<WebSocketSession, String> sessionToParticipantMap = new ConcurrentHashMap<>();
 
+    // specials selection per room (optional; falls back to boolean allowSpecials)
+    private final Map<String, List<String>> roomSpecialsSelected = new ConcurrentHashMap<>();
+
     // Stable client-id per tab -> last known name in that room
     private final Map<String, String> clientToName = new ConcurrentHashMap<>();
     private static String mapKey(String roomCode, String cid) { return roomCode + "|" + cid; }
@@ -82,9 +85,6 @@ public class GameService {
     private final Map<String, ScheduledFuture<?>> pendingHostTransfers = new ConcurrentHashMap<>();
 
     private static String key(Room room, String name) { return room.getCode() + "|" + name; }
-
-    // ---- specials selection per room (optional; falls back to boolean allowSpecials) ----
-    private final Map<String, List<String>> roomSpecialsSelected = new ConcurrentHashMap<>();
 
     // --- rooms ---
     public Room getOrCreateRoom(String roomCode) { return rooms.computeIfAbsent(roomCode, Room::new); }
@@ -326,39 +326,26 @@ public class GameService {
     }
 
     /**
-     * Old boolean toggle — kept for compatibility.
-     * If enabled and keine Auswahl vorhanden, wird die volle SPECIALS-Liste gesetzt.
+     * Alte boolean API (Kompatibilität).
+     * Wenn deaktiviert → Specials-Auswahl leeren + Special-Votes entfernen.
+     * Wenn aktiviert und noch keine Auswahl → Standardliste setzen.
      */
     public void setAllowSpecials(String roomCode, boolean allow) {
         Room room = getOrCreateRoom(roomCode);
-        boolean changed = false;
-
         synchronized (room) {
-            if (room.isAllowSpecials() != allow) {
-                room.setAllowSpecials(allow);
-                changed = true;
-            }
-            // Auswahl konsistent halten
+            room.setAllowSpecials(allow);
             if (!allow) {
                 roomSpecialsSelected.put(room.getCode(), Collections.emptyList());
-                // entferne ggf. Special-Votes
                 for (Participant p : room.getParticipants()) {
                     String v = p.getVote();
                     if (CardSequences.isSpecial(v)) p.setVote(null);
                 }
             } else {
-                // wenn erlaubt, aber noch nichts gewählt → alle
                 roomSpecialsSelected.computeIfAbsent(room.getCode(), k -> new ArrayList<>(CardSequences.SPECIALS));
             }
         }
-
-        if (changed) {
-            broadcastRoomState(room);
-            snapshot(room, "ws");
-        } else {
-            // auch ohne Flag-Änderung den aktuellen Zustand senden (für Kartenfilter)
-            broadcastRoomState(room);
-        }
+        broadcastRoomState(room);
+        snapshot(room, "ws");
     }
 
     /**
@@ -381,7 +368,7 @@ public class GameService {
             room.setAllowSpecials(allow);
             roomSpecialsSelected.put(room.getCode(), Collections.unmodifiableList(cleaned));
 
-            // Votes entfernen, die nun nicht mehr erlaubt sind
+            // Invalidiere nicht mehr erlaubte Special-Votes
             if (!allow) {
                 for (Participant p : room.getParticipants()) {
                     if (CardSequences.isSpecial(p.getVote())) p.setVote(null);
@@ -674,7 +661,7 @@ public class GameService {
 
         payload.put("sequenceId", room.getSequenceId());
 
-        // Karten-Deck: Room liefert ein Basis-Deck → Specials ggf. filtern
+        // Deck: Basis-Deck vom Room → Specials ggf. filtern
         List<String> baseDeck = new ArrayList<>(room.getCurrentCards());
         Set<String> specialsAll = new HashSet<>(CardSequences.SPECIALS);
         List<String> sel = getSelectedSpecials(room);
@@ -687,7 +674,7 @@ public class GameService {
         }
         payload.put("cards", baseDeck);
 
-        payload.put("specials", sel); // ausgewählte Specials (Kompat: Client fällt auf Flags/Defaults zurück)
+        payload.put("specials", sel); // ausgewählte Specials (Client hat Backcompat)
         payload.put("autoRevealEnabled", room.isAutoRevealEnabled());
         payload.put("allowSpecials", room.isAllowSpecials());
 
@@ -700,7 +687,7 @@ public class GameService {
         return objectMapper.writeValueAsString(payload);
     }
 
-    /** Send full room state to everyone in the room (kept for compatibility). */
+    /** Send full room state to everyone in the room. */
     public void broadcastRoomState(Room room) {
         try {
             String json = buildRoomStateJson(room);

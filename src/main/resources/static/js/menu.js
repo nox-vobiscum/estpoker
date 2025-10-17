@@ -99,7 +99,15 @@
       }
     }
   }
-  function openMenu(){ if (!overlay) return; overlay.classList.remove('hidden'); overlay.setAttribute('aria-hidden','false'); setMenuButtonState(true); forceRowLayout(); }
+  function openMenu(){
+  if (!overlay) return;
+  overlay.classList.remove('hidden');
+  overlay.setAttribute('aria-hidden','false');
+  setMenuButtonState(true);
+  forceRowLayout();
+  try { document.dispatchEvent(new CustomEvent('ep:menu-open')); } catch {}
+}
+
   function closeMenu(){ if (!overlay) return; overlay.classList.add('hidden');    overlay.setAttribute('aria-hidden','true');  setMenuButtonState(false); btnOpen?.focus?.(); }
   btnOpen?.addEventListener('click', () => (isMenuOpen() ? closeMenu() : openMenu()));
   backdrop?.addEventListener('click', (e) => { if (e.target.hasAttribute('data-close')) closeMenu(); });
@@ -196,6 +204,32 @@
     labelEl.style.overflow = 'hidden';
     labelEl.style.textOverflow = 'ellipsis';
   }
+
+  /* ---------- Specials palette ---------- */
+  function specials_getSelectedIds() {
+    if (!rowSpecialsPick) return [];
+    return Array.from(rowSpecialsPick.querySelectorAll('label.spc input[type="checkbox"]:checked'))
+      .map(inp => inp.closest('label.spc')?.dataset.id)
+      .filter(Boolean);
+  }
+  function specials_setSelectedIds(ids) {
+    if (!rowSpecialsPick) return;
+    const want = new Set((ids || []).map(String));
+    rowSpecialsPick.querySelectorAll('label.spc').forEach(lab => {
+      const id = lab.dataset.id;
+      const inp = lab.querySelector('input[type="checkbox"]');
+      if (!inp) return;
+      const on = want.has(String(id));
+      if (inp.checked !== on) inp.checked = on;
+      inp.setAttribute('aria-checked', on ? 'true' : 'false');
+    });
+  }
+  function specials_setPaletteVisible(show) {
+    if (!rowSpecialsPick) return;
+    rowSpecialsPick.hidden = !show;
+    try { rowSpecialsPick.style.display = show ? '' : 'none'; } catch {}
+  }
+
 
   /* ---------- Language switch (core) ---------- */
   async function switchLanguage(to) {

@@ -3,6 +3,9 @@ package com.example.estpoker.handler;
 import com.example.estpoker.model.Participant;
 import com.example.estpoker.model.Room;
 import com.example.estpoker.service.GameService;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.core.type.TypeReference;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.lang.NonNull;
@@ -21,18 +24,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * WebSocket handler for /gameSocket.
- * - Joins by roomCode + cid + requested name (service enforces canonical/unique name)
- * - Handles rename:<name>, votes, host actions, toggles
- * - Heartbeat: replies "pong" to client pings (keeps client watchdog happy)
- * - On unexpected close: schedules grace disconnect (GameService decides timing)
- * - Sends initial state snapshot (best-effort, via reflection)
- * - After join, replays the current roster to the just-joined session
- *
- * Specials:
- * - "specials:<on|off>" toggles extras (question mark is clientseitig immer dabei)
- * - "specials:set:<id,id,...>" setzt die ausgewählten Extras nach IDs (host-only)
- * Sequence:
- * - akzeptiert "sequence:", "seq:" und "setSequence:" (host-only)
+ * ...
  */
 @Component
 public class GameWebSocketHandler extends TextWebSocketHandler {
@@ -47,7 +39,6 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     /** Host hard demotion safeguard window (should match service). */
     private static final long HOST_INACTIVE_MS = 3_600_000L;
 
-    // accept a few common truthy/falsy spellings for boolean toggles.
     private static boolean parseOn(String s) {
         if (s == null) return false;
         switch (s.trim().toLowerCase(Locale.ROOT)) {
@@ -71,7 +62,6 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
 
             log.info("WS OPEN room={} name={} cid={}", roomCode, initialName, cid);
 
-            // Edge hardening: reject if a different CID is already active under this name.
             Room existing = gameService.getRoom(roomCode);
             if (existing != null) {
                 Participant byName = existing.getParticipant(initialName);
@@ -87,10 +77,8 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                 }
             }
 
-            // Join (service will pick a canonical unique name if needed)
             Room room = gameService.join(roomCode, cid, initialName);
 
-            // Determine canonical name for this CID after join
             String canonicalName = null;
             try {
                 var opt = room.getParticipantByCid(cid);
@@ -99,24 +87,17 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             } catch (Throwable ignored) {}
             if (canonicalName == null) canonicalName = initialName;
 
-            // Track this session for service broadcasts
             gameService.addSession(session, room);
             gameService.trackParticipant(session, canonicalName);
-
-            // Local index
             bySession.put(session.getId(), new Conn(roomCode, cid, canonicalName));
-
-            // Tell the client its identity
             gameService.sendIdentity(session, canonicalName, cid);
 
-            // Best-effort initial state snapshot
             try {
                 sendInitialStateSnapshot(session, room, roomCode);
             } catch (Throwable t) {
                 log.warn("WS INIT snapshot failed (room={}, name={}): {}", roomCode, canonicalName, t.toString());
             }
 
-            // Roster replay for the just-joined client
             try {
                 replayRosterTo(session, room, canonicalName);
             } catch (Throwable t) {
@@ -144,7 +125,6 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         final String payload  = message.getPayload();
 
         try {
-            // HEARTBEAT: reply "pong" and touch()
             if ("ping".equals(payload)) {
                 try { gameService.touch(roomCode, cid); } catch (Throwable ignore) {}
                 try {
@@ -155,20 +135,18 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                 return;
             }
 
-            // EXPLICIT SYNC REQUEST (from client)
             if ("requestSync".equals(payload)) {
                 Room room = gameService.getRoom(roomCode);
                 if (room != null) {
                     if (!tryInvoke(gameService, "sendRoomState",
                             new Class<?>[]{WebSocketSession.class, Room.class},
                             new Object[]{session, room})) {
-                        gameService.broadcastRoomState(room); // fallback
+                        gameService.broadcastRoomState(room);
                     }
                 }
                 return;
             }
 
-            // RENAME: "rename:<urlEncodedName>"
             if (payload.startsWith("rename:")) {
                 String requested = decode(payload.substring("rename:".length()));
                 String finalName = gameService.renameParticipant(roomCode, cid, requested);
@@ -180,14 +158,12 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                 return;
             }
 
-            // VOTE: "vote:<ignoredName>:<value>"
             if (payload.startsWith("vote:")) {
                 String[] parts = payload.split(":", 3);
                 if (parts.length >= 3) gameService.setVote(roomCode, cid, parts[2]);
                 return;
             }
 
-            // TOPIC save / toggle (host only)
             if (payload.startsWith("topicSave:")) {
                 if (!isHost(roomCode, c.name)) return;
                 String text = payload.substring("topicSave:".length());
@@ -201,14 +177,12 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                 return;
             }
 
-            // PARTICIPATION toggle
             if (payload.startsWith("participation:")) {
                 boolean estimating = Boolean.parseBoolean(payload.substring("participation:".length()));
                 gameService.setSpectator(roomCode, cid, !estimating);
                 return;
             }
 
-            // AUTO-REVEAL toggle (host)
             if (payload.startsWith("autoReveal:")) {
                 if (!isHost(roomCode, c.name)) return;
                 boolean on = Boolean.parseBoolean(payload.substring("autoReveal:".length()));
@@ -217,51 +191,47 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                 return;
             }
 
-            // SPECIALS toggle (host) — on/off
-            if (payload.startsWith("specials:") && !payload.startsWith("specials:set:")) {
+            // --- FIXED: typisierte JSON-Liste für Specials ---
+            if (payload.startsWith("specials:")) {
                 if (!isHost(roomCode, c.name)) return;
-                boolean on = parseOn(payload.substring("specials:".length()));
+                String tail = payload.substring("specials:".length()).trim();
+
+                try {
+                    String decoded = decode(tail);
+                    List<String> list = null;
+
+                    if (decoded.startsWith("[") && decoded.endsWith("]")) {
+                        // JSON array → sauber typisiert
+                        list = new ObjectMapper().readValue(
+                                decoded,
+                                new TypeReference<List<String>>() {}
+                        );
+                    } else if (decoded.contains(",")) {
+                        // CSV of emojis
+                        list = Arrays.stream(decoded.split(","))
+                                     .map(String::trim)
+                                     .filter(s -> !s.isEmpty())
+                                     .toList();
+                    }
+
+                    if (list != null && !list.isEmpty()) {
+                        gameService.setSpecialsSelected(roomCode, list);
+                        return;
+                    }
+                } catch (Exception ignore) { /* fall through to boolean */ }
+
+                boolean on = parseOn(tail);
                 gameService.setAllowSpecials(roomCode, on);
                 return;
             }
 
-            // SPECIALS set (host) — "specials:set:<id,id,...>"
-            if (payload.startsWith("specials:set:")) {
+            if (payload.startsWith("sequence:") || payload.startsWith("seq:") || payload.startsWith("setSequence:")) {
                 if (!isHost(roomCode, c.name)) return;
-                String raw = decode(payload.substring("specials:set:".length()));
-                List<String> ids = new ArrayList<>();
-                if (raw != null && !raw.isBlank()) {
-                    for (String s : raw.split(",")) {
-                        String id = s.trim();
-                        if (!id.isEmpty()) ids.add(id);
-                    }
-                }
-                gameService.setSpecialsSelected(roomCode, ids);
+                String raw = payload.substring(payload.indexOf(':') + 1);
+                gameService.setSequence(roomCode, decode(raw));
                 return;
             }
 
-            // SEQUENCE change (host)
-            if (payload.startsWith("sequence:")) {
-                if (!isHost(roomCode, c.name)) return;
-                String id = decode(payload.substring("sequence:".length()));
-                gameService.setSequence(roomCode, id);
-                return;
-            }
-            // SEQUENCE aliases (host) — compat with client
-            if (payload.startsWith("seq:")) {
-                if (!isHost(roomCode, c.name)) return;
-                String id = decode(payload.substring("seq:".length()));
-                gameService.setSequence(roomCode, id);
-                return;
-            }
-            if (payload.startsWith("setSequence:")) {
-                if (!isHost(roomCode, c.name)) return;
-                String id = decode(payload.substring("setSequence:".length()));
-                gameService.setSequence(roomCode, id);
-                return;
-            }
-
-            // HOST / KICK (host)
             if (payload.startsWith("makeHost:")) {
                 if (!isHost(roomCode, c.name)) return;
                 String target = decode(payload.substring("makeHost:".length()));
@@ -276,7 +246,6 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                 return;
             }
 
-            // Keywords
             switch (payload) {
                 case "revealCards" -> gameService.reveal(roomCode);
                 case "resetRoom"   -> gameService.reset(roomCode);
@@ -334,7 +303,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             gameService.removeSession(session);
             Room room = gameService.getRoom(roomCode);
             if (room != null) {
-                gameService.scheduleDisconnect(room, c.name); // grace on unexpected close
+                gameService.scheduleDisconnect(room, c.name);
             }
             gameService.ensureHost(roomCode, 0L, HOST_INACTIVE_MS);
         } catch (Throwable t) {
@@ -367,7 +336,6 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         try { return String.valueOf(session.getUri()); } catch (Exception e) { return "n/a"; }
     }
 
-    /** Check if caller is current host (by name). */
     private boolean isHost(String roomCode, String name) {
         Room room = gameService.getRoom(roomCode);
         if (room == null) return false;
@@ -375,7 +343,6 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         return host != null && Objects.equals(host.getName(), name);
     }
 
-    /** Best-effort: send state snapshot to just-joined session via whatever method exists. */
     private void sendInitialStateSnapshot(WebSocketSession session, Room room, String roomCode) {
         if (tryInvoke(gameService, "sendRoomState", new Class<?>[]{WebSocketSession.class, Room.class}, new Object[]{session, room})) return;
         if (tryInvoke(gameService, "sendRoomState", new Class<?>[]{Room.class, WebSocketSession.class}, new Object[]{room, session})) return;
@@ -384,7 +351,6 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         if (tryInvoke(gameService, "sendStateTo", new Class<?>[]{WebSocketSession.class, Room.class}, new Object[]{session, room})) return;
         if (tryInvoke(gameService, "sendStateTo", new Class<?>[]{WebSocketSession.class, String.class}, new Object[]{session, roomCode})) return;
 
-        // Fallback: broadcast room state (new session is registered and will receive it)
         if (tryInvoke(gameService, "broadcastRoom", new Class<?>[]{Room.class}, new Object[]{room})) return;
         if (tryInvoke(gameService, "broadcastRoomState", new Class<?>[]{Room.class}, new Object[]{room})) return;
         if (tryInvoke(gameService, "broadcast", new Class<?>[]{Room.class}, new Object[]{room})) return;
@@ -392,12 +358,6 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         log.debug("WS INIT snapshot: no suitable GameService method found; skipping explicit snapshot");
     }
 
-    /**
-     * Replay the current roster to a single session as a series of
-     * plain-text "participantJoined:<name>" events.
-     * This makes the just-joined client fully consistent even if it missed
-     * earlier join broadcasts.
-     */
     private void replayRosterTo(WebSocketSession session, Room room, String receiverName) {
         List<String> names = extractActiveNames(room);
         names.removeIf(n -> n == null || n.isBlank() || Objects.equals(n, receiverName));
@@ -415,9 +375,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         log.info("WS ROSTER replay to {} ({}): {}", receiverName, names.size(), names);
     }
 
-    /** Extract active participant names from Room using reflection-friendly fallbacks. */
     private List<String> extractActiveNames(Room room) {
-        // 1) If Room exposes getParticipants(): Map<String, Participant> OR Collection<Participant>
         try {
             Method m = room.getClass().getMethod("getParticipants");
             Object res = m.invoke(room);
@@ -439,7 +397,6 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             }
         } catch (Throwable ignored) {}
 
-        // 2) If Room exposes getActiveParticipants(): Collection<Participant>
         try {
             Method m = room.getClass().getMethod("getActiveParticipants");
             Object res = m.invoke(room);
@@ -453,7 +410,6 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             }
         } catch (Throwable ignored) {}
 
-        // 3) If Room exposes getParticipantNames(): Collection<String>
         try {
             Method m = room.getClass().getMethod("getParticipantNames");
             Object res = m.invoke(room);
@@ -464,7 +420,6 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             }
         } catch (Throwable ignored) {}
 
-        // 4) Last resort: strong type List<Participant>
         try {
             List<Participant> list = room.getParticipants();
             List<String> out = new ArrayList<>();
@@ -477,7 +432,6 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         return new ArrayList<>();
     }
 
-    /** Returns name if object looks like an active Participant; otherwise null. */
     private String readNameIfActive(Object maybeParticipant) {
         if (maybeParticipant == null) return null;
         try {
@@ -510,7 +464,6 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         }
     }
 
-    /** Small immutable connection record. */
     private record Conn(String room, String cid, String name) {
         Conn {
             Objects.requireNonNull(room, "room");
@@ -518,8 +471,6 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             Objects.requireNonNull(name, "name");
         }
     }
-
-    /* --- local utilities for early redirect/close --- */
 
     private static String inviteUrl(String roomCode, String participantName, boolean taken) {
         String rc = URLEncoder.encode(roomCode == null ? "" : roomCode, StandardCharsets.UTF_8);
