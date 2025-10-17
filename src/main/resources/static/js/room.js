@@ -5,7 +5,7 @@
    - Exponential backoff reconnect w/ jitter
    - English inline comments & "Spectator" wording
    - Name preflight once per (room+name) per tab
-   - NEW: Specials revamp (host-defined extras, "❓" always included)
+   - Specials revamp (host-defined extras, "❓" always included)
 */
 (() => {
   'use strict';
@@ -558,6 +558,7 @@
     renderCards();
     renderResultBar();
     syncSequenceInMenu();
+    syncSpecialsPaletteFromState(); // keep palette checkboxes + visibility in sync
   }
 
   function applyVoteUpdate(m) {
@@ -735,7 +736,7 @@
 
       try { (state.participants || []).forEach(p => { if (p && !p.disconnected) markAlive(p.name); }); } catch {}
 
-      requestAnimationFrame(() => { syncMenuFromState(); syncSequenceInMenu(); });
+      requestAnimationFrame(() => { syncMenuFromState(); syncSequenceInMenu(); syncSpecialsPaletteFromState(); });
       if (!document.documentElement.hasAttribute('data-ready')) {
         document.documentElement.setAttribute('data-ready', '1');
       }
@@ -757,8 +758,12 @@
   /*** ---------- Participants ---------- ***/
   function isSpectator(p) { return !!(p && (p.spectator === true || p.participating === false)); }
 
+  function participantsRoot() {
+    return document.querySelector('#liveParticipantList, #participantsList, #participantList, ul#participants, .participants-list, #participants ul, [data-participants-list]');
+  }
+
   function renderParticipants() {
-    const ul = document.querySelector('#liveParticipantList');
+    const ul = participantsRoot();
     if (!ul) return;
 
     try {
@@ -794,7 +799,7 @@
         name.textContent = p.name;
         li.appendChild(name);
 
-        // SR-only host label (inside icon cell, no visual change)
+        // SR-only host label
         const srLabel = t('label.host', 'Host');
         if (p.isHost) {
           const sr = document.createElement('span');
@@ -878,8 +883,6 @@
           const labelMakeHost = t('action.makeHost', isDe() ? 'Zum Host machen' : 'Make host');
           makeHostBtn.setAttribute('aria-label', labelMakeHost);
           makeHostBtn.setAttribute('title', labelMakeHost);
-
-          // visible: short text + icon (icon hidden via CSS)
           makeHostBtn.innerHTML =
             '<span class="ra-icon" aria-hidden="true">👑</span><span class="ra-label">Host</span>';
 
@@ -895,8 +898,6 @@
           const labelKick = t('action.kick', isDe() ? 'Teilnehmer entfernen' : 'Kick participant');
           kickBtn.setAttribute('aria-label', labelKick);
           kickBtn.setAttribute('title', labelKick);
-
-          // visible: short text + icon (icon hidden via CSS)
           kickBtn.innerHTML =
             '<span class="ra-icon" aria-hidden="true">❌</span><span class="ra-label">Kick</span>';
 
@@ -947,8 +948,8 @@
     if (pivotLabel != null) {
       const pivIdx = deck.findIndex(x => Object.is(x, pivotLabel));
       if (pivIdx > 0) {
-        const p = Math.min(0.999, Math.max(0.001, p - 0 + (pivIdx / max))); // keep safe
-        const g = Math.log(0.5) / Math.log(Math.min(0.999, Math.max(0.001, (pivIdx / max))));
+        const frac = Math.min(0.999, Math.max(0.001, (pivIdx / max)));
+        const g = Math.log(0.5) / Math.log(frac);
         if (Number.isFinite(g) && g > 0) gamma = g;
       }
     }
@@ -1027,7 +1028,6 @@
     const hardGateOK = !state.hardMode || allEligibleVoted();
 
     // Optimistic: until host is known, do not hide the reveal button.
-    // The server will reject a non-host reveal anyway; this avoids false negatives just after room creation.
     const showReveal = (!state.votesRevealed && (state.isHost || !state._hostKnown));
     const showReset  = ( state.votesRevealed && state.isHost);
 
@@ -1130,7 +1130,6 @@
         if (medianWrap) medianWrap.hidden = true;
         if (rangeSep)  rangeSep.hidden  = true;
         if (rangeWrap) rangeWrap.hidden = true;
-        // SR announce in consensus branch
         announceResultForSR_EN();
         return;
       } else {
@@ -1243,7 +1242,6 @@
     const row = $('#topicRow'); if (!row) return;
     row.style.display = state.topicVisible ? '' : 'none';
     row.setAttribute('data-visible', state.topicVisible ? '1' : '0');
-    // Keep [hidden] attribute and "is-hidden" class in sync
     if (state.topicVisible) {
       row.removeAttribute('hidden');
       row.classList.remove('is-hidden');
@@ -1265,7 +1263,7 @@
 
     // Helper to render read-only text/link (no innerHTML)
     const renderDisplayContent = (el) => {
-      el.textContent = ''; // reset
+      el.textContent = '';
       if (state.topicLabel && state.topicUrl) {
         const a = document.createElement('a');
         a.rel = 'noopener noreferrer';
@@ -1377,7 +1375,6 @@
        <button id="topicCancelEditBtn" class="icon-button neutral" type="button"
                title="${escapeHtml(titleCancel)}" aria-label="${escapeHtml(titleCancel)}">❌</button>`;
 
-    // Local keyboard support
     displayEl.addEventListener('keydown', (e) => {
       if (e.key === 'Enter')  { e.preventDefault(); const b = $('#topicSaveBtn');   b && b.click(); }
       if (e.key === 'Escape') { e.preventDefault(); const b = $('#topicCancelEditBtn'); b && b.click(); }
@@ -1433,7 +1430,7 @@
   // --- sequence radio helpers ---
   function seqVariants(id) {
     const s = normalizeSeq(id || 'fib.scrum');
-    return [s, s.replace('.', '-')]; // e.g. fib.enh / fib-enh
+    return [s, s.replace('.', '-')];
   }
   function updateAllSeqRadiosChecked(seqIdRaw) {
     const vars = new Set(seqVariants(seqIdRaw));
@@ -1459,7 +1456,6 @@
     updateAllSeqRadiosChecked(state.sequenceId || 'fib.scrum');
   }
 
-  // --- robust reconciliation for radio selection (covers label/script/.check) ---
   function domSelectedSeq() {
     const el = document.querySelector('input[type="radio"][name="menu-seq"]:checked');
     return el ? normalizeSeq(el.value) : null;
@@ -1510,17 +1506,85 @@
     const mHRTgl = $('#menuHardModeToggle'); const mHRSt = $('#menuHardStatus');
     if (mHRTgl) { mHRTgl.checked = !!state.hardMode; mHRTgl.setAttribute('aria-checked', String(!!state.hardMode)); }
     if (mHRSt)  mHRSt.textContent = state.hardMode ? (isDe() ? 'An' : 'On') : (isDe() ? 'Aus' : 'Off');
+
+    // Also keep palette visibility/disabled state aligned
+    syncSpecialsPaletteFromState();
   }
   function syncSequenceInMenu() {
     syncSequenceRadiosAndMenu();
   }
 
+  // ---------- Specials palette (binds to menu.html DOM) ----------
+  function specialsPaletteRoot() {
+    return document.getElementById('rowSpecialsPick') || null;
+  }
+
+  function syncSpecialsPaletteFromState() {
+    const root = specialsPaletteRoot();
+    if (!root) return;
+
+    // Visibility: show only when specials are allowed
+    const paletteOn = !!state.allowSpecials;
+    root.hidden = !paletteOn;
+    try { root.style.display = paletteOn ? '' : 'none'; } catch {}
+    root.setAttribute('aria-hidden', String(!paletteOn));
+
+    // Disabled when guest
+    const disabled = !paletteOn || (state._hostKnown && !state.isHost);
+    root.classList.toggle('disabled', !!disabled);
+
+    const iconsWrap = root.querySelector('.specials-icons') || root;
+    SPECIALS_ORDER.forEach(id => {
+      const label = iconsWrap.querySelector(`label.spc[data-id="${id}"]`);
+      const cb = label ? label.querySelector('input[type="checkbox"]') : null;
+      if (!cb) return;
+      const checked = state.specialsSelected.includes(id);
+      cb.checked = checked;
+      cb.disabled = disabled;
+      cb.setAttribute('aria-checked', String(checked));
+      cb.setAttribute('aria-disabled', String(disabled));
+      if (label) label.classList.toggle('disabled', !!disabled);
+    });
+  }
+
+  function wireSpecialsPalette() {
+    const root = specialsPaletteRoot();
+    if (!root || root.__bound) return;
+    root.__bound = true;
+
+    const iconsWrap = root.querySelector('.specials-icons') || root;
+
+    iconsWrap.addEventListener('change', () => {
+      // Host guard — bounce non-hosts visually
+      if (state._hostKnown && !state.isHost) {
+        syncSpecialsPaletteFromState();
+        return;
+      }
+      // Respect global switch
+      const on = document.getElementById('menuSpecialsToggle')?.checked ?? state.allowSpecials;
+      if (!on) {
+        syncSpecialsPaletteFromState();
+        return;
+      }
+
+      // Gather selected ids in stable order
+      const ids = SPECIALS_ORDER.filter(id => {
+        const lab = iconsWrap.querySelector(`label.spc[data-id="${id}"]`);
+        const cb = lab ? lab.querySelector('input[type="checkbox"]') : null;
+        return cb && cb.checked;
+      });
+
+      document.dispatchEvent(new CustomEvent('ep:specials-set', { detail: { ids } }));
+    }, { passive: true });
+  }
+
   document.addEventListener('ep:menu-open', () => {
-    wireSequenceRadios();           // ensure radios are wired even on first open
+    wireSequenceRadios();
     wireMenuTogglesDom();
+    wireSpecialsPalette();
     syncMenuFromState();
     syncSequenceInMenu();
-    // if Playwright already toggled the radio, reconcile now
+    syncSpecialsPaletteFromState();
     queueMicrotask(reconcileSeqFromDOM);
   });
 
@@ -1564,6 +1628,9 @@
     }, el));
 
     bindSwitch('menuSpecialsToggle', (on, el) => hostGuard(() => {
+      // Update visibility immediately for snappy UI
+      state.allowSpecials = on;
+      syncSpecialsPaletteFromState();
       document.dispatchEvent(new CustomEvent('ep:specials-toggle', { detail: { on } }));
     }, el));
 
@@ -1592,7 +1659,7 @@
       tEl.className = 'toast';
       tEl.textContent = msg;
       document.body.appendChild(tEl);
-      // force reflow (start CSS animation)
+      // force reflow
       // eslint-disable-next-line no-unused-expressions
       tEl.offsetHeight;
       setTimeout(() => tEl.remove(), ms + 600);
@@ -1653,6 +1720,7 @@
     state._optimisticVote = null;
 
     rebuildDeckFromState();
+    syncMenuFromState();
   }
 
   // Send with limited backward-compat payloads + fast server echo
@@ -1667,7 +1735,6 @@
     for (const p of payloads) {
       try { send(p); } catch {}
     }
-    // Nudge server so tests don't wait for a lazy echo
     try { pokeServerAndSync(); } catch {}
     setTimeout(() => { try { pokeServerAndSync(); } catch {} }, 120);
   }
@@ -1811,23 +1878,14 @@
 
       if (!on) state.topicEditing = false;
 
-      // Update local state immediately (no visual lag)
       state.topicVisible = on;
-
-      // Re-render affected UI
       renderTopic();
-
-      // Also mirror status text / toggle in the menu right away
       syncMenuFromState();
-
-      // Tell the server
       send(`topicVisible:${on}`);
     });
 
     document.addEventListener('ep:participation-toggle', (ev) => {
       const estimating = !!(ev && ev.detail && ev.detail.estimating);
-
-      // Immediate local mirror (prevents UI lag before server echo)
       state.selfSpectator = !estimating;
 
       const me = state.participants.find(p => p && p.name === state.youName);
@@ -1836,7 +1894,6 @@
         me.participating = estimating;
       }
 
-      // Re-render even if "me" is not in the list yet
       renderParticipants();
       renderCards();
       syncMenuFromState();
@@ -1850,7 +1907,7 @@
         const el = document.getElementById('menuSpecialsToggle');
         const on = el ? !!el.checked : !state.allowSpecials;
         state.allowSpecials = on;
-        // rebuild deck (QUESTION always present; extras only if on)
+        syncSpecialsPaletteFromState();
         rebuildDeckFromState();
         try { send(`specials:${on}`); } catch {}
       });
@@ -1865,7 +1922,6 @@
       try {
         send('specials:set:' + encodeURIComponent(ids.join(',')));
       } catch {}
-      // Make sure remote gets it promptly
       pokeServerAndSync();
     });
 
@@ -1882,13 +1938,12 @@
   const PRESENCE_KEY = (n) => 'ep-presence:' + encodeURIComponent(n);
   function markAlive(name) { if (!name) return; try { localStorage.setItem(PRESENCE_KEY(name), String(Date.now())); } catch {} }
 
-  // Wrap long tooltips by injecting \n  (no lookbehind → broader browser support)
+  // Wrap long tooltips by injecting \n
   function wrapForTitle(text, max = 44) {
     const words = String(text || '').trim().split(/\s+/);
     const out = []; let line = '';
     for (let w of words) {
       if (w.length > max) {
-        // Break after separators: / - _ .
         w = w.replace(/[\/\-_\.]/g, m => m + '\n');
       }
       for (const chunk of w.split('\n')) {
@@ -1915,7 +1970,6 @@
         const label = btn.dataset.value || btn.textContent || '';
         if (!label) return;
         if (mySelectedValue() === String(label)) return;
-        // Optimistic selection + send
         state._optimisticVote = String(label);
         try { grid.querySelectorAll('button').forEach(b => b.classList.remove('selected')); } catch {}
         btn.classList.add('selected');
@@ -1937,7 +1991,7 @@
     }
 
     // Host / Kick
-    const list = document.querySelector('#liveParticipantList');
+    const list = participantsRoot();
     if (list && !_plistBound) {
       const onAction = (btn) => {
         const action = btn.dataset.action;
@@ -1957,12 +2011,12 @@
 
       list.addEventListener('pointerdown', (e) => {
         if (e.button !== 0) return;
-        const btn = e.target && e.target.closest ? e.target.closest('#liveParticipantList button.row-action') : null;
+        const btn = e.target && e.target.closest ? e.target.closest('button.row-action') : null;
         if (btn) { e.preventDefault?.(); onAction(btn); }
       }, { passive: false });
 
       list.addEventListener('click', (e) => {
-        const btn = e.target && e.target.closest ? e.target.closest('#liveParticipantList button.row-action') : null;
+        const btn = e.target && e.target.closest ? e.target.closest('button.row-action') : null;
         if (btn) onAction(btn);
       }, { passive: false });
 
@@ -2018,6 +2072,7 @@
     wireMenuEvents();
     wireSequenceRadios();
     wireMenuTogglesDom();
+    wireSpecialsPalette();
     bindDelegatedHandlers();
 
     const row = $('#topicRow');
@@ -2048,6 +2103,7 @@
     if (!state.hardRedirect && !state.connected && (!state.ws || state.ws.readyState !== 1)) connectWS();
 
     syncSequenceInMenu();
+    syncSpecialsPaletteFromState();
   }
 
   /*** ---------- Misc helpers ---------- ***/
@@ -2129,6 +2185,7 @@
     renderAutoReveal();
     syncMenuFromState();
     syncSequenceInMenu();
+    syncSpecialsPaletteFromState();
   }
 
   async function onLangChange() {

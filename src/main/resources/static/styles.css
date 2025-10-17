@@ -824,8 +824,8 @@ body:not(.votes-revealed) #resultRow{visibility: hidden;}
   border-bottom:1px dotted transparent;
 }
 
-#liveParticipantList .row-right .row-action.host::after{ content:"Host"; }
-#liveParticipantList .row-right .row-action.kick::after{ content:"Kick"; color:#fca5a5; }
+#liveParticipantList .row-right .row-action.host::after{ font-size:.82rem;content:"Host"; }
+#liveParticipantList .row-right .row-action.kick::after{ font-size:.82rem;content:"Kick"; color:#fca5a5; }
 
 /* separator between the two links */
 #liveParticipantList .row-right .row-action + .row-action::before{
@@ -896,4 +896,36 @@ body:not(.votes-revealed) #resultRow{visibility: hidden;}
     font-size: .88rem;
     padding: .30rem .42rem;
   }
+}
+
+#appMenuOverlay .menu-item.specials .palette {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(28px, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+}
+#appMenuOverlay .menu-item.specials label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  border-radius: 8px;
+  border: 1px solid rgba(0,0,0,.1);
+}
+#appMenuOverlay .menu-item.specials input[type="checkbox"] {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+#appMenuOverlay .menu-item.specials label span {
+  pointer-events: none;
+}
+#appMenuOverlay .menu-item.specials input[type="checkbox"]:checked + span {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+#appMenuOverlay .menu-item.specials.disabled {
+  opacity: .6;
+  pointer-events: none;
 }

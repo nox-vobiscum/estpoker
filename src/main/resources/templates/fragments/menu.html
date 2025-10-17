@@ -23,7 +23,7 @@
       <div class="menu-header">
         <h3 data-i18n="menu.settings">Settings</h3>
       </div>
-      
+
       <!-- Theme -->
       <div class="menu-section">
         <div class="section-title" data-i18n="menu.theme">Theme</div>
@@ -120,14 +120,14 @@
         </div>
 
         <!-- Specials: palette (visible only when specials are on) -->
-        <div class="menu-item" id="rowSpecialsPick" role="group" hidden
-             th:attr="title=#{menu.specials.title},aria-label=#{menu.specials.title}"
-             data-i18n-attr="title:menu.specials.title;aria-label:menu.specials.title"
-             aria-label="Special cards">
+        <!-- IMPORTANT: no title/aria-label on the container, to not override emoji tooltips -->
+        <div class="menu-item" id="rowSpecialsPick" role="group" hidden>
           <span class="mi-icon" aria-hidden="true">➕</span>
           <div class="switch-text">
             <strong data-i18n="menu.specials.title">Special cards</strong>
-            <span class="help" data-i18n="menu.specials.help">Pick additional specials. The question mark (?) is always included.</span>
+            <span class="help" data-i18n="menu.specials.help">
+              Pick additional specials. The question mark (?) is always included.
+            </span>
           </div>
 
           <div class="specials-icons" role="toolbar" aria-label="Specials">

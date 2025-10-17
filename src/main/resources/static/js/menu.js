@@ -100,13 +100,13 @@
     }
   }
   function openMenu(){
-  if (!overlay) return;
-  overlay.classList.remove('hidden');
-  overlay.setAttribute('aria-hidden','false');
-  setMenuButtonState(true);
-  forceRowLayout();
-  try { document.dispatchEvent(new CustomEvent('ep:menu-open')); } catch {}
-}
+    if (!overlay) return;
+    overlay.classList.remove('hidden');
+    overlay.setAttribute('aria-hidden','false');
+    setMenuButtonState(true);
+    forceRowLayout();
+    try { document.dispatchEvent(new CustomEvent('ep:menu-open')); } catch {}
+  }
 
   function closeMenu(){ if (!overlay) return; overlay.classList.add('hidden');    overlay.setAttribute('aria-hidden','true');  setMenuButtonState(false); btnOpen?.focus?.(); }
   btnOpen?.addEventListener('click', () => (isMenuOpen() ? closeMenu() : openMenu()));

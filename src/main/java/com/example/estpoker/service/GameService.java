@@ -1,10 +1,10 @@
 package com.example.estpoker.service;
 
+import com.example.estpoker.model.CardSequences;
 import com.example.estpoker.model.Participant;
 import com.example.estpoker.model.Room;
-import com.example.estpoker.model.CardSequences;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.example.estpoker.rooms.service.RoomSnapshotter;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
@@ -51,7 +51,7 @@ public class GameService {
     private final Map<WebSocketSession, Room> sessionToRoomMap = new ConcurrentHashMap<>();
     private final Map<WebSocketSession, String> sessionToParticipantMap = new ConcurrentHashMap<>();
 
-    // specials selection per room (optional; falls back to boolean allowSpecials)
+    // Specials selection per room (optional; falls back to boolean allowSpecials)
     private final Map<String, List<String>> roomSpecialsSelected = new ConcurrentHashMap<>();
 
     // Stable client-id per tab -> last known name in that room
@@ -326,9 +326,9 @@ public class GameService {
     }
 
     /**
-     * Alte boolean API (Kompatibilität).
-     * Wenn deaktiviert → Specials-Auswahl leeren + Special-Votes entfernen.
-     * Wenn aktiviert und noch keine Auswahl → Standardliste setzen.
+     * Legacy boolean API (compatibility).
+     * When disabled → clear selection and remove special votes.
+     * When enabled and no selection present → default to global SPECIALS.
      */
     public void setAllowSpecials(String roomCode, boolean allow) {
         Room room = getOrCreateRoom(roomCode);
@@ -349,26 +349,36 @@ public class GameService {
     }
 
     /**
-     * Neue API: Ausgewählte Specials setzen (leere Liste = keine Specials).
-     * Ungültige Werte werden gefiltert. Nicht gewählte Special-Votes werden gelöscht.
+     * Normalize incoming special identifiers: try IDs→emojis first, then accept emojis.
+     */
+    private List<String> normalizeSpecials(List<String> in) {
+        if (in == null || in.isEmpty()) return List.of();
+        // First, try to interpret as IDs and map to emojis.
+        List<String> byId = CardSequences.idsToEmojis(in);
+        if (!byId.isEmpty()) return byId;
+        // Otherwise assume emojis and filter to known specials.
+        List<String> emojis = new ArrayList<>();
+        for (String s : in) {
+            if (CardSequences.isSpecial(s)) emojis.add(s);
+        }
+        return emojis;
+    }
+
+    /**
+     * New API: set selected specials (empty list = disable all specials).
+     * Accepts either IDs (e.g., "coffee") or emojis ("☕").
+     * Invalid values are filtered. Any vote using a now-disallowed special is cleared.
      */
     public void setSpecialsSelected(String roomCode, List<String> specials) {
         Room room = getOrCreateRoom(roomCode);
-        List<String> cleaned = new ArrayList<>();
-        if (specials != null) {
-            for (String s : specials) {
-                if (s == null) continue;
-                String v = s.trim();
-                if (!v.isEmpty() && CardSequences.SPECIALS.contains(v)) cleaned.add(v);
-            }
-        }
+        List<String> cleaned = normalizeSpecials(specials);
         boolean allow = !cleaned.isEmpty();
 
         synchronized (room) {
             room.setAllowSpecials(allow);
             roomSpecialsSelected.put(room.getCode(), Collections.unmodifiableList(cleaned));
 
-            // Invalidiere nicht mehr erlaubte Special-Votes
+            // Remove votes that are no longer allowed
             if (!allow) {
                 for (Participant p : room.getParticipants()) {
                     if (CardSequences.isSpecial(p.getVote())) p.setVote(null);
@@ -536,7 +546,7 @@ public class GameService {
                 if (v != null) votes.add(v);
             }
         }
-        return com.example.estpoker.model.CardSequences.isConsensus(votes);
+        return CardSequences.isConsensus(votes);
     }
 
     /** Detects at least one active, participating vote of ∞. */
@@ -656,12 +666,12 @@ public class GameService {
             payload.put("outliers", List.of());
         }
 
-        // infinity annotation for UI "(+ ♾️)"
+        // Infinity annotation for UI "(+ ♾️)"
         payload.put("hasInfinity", revealed && hasInfinityVote(room));
 
         payload.put("sequenceId", room.getSequenceId());
 
-        // Deck: Basis-Deck vom Room → Specials ggf. filtern
+        // Deck: start with room's base deck and filter specials depending on selection
         List<String> baseDeck = new ArrayList<>(room.getCurrentCards());
         Set<String> specialsAll = new HashSet<>(CardSequences.SPECIALS);
         List<String> sel = getSelectedSpecials(room);
@@ -669,12 +679,12 @@ public class GameService {
             Set<String> allowed = new HashSet<>(sel);
             baseDeck.removeIf(c -> specialsAll.contains(c) && !allowed.contains(c));
         } else {
-            // keine Specials erlaubt
+            // no specials allowed
             baseDeck.removeIf(specialsAll::contains);
         }
         payload.put("cards", baseDeck);
 
-        payload.put("specials", sel); // ausgewählte Specials (Client hat Backcompat)
+        payload.put("specials", sel); // selected specials (client has back-compat)
         payload.put("autoRevealEnabled", room.isAutoRevealEnabled());
         payload.put("allowSpecials", room.isAllowSpecials());
 
