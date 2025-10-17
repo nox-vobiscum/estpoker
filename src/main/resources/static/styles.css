@@ -760,6 +760,7 @@ body:not(.votes-revealed) #resultRow{visibility: hidden;}
 .menu-button:focus-visible{outline-offset:2px}
 
 /* Force short visible labels even if no .ra-label exists */
+#liveParticipantList .row-right .row-action .ra-label{ display:none !important; }
 #liveParticipantList .row-right .row-action .ra-icon{ display:none !important; }
 
 #liveParticipantList .row-right .row-action::after{
