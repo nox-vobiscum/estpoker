@@ -132,6 +132,13 @@ _No batching of unrelated edits. Prefer one change per step/commit._
 ### 5.10 Dependencies
 - Keep the footprint small. Before adding a dependency: verify necessity, check alignment with the stack, and ensure no existing solution already fits.
 
+### 5.11 BRIEFING integrity & safeguards
+<!-- PROTECTED: BRIEFING CORE SECTIONS v2025-10-10 — §§4–6 + Appendix E must remain present -->
+- The following sections are considered **core** and must not be removed:
+  **§4 Coding & Style Rules**, **§5 Collaboration Workflow**, **§6 Playwright E2E Testing**, **Appendix E – Identity & Name Handling**.
+- Commits that modify `docs/BRIEFING.md` must keep these sections present. Our pre-commit hook checks anchor headings & a minimal length.
+- Quick restore: `git restore --source 188a16f -- docs/BRIEFING.md`
+
 ---
 
 ## 6) Playwright E2E Testing (Executive Summary)
