@@ -83,6 +83,9 @@ public class GameService {
 
     private static String key(Room room, String name) { return room.getCode() + "|" + name; }
 
+    // ---- specials selection per room (optional; falls back to boolean allowSpecials) ----
+    private final Map<String, List<String>> roomSpecialsSelected = new ConcurrentHashMap<>();
+
     // --- rooms ---
     public Room getOrCreateRoom(String roomCode) { return rooms.computeIfAbsent(roomCode, Room::new); }
     public Room getRoom(String roomCode) { return rooms.get(roomCode); }
@@ -322,6 +325,10 @@ public class GameService {
         snapshot(room, "ws");
     }
 
+    /**
+     * Old boolean toggle — kept for compatibility.
+     * If enabled and keine Auswahl vorhanden, wird die volle SPECIALS-Liste gesetzt.
+     */
     public void setAllowSpecials(String roomCode, boolean allow) {
         Room room = getOrCreateRoom(roomCode);
         boolean changed = false;
@@ -330,22 +337,67 @@ public class GameService {
             if (room.isAllowSpecials() != allow) {
                 room.setAllowSpecials(allow);
                 changed = true;
-
-                if (!allow) {
-                    for (Participant p : room.getParticipants()) {
-                        String v = p.getVote();
-                        if (CardSequences.isSpecial(v)) {
-                            p.setVote(null);
-                        }
-                    }
+            }
+            // Auswahl konsistent halten
+            if (!allow) {
+                roomSpecialsSelected.put(room.getCode(), Collections.emptyList());
+                // entferne ggf. Special-Votes
+                for (Participant p : room.getParticipants()) {
+                    String v = p.getVote();
+                    if (CardSequences.isSpecial(v)) p.setVote(null);
                 }
+            } else {
+                // wenn erlaubt, aber noch nichts gewählt → alle
+                roomSpecialsSelected.computeIfAbsent(room.getCode(), k -> new ArrayList<>(CardSequences.SPECIALS));
             }
         }
 
         if (changed) {
             broadcastRoomState(room);
             snapshot(room, "ws");
+        } else {
+            // auch ohne Flag-Änderung den aktuellen Zustand senden (für Kartenfilter)
+            broadcastRoomState(room);
         }
+    }
+
+    /**
+     * Neue API: Ausgewählte Specials setzen (leere Liste = keine Specials).
+     * Ungültige Werte werden gefiltert. Nicht gewählte Special-Votes werden gelöscht.
+     */
+    public void setSpecialsSelected(String roomCode, List<String> specials) {
+        Room room = getOrCreateRoom(roomCode);
+        List<String> cleaned = new ArrayList<>();
+        if (specials != null) {
+            for (String s : specials) {
+                if (s == null) continue;
+                String v = s.trim();
+                if (!v.isEmpty() && CardSequences.SPECIALS.contains(v)) cleaned.add(v);
+            }
+        }
+        boolean allow = !cleaned.isEmpty();
+
+        synchronized (room) {
+            room.setAllowSpecials(allow);
+            roomSpecialsSelected.put(room.getCode(), Collections.unmodifiableList(cleaned));
+
+            // Votes entfernen, die nun nicht mehr erlaubt sind
+            if (!allow) {
+                for (Participant p : room.getParticipants()) {
+                    if (CardSequences.isSpecial(p.getVote())) p.setVote(null);
+                }
+            } else {
+                for (Participant p : room.getParticipants()) {
+                    String v = p.getVote();
+                    if (CardSequences.isSpecial(v) && !cleaned.contains(v)) {
+                        p.setVote(null);
+                    }
+                }
+            }
+        }
+
+        broadcastRoomState(room);
+        snapshot(room, "ws");
     }
 
     public void setSpectator(String roomCode, String nameOrCid, boolean spectator) {
@@ -545,6 +597,14 @@ public class GameService {
     //  ROOM STATE JSON / SENDERS
     // ========================================================================
 
+    private List<String> getSelectedSpecials(Room room) {
+        if (room == null) return Collections.emptyList();
+        List<String> sel = roomSpecialsSelected.get(room.getCode());
+        if (!room.isAllowSpecials()) return Collections.emptyList();
+        if (sel == null) return new ArrayList<>(CardSequences.SPECIALS);
+        return sel;
+    }
+
     /** Build the full room-state JSON payload once so both broadcast and targeted send can reuse it. */
     private String buildRoomStateJson(Room room) throws IOException {
         Map<String, Object> payload = new HashMap<>();
@@ -613,8 +673,21 @@ public class GameService {
         payload.put("hasInfinity", revealed && hasInfinityVote(room));
 
         payload.put("sequenceId", room.getSequenceId());
-        payload.put("cards", room.getCurrentCards());
-        payload.put("specials", CardSequences.SPECIALS);
+
+        // Karten-Deck: Room liefert ein Basis-Deck → Specials ggf. filtern
+        List<String> baseDeck = new ArrayList<>(room.getCurrentCards());
+        Set<String> specialsAll = new HashSet<>(CardSequences.SPECIALS);
+        List<String> sel = getSelectedSpecials(room);
+        if (!sel.isEmpty()) {
+            Set<String> allowed = new HashSet<>(sel);
+            baseDeck.removeIf(c -> specialsAll.contains(c) && !allowed.contains(c));
+        } else {
+            // keine Specials erlaubt
+            baseDeck.removeIf(specialsAll::contains);
+        }
+        payload.put("cards", baseDeck);
+
+        payload.put("specials", sel); // ausgewählte Specials (Kompat: Client fällt auf Flags/Defaults zurück)
         payload.put("autoRevealEnabled", room.isAutoRevealEnabled());
         payload.put("allowSpecials", room.isAllowSpecials());
 
@@ -622,7 +695,7 @@ public class GameService {
         payload.put("topicUrl", room.getTopicUrl());
         payload.put("topicVisible", room.isTopicVisible());
 
-        payload.put("specialsEnabled", room.isAllowSpecials());
+        payload.put("specialsEnabled", room.isAllowSpecials()); // legacy alias
 
         return objectMapper.writeValueAsString(payload);
     }
@@ -904,6 +977,7 @@ public class GameService {
 
         for (Participant p : new ArrayList<>(room.getParticipants())) cancelPresenceTimers(room, p.getName());
         rooms.remove(room.getCode());
+        roomSpecialsSelected.remove(room.getCode()); // cleanup selection
     }
 
     // ========================================================================
