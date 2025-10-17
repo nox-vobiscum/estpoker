@@ -1,179 +1,352 @@
-# Estimation Poker – Project Briefing
+# RBS' Estimation Poker — BRIEFING
 
-This document introduces the project, how to contribute, how to run it locally, and how to _not_ break production 😅.
+This document captures the shared baseline for the project, the local working environment, our collaboration workflow, and the testing strategy. It’s meant to be stable, concise, and actionable.
 
 ---
 
-## 1) Elevator pitch
-A tiny, server‑backed estimation poker tool with a minimal UI that stays reliable under weak networks and mobile browsers. Focus is a **clean workshop flow**: join → pick → reveal → reset.
+## 0) Purpose (short)
 
-## 2) Technology stack
-- **Server**: Spring Boot (WebMVC + WebSocket), Java 17
-- **Frontend**: Vanilla JS + HTML, no build step, progressive enhancement
-- **Data**: In‑memory + optional FTPS snapshots (prod)
-- **Tests**: JUnit 5 (unit/integration), **Playwright** (E2E)
+Lightweight online estimation poker with real-time updates, simple UX, and optional persistence (snapshots). Server-rendered HTML + vanilla JS for minimal footprint; Spring Boot backend.
 
-## 3) Run locally (dev friendly)
-```bash
-# Terminal A: build the app
-./mvnw clean package
+**Prod URL**  
+https://ep.noxvobiscum.at/
 
-# Terminal B: run with local profile (static resources served from target/classes)
-./mvnw spring-boot:run -Dspring-boot.run.profiles=local
-# open http://localhost:8080
-```
-
-## 4) Configuration profiles
-- `local` — fast reload during development
-- `e2e`   — stable profile for deterministic E2E runs
-- `prod`  — the deployed service (see Koyeb manifest)
-
-## 5) WebSocket protocol (very small)
-- Client connects to `/gameSocket?roomCode=...&participantName=...&cid=...`
-- Text frames for simple commands:
-  - `vote:<name>:<label>`
-  - `revealCards` / `resetRoom`
-  - `sequence:<id>` (aka `seq:`/`setSequence:` for compatibility)
-  - a few toggles: `autoReveal:true|false`, `topicVisible:true|false`, `participation:true|false`, etc.
-- Server pushes **JSON** room snapshots as `{ type: 'voteUpdate', ... }`
-
-## 6) Liveness features
-- Heartbeat ping every 15s, watchdog reconnect after 20s stale
-- Reconnect with exponential backoff + jitter
-- Wake‑ups on `visibilitychange`/`focus`/`online`/`pageshow`
-
-## 7) Accessibility
-- Keyboard support on all primary actions
-- Screen‑reader announcements for result stats
-- Labels / aria-* kept in sync with UI state
-
-## 8) Contributing
-- Small PRs
-- Prefer “one behavioral change + tests” per PR
-- No libraries for the frontend; keep it portable
-
-## 9) Testing
-- `mvn test` for unit/integration (JUnit 5)
-- `npx playwright test` for E2E (see `docs/E2E-TESTING.md`)
-
-## 10) Deployment
-- Koyeb via `koyeb.yaml`
-- FTPS‑backed snapshots are optional and off for local/e2e
-
-## 11) Room model (very small, server side)
-- Participants: name, vote, roles (host), flags (away/disconnected/spectator)
-- Settings: sequenceId, allowSpecials, topic (label/url), autoReveal, etc.
-- Derived: average, median, range, consensus, outliers
-
-## 12) UI layout (very small, client side)
-- **Cards grid** with selectable buttons (numbers + specials)
-- **Result bar** that appears only after reveal
-- **Menu overlay** with toggles and sequence radios
-- **Participant list** with host crown and spectator eye
-
-## 13) Release hygiene
-- Keep main stable (prod mirrors it)
-- Use `docs/adr` for notable decisions
-- Update docs when test contracts or selectors change
 ---
 
-## 16) Frontend *testability contracts* (room.js)
+## 1) Current Working Environment (Dev box)
 
-These guarantees keep our E2E tests green **without adding helpers or debt**. They are part of the UI contract and must stay stable.
+> Keep this section accurate. When versions change, update here.
 
-- **Sequence change event bridge.** The frontend listens to *both* `document` **and** `window` for `ep:sequence-change` and accepts
-  `detail.id` **or** `detail.sequenceId`. Host‑gate is respected when known; otherwise we optimistically apply and let the server confirm.
-  ```js
-  // room.js
-  function onSeq(ev) {
-    const id = normalizeSeq(ev?.detail?.id || ev?.detail?.sequenceId);
-    if (!id) return;
-    if (state._hostKnown && !state.isHost) return;
-    applyLocalSequence(id);
-    notifySequence(id); // emits 'sequence:' + sync nudge
-  }
-  document.addEventListener('ep:sequence-change', onSeq);
-  window.addEventListener('ep:sequence-change', onSeq);
+- **OS:** Windows (terminal: Git Bash)  
+- **Editor:** VS Code  
+- **VCS:** Git (remote origin)  
+- **Build:** Maven Wrapper (`mvnw`)  
+- **Runtime:** Java 21 (OpenJDK)  
+- **Backend:** Spring Boot 3.x, WebSocket (server push), Thymeleaf views  
+- **Frontend:** vanilla JavaScript, server-rendered HTML; global stylesheet: `src/main/resources/static/styles.css`  
+- **Tests:**  
+  - Unit/Component: JUnit 5, Mockito  
+  - E2E/UI: Playwright (run separately)  
+- **Deployment:** Koyeb (behind Cloudflare proxy/CDN)  
+- **Persistence options:** in-memory; FTPS file store (JSON); DB/JPA currently **not used**  
+- **Configuration:** `src/main/resources/application.properties` (+ optional profile overrides)
+
+### 1.1 Quick commands
+
+- Java: `java -version`  
+- Maven wrapper: `./mvnw -v`  
+- Node/Playwright (if needed): `node -v`, `npm -v`, `npx playwright --version`
+
+---
+
+## 2) Tech Stack (overview)
+
+- **Language:** Java (backend), HTML/CSS/JS (frontend)  
+- **Frameworks:** Spring Boot, Thymeleaf  
+- **Realtime:** Spring WebSocket → client JS  
+- **Testing:** JUnit 5, Mockito, Playwright (E2E)  
+- **Build:** Maven (Surefire for unit tests)  
+- **Static assets:** `src/main/resources/static/**`  
+- **Templates:** `src/main/resources/templates/**`  
+- **Config files:** `src/main/resources/application*.properties`  
+- **Feature flags:** `features.*` keys (see §3)
+
+---
+
+## 3) Configuration & Feature Flags
+
+- **Base config:** `application.properties`  
+- **Profiles:** currently minimal; prod runs with app defaults (DB off); local profile available for H2 if ever needed for local experiments.  
+- **Persistence master switch:**  
+  `features.persistentRooms.enabled=false` (No-Op persistence; **current default**)  
+- **Snapshot debouncer:**  
+  - `features.persistentRooms.snapshot.enabled=true|false`  
+  - `features.persistentRooms.snapshot.debounceMs=1500`
+
+**Rules**
+
+- Keys must be **spelled exactly**; remove unknown/misspelled keys.  
+- Keep sensible defaults; production overrides via env/profiles.  
+- Do **not** hardcode tenant-specific URLs (e.g., JIRA base). Current UX accepts full JIRA links and extracts the issue key for display while preserving the full URL as the anchor target. A configurable base URL is tracked in the backlog.
+
+---
+
+## 4) Coding & Style Rules
+
+- **English everywhere in code:** class names, method names, variables, inline comments, messages.  
+- **Frontend styling:** all CSS centralized in `static/styles.css`. Avoid inline styles; consolidate into `styles.css`.  
+- **Small, focused changes:** avoid mixing refactors with feature work.  
+- **Reuse first:** prefer extending existing files over creating new ones.
+
+---
+
+## 5) Collaboration Workflow (Dev ↔ AI)
+
+These rules keep iterations safe, quick, and easy to review.
+
+### 5.1 Kickoff checklist for every new chat/session
+- Share the **current repo shape** to prevent guessing:  
+  - Windows: `tree /F > tree.txt`  
+  - Git Bash/WSL: `find . -type f | sort > tree.txt`  
+  Attach/paste the relevant sections.
+- Share **active config** (`application.properties` + the active profile file, if any).  
+- State **what you want to change** (file path + goal).  
+- State **constraints** (no new deps, CSS centralization, etc.).
+
+### 5.2 Change workflow = small, reviewable steps
+1. Confirm target file(s) and **exact block(s)**.  
+2. Provide a **minimal patch/snippet** only for that block.  
+3. You run/tests → report back → next small step.  
+
+_No batching of unrelated edits. Prefer one change per step/commit._
+
+### 5.3 State & assumptions policy
+- **No assumptions.** If current code may differ from memory, we first ask for the **actual “as-is”** (file tree, file content, or relevant fragment).  
+- After longer pauses, we explicitly **re-confirm** current state before proposing edits.
+
+### 5.4 Snippet & diff policy
+- Drop-in snippets only when the replaceable block is **uniquely identifiable**.  
+- If not unique, either request the exact surrounding lines, or add one-time **BEGIN/END markers** to ease future patches.
+
+### 5.5 Reuse before creating new files
+- Check whether existing structures can host the change.  
+- New files/folders/dependencies only when clearly beneficial.
+
+### 5.6 Styling policy
+- **All styles live in `styles.css`.**  
+- Reuse existing tokens/classes; if adding a token, define it in `styles.css` and reference it.
+
+### 5.7 Testing policy
+- New logic → new/updated tests. Target: **~90% coverage** for core modules.  
+- Fast unit loop: `./mvnw -q -DskipITs -DskipE2E test`
+
+### 5.8 Config & feature flags
+- Behavioral changes behind flags must include:  
+  the property keys + defaults **and** an entry in **this** BRIEFING when introducing new flags.
+
+### 5.9 Backlog & docs hygiene
+- “Do later” items go to `docs/BACKLOG.md`.  
+- Rules and conventions live here (`BRIEFING.md`) and, for UI rules, optionally `STYLE.md`.  
+- New collaboration rules agreed during chats are **added here** as part of the same step.
+
+### 5.10 Dependencies
+- Keep the footprint small. Before adding a dependency: verify necessity, check alignment with the stack, and ensure no existing solution already fits.
+
+---
+
+## 6) Playwright E2E Testing (Executive Summary)
+
+We use **Playwright** (TypeScript) for end‑to‑end tests. The suite is designed to tolerate small DOM variations across profiles (local/prod/e2e). All UI quirks are encapsulated in helpers under `tests/utils/helpers.ts`.
+
+- Quick start:
+  ```bash
+  npm ci
+  npx playwright install --with-deps
+  EP_BASE_URL=http://localhost:8080 npx playwright test -c playwright.config.ts --retries=1 --trace=retain-on-failure
   ```
+- Prefer running the app with a **stable test profile**:
+  ```bash
+  java -jar target/estpoker-<version>.jar --spring.profiles.active=e2e
+  ```
+- Build sanity check:
+  ```bash
+  npm run e2e:buildcheck   # runs: tsc -p tests/tsconfig.json --noEmit
+  ```
+- Useful helpers (import from `tests/utils/helpers.ts`): `ensureMenuOpen/Closed`, `clickByValue`, `revealNow`, `resetNow`, `revealedNow`, `readAverage`, `readNumericChips`, `pickTwoNumeric`, `setSequence`, `waitSequenceOn`, `waitSequenceSync`, `voteAnyNumber`.
 
-- **Bootstrap deck before first WS echo.** On boot we call `ensureBootstrapDeck()` and `renderCards()` so the grid is usable immediately.
-  Infinity (♾️/∞) is present **only** for `fib.enh`. Specials honor `allowSpecials` and `data-disabled-specials`.
+For detailed instructions, troubleshooting, CI recipe, and full command list, see **`docs/E2E-TESTING.md`**.
 
-- **Immediate UI mirror for participation.** Toggling participation locally updates `state.selfSpectator` and the user’s row instantly
-  (eye icon 👁 / disabled buttons) **before** the server echo, then sends `participation:true|false`.
+---
 
-- **Server payload bus for tests.** Every parsed WS JSON message is pushed into a ring buffer `window.__epVU` so tests can read last
-  `voteUpdate.sequenceId` without scraping DOM.
+## 7) Persistence & Snapshotting (summary)
 
-- **Early readiness signal.** We set `document.documentElement[data-ready="1"]` as soon as the grid/menu are wired and a placeholder
-  participant is seeded. Tests wait on this instead of brittle CSS timing.
+- Live mutations happen in memory (`Room` / `Participant`).  
+- A debounced snapshotter can call `RoomPersistenceService.saveFromLive(room, actor)` to keep a persistent mirror (when enabled).  
+- With `features.persistentRooms.enabled=false`, a **No‑Op** implementation is wired so the app still boots.  
+- FTPS JSON storage is the current persistence choice for saved rooms; DB/JPA code has been retired from runtime.
 
-- **Host‑gated menu toggles revert for guests.** When the host role is known, guest flips on menu switches are immediately reverted and
-  `aria-checked` is kept in sync to avoid flakiness.
+---
 
-- **Sequence radio reconciliation.** We update *all* radios reflecting the same value, observe `checked` mutations, and reconcile programmatic
-  flips (covers `.check()`, label clicks, or DOM swaps).
+## 8) Deploy & Ops (short)
 
-- **Name preflight only once per (room+name)+tab.** Guarded via `sessionStorage` and honored `?preflight=1` param used by tests to skip checks.
+- **Deploy target:** Koyeb  
+- **Proxy/CDN:** Cloudflare (`server.forward-headers-strategy=framework`)  
+- **Health:** `GET /healthz` returns `ok`  
+- **Profiles:** minimal; prod uses defaults; DB/JPA disabled  
+- **Logs:** concise; avoid noisy stack traces for expected flows
 
-## 17) Test interfaces you may rely on
+---
 
-- **Custom events (document or window):**
-  - `ep:sequence-change` → `{ detail: { id | sequenceId } }`
-  - `ep:participation-toggle` → `{ detail: { estimating: boolean } }`
-  - `ep:auto-reveal-toggle`, `ep:topic-toggle` (host‑only)
-- **Global functions:** `window.revealCards()`, `window.resetRoom()` (thin wrappers).
-- **Telemetry:** `window.__epVU` (array of recent WS JSON messages), `window.__epWs` (current WebSocket).
+## 9) Security & Privacy (short list)
 
-## 18) Guardrails to avoid “helper sprawl”
+- Avoid leaking secrets in logs.  
+- Passwords: BCrypt + optional pepper (see properties).  
+- Validate/encode user-provided content (topic label/URL sanitized on render).  
+- Do not pin tenant-specific URLs in code (e.g., JIRA base). Accept full links as input; configurable base URL is a backlog item.
 
-- Prefer **bridging events and ARIA states** in `room.js` over adding new test helpers.
-- Tests act as **specs**; when a test needs a capability, expose a tiny **event or aria‑based signal** instead of extra DOM hooks.
-- Keep the public surface stable and documented here; update this file when it changes.
+---
 
-## 19) Configurable “Special” cards (host-only, per room)
-Teams differ in how they use non-numeric signals. The host can enable and pick extra specials for the room.
+## 10) Frontend Notes & Topic UX
 
-- **Defaults & composition**
-  - The **question mark** `?` is **always present** at the end of the row.
-  - Numeric cards render first, then `?`, then selected extras in a **stable order**.
-  - Extras are **non-numeric**: they do **not** affect average/median/range/outliers, but they **count as a vote**.
+- **Server-rendered HTML**, vanilla JS (no SPA).  
+- Realtime via WebSocket; client applies state updates.  
+- **Topic input UX**:  
+  - **Optimistic editing** for hosts (local input isn’t overwritten mid‑typing by async updates).  
+  - If a **full JIRA link** is pasted, the UI **extracts and displays the issue key** while keeping the **full URL** as the anchor target.  
 
-- **Toggle & selection**
-  - `allowSpecials` (room setting) gates extra specials on/off.
-  - `specialsSelected: string[]` holds **IDs** of enabled extras (do **not** include `question`).
+- Compact menu/typography adjustments live in `styles.css` (see backlog for further tuning).
 
-- **Registry (IDs → icon)**
-  - `coffee` → ☕
-  - `speech` → 💬  (separate meeting required)
-  - `telescope` → 🔭  (spike/exploration required)
-  - `waiting` → ⏳  (wait for precondition)
-  - `dependency` → 🔗  (blocked by another task)
-  - `risk` → ⚠️  (risks affect estimate)
-  - `relevance` → 🎯  (align with goals/vision first)
+---
 
-- **UI (menu)**
-  - Host-only row below the “Specials on/off” control shows icon-only checkboxes for the registry above.
-  - Icons expose **tooltips via i18n** (title attribute). When off, the row is hidden and the deck shows only `?` as the sole special.
+## 11) How to start the next session (TL;DR)
 
-- **Protocol (WebSocket)**
-  - Host → server (text frames):  
-    - `specials:on` / `specials:off`  
-    - `specials:set:<id1,id2,...>` (comma-separated; empty list allowed)
-  - Server → clients (JSON):  
-    - `{ type: 'specialsChanged', payload: { enabled: boolean, selected: string[] } }`
-  - Include `allowSpecials` and `specialsSelected` in regular room snapshots to keep late joiners consistent.
+1) Paste **file tree** (or relevant excerpt).  
+2) Paste **active `application.properties`** (+ current profile file, if used).  
+3) Tell me **which file/block** you want to change.  
+4) Mention **constraints** (no new deps, styling rules, etc.).  
+5) I’ll respond with **one small patch**; you apply/run/tests; we iterate.
 
-- **Testability notes**
-  - The specials row uses **ARIA** states (`aria-checked`) and is **host-gated**; guest flips are reverted in the UI.
-  - Deck order contract: **numbers → `?` → extras**.
-  - Infinity (∞) remains **only** for `fib.enh`. Specials still honor `allowSpecials` and any `data-disabled-specials` rules.
+---
 
-- **I18n keys (suggested)**
-  - `menu.specials.title`, `menu.specials.on`, `menu.specials.off`
-  - `card.special.question`, `card.special.coffee`, `card.special.speech`,
-    `card.special.telescope`, `card.special.waiting`, `card.special.dependency`,
-    `card.special.risk`, `card.special.relevance`
+## 12) Known warnings & tooling notes
+
+- **Mockito inline mock maker / agent**: JDKs may restrict dynamic agent loading in future. The warning is benign today. If needed later, add the Mockito Java agent per Mockito docs in test config.  
+- Keep Spring test slices modern; favor Mockito/injection over heavyweight contexts.
+
+---
+
+## 13) WebSocket/Realtime policy
+
+- **Stability first**: debounce/coalesce server pushes when user is actively editing.  
+- **Reconnect/backoff**: client handles reconnects with exponential backoff; server treats reconnects idempotently.  
+- **No mid‑typing overwrite**: optimistic UI protects active inputs; inbound state updates apply after edit ends.
+
+---
+
+## 14) Accessibility & i18n
+
+- **i18n**: messages in `messages*.properties`; avoid hardcoded strings in templates/JS where a key exists.  
+- **A11y**: icon buttons get aria‑labels; keyboard access maintained; contrast respected.
+
+---
+
+## 15) Backlog (pointer)
+
+Backlog items are maintained in `docs/BACKLOG.md`. Current examples include:  
+- Configurable JIRA base URL (host-editable, persisted per room/workspace).  
+- Snapshot trigger wiring (hook/decorator around live mutations).  
+- Menu compactness (font sizes, line heights, spacing tokens in `styles.css`).  
+- Expand Playwright coverage and wire a simple CI job.  
+- Additional accessibility polish (focus states, roles, landmarks).
 
 
-**Last updated:** 2025-10-17
+
+## ###########################################
+## ##########+++++ Appendices +++++###########
+## ###########################################
+
+## Appendix A — Public surface (routes & sockets)
+
+- `GET /` → Landing page  
+- `GET /invite?roomCode=...` → Invite page (pre-fills hidden room field)  
+- `POST /join` → Validates inputs, decides persistent/non-persistent, redirects to `/room`  
+- `GET /room?roomCode=...&participantName=...` → Main room view  
+- `GET /api/rooms/check?name=...` → Returns `true` if the name is already taken (when feature backed)  
+- `GET /healthz` → Plain health probe (returns `ok`)  
+- **WebSocket:** `/gameSocket` (origins controlled via `app.websocket.allowed-origins`)
+
+---
+
+## Appendix B — FTPS env reference (current persistence mode)
+
+| Property key                         | Env fallback (if any) | Default | Notes |
+|-------------------------------------|------------------------|---------|------|
+| `app.storage.mode`                   | —                      | `ftps`  | Current mode selector |
+| `app.storage.ftps.host`             | `DF_FTP_HOST`          | —       | FTPS host |
+| `app.storage.ftps.port`             | `DF_FTP_PORT`          | `21`    | Port |
+| `app.storage.ftps.user`             | `DF_FTP_USER`          | —       | Username |
+| `app.storage.ftps.pass`             | `DF_FTP_PASS`          | —       | Password |
+| `app.storage.ftps.base-dir`         | `DF_FTP_BASE`          | `rooms` | Root dir for JSON snapshots |
+| `app.storage.ftps.passive`          | —                      | `true`  | Passive mode recommended |
+| `app.storage.ftps.implicit-mode`    | —                      | `false` | Explicit FTPS by default |
+| `app.storage.ftps.so-timeout-ms`    | —                      | `15000` | Control/data timeouts |
+| `app.storage.ftps.data-timeout-ms`  | —                      | `20000` | 〃 |
+| `app.storage.ftps.use-utf8`         | —                      | `true`  | Filenames/paths |
+| `app.storage.ftps.debug`            | —                      | `true`  | Verbose logs (disable in prod if noisy) |
+
+> Password hashing: `app.security.password.bcrypt-cost` (default 10), optional `app.security.password.pepper`.
+
+---
+
+## Appendix C — Concurrency guardrails (Room model)
+
+- `Room` holds in-memory state; mutations happen on server.  
+- List is a `CopyOnWriteArrayList`, but **external code should still synchronize on the Room** when performing multi-step mutations to keep snapshots consistent.  
+- Use provided methods (`addParticipant`, `removeParticipant`, `renameParticipant`, `reset`, …). Don’t expose or mutate internal collections directly.
+
+---
+
+## Appendix D — Quick test commands
+
+- All unit tests:  
+  ./mvnw -q -DskipITs -DskipE2E test
+
+- Single test class:
+  ./mvnw -q -DskipITs -DskipE2E -Dtest=StoredRoomPersistenceServiceTest test
+
+- With logs (noisy, for debugging):
+  ./mvnw test -X
+
+---
+
+## Appendix E – Identity & Name Handling
+
+- **Per-tab Client ID (`cid`)**  
+  Each browser tab gets a stable `cid` via `sessionStorage` (`ep-cid`). The `cid` is sent on `/gameSocket` connect and bound to the participant identity server-side.
+
+- **Name preflight runs only on brand-new tabs**  
+  On `/room`, the duplicate-name preflight check runs **only** on the first visit of a **new tab**.  
+  Reloads and Back/Forward **do not** trigger the preflight and **do not** redirect.  
+  Implementation: `room.js` derives `state.cidWasNew` from `sessionStorage(ep-cid)` and, on success, marks the tuple `(roomCode|name)` as “ok in this tab” via `sessionStorage` key `ep-pf-ok:<room>:<name>` to avoid repeat checks.
+
+- **Invite flow remains the UX source of truth for choosing a free name**  
+  `/invite` probes availability via `GET /api/rooms/{room}/name-available?name=...`.  
+  On collision, the page shows an inline hint and a safe suggestion (e.g., `Alice (2)`), optionally gated via `confirm()`. (`invite-name-check.js`)
+
+- **Server enforces uniqueness (current behavior: hard reject for clashes)**  
+  The server guarantees unique display names **per room**.  
+  If a different `cid` tries to join a room with a name that is already in use, the WebSocket is **closed with code `4005`** (“Name already in use”).  
+  The client handles this only on **brand-new tabs**: `room.js` intercepts `ws.onclose(code===4005)` and **redirects to**  
+  `/invite?roomCode=...&participantName=...&nameTaken=1` using `location.replace(...)`.  
+  Existing tabs (reloads/back/forward) never auto-redirect on `4005`; they simply show a toast and stop reconnect loops.
+  
+  WebSocket protocol: On join the server replays the current roster to the new client via participantJoined events (JSON + legacy text). The client handles {type:"participantJoined","name":"…"} and updates the participant list. The server also replies pong to ping.
+
+  Client: Handle JSON socket events participantJoined / participantLeft. Update local participant model (supports Set, Array, Map/dict, and nested room.participants) and re-render the participant list. Heartbeat pong frames are ignored by parser but reset the stale timer.
+
+  > Note: If the service is later switched to *canonicalization* (auto-suffixing to `Name (N)`), the server will send a `you{yourName}` identity message after join and the UI will update `#youName` without redirect. Tests and this appendix should then be updated accordingly.
+
+- **Identity confirmation**  
+  After a successful join, the server sends a `you` message with the canonical `yourName` (and `cid`); the client reconciles its local `youName` immediately.
+
+- **Reload expectation**  
+  Reloading the room page keeps the user in the room — **no invite redirect** and **no** preflight re-run.
+
+### Acceptance criteria
+1. **New tab**, first entry into a room with a **duplicate name** → server returns `4005`, client redirects to `/invite?...&nameTaken=1`, invite shows hint and suggestion.  
+2. **New tab**, first entry with a **free name** → enter room normally.  
+3. **Reload** while already in the room → stay in room, **no** preflight, **no** redirect.  
+4. **Back/Forward** navigation back to the room → **no** preflight, **no** redirect.
+
+### Implementation touchpoints
+- `room.js`  
+  - `ep-cid` creation & `state.cidWasNew` detection  
+  - preflight guard (`ep-pf-ok:<room>:<name>`)  
+  - WebSocket `onclose(code===4005)` redirect for brand-new tabs only
+- `invite-name-check.js`  
+  - inline availability probe + suggestion flow
+- Server (WebSocket handler/service)  
+  - uniqueness enforcement  
+  - `you{yourName}` identity message after successful join
+
+
