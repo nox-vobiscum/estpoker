@@ -359,14 +359,23 @@ li{margin-bottom:.4rem;line-height:1.5;font-size:1rem}
 }
 
 /* === Participant actions: short text links ("Host | Kick") =============== */
+/* One consistent, mobile-safe implementation with no wrapping and a fallback
+   when .ra-label is absent (uses aria-label or title). */
 
 #liveParticipantList .row-right{
-  gap: 10px;
+  gap: 8px;
   min-height: 1.6rem;
+  flex-wrap: nowrap;                 /* never wrap the actions */
+  align-items: center;
 }
 
+/* keep DOM order consistent: Host first, Kick second */
+#liveParticipantList .row-right .row-action.host{ order: 1; }
+#liveParticipantList .row-right .row-action.kick{ order: 2; }
+
 #liveParticipantList .row-right .row-action{
-  display: inline-block !important;
+  display: inline-flex !important;
+  align-items: baseline;
   background: transparent !important;
   border: 0 !important;
   box-shadow: none !important;
@@ -375,36 +384,29 @@ li{margin-bottom:.4rem;line-height:1.5;font-size:1rem}
   padding: 0;
   border-radius: 0 !important;
   cursor: pointer;
-  position: relative; /* enlarge tap target on touch */
+  position: relative;                /* enlarge tap target on touch */
+  white-space: nowrap;               /* label itself must not wrap */
 }
 
 #liveParticipantList .row-right .row-action .ra-icon{
-  display: none !important; /* keep for a11y, hide visually */
+  display: none !important;          /* keep for a11y, hide visually */
 }
 
 #liveParticipantList .row-right .row-action .ra-label{
   display: inline !important;
-  font-size: .8rem;
+  font-size: .82rem;
   line-height: 1.2;
   color: var(--text-dim);
-  white-space: nowrap;
   text-decoration: none;
-  border-bottom: 1px dotted transparent;
+  border-bottom: 1px dotted transparent; /* underline only the word */
+  white-space: nowrap;
 }
 
-/* separator outside the label to avoid underlining the pipe */
+/* separator -> NBSP | NBSP (prevents line break) */
 #liveParticipantList .row-right .row-action + .row-action::before{
-  content: " | ";
+  content: "\00a0|\00a0";
   opacity: .45;
-  margin: 0 .35rem 0 .3rem;
-  color: var(--text-dim);
 }
-
-/* ensure no separator is injected inside the label */
-#liveParticipantList .row-right .row-action .ra-label::before{
-  content: none !important;
-}
-
 
 /* hover/focus */
 #liveParticipantList .row-right .row-action:hover .ra-label,
@@ -418,7 +420,7 @@ li{margin-bottom:.4rem;line-height:1.5;font-size:1rem}
   border-radius: 4px;
 }
 
-/* tone "Kick" slightly */
+/* tone Kick a bit */
 #liveParticipantList .row-right .row-action.kick .ra-label{ color: #fca5a5; }
 #liveParticipantList .row-right .row-action.kick:hover .ra-label,
 #liveParticipantList .row-right .row-action.kick:focus-visible .ra-label{ color: #f87171; }
@@ -440,10 +442,37 @@ li{margin-bottom:.4rem;line-height:1.5;font-size:1rem}
   }
 }
 
+/* Fallback: if there's no .ra-label, print from aria-label or title */
+#liveParticipantList .row-right .row-action:not(:has(.ra-label))[aria-label]::after{
+  content: attr(aria-label);
+  font-size: .82rem; line-height: 1.2; white-space: nowrap;
+  color: var(--text-dim); border-bottom: 1px dotted transparent;
+}
+#liveParticipantList .row-right .row-action:not(:has(.ra-label)):not([aria-label])[title]::after{
+  content: attr(title);
+  font-size: .82rem; line-height: 1.2; white-space: nowrap;
+  color: var(--text-dim); border-bottom: 1px dotted transparent;
+}
+
+/* make the fallback react to hover/focus like the normal label */
+#liveParticipantList .row-right .row-action:not(:has(.ra-label)):hover::after,
+#liveParticipantList .row-right .row-action:not(:has(.ra-label)):focus-visible::after{
+  color: var(--text-strong);
+  border-bottom-color: currentColor;
+}
+
+/* tone Kick in fallback, too */
+#liveParticipantList .row-right .row-action.kick:not(:has(.ra-label))::after{ color:#fca5a5; }
+#liveParticipantList .row-right .row-action.kick:not(:has(.ra-label)):hover::after,
+#liveParticipantList .row-right .row-action.kick:not(:has(.ra-label)):focus-visible::after{ color:#f87171; }
+
 /* phone: a tick larger for tap comfort */
 @media (max-width: 420px){
   #liveParticipantList .row-right{ gap: 8px; }
-  #liveParticipantList .row-right .row-action .ra-label{ font-size: .90rem; }
+  #liveParticipantList .row-right .row-action .ra-label,
+  #liveParticipantList .row-right .row-action:not(:has(.ra-label))::after{
+    font-size: .90rem;
+  }
 }
 
 /* ---------- Results / average -------------------------------------------- */
@@ -735,12 +764,29 @@ body:not(.votes-revealed) #resultRow{visibility: hidden;}
   .main-info dd:nth-of-type(2)::before{content:"🆔"}
   .main-info .icon-button{width:32px;height:32px;border-radius:10px}
 
-  /* cards */
-  .card-grid{grid-template-columns:repeat(3, minmax(var(--card-min-mobile), 1fr)) !important;gap:8px}
-  .card-grid.fixed4{grid-template-columns:repeat(3, minmax(var(--card-min-mobile), 1fr)) !important}
-  .card-grid button{min-height:52px;padding:.45rem .55rem;font-size:.98rem;aspect-ratio:unset}
-  .card-grid .grid-break{grid-column:1 / -1;height:0;pointer-events:none}
-  .card-grid .grid-break ~ button{min-height:40px;font-size:.92rem;padding:.4rem .5rem;background:var(--panel-2);border-color:var(--border);box-shadow:none}
+    /* cards (flatter on phones) */
+  .card-grid{
+    grid-template-columns: repeat(3, minmax(var(--card-min-mobile), 1fr)) !important;
+    gap: 8px;
+  }
+  .card-grid.fixed4{
+    grid-template-columns: repeat(3, minmax(var(--card-min-mobile), 1fr)) !important;
+  }
+  .card-grid button{
+    min-height: 44px;                 /* was 52px */
+    padding: .38rem .5rem;            /* a bit tighter */
+    font-size: .95rem;
+    aspect-ratio: unset;              /* keep height under control */
+  }
+  .card-grid .grid-break ~ button{
+    min-height: 36px;                 /* was 40px */
+    font-size: .90rem;
+    padding: .35rem .45rem;
+    background: var(--panel-2);
+    border-color: var(--border);
+    box-shadow: none;
+  }
+
   .card-grid .grid-break ~ button:hover{background:var(--panel-2-hover);transform:translateY(-1px);box-shadow:0 0 6px rgba(0,0,0,.12)}
   .card-grid .grid-break ~ button.selected{transform:scale(1.02)}
 
