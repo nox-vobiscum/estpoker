@@ -1,10 +1,10 @@
 package com.example.estpoker.service;
 
+import com.example.estpoker.model.CardSequences;
 import com.example.estpoker.model.Participant;
 import com.example.estpoker.model.Room;
-import com.example.estpoker.model.CardSequences;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.example.estpoker.rooms.service.RoomSnapshotter;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
@@ -50,6 +50,9 @@ public class GameService {
     private final Map<String, Room> rooms = new ConcurrentHashMap<>();
     private final Map<WebSocketSession, Room> sessionToRoomMap = new ConcurrentHashMap<>();
     private final Map<WebSocketSession, String> sessionToParticipantMap = new ConcurrentHashMap<>();
+
+    // Specials selection per room (optional; falls back to boolean allowSpecials)
+    private final Map<String, List<String>> roomSpecialsSelected = new ConcurrentHashMap<>();
 
     // Stable client-id per tab -> last known name in that room
     private final Map<String, String> clientToName = new ConcurrentHashMap<>();
@@ -322,30 +325,76 @@ public class GameService {
         snapshot(room, "ws");
     }
 
+    /**
+     * Legacy boolean API (compatibility).
+     * When disabled → clear selection and remove special votes.
+     * When enabled and no selection present → default to global SPECIALS.
+     */
     public void setAllowSpecials(String roomCode, boolean allow) {
         Room room = getOrCreateRoom(roomCode);
-        boolean changed = false;
+        synchronized (room) {
+            room.setAllowSpecials(allow);
+            if (!allow) {
+                roomSpecialsSelected.put(room.getCode(), Collections.emptyList());
+                for (Participant p : room.getParticipants()) {
+                    String v = p.getVote();
+                    if (CardSequences.isSpecial(v)) p.setVote(null);
+                }
+            } else {
+                roomSpecialsSelected.computeIfAbsent(room.getCode(), k -> new ArrayList<>(CardSequences.SPECIALS));
+            }
+        }
+        broadcastRoomState(room);
+        snapshot(room, "ws");
+    }
+
+    /**
+     * Normalize incoming special identifiers: try IDs→emojis first, then accept emojis.
+     */
+    private List<String> normalizeSpecials(List<String> in) {
+        if (in == null || in.isEmpty()) return List.of();
+        // First, try to interpret as IDs and map to emojis.
+        List<String> byId = CardSequences.idsToEmojis(in);
+        if (!byId.isEmpty()) return byId;
+        // Otherwise assume emojis and filter to known specials.
+        List<String> emojis = new ArrayList<>();
+        for (String s : in) {
+            if (CardSequences.isSpecial(s)) emojis.add(s);
+        }
+        return emojis;
+    }
+
+    /**
+     * New API: set selected specials (empty list = disable all specials).
+     * Accepts either IDs (e.g., "coffee") or emojis ("☕").
+     * Invalid values are filtered. Any vote using a now-disallowed special is cleared.
+     */
+    public void setSpecialsSelected(String roomCode, List<String> specials) {
+        Room room = getOrCreateRoom(roomCode);
+        List<String> cleaned = normalizeSpecials(specials);
+        boolean allow = !cleaned.isEmpty();
 
         synchronized (room) {
-            if (room.isAllowSpecials() != allow) {
-                room.setAllowSpecials(allow);
-                changed = true;
+            room.setAllowSpecials(allow);
+            roomSpecialsSelected.put(room.getCode(), Collections.unmodifiableList(cleaned));
 
-                if (!allow) {
-                    for (Participant p : room.getParticipants()) {
-                        String v = p.getVote();
-                        if (CardSequences.isSpecial(v)) {
-                            p.setVote(null);
-                        }
+            // Remove votes that are no longer allowed
+            if (!allow) {
+                for (Participant p : room.getParticipants()) {
+                    if (CardSequences.isSpecial(p.getVote())) p.setVote(null);
+                }
+            } else {
+                for (Participant p : room.getParticipants()) {
+                    String v = p.getVote();
+                    if (CardSequences.isSpecial(v) && !cleaned.contains(v)) {
+                        p.setVote(null);
                     }
                 }
             }
         }
 
-        if (changed) {
-            broadcastRoomState(room);
-            snapshot(room, "ws");
-        }
+        broadcastRoomState(room);
+        snapshot(room, "ws");
     }
 
     public void setSpectator(String roomCode, String nameOrCid, boolean spectator) {
@@ -497,7 +546,7 @@ public class GameService {
                 if (v != null) votes.add(v);
             }
         }
-        return com.example.estpoker.model.CardSequences.isConsensus(votes);
+        return CardSequences.isConsensus(votes);
     }
 
     /** Detects at least one active, participating vote of ∞. */
@@ -544,6 +593,14 @@ public class GameService {
     // ========================================================================
     //  ROOM STATE JSON / SENDERS
     // ========================================================================
+
+    private List<String> getSelectedSpecials(Room room) {
+        if (room == null) return Collections.emptyList();
+        List<String> sel = roomSpecialsSelected.get(room.getCode());
+        if (!room.isAllowSpecials()) return Collections.emptyList();
+        if (sel == null) return new ArrayList<>(CardSequences.SPECIALS);
+        return sel;
+    }
 
     /** Build the full room-state JSON payload once so both broadcast and targeted send can reuse it. */
     private String buildRoomStateJson(Room room) throws IOException {
@@ -609,12 +666,25 @@ public class GameService {
             payload.put("outliers", List.of());
         }
 
-        // infinity annotation for UI "(+ ♾️)"
+        // Infinity annotation for UI "(+ ♾️)"
         payload.put("hasInfinity", revealed && hasInfinityVote(room));
 
         payload.put("sequenceId", room.getSequenceId());
-        payload.put("cards", room.getCurrentCards());
-        payload.put("specials", CardSequences.SPECIALS);
+
+        // Deck: start with room's base deck and filter specials depending on selection
+        List<String> baseDeck = new ArrayList<>(room.getCurrentCards());
+        Set<String> specialsAll = new HashSet<>(CardSequences.SPECIALS);
+        List<String> sel = getSelectedSpecials(room);
+        if (!sel.isEmpty()) {
+            Set<String> allowed = new HashSet<>(sel);
+            baseDeck.removeIf(c -> specialsAll.contains(c) && !allowed.contains(c));
+        } else {
+            // no specials allowed
+            baseDeck.removeIf(specialsAll::contains);
+        }
+        payload.put("cards", baseDeck);
+
+        payload.put("specials", sel); // selected specials (client has back-compat)
         payload.put("autoRevealEnabled", room.isAutoRevealEnabled());
         payload.put("allowSpecials", room.isAllowSpecials());
 
@@ -622,12 +692,12 @@ public class GameService {
         payload.put("topicUrl", room.getTopicUrl());
         payload.put("topicVisible", room.isTopicVisible());
 
-        payload.put("specialsEnabled", room.isAllowSpecials());
+        payload.put("specialsEnabled", room.isAllowSpecials()); // legacy alias
 
         return objectMapper.writeValueAsString(payload);
     }
 
-    /** Send full room state to everyone in the room (kept for compatibility). */
+    /** Send full room state to everyone in the room. */
     public void broadcastRoomState(Room room) {
         try {
             String json = buildRoomStateJson(room);
@@ -904,6 +974,7 @@ public class GameService {
 
         for (Participant p : new ArrayList<>(room.getParticipants())) cancelPresenceTimers(room, p.getName());
         rooms.remove(room.getCode());
+        roomSpecialsSelected.remove(room.getCode()); // cleanup selection
     }
 
     // ========================================================================

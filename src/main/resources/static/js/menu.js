@@ -1,8 +1,8 @@
-/* menu.js v38 — i18n-driven tooltips + dynamic messages (index/invite) */
+/* menu.js v40 — i18n-driven tooltips + dynamic messages (index/invite) + specials palette */
 (() => {
   'use strict';
-  window.__epMenuVer = 'v38';
-  console.info('[menu] v38 loaded');
+  window.__epMenuVer = 'v40';
+  console.info('[menu] v40 loaded');
 
   const $  = (s, r = document) => r.querySelector(s);
   const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
@@ -25,6 +25,7 @@
 
   const rowSpecials = $('#rowSpecials');
   const swSpecials  = $('#menuSpecialsToggle');
+  const rowSpecialsPick = $('#rowSpecialsPick');
 
   const rowHard    = $('#rowHardMode');
   const swHard     = $('#menuHardModeToggle');
@@ -98,7 +99,15 @@
       }
     }
   }
-  function openMenu(){ if (!overlay) return; overlay.classList.remove('hidden'); overlay.setAttribute('aria-hidden','false'); setMenuButtonState(true); forceRowLayout(); }
+  function openMenu(){
+    if (!overlay) return;
+    overlay.classList.remove('hidden');
+    overlay.setAttribute('aria-hidden','false');
+    setMenuButtonState(true);
+    forceRowLayout();
+    try { document.dispatchEvent(new CustomEvent('ep:menu-open')); } catch {}
+  }
+
   function closeMenu(){ if (!overlay) return; overlay.classList.add('hidden');    overlay.setAttribute('aria-hidden','true');  setMenuButtonState(false); btnOpen?.focus?.(); }
   btnOpen?.addEventListener('click', () => (isMenuOpen() ? closeMenu() : openMenu()));
   backdrop?.addEventListener('click', (e) => { if (e.target.hasAttribute('data-close')) closeMenu(); });
@@ -169,7 +178,7 @@
       specials: t('hint.specials',     'Allow special cards (❓ 💬 ☕)'),
       hard    : t('hint.hardmode',     'Reveal only when everyone voted'),
       part    : t('hint.participation','Toggle between estimator and spectator'),
-      lang    : t('title.lang.to',     'Switch language → {0}', {0: isDe() ? 'English' : 'Deutsch'}),
+      lang    : t('title.lang.to',     'Switch language \u2192 {0}', {0: isDe() ? 'English' : 'Deutsch'}),
       close   : t('room.close.hint',   'Closes this room for all participants and returns to the start page.')
     };
     rowLang?.setAttribute('title', T.lang);
@@ -178,6 +187,12 @@
     rowSpecials?.setAttribute('title', T.specials);
     rowHard?.setAttribute('title', T.hard);
     rowPart?.setAttribute('title', T.part);
+    if (rowSpecialsPick) {
+      // Keep a concise title on the palette itself; detailed per-icon tooltips come from data-i18n-attr
+      const ttl = t('menu.specials.title', 'Special cards');
+      rowSpecialsPick.setAttribute('title', ttl);
+      rowSpecialsPick.setAttribute('aria-label', ttl);
+    }
     if (closeBtn) closeBtn.setAttribute('title', T.close);
   }
   function setCloseBtnLabel() {
@@ -189,6 +204,32 @@
     labelEl.style.overflow = 'hidden';
     labelEl.style.textOverflow = 'ellipsis';
   }
+
+  /* ---------- Specials palette ---------- */
+  function specials_getSelectedIds() {
+    if (!rowSpecialsPick) return [];
+    return Array.from(rowSpecialsPick.querySelectorAll('label.spc input[type="checkbox"]:checked'))
+      .map(inp => inp.closest('label.spc')?.dataset.id)
+      .filter(Boolean);
+  }
+  function specials_setSelectedIds(ids) {
+    if (!rowSpecialsPick) return;
+    const want = new Set((ids || []).map(String));
+    rowSpecialsPick.querySelectorAll('label.spc').forEach(lab => {
+      const id = lab.dataset.id;
+      const inp = lab.querySelector('input[type="checkbox"]');
+      if (!inp) return;
+      const on = want.has(String(id));
+      if (inp.checked !== on) inp.checked = on;
+      inp.setAttribute('aria-checked', on ? 'true' : 'false');
+    });
+  }
+  function specials_setPaletteVisible(show) {
+    if (!rowSpecialsPick) return;
+    rowSpecialsPick.hidden = !show;
+    try { rowSpecialsPick.style.display = show ? '' : 'none'; } catch {}
+  }
+
 
   /* ---------- Language switch (core) ---------- */
   async function switchLanguage(to) {
@@ -372,6 +413,92 @@
     });
   }
 
+  /* ---------- Specials palette (IDs & helpers) ---------- */
+  const SPECIALS_ORDER = ['coffee','speech','telescope','waiting','dependency','risk','relevance'];
+
+  function specialsPickVisible(on){
+    if (!rowSpecialsPick) return;
+    rowSpecialsPick.hidden = !on;
+    try { rowSpecialsPick.style.display = on ? '' : 'none'; } catch {}
+  }
+
+  function specialsSetEnabled(isHost){
+    if (!rowSpecialsPick) return;
+    const labels = $$('.spc', rowSpecialsPick);
+    labels.forEach(lbl => {
+      const input = $('input[type="checkbox"]', lbl);
+      if (!input) return;
+      input.disabled = !isHost;
+      lbl.classList.toggle('disabled', !isHost);
+      if (!isHost) lbl.setAttribute('aria-disabled', 'true');
+      else lbl.removeAttribute('aria-disabled');
+    });
+  }
+  function updateSpecialsEnabledFromBody(){
+    const isHost = document.body.classList.contains('is-host');
+    specialsSetEnabled(isHost);
+  }
+
+  function reflectSpecialsLabelState(lbl, input){
+    const on = !!(input && input.checked);
+    lbl?.setAttribute('aria-checked', on ? 'true' : 'false');
+    if (on) lbl?.classList.add('on'); else lbl?.classList.remove('on');
+  }
+
+  function readSelectedSpecials(){
+    if (!rowSpecialsPick) return [];
+    const checked = $$('label.spc input[type="checkbox"]:checked', rowSpecialsPick)
+      .map(inp => (inp.value || inp.closest('label')?.dataset?.id || '').trim())
+      .filter(Boolean);
+    // stable sort by SPECIALS_ORDER
+    return checked.sort((a,b) => SPECIALS_ORDER.indexOf(a) - SPECIALS_ORDER.indexOf(b));
+  }
+
+  function dispatchSpecialsSet(){
+    const ids = readSelectedSpecials();
+    document.dispatchEvent(new CustomEvent('ep:specials-set', { detail: { ids } }));
+  }
+
+  function initSpecialsPalette(){
+    if (!rowSpecialsPick) return;
+    // initial reflect
+    $$('label.spc', rowSpecialsPick).forEach(lbl => {
+      const input = $('input[type="checkbox"]', lbl);
+      if (!input) return;
+      reflectSpecialsLabelState(lbl, input);
+      // Click on label toggles checkbox (native), but we guard for host
+      lbl.addEventListener('click', (e) => {
+        const isHost = document.body.classList.contains('is-host');
+        if (!isHost) { e.preventDefault(); e.stopPropagation(); return; }
+        // allow native toggle, but let 'change' handler dispatch event
+      });
+      input.addEventListener('change', () => {
+        reflectSpecialsLabelState(lbl, input);
+        dispatchSpecialsSet();
+      });
+    });
+    updateSpecialsEnabledFromBody();
+    new MutationObserver(updateSpecialsEnabledFromBody)
+      .observe(document.body, { attributes:true, attributeFilter:['class'] });
+
+    // initial visibility from specials toggle
+    if (swSpecials) {
+      const aria = swSpecials.getAttribute('aria-checked');
+      const on = aria === 'true' ? true : aria === 'false' ? false : !!swSpecials.checked;
+      specialsPickVisible(on);
+    }
+  }
+
+  // react to specials ON/OFF
+  document.addEventListener('ep:specials-toggle', (e) => {
+    const on = !!(e?.detail && e.detail.on);
+    specialsPickVisible(on);
+    // When turning OFF, we broadcast empty selection (server will keep only '?')
+    if (!on) document.dispatchEvent(new CustomEvent('ep:specials-set', { detail: { ids: [] } }));
+    // When turning ON, we broadcast current selection for immediate sync
+    else dispatchSpecialsSet();
+  });
+
   /* ---------- init ---------- */
   (async function init() {
     const savedTheme = localStorage.getItem('estpoker-theme') || localStorage.getItem('ep-theme');
@@ -401,6 +528,17 @@
 
     forceRowLayout();
     initSequenceTooltips();
+    initSpecialsPalette();
+
+    // After init, emit current specials state for consumers that subscribe late
+    // (e.g., room.js) — this keeps the UI and server in sync on first open.
+    if (swSpecials) {
+      const aria = swSpecials.getAttribute('aria-checked');
+      const on = aria === 'true' ? true : aria === 'false' ? false : !!swSpecials.checked;
+      // palette visibility already set in initSpecialsPalette
+      document.dispatchEvent(new CustomEvent('ep:specials-toggle', { detail: { on } }));
+      if (on) dispatchSpecialsSet();
+    }
   })();
 
   // ---- public bridge for header-controls.js (single source of truth) ----

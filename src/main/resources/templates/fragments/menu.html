@@ -23,7 +23,7 @@
       <div class="menu-header">
         <h3 data-i18n="menu.settings">Settings</h3>
       </div>
-      
+
       <!-- Theme -->
       <div class="menu-section">
         <div class="section-title" data-i18n="menu.theme">Theme</div>
@@ -117,6 +117,70 @@
           <input id="menuSpecialsToggle" class="switch-control" type="checkbox" role="switch"
                  aria-checked="true" checked th:attr="aria-label=#{menu.specials}"
                  data-i18n-attr="aria-label:menu.specials" aria-label="Allow special cards">
+        </div>
+
+        <!-- Specials: palette (visible only when specials are on) -->
+        <!-- IMPORTANT: no title/aria-label on the container, to not override emoji tooltips -->
+        <div class="menu-item" id="rowSpecialsPick" role="group" hidden>
+          <span class="mi-icon" aria-hidden="true">➕</span>
+          <div class="switch-text">
+            <strong data-i18n="menu.specials.title">Special cards</strong>
+            <span class="help" data-i18n="menu.specials.help">
+              Pick additional specials. The question mark (?) is always included.
+            </span>
+          </div>
+
+          <div class="specials-icons" role="toolbar" aria-label="Specials">
+            <!-- coffee -->
+            <label class="spc" data-id="coffee"
+                   data-i18n-attr="title:card.tip.coffee;aria-label:card.special.coffee"
+                   title="I need a short break…" aria-label="Short break / coffee">
+              <input type="checkbox" value="coffee" aria-hidden="true">
+              <span class="emoji" aria-hidden="true">☕</span>
+            </label>
+            <!-- speech -->
+            <label class="spc" data-id="speech"
+                   data-i18n-attr="title:card.tip.speech;aria-label:card.special.speech"
+                   title="Separate meeting required" aria-label="Separate meeting required">
+              <input type="checkbox" value="speech" aria-hidden="true">
+              <span class="emoji" aria-hidden="true">💬</span>
+            </label>
+            <!-- telescope -->
+            <label class="spc" data-id="telescope"
+                   data-i18n-attr="title:card.tip.telescope;aria-label:card.special.telescope"
+                   title="Spike/exploration required" aria-label="Spike/exploration required">
+              <input type="checkbox" value="telescope" aria-hidden="true">
+              <span class="emoji" aria-hidden="true">🔭</span>
+            </label>
+            <!-- waiting -->
+            <label class="spc" data-id="waiting"
+                   data-i18n-attr="title:card.tip.waiting;aria-label:card.special.waiting"
+                   title="Wait for prerequisite" aria-label="Wait for prerequisite">
+              <input type="checkbox" value="waiting" aria-hidden="true">
+              <span class="emoji" aria-hidden="true">⏳</span>
+            </label>
+            <!-- dependency -->
+            <label class="spc" data-id="dependency"
+                   data-i18n-attr="title:card.tip.dependency;aria-label:card.special.dependency"
+                   title="Dependency/blocker" aria-label="Dependency/blocker">
+              <input type="checkbox" value="dependency" aria-hidden="true">
+              <span class="emoji" aria-hidden="true">🔗</span>
+            </label>
+            <!-- risk -->
+            <label class="spc" data-id="risk"
+                   data-i18n-attr="title:card.tip.risk;aria-label:card.special.risk"
+                   title="Risk impacts estimation" aria-label="Risk impacts estimation">
+              <input type="checkbox" value="risk" aria-hidden="true">
+              <span class="emoji" aria-hidden="true">⚠️</span>
+            </label>
+            <!-- relevance -->
+            <label class="spc" data-id="relevance"
+                   data-i18n-attr="title:card.tip.relevance;aria-label:card.special.relevance"
+                   title="Confirm relevance/alignment first" aria-label="Confirm relevance/alignment first">
+              <input type="checkbox" value="relevance" aria-hidden="true">
+              <span class="emoji" aria-hidden="true">🎯</span>
+            </label>
+          </div>
         </div>
 
         <!-- Hard mode -->

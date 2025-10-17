@@ -5,6 +5,7 @@
    - Exponential backoff reconnect w/ jitter
    - English inline comments & "Spectator" wording
    - Name preflight once per (room+name) per tab
+   - Specials revamp (host-defined extras, "❓" always included)
 */
 (() => {
   'use strict';
@@ -39,7 +40,23 @@
   }
 
   /*** ---------- Constants ---------- ***/
-  const SPECIALS = ['❓', '☕']; // 💬 removed
+  // Base question is ALWAYS in the deck (at the end)
+  const QUESTION = '❓';
+
+  // Mapping from palette IDs -> Emojis
+  const SPECIALS_ICON_BY_ID = Object.freeze({
+    coffee     : '☕',
+    speech     : '💬',
+    telescope  : '🔭',
+    waiting    : '⏳',
+    dependency : '🔗',
+    risk       : '⚠️',
+    relevance  : '🎯'
+  });
+  const SPECIALS_ORDER = Object.freeze(['coffee','speech','telescope','waiting','dependency','risk','relevance']);
+  const SPECIALS_IDS_SET = new Set(SPECIALS_ORDER);
+  const ALL_SPECIALS_EMOJI = new Set([QUESTION, ...Object.values(SPECIALS_ICON_BY_ID)]);
+
   const INFINITY_ = '♾️';
   const INFINITY_ALT = '∞';
 
@@ -55,7 +72,7 @@
   const ds = (scriptEl && scriptEl.dataset) || {};
   const url = new URL(location.href);
 
-  // Allow disabling specific specials via data-attribute (e.g., data-disabled-specials="☕")
+  // Allow disabling specific specials via data-attribute (e.g., data-disabled-specials="☕,💬")
   const DISABLED_SPECIALS = new Set(
     String(ds.disabledSpecials || '')
       .split(',').map(s => s.trim()).filter(Boolean)
@@ -91,7 +108,13 @@
 
     // client-only toggles
     hardMode: false,
+
+    // EXTRAS toggle (ON = extras shown); QUESTION is always shown regardless
     allowSpecials: true,
+
+    // host-selected specials (IDs like 'coffee', 'telescope', ...)
+    specialsSelected: [],
+
     selfSpectator: false, // local mirror for immediate UI response to participation toggle
 
     // topic edit
@@ -154,24 +177,6 @@
     return s;
   }
 
-    /*** ---------- Early bridge for programmatic sequence changes ---------- ***/
-    // Some tests (and potential integrations) dispatch on window; others on document.
-    // Bind early so we don't miss events that might fire right after data-ready.
-    function onSequenceChange(ev) {
-      const id = normalizeSeq(ev?.detail?.id || ev?.detail?.sequenceId);
-      if (!id) return;
-      // Sequence remains host-only; guests are ignored once host info is known.
-      if (state._hostKnown && !state.isHost) return;
-
-      applyLocalSequence(id);   // optimistic UI update
-      notifySequence(id);       // tell the server + request echo
-    }
-
-    // Bind on both targets; capture=true to be resilient to shadowing/bubbling quirks.
-    document.addEventListener('ep:sequence-change', onSequenceChange, { capture: true });
-    window.addEventListener('ep:sequence-change', onSequenceChange, { capture: true });
-
-
   function isDe() {
     return (document.documentElement.lang || 'en').toLowerCase().startsWith('de');
   }
@@ -186,94 +191,79 @@
     document.body.classList.toggle('is-host', !!state.isHost);
   }
 
-  function syncHostClass() {
-    document.body.classList.toggle('is-host', !!state.isHost);
+  /*** ---------- Specials helpers ---------- ***/
+  function idsToEmojis(ids) {
+    if (!Array.isArray(ids)) return [];
+    const uniq = Array.from(new Set(ids.filter(id => SPECIALS_IDS_SET.has(id))));
+    return uniq.map(id => SPECIALS_ICON_BY_ID[id]).filter(Boolean);
   }
-
-  // Early sequence-change event bridge (binds before data-ready)
-    (function bindEarlySeqBridge() {
-    try {
-      if (window.__epSeqBridgeBound) return;
-      window.__epSeqBridgeBound = true;
-
-      const applyWanted = (wanted) => {
-        // Respect host-gate once known
-        if (state._hostKnown && !state.isHost) return;
-
-        const current = normalizeSeq(state.sequenceId || 'fib.scrum');
-        if (current === wanted && !state._pendingSeq) return;
-
-        applyLocalSequence(wanted);
-        notifySequence(wanted);
-      };
-
-      const onSeq = (ev) => {
-        const raw = ev?.detail?.id ?? ev?.detail?.sequenceId;
-        const id = normalizeSeq(raw);
-        if (!id) return;
-
-        // 1) immediately
-        applyWanted(id);
-
-        // 2) once more on the next macrotask — survives a late bootstrap/render pass
-        setTimeout(() => {
-          const cur = normalizeSeq(state.sequenceId || 'fib.scrum');
-          if (cur !== id) applyWanted(id);
-        }, 80);
-
-        // 3) and once after the next frame (covers animation/layout swaps)
-        requestAnimationFrame(() => {
-          const cur = normalizeSeq(state.sequenceId || 'fib.scrum');
-          if (cur !== id) applyWanted(id);
-        });
-      };
-
-      document.addEventListener('ep:sequence-change', onSeq, { capture: false });
-      window.addEventListener('ep:sequence-change', onSeq, { capture: false });
-    } catch {}
-  })();
-
-  // Presence guard (suppress join/leave toasts for self + rapid flaps)
-  const PRESENCE_KEY = (n) => 'ep-presence:' + encodeURIComponent(n);
-  function markAlive(name) { if (!name) return; try { localStorage.setItem(PRESENCE_KEY(name), String(Date.now())); } catch {} }
-
-  // Wrap long tooltips by injecting \n  (no lookbehind → broader browser support)
-  function wrapForTitle(text, max = 44) {
-    const words = String(text || '').trim().split(/\s+/);
-    const out = []; let line = '';
-    for (let w of words) {
-      if (w.length > max) {
-        // Break after separators: / - _ .
-        w = w.replace(/[\/\-_\.]/g, m => m + '\n');
-      }
-      for (const chunk of w.split('\n')) {
-        if (!chunk) continue;
-        const need = (line ? line.length + 1 : 0) + chunk.length;
-        if (need > max) { if (line) out.push(line); line = chunk; }
-        else { line += (line ? ' ' : '') + chunk; }
-      }
+  function emojisToIds(emojis) {
+    if (!Array.isArray(emojis)) return [];
+    const mapEmojiToId = new Map(Object.entries(SPECIALS_ICON_BY_ID).map(([k,v]) => [v,k]));
+    return Array.from(new Set(
+      emojis.map(e => mapEmojiToId.get(e)).filter(Boolean)
+    ));
+  }
+  function canonicalizeIds(ids) {
+    const set = new Set(ids.filter(id => SPECIALS_IDS_SET.has(id)));
+    return SPECIALS_ORDER.filter(id => set.has(id));
+  }
+  function tipForSpecialEmoji(emoji) {
+    // Fallbacks in both languages (i18n keys may not exist yet)
+    switch (emoji) {
+      case QUESTION: return t('card.tip.question',
+        'I still have questions about this requirement.',
+        );
+      case '☕': return t('card.tip.coffee', 'I need a short break…');
+      case '💬': return t('card.tip.speech',
+        'We need a separate meeting before we can estimate.',
+      );
+      case '🔭': return t('card.tip.telescope',
+        'We need a spike/exploration task first.',
+      );
+      case '⏳': return t('card.tip.waiting',
+        'We can estimate only after a prerequisite is met.',
+      );
+      case '🔗': return t('card.tip.dependency',
+        'This estimate depends on another task’s outcome.',
+      );
+      case '⚠️': return t('card.tip.risk',
+        'There are risks that significantly affect the estimate.',
+      );
+      case '🎯': return t('card.tip.relevance',
+        'First confirm alignment with goals/vision.',
+      );
+      default: return '';
     }
-    if (line) out.push(line);
-    return out.join('\n');
   }
 
   /*** ---------- Deck bootstrap & number formatting ---------- ***/
-  function defaultDeck(seqId = 'fib.scrum', allowSpecials = true) {
+  // Build a deck from sequence + extras (QUESTION is always included at the end)
+  function defaultDeck(seqId = 'fib.scrum', allowExtras = true, extras = []) {
+    // Core numeric deck
     const base = ['0', '1/2', '1', '2', '3', '5', '8', '13', '20', '40', '100'];
-    const withInfinity = [...base, '♾️']; // only for fib.enh
+    const withInfinity = [...base, INFINITY_]; // only visible in fib.enh
     const core = (seqId === 'fib.enh') ? withInfinity : base;
-    const specials = allowSpecials ? ['❓','☕'] : [];
-    return [...core, ...specials];
+
+    // Extras: filter disabled & dedupe & keep stable order by SPECIALS_ORDER
+    const extrasEmoji = allowExtras ? idsToEmojis(canonicalizeIds(extras)) : [];
+    const filteredExtras = extrasEmoji.filter(e => !DISABLED_SPECIALS.has(String(e)));
+
+    // QUESTION is always present (last)
+    return [...core, ...filteredExtras, QUESTION];
   }
 
   function ensureBootstrapDeck() {
     if (!Array.isArray(state.cards) || state.cards.length === 0) {
       state.sequenceId = normalizeSeq(state.sequenceId || 'fib.scrum');
-      let deck = defaultDeck(state.sequenceId, state.allowSpecials);
+      let deck = defaultDeck(state.sequenceId, state.allowSpecials, state.specialsSelected);
       if (state.sequenceId !== 'fib.enh') {
         deck = deck.filter(c => c !== INFINITY_ && c !== INFINITY_ALT);
       }
       deck = deck.filter(c => !DISABLED_SPECIALS.has(String(c)));
+      // ensure QUESTION last
+      deck = deck.filter(c => c !== QUESTION);
+      deck.push(QUESTION);
       state.cards = deck;
     }
   }
@@ -286,7 +276,7 @@
   function fmtStat(val){
     if (val == null || val === '') return null;
     const s = String(val).trim();
-    if (s === '∞' || s === '♾️') return s;
+    if (s === '∞' || s === INFINITY_) return s;
     if (s === '½' || s === '1/2') return isDe() ? '0,5' : '0.5';
     const x = Number(s.replace(',', '.'));
     return Number.isFinite(x) ? fmtNumber(x) : s;
@@ -543,11 +533,34 @@
         applyVoteUpdate(m);
         break;
       }
+      case 'specialsChanged': {
+        // Optional explicit event from server (enabled + selected IDs)
+        if (typeof m.enabled === 'boolean') state.allowSpecials = !!m.enabled;
+        if (Array.isArray(m.selected)) state.specialsSelected = canonicalizeIds(m.selected);
+        rebuildDeckFromState();
+        break;
+      }
       default: break;
     }
   }
 
   /*** ---------- Apply room state ---------- ***/
+  function rebuildDeckFromState() {
+    const seqId = state.sequenceId || 'fib.scrum';
+    let deck = defaultDeck(seqId, state.allowSpecials, state.specialsSelected);
+    if (seqId !== 'fib.enh') deck = deck.filter(c => c !== INFINITY_ && c !== INFINITY_ALT);
+    deck = deck.filter(c => !DISABLED_SPECIALS.has(String(c)));
+    // QUESTION at end
+    deck = deck.filter(c => c !== QUESTION);
+    deck.push(QUESTION);
+    state.cards = deck;
+
+    renderCards();
+    renderResultBar();
+    syncSequenceInMenu();
+    syncSpecialsPaletteFromState(); // keep palette checkboxes + visibility in sync
+  }
+
   function applyVoteUpdate(m) {
     try {
       const has = (obj, k) => Object.prototype.hasOwnProperty.call(obj || {}, k);
@@ -574,51 +587,55 @@
       updateAllSeqRadiosChecked(state.sequenceId);
 
       // specials / deck
-      let specialsList = null;
-      let allowFromServer = null;
+      let extrasFromServerEmoji = null;
+      let extrasEnabledFromServer = null;
 
+      // Accept either array of emojis (['☕','💬']) or array of IDs (['coffee','speech'])
       if (has(m, 'specials') && Array.isArray(m.specials)) {
-        specialsList = m.specials.slice();
-        allowFromServer = specialsList.length > 0;
+        const arr = m.specials.slice();
+        const looksLikeIds = arr.every(x => typeof x === 'string' && SPECIALS_IDS_SET.has(x));
+        extrasFromServerEmoji = looksLikeIds ? idsToEmojis(arr) : arr;
+        extrasEnabledFromServer = extrasFromServerEmoji.length > 0;
+        // Keep selected IDs in state (stable order)
+        state.specialsSelected = canonicalizeIds(looksLikeIds ? arr : emojisToIds(arr));
       }
-      if (has(m, 'allowSpecials')) {
-        allowFromServer = !!m.allowSpecials;
-        if (specialsList === null) specialsList = allowFromServer ? SPECIALS.slice() : [];
-      }
-      if (has(m, 'specialsOff')) {
-        allowFromServer = !m.specialsOff;
-        if (specialsList === null) specialsList = (!m.specialsOff) ? SPECIALS.slice() : [];
-      }
-      if (has(m, 'specialsEnabled')) {
-        allowFromServer = !!m.specialsEnabled;
-        if (specialsList === null) specialsList = m.specialsEnabled ? SPECIALS.slice() : [];
-      }
-      if (allowFromServer !== null) state.allowSpecials = allowFromServer;
+      // Legacy/alt booleans
+      if (has(m, 'allowSpecials'))  extrasEnabledFromServer = !!m.allowSpecials;
+      if (has(m, 'specialsOff'))    extrasEnabledFromServer = !m.specialsOff;
+      if (has(m, 'specialsEnabled'))extrasEnabledFromServer = !!m.specialsEnabled;
+
+      if (extrasEnabledFromServer !== null) state.allowSpecials = extrasEnabledFromServer;
 
       const seqId = state.sequenceId || 'fib.scrum';
 
-      // If server didn’t send cards, derive from the sequence
+      // If server provides full cards array, adopt it; otherwise build from sequence + specials
       let deck;
       if (has(m, 'cards') && Array.isArray(m.cards)) {
         deck = m.cards.slice();
       } else {
-        deck = defaultDeck(seqId, state.allowSpecials);
+        const ids = state.specialsSelected;
+        deck = defaultDeck(seqId, state.allowSpecials, ids);
+        // If server supplied explicit extras (emoji), prefer those (still always include QUESTION)
+        if (extrasFromServerEmoji) {
+          deck = deck.filter(c => c !== QUESTION); // drop question, will be re-appended
+          const base = defaultDeck(seqId, false, []); // no extras + QUESTION
+          deck = [...base.filter(c => c !== QUESTION), ...extrasFromServerEmoji, QUESTION];
+        }
       }
 
       // Infinity only for enh
       if (seqId !== 'fib.enh') deck = deck.filter(c => c !== INFINITY_ && c !== INFINITY_ALT);
 
-      // Apply server specials (if provided)
-      if (specialsList !== null) {
-        deck = deck.filter(c => !SPECIALS.includes(c)).concat(specialsList);
-      }
-
       // Honor local disabled specials
       deck = deck.filter(c => !DISABLED_SPECIALS.has(String(c)));
 
+      // Safety: ensure QUESTION last
+      deck = deck.filter(c => c !== QUESTION);
+      deck.push(QUESTION);
+
       // Safety
       if (!deck.length) {
-        deck = defaultDeck(seqId, state.allowSpecials);
+        deck = defaultDeck(seqId, state.allowSpecials, state.specialsSelected);
         if (seqId !== 'fib.enh') deck = deck.filter(c => c !== INFINITY_ && c !== INFINITY_ALT);
       }
       state.cards = deck;
@@ -719,7 +736,7 @@
 
       try { (state.participants || []).forEach(p => { if (p && !p.disconnected) markAlive(p.name); }); } catch {}
 
-      requestAnimationFrame(() => { syncMenuFromState(); syncSequenceInMenu(); });
+      requestAnimationFrame(() => { syncMenuFromState(); syncSequenceInMenu(); syncSpecialsPaletteFromState(); });
       if (!document.documentElement.hasAttribute('data-ready')) {
         document.documentElement.setAttribute('data-ready', '1');
       }
@@ -741,8 +758,12 @@
   /*** ---------- Participants ---------- ***/
   function isSpectator(p) { return !!(p && (p.spectator === true || p.participating === false)); }
 
+  function participantsRoot() {
+    return document.querySelector('#liveParticipantList, #participantsList, #participantList, ul#participants, .participants-list, #participants ul, [data-participants-list]');
+  }
+
   function renderParticipants() {
-    const ul = document.querySelector('#liveParticipantList');
+    const ul = participantsRoot();
     if (!ul) return;
 
     try {
@@ -778,7 +799,7 @@
         name.textContent = p.name;
         li.appendChild(name);
 
-        // SR-only host label (inside icon cell, no visual change)
+        // SR-only host label
         const srLabel = t('label.host', 'Host');
         if (p.isHost) {
           const sr = document.createElement('span');
@@ -832,7 +853,7 @@
               chip.textContent = display;
 
               const isInfinity = (display === INFINITY_ || display === INFINITY_ALT);
-              const isSpecial  = SPECIALS.includes(display);
+              const isSpecial  = ALL_SPECIALS_EMOJI.has(display);
 
               if (!isInfinity && isSpecial) chip.classList.add('special');
 
@@ -851,7 +872,7 @@
           }
         }
 
-                if (state.isHost && !p.isHost) {
+        if (state.isHost && !p.isHost) {
           // --- Make Host ----------------------------------------------------
           const makeHostBtn = document.createElement('button');
           makeHostBtn.className = 'row-action host';
@@ -862,8 +883,6 @@
           const labelMakeHost = t('action.makeHost', isDe() ? 'Zum Host machen' : 'Make host');
           makeHostBtn.setAttribute('aria-label', labelMakeHost);
           makeHostBtn.setAttribute('title', labelMakeHost);
-
-          // visible: short text + icon (icon hidden via CSS)
           makeHostBtn.innerHTML =
             '<span class="ra-icon" aria-hidden="true">👑</span><span class="ra-label">Host</span>';
 
@@ -879,14 +898,11 @@
           const labelKick = t('action.kick', isDe() ? 'Teilnehmer entfernen' : 'Kick participant');
           kickBtn.setAttribute('aria-label', labelKick);
           kickBtn.setAttribute('title', labelKick);
-
-          // visible: short text + icon (icon hidden via CSS)
           kickBtn.innerHTML =
             '<span class="ra-icon" aria-hidden="true">❌</span><span class="ra-label">Kick</span>';
 
           right.appendChild(kickBtn);
         }
-
 
         li.appendChild(right);
         frag.appendChild(li);
@@ -932,8 +948,8 @@
     if (pivotLabel != null) {
       const pivIdx = deck.findIndex(x => Object.is(x, pivotLabel));
       if (pivIdx > 0) {
-        const p = Math.min(0.999, Math.max(0.001, pivIdx / max));
-        const g = Math.log(0.5) / Math.log(p);
+        const frac = Math.min(0.999, Math.max(0.001, (pivIdx / max)));
+        const g = Math.log(0.5) / Math.log(frac);
         if (Number.isFinite(g) && g > 0) gamma = g;
       }
     }
@@ -970,14 +986,11 @@
     const disabled = state.votesRevealed || isSpectatorMe;
 
     const deckSpecialsFromState = (state.cards || [])
-      .filter(v => SPECIALS.includes(v) && !DISABLED_SPECIALS.has(String(v)));
+      .filter(v => ALL_SPECIALS_EMOJI.has(v) && !DISABLED_SPECIALS.has(String(v)));
     const deckNumbers = (state.cards || [])
-      .filter(v => !SPECIALS.includes(v) && !DISABLED_SPECIALS.has(String(v)));
+      .filter(v => !ALL_SPECIALS_EMOJI.has(v) && !DISABLED_SPECIALS.has(String(v)));
 
-    const specialsCandidate = deckSpecialsFromState.length ? deckSpecialsFromState : SPECIALS.slice();
-    const specialsDedupe = [...new Set(specialsCandidate.filter(s => !deckNumbers.includes(s)))];
-
-    const specials = state.allowSpecials ? specialsDedupe : [];
+    const specials = deckSpecialsFromState;
 
     const selectedVal = mySelectedValue();
 
@@ -988,18 +1001,9 @@
       btn.textContent = label;
       btn.dataset.value = label;
 
-      if (SPECIALS.includes(label)) {
-        if (label === '❓') {
-          const tip = msg('card.tip.question',
-            'I still have questions about this requirement.',
-            'Ich habe noch offene Fragen zu dieser Anforderung.');
-          btn.setAttribute('title', tip); btn.setAttribute('aria-label', tip);
-        } else if (label === '☕') {
-          const tip = msg('card.tip.coffee',
-            'I need a short break…',
-            'Ich brauche eine Pause…');
-          btn.setAttribute('title', tip); btn.setAttribute('aria-label', tip);
-        }
+      if (ALL_SPECIALS_EMOJI.has(label)) {
+        const tip = tipForSpecialEmoji(label);
+        if (tip) { btn.setAttribute('title', tip); btn.setAttribute('aria-label', tip); }
       }
 
       if (label === INFINITY_ || label === INFINITY_ALT) btn.classList.add('card-infinity');
@@ -1024,7 +1028,6 @@
     const hardGateOK = !state.hardMode || allEligibleVoted();
 
     // Optimistic: until host is known, do not hide the reveal button.
-    // The server will reject a non-host reveal anyway; this avoids false negatives just after room creation.
     const showReveal = (!state.votesRevealed && (state.isHost || !state._hostKnown));
     const showReset  = ( state.votesRevealed && state.isHost);
 
@@ -1127,7 +1130,6 @@
         if (medianWrap) medianWrap.hidden = true;
         if (rangeSep)  rangeSep.hidden  = true;
         if (rangeWrap) rangeWrap.hidden = true;
-        // SR announce in consensus branch
         announceResultForSR_EN();
         return;
       } else {
@@ -1240,7 +1242,6 @@
     const row = $('#topicRow'); if (!row) return;
     row.style.display = state.topicVisible ? '' : 'none';
     row.setAttribute('data-visible', state.topicVisible ? '1' : '0');
-    // Keep [hidden] attribute and "is-hidden" class in sync
     if (state.topicVisible) {
       row.removeAttribute('hidden');
       row.classList.remove('is-hidden');
@@ -1262,7 +1263,7 @@
 
     // Helper to render read-only text/link (no innerHTML)
     const renderDisplayContent = (el) => {
-      el.textContent = ''; // reset
+      el.textContent = '';
       if (state.topicLabel && state.topicUrl) {
         const a = document.createElement('a');
         a.rel = 'noopener noreferrer';
@@ -1374,7 +1375,6 @@
        <button id="topicCancelEditBtn" class="icon-button neutral" type="button"
                title="${escapeHtml(titleCancel)}" aria-label="${escapeHtml(titleCancel)}">❌</button>`;
 
-    // Local keyboard support
     displayEl.addEventListener('keydown', (e) => {
       if (e.key === 'Enter')  { e.preventDefault(); const b = $('#topicSaveBtn');   b && b.click(); }
       if (e.key === 'Escape') { e.preventDefault(); const b = $('#topicCancelEditBtn'); b && b.click(); }
@@ -1430,7 +1430,7 @@
   // --- sequence radio helpers ---
   function seqVariants(id) {
     const s = normalizeSeq(id || 'fib.scrum');
-    return [s, s.replace('.', '-')]; // e.g. fib.enh / fib-enh
+    return [s, s.replace('.', '-')];
   }
   function updateAllSeqRadiosChecked(seqIdRaw) {
     const vars = new Set(seqVariants(seqIdRaw));
@@ -1456,7 +1456,6 @@
     updateAllSeqRadiosChecked(state.sequenceId || 'fib.scrum');
   }
 
-  // --- robust reconciliation for radio selection (covers label/script/.check) ---
   function domSelectedSeq() {
     const el = document.querySelector('input[type="radio"][name="menu-seq"]:checked');
     return el ? normalizeSeq(el.value) : null;
@@ -1507,17 +1506,85 @@
     const mHRTgl = $('#menuHardModeToggle'); const mHRSt = $('#menuHardStatus');
     if (mHRTgl) { mHRTgl.checked = !!state.hardMode; mHRTgl.setAttribute('aria-checked', String(!!state.hardMode)); }
     if (mHRSt)  mHRSt.textContent = state.hardMode ? (isDe() ? 'An' : 'On') : (isDe() ? 'Aus' : 'Off');
+
+    // Also keep palette visibility/disabled state aligned
+    syncSpecialsPaletteFromState();
   }
   function syncSequenceInMenu() {
     syncSequenceRadiosAndMenu();
   }
 
+  // ---------- Specials palette (binds to menu.html DOM) ----------
+  function specialsPaletteRoot() {
+    return document.getElementById('rowSpecialsPick') || null;
+  }
+
+  function syncSpecialsPaletteFromState() {
+    const root = specialsPaletteRoot();
+    if (!root) return;
+
+    // Visibility: show only when specials are allowed
+    const paletteOn = !!state.allowSpecials;
+    root.hidden = !paletteOn;
+    try { root.style.display = paletteOn ? '' : 'none'; } catch {}
+    root.setAttribute('aria-hidden', String(!paletteOn));
+
+    // Disabled when guest
+    const disabled = !paletteOn || (state._hostKnown && !state.isHost);
+    root.classList.toggle('disabled', !!disabled);
+
+    const iconsWrap = root.querySelector('.specials-icons') || root;
+    SPECIALS_ORDER.forEach(id => {
+      const label = iconsWrap.querySelector(`label.spc[data-id="${id}"]`);
+      const cb = label ? label.querySelector('input[type="checkbox"]') : null;
+      if (!cb) return;
+      const checked = state.specialsSelected.includes(id);
+      cb.checked = checked;
+      cb.disabled = disabled;
+      cb.setAttribute('aria-checked', String(checked));
+      cb.setAttribute('aria-disabled', String(disabled));
+      if (label) label.classList.toggle('disabled', !!disabled);
+    });
+  }
+
+  function wireSpecialsPalette() {
+    const root = specialsPaletteRoot();
+    if (!root || root.__bound) return;
+    root.__bound = true;
+
+    const iconsWrap = root.querySelector('.specials-icons') || root;
+
+    iconsWrap.addEventListener('change', () => {
+      // Host guard — bounce non-hosts visually
+      if (state._hostKnown && !state.isHost) {
+        syncSpecialsPaletteFromState();
+        return;
+      }
+      // Respect global switch
+      const on = document.getElementById('menuSpecialsToggle')?.checked ?? state.allowSpecials;
+      if (!on) {
+        syncSpecialsPaletteFromState();
+        return;
+      }
+
+      // Gather selected ids in stable order
+      const ids = SPECIALS_ORDER.filter(id => {
+        const lab = iconsWrap.querySelector(`label.spc[data-id="${id}"]`);
+        const cb = lab ? lab.querySelector('input[type="checkbox"]') : null;
+        return cb && cb.checked;
+      });
+
+      document.dispatchEvent(new CustomEvent('ep:specials-set', { detail: { ids } }));
+    }, { passive: true });
+  }
+
   document.addEventListener('ep:menu-open', () => {
-    wireSequenceRadios();           // ensure radios are wired even on first open
+    wireSequenceRadios();
     wireMenuTogglesDom();
+    wireSpecialsPalette();
     syncMenuFromState();
     syncSequenceInMenu();
-    // if Playwright already toggled the radio, reconcile now
+    syncSpecialsPaletteFromState();
     queueMicrotask(reconcileSeqFromDOM);
   });
 
@@ -1561,6 +1628,9 @@
     }, el));
 
     bindSwitch('menuSpecialsToggle', (on, el) => hostGuard(() => {
+      // Update visibility immediately for snappy UI
+      state.allowSpecials = on;
+      syncSpecialsPaletteFromState();
       document.dispatchEvent(new CustomEvent('ep:specials-toggle', { detail: { on } }));
     }, el));
 
@@ -1589,7 +1659,7 @@
       tEl.className = 'toast';
       tEl.textContent = msg;
       document.body.appendChild(tEl);
-      // force reflow (start CSS animation)
+      // force reflow
       // eslint-disable-next-line no-unused-expressions
       tEl.offsetHeight;
       setTimeout(() => tEl.remove(), ms + 600);
@@ -1649,14 +1719,8 @@
     state.votesRevealed = false;
     state._optimisticVote = null;
 
-    let deck = defaultDeck(seq, state.allowSpecials);
-    if (seq !== 'fib.enh') deck = deck.filter(c => c !== INFINITY_ && c !== INFINITY_ALT);
-    deck = deck.filter(c => !DISABLED_SPECIALS.has(String(c)));
-    state.cards = deck;
-
-    renderCards();
-    renderResultBar();
-    syncSequenceInMenu();
+    rebuildDeckFromState();
+    syncMenuFromState();
   }
 
   // Send with limited backward-compat payloads + fast server echo
@@ -1671,7 +1735,6 @@
     for (const p of payloads) {
       try { send(p); } catch {}
     }
-    // Nudge server so tests don't wait for a lazy echo
     try { pokeServerAndSync(); } catch {}
     setTimeout(() => { try { pokeServerAndSync(); } catch {} }, 120);
   }
@@ -1792,8 +1855,7 @@
       if (confirm(msg2)) send('closeRoom');
     });
 
-        // Programmatic sequence changes (optimistic) — already bound early.
-    // Only register here if the early bridge was not bound for any reason.
+    // Programmatic sequence changes (optimistic)
     if (!window.__epSeqBridgeBound) {
       document.addEventListener('ep:sequence-change', (ev) => {
         const id = normalizeSeq(ev?.detail?.id || ev?.detail?.sequenceId);
@@ -1803,7 +1865,6 @@
         notifySequence(id);
       });
     }
-
 
     document.addEventListener('ep:auto-reveal-toggle', (ev) => {
       if (!state.isHost) return;
@@ -1817,23 +1878,14 @@
 
       if (!on) state.topicEditing = false;
 
-      // Update local state immediately (no visual lag)
       state.topicVisible = on;
-
-      // Re-render affected UI
       renderTopic();
-
-      // Also mirror status text / toggle in the menu right away
       syncMenuFromState();
-
-      // Tell the server
       send(`topicVisible:${on}`);
     });
 
     document.addEventListener('ep:participation-toggle', (ev) => {
       const estimating = !!(ev && ev.detail && ev.detail.estimating);
-
-      // Immediate local mirror (prevents UI lag before server echo)
       state.selfSpectator = !estimating;
 
       const me = state.participants.find(p => p && p.name === state.youName);
@@ -1842,7 +1894,6 @@
         me.participating = estimating;
       }
 
-      // Re-render even if "me" is not in the list yet
       renderParticipants();
       renderCards();
       syncMenuFromState();
@@ -1856,10 +1907,22 @@
         const el = document.getElementById('menuSpecialsToggle');
         const on = el ? !!el.checked : !state.allowSpecials;
         state.allowSpecials = on;
-        syncMenuFromState();
-        renderCards();
+        syncSpecialsPaletteFromState();
+        rebuildDeckFromState();
         try { send(`specials:${on}`); } catch {}
       });
+    });
+
+    // NEW: palette selection → send IDs + rebuild local deck
+    document.addEventListener('ep:specials-set', (ev) => {
+      if (!state.isHost) return;
+      const ids = canonicalizeIds((ev?.detail?.ids) || []);
+      state.specialsSelected = ids;
+      rebuildDeckFromState();
+      try {
+        send('specials:set:' + encodeURIComponent(ids.join(',')));
+      } catch {}
+      pokeServerAndSync();
     });
 
     document.addEventListener('ep:hard-mode-toggle', (ev) => {
@@ -1869,6 +1932,29 @@
       syncMenuFromState();
       renderCards();
     });
+  }
+
+  // Presence guard (suppress join/leave toasts for self + rapid flaps)
+  const PRESENCE_KEY = (n) => 'ep-presence:' + encodeURIComponent(n);
+  function markAlive(name) { if (!name) return; try { localStorage.setItem(PRESENCE_KEY(name), String(Date.now())); } catch {} }
+
+  // Wrap long tooltips by injecting \n
+  function wrapForTitle(text, max = 44) {
+    const words = String(text || '').trim().split(/\s+/);
+    const out = []; let line = '';
+    for (let w of words) {
+      if (w.length > max) {
+        w = w.replace(/[\/\-_\.]/g, m => m + '\n');
+      }
+      for (const chunk of w.split('\n')) {
+        if (!chunk) continue;
+        const need = (line ? line.length + 1 : 0) + chunk.length;
+        if (need > max) { if (line) out.push(line); line = chunk; }
+        else { line += (line ? ' ' : '') + chunk; }
+      }
+    }
+    if (line) out.push(line);
+    return out.join('\n');
   }
 
   // Event-delegation (robust, no global capture)
@@ -1884,7 +1970,6 @@
         const label = btn.dataset.value || btn.textContent || '';
         if (!label) return;
         if (mySelectedValue() === String(label)) return;
-        // Optimistic selection + send
         state._optimisticVote = String(label);
         try { grid.querySelectorAll('button').forEach(b => b.classList.remove('selected')); } catch {}
         btn.classList.add('selected');
@@ -1906,7 +1991,7 @@
     }
 
     // Host / Kick
-    const list = document.querySelector('#liveParticipantList');
+    const list = participantsRoot();
     if (list && !_plistBound) {
       const onAction = (btn) => {
         const action = btn.dataset.action;
@@ -1926,12 +2011,12 @@
 
       list.addEventListener('pointerdown', (e) => {
         if (e.button !== 0) return;
-        const btn = e.target && e.target.closest ? e.target.closest('#liveParticipantList button.row-action') : null;
+        const btn = e.target && e.target.closest ? e.target.closest('button.row-action') : null;
         if (btn) { e.preventDefault?.(); onAction(btn); }
       }, { passive: false });
 
       list.addEventListener('click', (e) => {
-        const btn = e.target && e.target.closest ? e.target.closest('#liveParticipantList button.row-action') : null;
+        const btn = e.target && e.target.closest ? e.target.closest('button.row-action') : null;
         if (btn) onAction(btn);
       }, { passive: false });
 
@@ -1987,6 +2072,7 @@
     wireMenuEvents();
     wireSequenceRadios();
     wireMenuTogglesDom();
+    wireSpecialsPalette();
     bindDelegatedHandlers();
 
     const row = $('#topicRow');
@@ -2017,6 +2103,7 @@
     if (!state.hardRedirect && !state.connected && (!state.ws || state.ws.readyState !== 1)) connectWS();
 
     syncSequenceInMenu();
+    syncSpecialsPaletteFromState();
   }
 
   /*** ---------- Misc helpers ---------- ***/
@@ -2098,6 +2185,7 @@
     renderAutoReveal();
     syncMenuFromState();
     syncSequenceInMenu();
+    syncSpecialsPaletteFromState();
   }
 
   async function onLangChange() {
