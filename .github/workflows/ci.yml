@@ -23,6 +23,55 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # --- Guards (fail fast) ---
+      - name: Set up Node (for menu check)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: BRIEFING integrity check
+        shell: bash
+        run: |
+          set -euo pipefail
+          file="docs/BRIEFING.md"
+          if [[ ! -f "$file" ]]; then
+            echo "::error file=$file::BRIEFING.md missing"
+            exit 1
+          fi
+          lc=$(wc -l < "$file" | tr -d '[:space:]')
+          if [[ "${lc:-0}" -lt 200 ]]; then
+            echo "::error file=$file::BRIEFING too short ($lc lines; expected >=200)"
+            exit 1
+          fi
+          missing=0
+          while IFS= read -r re; do
+            [[ -z "$re" ]] && continue
+            if ! grep -Eq "$re" "$file"; then
+              echo "::error file=$file::Missing required section: $re"
+              missing=1
+            fi
+          done <<'PATTERNS'
+^# RBS' Estimation Poker — BRIEFING
+^## 4) Coding & Style Rules
+^## 5) Collaboration Workflow \(Dev ↔ AI\)
+^### 5\.2 Change workflow = small, reviewable steps
+^## 6) Playwright E2E Testing \(Executive Summary\)
+^## Appendix E – Identity & Name Handling
+PATTERNS
+          if [[ $missing -ne 0 ]]; then
+            exit 1
+          fi
+          if ! grep -q "<!-- PROTECTED: BRIEFING CORE" "$file"; then
+            echo "::warning file=$file::Protected marker not found (see §5.11)."
+          fi
+
+      - name: Menu toggle events check (CI mirror of pre-commit)
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/check-menu-toggle-events.js
+      # --- end guards ---
+
       - name: Set up Java 21 (Temurin) with Maven cache
         uses: actions/setup-java@v4
         with:
