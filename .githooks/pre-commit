@@ -1,27 +1,75 @@
 #!/usr/bin/env sh
-# pre-commit: nur noch der Menü-Toggle-Event-Check
+# pre-commit: BRIEFING integrity safeguard + menu toggle events check
 
 set -u
+
+# ---- BRIEFING integrity safeguard ----
+if git diff --cached --name-only --diff-filter=ACMRTUXB | tr -d '\r' | grep -x "docs/BRIEFING.md" >/dev/null 2>&1; then
+  echo "[pre-commit] Checking BRIEFING.md integrity …"
+  file="docs/BRIEFING.md"
+
+  # Minimum length as a basic validity check
+  lc=$(wc -l < "$file" | tr -d '[:space:]')
+  if [ "${lc:-0}" -lt 200 ]; then
+    echo "[pre-commit] ❌ BRIEFING too short ($lc lines; expected >=200). Aborting."
+    exit 1
+  fi
+
+  # Required headings/anchors
+  missing=0
+  while IFS= read -r re; do
+    [ -z "$re" ] && continue
+    if ! grep -Eq "$re" "$file"; then
+      echo "[pre-commit] ❌ Missing required section in BRIEFING.md: /$re/"
+      missing=1
+    fi
+  done <<'PATTERNS'
+^# RBS' Estimation Poker — BRIEFING
+^## 4) Coding & Style Rules
+^## 5) Collaboration Workflow \(Dev ↔ AI\)
+^### 5\.2 Change workflow = small, reviewable steps
+^## 6) Playwright E2E Testing \(Executive Summary\)
+^## Appendix E – Identity & Name Handling
+PATTERNS
+
+  if [ $missing -ne 0 ]; then
+    echo "           Please restore the full version (e.g., commit 188a16f from 2025-10-10)."
+    exit 1
+  fi
+
+  if grep -q "<!-- PROTECTED: BRIEFING CORE" "$file"; then
+    echo "[pre-commit] BRIEFING marker present."
+  else
+    echo "[pre-commit] ⚠️ No protected marker comment found (see §5.11)."
+  fi
+fi
+# ---- end safeguard ----
+
+# ---- Menu toggle events check ----
 echo "[pre-commit] Checking menu toggle events …"
+changed="$(git diff --cached --name-only --diff-filter=ACMRTUXB | tr -d '\r' | grep -Ei '\.(html|js|ts)$' || true)"
 
-changed="$(git diff --cached --name-only --diff-filter=ACMRTUXB \
-  | tr -d '\r' \
-  | grep -Ei '\.(html|js|ts)$' || true)"
-
-[ -z "$changed" ] && { echo "[pre-commit] OK (no relevant files staged)"; exit 0; }
-
-if command -v sed >/dev/null 2>&1; then
-  sed -i 's/\r$//' scripts/check-menu-toggle-events.js 2>/dev/null || true
-fi
-
-if command -v node >/dev/null 2>&1; then
-  node scripts/check-menu-toggle-events.js
-  rc=$?
+if [ -z "$changed" ]; then
+  echo "[pre-commit] OK (no relevant files staged for menu check)"
 else
-  echo "[pre-commit] Node not found – skipping check."
-  rc=0
-fi
+  if command -v sed >/dev/null 2>&1; then
+    sed -i 's/\r$//' scripts/check-menu-toggle-events.js 2>/dev/null || true
+  fi
 
-[ $rc -ne 0 ] && { echo "[pre-commit] ✖ aborting commit"; exit $rc; }
-echo "[pre-commit] ✓ OK"
+  if command -v node >/dev/null 2>&1; then
+    node scripts/check-menu-toggle-events.js
+    rc=$?
+  else
+    echo "[pre-commit] Node not found – skipping menu toggle check."
+    rc=0
+  fi
+
+  if [ $rc -ne 0 ]; then
+    echo "[pre-commit] ✖ aborting commit"
+    exit $rc
+  fi
+fi
+# ---- end menu check ----
+
+echo "[pre-commit] ✓ All checks passed"
 exit 0
