@@ -27,6 +27,12 @@ import java.util.concurrent.ConcurrentHashMap;
  * - On unexpected close: schedules grace disconnect (GameService decides timing)
  * - Sends initial state snapshot (best-effort, via reflection)
  * - After join, replays the current roster to the just-joined session
+ *
+ * Specials:
+ * - "specials:<on|off>" toggles extras (question mark is clientseitig immer dabei)
+ * - "specials:set:<id,id,...>" setzt die ausgewählten Extras nach IDs (host-only)
+ * Sequence:
+ * - akzeptiert "sequence:", "seq:" und "setSequence:" (host-only)
  */
 @Component
 public class GameWebSocketHandler extends TextWebSocketHandler {
@@ -211,11 +217,26 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                 return;
             }
 
-            // SPECIALS toggle (host)
-            if (payload.startsWith("specials:")) {
+            // SPECIALS toggle (host) — on/off
+            if (payload.startsWith("specials:") && !payload.startsWith("specials:set:")) {
                 if (!isHost(roomCode, c.name)) return;
                 boolean on = parseOn(payload.substring("specials:".length()));
                 gameService.setAllowSpecials(roomCode, on);
+                return;
+            }
+
+            // SPECIALS set (host) — "specials:set:<id,id,...>"
+            if (payload.startsWith("specials:set:")) {
+                if (!isHost(roomCode, c.name)) return;
+                String raw = decode(payload.substring("specials:set:".length()));
+                List<String> ids = new ArrayList<>();
+                if (raw != null && !raw.isBlank()) {
+                    for (String s : raw.split(",")) {
+                        String id = s.trim();
+                        if (!id.isEmpty()) ids.add(id);
+                    }
+                }
+                gameService.setSpecialsSelected(roomCode, ids);
                 return;
             }
 
@@ -223,6 +244,19 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             if (payload.startsWith("sequence:")) {
                 if (!isHost(roomCode, c.name)) return;
                 String id = decode(payload.substring("sequence:".length()));
+                gameService.setSequence(roomCode, id);
+                return;
+            }
+            // SEQUENCE aliases (host) — compat with client
+            if (payload.startsWith("seq:")) {
+                if (!isHost(roomCode, c.name)) return;
+                String id = decode(payload.substring("seq:".length()));
+                gameService.setSequence(roomCode, id);
+                return;
+            }
+            if (payload.startsWith("setSequence:")) {
+                if (!isHost(roomCode, c.name)) return;
+                String id = decode(payload.substring("setSequence:".length()));
                 gameService.setSequence(roomCode, id);
                 return;
             }
