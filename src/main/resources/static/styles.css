@@ -856,3 +856,44 @@ body:not(.votes-revealed) #resultRow{visibility: hidden;}
 @media (max-width:420px){
   #liveParticipantList .row-right .row-action::after{ font-size:.90rem; }
 }
+
+/* === iPhone fix: keep "Host | Kick" on one line ========================= */
+#liveParticipantList .participant-row .row-right{
+  display: flex !important;
+  flex-wrap: nowrap !important;   /* no flex wrapping */
+  white-space: nowrap !important; /* no text wrapping at all */
+  min-width: max-content !important; /* size to content (Safari-friendly) */
+  gap: 6px !important;
+}
+
+/* actions themselves */
+#liveParticipantList .participant-row .row-right .row-action{
+  display: inline-flex !important;
+  align-items: baseline;
+}
+
+/* NBSP separator so iOS won’t break between links */
+#liveParticipantList .participant-row .row-right .row-action + .row-action::before{
+  content: "\00a0|\00a0" !important;
+  opacity: .45;
+}
+
+/* make a tiny bit more room on very small phones */
+@media (max-width: 420px){
+  :root{ --vote-chip-width: 4ch; } /* was 5ch */
+  #liveParticipantList .participant-row .row-right .row-action .ra-label{ font-size: .86rem; }
+}
+
+/* === Cards: a touch flatter on phones =================================== */
+@media (max-width: 420px){
+  .card-grid button{
+    min-height: 40px;          /* was 44/52 */
+    padding: .32rem .48rem;    /* a hair tighter */
+    font-size: .94rem;
+  }
+  .card-grid .grid-break ~ button{
+    min-height: 34px;          /* was 36/40 */
+    font-size: .88rem;
+    padding: .30rem .42rem;
+  }
+}
