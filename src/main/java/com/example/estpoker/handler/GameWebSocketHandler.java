@@ -5,7 +5,6 @@ import com.example.estpoker.model.Room;
 import com.example.estpoker.service.GameService;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.lang.NonNull;
@@ -217,7 +216,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                 return;
             }
 
-            // Participation toggle
+            // Participation toggle (self)
             if (payload.startsWith("participation:")) {
                 boolean estimating = Boolean.parseBoolean(payload.substring("participation:".length()));
                 gameService.setSpectator(roomCode, cid, !estimating);
@@ -291,6 +290,38 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                 String target = decode(payload.substring("kick:".length()));
                 Room room = gameService.getRoom(roomCode);
                 if (room != null) gameService.kickParticipant(room, target);
+                return;
+            }
+
+            // NEW: Host sets a target participant's participation/spectator state
+            // Accept both forms:
+            //   "setParticipating:<name>:<true|false>"  (true = estimating)
+            //   "setSpectator:<name>:<true|false>"      (true = spectator)
+            if (payload.startsWith("setParticipating:") || payload.startsWith("setSpectator:")) {
+                if (!isHost(roomCode, c.name)) return;
+
+                final boolean byParticipating = payload.startsWith("setParticipating:");
+                final String rest = payload.substring(payload.indexOf(':') + 1);
+                String targetRaw;
+                boolean flag;
+
+                String[] parts = rest.split(":", 2);
+                targetRaw = decode(parts[0]);
+                flag = (parts.length >= 2) && Boolean.parseBoolean(parts[1]);
+
+                String target = resolveTargetName(roomCode, targetRaw);
+
+                log.info("WS CMD {} by={} targetRaw='{}' -> resolved='{}' flag={}",
+                        (byParticipating ? "setParticipating" : "setSpectator"),
+                        c.name, targetRaw, target, flag);
+
+                if (target == null || target.isBlank()) return;
+
+                if (byParticipating) {
+                    gameService.setParticipatingFor(roomCode, target, flag);
+                } else {
+                    gameService.setSpectator(roomCode, target, flag);
+                }
                 return;
             }
 
@@ -391,6 +422,25 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         if (room == null) return false;
         Participant host = room.getHost();
         return host != null && Objects.equals(host.getName(), name);
+    }
+
+    /** Resolve a target name robustly (exact, case-insensitive, or fallback to raw). */
+    private String resolveTargetName(String roomCode, String raw) {
+        if (raw == null) return null;
+        Room room = gameService.getRoom(roomCode);
+        if (room == null) return raw;
+        String s = raw.trim();
+        if (s.isEmpty()) return null;
+
+        Participant exact = room.getParticipant(s);
+        if (exact != null) return exact.getName();
+
+        for (Participant p : room.getParticipants()) {
+            if (p != null && p.getName() != null && p.getName().equalsIgnoreCase(s)) {
+                return p.getName();
+            }
+        }
+        return s;
     }
 
     /** Best-effort: send state snapshot to just-joined session via whatever method exists. */

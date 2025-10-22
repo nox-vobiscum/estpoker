@@ -397,6 +397,7 @@ public class GameService {
         snapshot(room, "ws");
     }
 
+    /** Core method used by both "self" (by cid) and "host" (by name) spectator toggles. */
     public void setSpectator(String roomCode, String nameOrCid, boolean spectator) {
         Room room = getOrCreateRoom(roomCode);
         String actor = null;
@@ -414,8 +415,15 @@ public class GameService {
             p.bumpLastSeen();
             actor = p.getName();
         }
+        log.info("setSpectator room={} target={} spectator={} (participating={})",
+                roomCode, nameOrCid, spectator, !spectator);
         broadcastRoomState(room);
         snapshot(room, actor);
+    }
+
+    /** Host action convenience: set a target's participating flag by name. */
+    public void setParticipatingFor(String roomCode, String targetName, boolean participating) {
+        setSpectator(roomCode, targetName, !participating);
     }
 
     /** Keep-alive ping to keep presence fresh (no snapshot). */
@@ -620,6 +628,8 @@ public class GameService {
                 cur.put("away", away);
                 cur.put("isHost", p.isHost());
                 cur.put("participating", p.isParticipating());
+                // Optional convenience (UI can also derive this): spectator = !participating
+                cur.put("spectator", !p.isParticipating());
                 byName.put(p.getName(), cur);
             } else {
                 if (p.getVote() != null) cur.put("vote", p.getVote());
@@ -627,6 +637,7 @@ public class GameService {
                 if (p.isParticipating()) cur.put("participating", true);
                 if (p.isActive()) cur.put("disconnected", false);
                 if (!away) cur.put("away", false);
+                cur.put("spectator", !Boolean.TRUE.equals(cur.get("participating")));
             }
         }
         payload.put("participants", new ArrayList<>(byName.values()));
