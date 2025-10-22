@@ -1,4 +1,4 @@
-/* menu.js v40 — i18n-driven tooltips + dynamic messages (index/invite) + specials palette */
+/* menu.js v40 — i18n-driven tooltips + dynamic messages (index/invite) + specials palette (visibility only here) */
 (() => {
   'use strict';
   window.__epMenuVer = 'v40';
@@ -102,13 +102,21 @@
   function openMenu(){
     if (!overlay) return;
     overlay.classList.remove('hidden');
-    overlay.setAttribute('aria-hidden','false');
+    overlay.removeAttribute('hidden');              // ensure element can render
+    overlay.setAttribute('aria-hidden','false');    // accessibility state
     setMenuButtonState(true);
     forceRowLayout();
     try { document.dispatchEvent(new CustomEvent('ep:menu-open')); } catch {}
   }
 
-  function closeMenu(){ if (!overlay) return; overlay.classList.add('hidden');    overlay.setAttribute('aria-hidden','true');  setMenuButtonState(false); btnOpen?.focus?.(); }
+  function closeMenu(){
+    if (!overlay) return;
+    overlay.classList.add('hidden');
+    overlay.setAttribute('aria-hidden','true');  // accessibility state
+    overlay.setAttribute('hidden','');           // ensure it does not paint
+    setMenuButtonState(false);
+    btnOpen?.focus?.();
+  }
   btnOpen?.addEventListener('click', () => (isMenuOpen() ? closeMenu() : openMenu()));
   backdrop?.addEventListener('click', (e) => { if (e.target.hasAttribute('data-close')) closeMenu(); });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && isMenuOpen()) closeMenu(); });
@@ -205,31 +213,15 @@
     labelEl.style.textOverflow = 'ellipsis';
   }
 
-  /* ---------- Specials palette ---------- */
-  function specials_getSelectedIds() {
-    if (!rowSpecialsPick) return [];
-    return Array.from(rowSpecialsPick.querySelectorAll('label.spc input[type="checkbox"]:checked'))
-      .map(inp => inp.closest('label.spc')?.dataset.id)
-      .filter(Boolean);
-  }
-  function specials_setSelectedIds(ids) {
-    if (!rowSpecialsPick) return;
-    const want = new Set((ids || []).map(String));
-    rowSpecialsPick.querySelectorAll('label.spc').forEach(lab => {
-      const id = lab.dataset.id;
-      const inp = lab.querySelector('input[type="checkbox"]');
-      if (!inp) return;
-      const on = want.has(String(id));
-      if (inp.checked !== on) inp.checked = on;
-      inp.setAttribute('aria-checked', on ? 'true' : 'false');
-    });
-  }
+  /* ---------- Specials palette (handled by specials-bridge.js) ---------- */
+  // Only control visibility here; selection + events are owned by specials-bridge.js
   function specials_setPaletteVisible(show) {
-    if (!rowSpecialsPick) return;
-    rowSpecialsPick.hidden = !show;
-    try { rowSpecialsPick.style.display = show ? '' : 'none'; } catch {}
+    try {
+      if (!rowSpecialsPick) return;
+      rowSpecialsPick.hidden = !show;
+      rowSpecialsPick.setAttribute('aria-hidden', show ? 'false' : 'true');
+    } catch {}
   }
-
 
   /* ---------- Language switch (core) ---------- */
   async function switchLanguage(to) {
@@ -319,11 +311,17 @@
     reflectAriaChecked(inputEl, rowEl);
   }
 
-  wireSwitchRow(rowAuto,     swAuto,     (on) => document.dispatchEvent(new CustomEvent('ep:auto-reveal-toggle', { detail: { on } })));
-  wireSwitchRow(rowTopic,    swTopic,    (on) => document.dispatchEvent(new CustomEvent('ep:topic-toggle',       { detail: { on } })));
-  wireSwitchRow(rowPart,     swPart,     (on) => document.dispatchEvent(new CustomEvent('ep:participation-toggle',{ detail: { estimating: on } })));
-  wireSwitchRow(rowSpecials, swSpecials, (on) => document.dispatchEvent(new CustomEvent('ep:specials-toggle',    { detail: { on } })));
-  wireSwitchRow(rowHard,     swHard,     (on) => document.dispatchEvent(new CustomEvent('ep:hard-mode-toggle',   { detail: { on } })));
+  wireSwitchRow(rowAuto,  swAuto,  (on) => document.dispatchEvent(new CustomEvent('ep:auto-reveal-toggle',  { detail: { on } })));
+  wireSwitchRow(rowTopic, swTopic, (on) => document.dispatchEvent(new CustomEvent('ep:topic-toggle',        { detail: { on } })));
+  wireSwitchRow(rowPart,  swPart,  (on) => document.dispatchEvent(new CustomEvent('ep:participation-toggle',{ detail: { estimating: on } })));
+
+  /* SPECIALS: behave like other rows (row-level toggling allowed) */
+  wireSwitchRow(rowSpecials, swSpecials, (on) => {
+  document.dispatchEvent(new CustomEvent('ep:specials-toggle', { detail: { on } }));
+  });
+
+
+  wireSwitchRow(rowHard,  swHard,  (on) => document.dispatchEvent(new CustomEvent('ep:hard-mode-toggle',    { detail: { on } })));
 
   closeBtn?.addEventListener('click', () => {
     document.dispatchEvent(new CustomEvent('ep:close-room'));
@@ -413,90 +411,11 @@
     });
   }
 
-  /* ---------- Specials palette (IDs & helpers) ---------- */
-  const SPECIALS_ORDER = ['coffee','speech','telescope','waiting','dependency','risk','relevance'];
-
-  function specialsPickVisible(on){
-    if (!rowSpecialsPick) return;
-    rowSpecialsPick.hidden = !on;
-    try { rowSpecialsPick.style.display = on ? '' : 'none'; } catch {}
-  }
-
-  function specialsSetEnabled(isHost){
-    if (!rowSpecialsPick) return;
-    const labels = $$('.spc', rowSpecialsPick);
-    labels.forEach(lbl => {
-      const input = $('input[type="checkbox"]', lbl);
-      if (!input) return;
-      input.disabled = !isHost;
-      lbl.classList.toggle('disabled', !isHost);
-      if (!isHost) lbl.setAttribute('aria-disabled', 'true');
-      else lbl.removeAttribute('aria-disabled');
-    });
-  }
-  function updateSpecialsEnabledFromBody(){
-    const isHost = document.body.classList.contains('is-host');
-    specialsSetEnabled(isHost);
-  }
-
-  function reflectSpecialsLabelState(lbl, input){
-    const on = !!(input && input.checked);
-    lbl?.setAttribute('aria-checked', on ? 'true' : 'false');
-    if (on) lbl?.classList.add('on'); else lbl?.classList.remove('on');
-  }
-
-  function readSelectedSpecials(){
-    if (!rowSpecialsPick) return [];
-    const checked = $$('label.spc input[type="checkbox"]:checked', rowSpecialsPick)
-      .map(inp => (inp.value || inp.closest('label')?.dataset?.id || '').trim())
-      .filter(Boolean);
-    // stable sort by SPECIALS_ORDER
-    return checked.sort((a,b) => SPECIALS_ORDER.indexOf(a) - SPECIALS_ORDER.indexOf(b));
-  }
-
-  function dispatchSpecialsSet(){
-    const ids = readSelectedSpecials();
-    document.dispatchEvent(new CustomEvent('ep:specials-set', { detail: { ids } }));
-  }
-
-  function initSpecialsPalette(){
-    if (!rowSpecialsPick) return;
-    // initial reflect
-    $$('label.spc', rowSpecialsPick).forEach(lbl => {
-      const input = $('input[type="checkbox"]', lbl);
-      if (!input) return;
-      reflectSpecialsLabelState(lbl, input);
-      // Click on label toggles checkbox (native), but we guard for host
-      lbl.addEventListener('click', (e) => {
-        const isHost = document.body.classList.contains('is-host');
-        if (!isHost) { e.preventDefault(); e.stopPropagation(); return; }
-        // allow native toggle, but let 'change' handler dispatch event
-      });
-      input.addEventListener('change', () => {
-        reflectSpecialsLabelState(lbl, input);
-        dispatchSpecialsSet();
-      });
-    });
-    updateSpecialsEnabledFromBody();
-    new MutationObserver(updateSpecialsEnabledFromBody)
-      .observe(document.body, { attributes:true, attributeFilter:['class'] });
-
-    // initial visibility from specials toggle
-    if (swSpecials) {
-      const aria = swSpecials.getAttribute('aria-checked');
-      const on = aria === 'true' ? true : aria === 'false' ? false : !!swSpecials.checked;
-      specialsPickVisible(on);
-    }
-  }
-
-  // react to specials ON/OFF
+  /* ---------- Specials visibility reactions ---------- */
+  // Keep the palette row in sync with master switch; all selection logic lives in specials-bridge.js
   document.addEventListener('ep:specials-toggle', (e) => {
     const on = !!(e?.detail && e.detail.on);
-    specialsPickVisible(on);
-    // When turning OFF, we broadcast empty selection (server will keep only '?')
-    if (!on) document.dispatchEvent(new CustomEvent('ep:specials-set', { detail: { ids: [] } }));
-    // When turning ON, we broadcast current selection for immediate sync
-    else dispatchSpecialsSet();
+    specials_setPaletteVisible(on);
   });
 
   /* ---------- init ---------- */
@@ -528,16 +447,12 @@
 
     forceRowLayout();
     initSequenceTooltips();
-    initSpecialsPalette();
 
-    // After init, emit current specials state for consumers that subscribe late
-    // (e.g., room.js) — this keeps the UI and server in sync on first open.
+    // After init, emit current specials ON/OFF only; selection is owned by specials-bridge.js
     if (swSpecials) {
       const aria = swSpecials.getAttribute('aria-checked');
       const on = aria === 'true' ? true : aria === 'false' ? false : !!swSpecials.checked;
-      // palette visibility already set in initSpecialsPalette
       document.dispatchEvent(new CustomEvent('ep:specials-toggle', { detail: { on } }));
-      if (on) dispatchSpecialsSet();
     }
   })();
 

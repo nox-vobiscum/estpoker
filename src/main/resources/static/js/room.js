@@ -15,7 +15,7 @@
   const $ = (s) => document.querySelector(s);
   const setText = (sel, v) => {
     const el = typeof sel === 'string' ? $(sel) : sel;
-    if (el) el.textContent = v ?? '';
+    if (el) el.textContent = (v != null ? v : '');
   };
 
   /*** ---------- i18n (lightweight) ---------- ***/
@@ -23,7 +23,7 @@
   function t(key, fallback) {
     try {
       if (key && Object.prototype.hasOwnProperty.call(MSG, key)) return MSG[key];
-      const meta = document.head && document.head.querySelector(`meta[name="msg.${key}"]`);
+      const meta = document.head && document.head.querySelector('meta[name="msg.' + key + '"]');
       if (meta && typeof meta.content === 'string' && meta.content.length) return meta.content;
     } catch {}
     return fallback;
@@ -31,7 +31,7 @@
   async function preloadMessages() {
     const lang = isDe() ? 'de' : 'en';
     try {
-      const res = await fetch(`/i18n/messages?lang=${encodeURIComponent(lang)}`, { credentials: 'same-origin' });
+      const res = await fetch('/i18n/messages?lang=' + encodeURIComponent(lang), { credentials: 'same-origin' });
       if (res.ok) {
         const data = await res.json();
         if (data && typeof data === 'object') Object.assign(MSG, data);
@@ -55,17 +55,17 @@
   });
   const SPECIALS_ORDER = Object.freeze(['coffee','speech','telescope','waiting','dependency','risk','relevance']);
   const SPECIALS_IDS_SET = new Set(SPECIALS_ORDER);
-  const ALL_SPECIALS_EMOJI = new Set([QUESTION, ...Object.values(SPECIALS_ICON_BY_ID)]);
+  const ALL_SPECIALS_EMOJI = new Set([QUESTION].concat(Object.values(SPECIALS_ICON_BY_ID)));
 
   const INFINITY_ = '♾️';
   const INFINITY_ALT = '∞';
 
   // Liveness knobs (tuned for iOS tab sleeps)
-  const HEARTBEAT_MS = 15_000;
-  const WATCHDOG_STALE_MS = 20_000;
-  const WATCHDOG_TICK_MS  = 5_000;
+  const HEARTBEAT_MS = 15000;
+  const WATCHDOG_STALE_MS = 20000;
+  const WATCHDOG_TICK_MS  = 5000;
   const RECO_BASE_MS = 800;
-  const RECO_MAX_MS  = 12_000;
+  const RECO_MAX_MS  = 12000;
 
   // script dataset / URL params
   const scriptEl = document.querySelector('script[src*="/js/room.js"]') || document.querySelector('script[src*="room.liveness.js"]');
@@ -75,7 +75,7 @@
   // Allow disabling specific specials via data-attribute (e.g., data-disabled-specials="☕,💬")
   const DISABLED_SPECIALS = new Set(
     String(ds.disabledSpecials || '')
-      .split(',').map(s => s.trim()).filter(Boolean)
+      .split(',').map(function (s) { return s.trim(); }).filter(Boolean)
   );
 
   /*** ---------- Client state ---------- ***/
@@ -157,7 +157,7 @@
       }).toString();
       const current = location.search.replace(/^\?/, '');
       if (current !== desiredQs) {
-        const newUrl = `${location.pathname}?${desiredQs}${location.hash || ''}`;
+        const newUrl = location.pathname + '?' + desiredQs + (location.hash || '');
         history.replaceState(null, '', newUrl);
       }
     } catch {}
@@ -182,10 +182,10 @@
   }
   function wsUrl() {
     const proto = location.protocol === 'https:' ? 'wss://' : 'ws://';
-    return `${proto}${location.host}/gameSocket` +
-      `?roomCode=${encodeURIComponent(state.roomCode)}` +
-      `&participantName=${encodeURIComponent(state.youName)}` +
-      `&cid=${encodeURIComponent(state.cid)}`;
+    return proto + location.host + '/gameSocket' +
+      '?roomCode=' + encodeURIComponent(state.roomCode) +
+      '&participantName=' + encodeURIComponent(state.youName) +
+      '&cid=' + encodeURIComponent(state.cid);
   }
   function syncHostClass() {
     document.body.classList.toggle('is-host', !!state.isHost);
@@ -194,44 +194,44 @@
   /*** ---------- Specials helpers ---------- ***/
   function idsToEmojis(ids) {
     if (!Array.isArray(ids)) return [];
-    const uniq = Array.from(new Set(ids.filter(id => SPECIALS_IDS_SET.has(id))));
-    return uniq.map(id => SPECIALS_ICON_BY_ID[id]).filter(Boolean);
+    const uniq = Array.from(new Set(ids.filter(function (id) { return SPECIALS_IDS_SET.has(id); })));
+    return uniq.map(function (id) { return SPECIALS_ICON_BY_ID[id]; }).filter(Boolean);
   }
   function emojisToIds(emojis) {
     if (!Array.isArray(emojis)) return [];
-    const mapEmojiToId = new Map(Object.entries(SPECIALS_ICON_BY_ID).map(([k,v]) => [v,k]));
+    const mapEmojiToId = new Map(Object.entries(SPECIALS_ICON_BY_ID).map(function (kv) { return [kv[1], kv[0]]; }));
     return Array.from(new Set(
-      emojis.map(e => mapEmojiToId.get(e)).filter(Boolean)
+      emojis.map(function (e) { return mapEmojiToId.get(e); }).filter(Boolean)
     ));
   }
   function canonicalizeIds(ids) {
-    const set = new Set(ids.filter(id => SPECIALS_IDS_SET.has(id)));
-    return SPECIALS_ORDER.filter(id => set.has(id));
+    const set = new Set(ids.filter(function (id) { return SPECIALS_IDS_SET.has(id); }));
+    return SPECIALS_ORDER.filter(function (id) { return set.has(id); });
   }
   function tipForSpecialEmoji(emoji) {
     // Fallbacks in both languages (i18n keys may not exist yet)
     switch (emoji) {
       case QUESTION: return t('card.tip.question',
-        'I still have questions about this requirement.',
+        'I still have questions about this requirement.'
         );
       case '☕': return t('card.tip.coffee', 'I need a short break…');
       case '💬': return t('card.tip.speech',
-        'We need a separate meeting before we can estimate.',
+        'We need a separate meeting before we can estimate.'
       );
       case '🔭': return t('card.tip.telescope',
-        'We need a spike/exploration task first.',
+        'We need a spike/exploration task first.'
       );
       case '⏳': return t('card.tip.waiting',
-        'We can estimate only after a prerequisite is met.',
+        'We can estimate only after a prerequisite is met.'
       );
       case '🔗': return t('card.tip.dependency',
-        'This estimate depends on another task’s outcome.',
+        'This estimate depends on another task’s outcome.'
       );
       case '⚠️': return t('card.tip.risk',
-        'There are risks that significantly affect the estimate.',
+        'There are risks that significantly affect the estimate.'
       );
       case '🎯': return t('card.tip.relevance',
-        'First confirm alignment with goals/vision.',
+        'First confirm alignment with goals/vision.'
       );
       default: return '';
     }
@@ -239,18 +239,21 @@
 
   /*** ---------- Deck bootstrap & number formatting ---------- ***/
   // Build a deck from sequence + extras (QUESTION is always included at the end)
-  function defaultDeck(seqId = 'fib.scrum', allowExtras = true, extras = []) {
+  function defaultDeck(seqId, allowExtras, extras) {
+    if (seqId == null) seqId = 'fib.scrum';
+    if (typeof allowExtras !== 'boolean') allowExtras = true;
+    if (!Array.isArray(extras)) extras = [];
     // Core numeric deck
     const base = ['0', '1/2', '1', '2', '3', '5', '8', '13', '20', '40', '100'];
-    const withInfinity = [...base, INFINITY_]; // only visible in fib.enh
+    const withInfinity = base.concat([INFINITY_]); // only visible in fib.enh
     const core = (seqId === 'fib.enh') ? withInfinity : base;
 
     // Extras: filter disabled & dedupe & keep stable order by SPECIALS_ORDER
     const extrasEmoji = allowExtras ? idsToEmojis(canonicalizeIds(extras)) : [];
-    const filteredExtras = extrasEmoji.filter(e => !DISABLED_SPECIALS.has(String(e)));
+    const filteredExtras = extrasEmoji.filter(function (e) { return !DISABLED_SPECIALS.has(String(e)); });
 
     // QUESTION is always present (last)
-    return [...core, ...filteredExtras, QUESTION];
+    return core.concat(filteredExtras).concat([QUESTION]);
   }
 
   function ensureBootstrapDeck() {
@@ -258,11 +261,11 @@
       state.sequenceId = normalizeSeq(state.sequenceId || 'fib.scrum');
       let deck = defaultDeck(state.sequenceId, state.allowSpecials, state.specialsSelected);
       if (state.sequenceId !== 'fib.enh') {
-        deck = deck.filter(c => c !== INFINITY_ && c !== INFINITY_ALT);
+        deck = deck.filter(function (c) { return c !== INFINITY_ && c !== INFINITY_ALT; });
       }
-      deck = deck.filter(c => !DISABLED_SPECIALS.has(String(c)));
+      deck = deck.filter(function (c) { return !DISABLED_SPECIALS.has(String(c)); });
       // ensure QUESTION last
-      deck = deck.filter(c => c !== QUESTION);
+      deck = deck.filter(function (c) { return c !== QUESTION; });
       deck.push(QUESTION);
       state.cards = deck;
     }
@@ -284,7 +287,7 @@
   function fmtRange(s){
     if (s == null || s === '') return null;
     const parts = String(s).split(/[-–—]/);
-    if (parts.length === 2) return `${fmtStat(parts[0].trim())}–${fmtStat(parts[1].trim())}`;
+    if (parts.length === 2) return fmtStat(parts[0].trim()) + '–' + fmtStat(parts[1].trim());
     return String(s);
   }
 
@@ -299,7 +302,7 @@
 
   function startHeartbeat() {
     stopHeartbeat();
-    hbTimer = setInterval(() => {
+    hbTimer = setInterval(function () {
       if (state.ws && state.ws.readyState === 1) {
         try { state.ws.send('ping'); } catch {}
       }
@@ -309,7 +312,7 @@
 
   function startWatchdog() {
     stopWatchdog();
-    wdTimer = setInterval(() => {
+    wdTimer = setInterval(function () {
       const ws = state.ws;
       if (ws && ws.readyState === 1) {
         const age = Date.now() - lastInboundAt;
@@ -332,8 +335,8 @@
     const base = Math.min(RECO_MAX_MS, RECO_BASE_MS * Math.pow(2, attempt));
     const jitter = base * (0.3 * Math.random());
     const delay = Math.max(300, base - (base * 0.15) + jitter);
-    console.warn(TAG, 'scheduleReconnect', { reason, attempt, delay });
-    rcTimer = setTimeout(() => {
+    console.warn(TAG, 'scheduleReconnect', { reason: reason, attempt: attempt, delay: delay });
+    rcTimer = setTimeout(function () {
       rcTimer = null;
       connectWS();
     }, delay);
@@ -344,12 +347,13 @@
   }
 
   function pokeServerAndSync() {
-    try { state.ws && state.ws.readyState === 1 && state.ws.send('ping'); } catch {}
+    try { if (state.ws && state.ws.readyState === 1) state.ws.send('ping'); } catch {}
     try { send('requestSync'); } catch {}
-    setTimeout(() => { try { send('requestSync'); } catch {} }, 200);
+    setTimeout(function () { try { send('requestSync'); } catch {} }, 200);
   }
 
-  function wake(reason = 'wake') {
+  function wake(reason) {
+    if (reason == null) reason = 'wake';
     if (state.hardRedirect) return;
     if (navigator && 'onLine' in navigator && !navigator.onLine) {
       console.info(TAG, 'wake: offline — will wait for "online"');
@@ -361,7 +365,7 @@
       pokeServerAndSync();
     } else {
       console.info(TAG, 'wake:', reason, '→ reconnect now');
-      try { ws && ws.close(4003, 'wake-reconnect'); } catch {}
+      try { if (ws) ws.close(4003, 'wake-reconnect'); } catch {}
       resetReconnectBackoff();
       connectWS();
     }
@@ -384,7 +388,7 @@
     state.ws = s;
     try { window.__epWs = s; } catch {}
 
-    s.onopen = () => {
+    s.onopen = function () {
       state.connected = true;
       lastInboundAt = Date.now();
       resetReconnectBackoff();
@@ -393,12 +397,12 @@
 
       try { send('rename:' + encodeURIComponent(state.youName)); } catch {}
       try { send('requestSync'); } catch {}
-      setTimeout(() => { try { send('requestSync'); } catch {} }, 400);
+      setTimeout(function () { try { send('requestSync'); } catch {} }, 400);
 
       try { renderParticipants(); } catch {}
     };
 
-    s.onclose = (ev) => {
+    s.onclose = function (ev) {
       state.connected = false;
       stopHeartbeat();
       stopWatchdog();
@@ -414,9 +418,9 @@
       if (ev.code === 4005) {
         if (state.cidWasNew) {
           const redirectUrl =
-            `/invite?roomCode=${encodeURIComponent(state.roomCode)}` +
-            `&participantName=${encodeURIComponent(state.youName)}` +
-            `&nameTaken=1`;
+            '/invite?roomCode=' + encodeURIComponent(state.roomCode) +
+            '&participantName=' + encodeURIComponent(state.youName) +
+            '&nameTaken=1';
           state.hardRedirect = redirectUrl;
           location.replace(redirectUrl);
           return;
@@ -429,23 +433,23 @@
       scheduleReconnect('close');
     };
 
-    s.onerror = (e) => {
+    s.onerror = function (e) {
       console.warn(TAG, 'ws error', e);
     };
 
-    s.onmessage = (ev) => {
+    s.onmessage = function (ev) {
       lastInboundAt = Date.now();
 
       if (ev.data === 'pong') return;
 
       // Legacy plain-text roster frames first
       if (typeof ev.data === 'string') {
-        if (ev.data.startsWith('participantJoined:')) {
+        if (ev.data.indexOf('participantJoined:') === 0) {
           const name = ev.data.slice('participantJoined:'.length).trim();
           if (name) { addParticipantLocal(name); try { renderParticipants(); } catch {} }
           return;
         }
-        if (ev.data.startsWith('participantLeft:')) {
+        if (ev.data.indexOf('participantLeft:') === 0) {
           const name = ev.data.slice('participantLeft:'.length).trim();
           if (name) { removeParticipantLocal(name); try { renderParticipants(); } catch {} }
           return;
@@ -459,12 +463,12 @@
           switch (msg && msg.type) {
             case 'participantJoined': {
               const name = (msg.name || '').trim();
-              if (name) { addParticipantLocal(name); try { renderParticipants && renderParticipants(); } catch {} }
+              if (name) { addParticipantLocal(name); try { if (renderParticipants) renderParticipants(); } catch {} }
               return;
             }
             case 'participantLeft': {
               const name = (msg.name || '').trim();
-              if (name) { removeParticipantLocal(name); try { renderParticipants && renderParticipants(); } catch {} }
+              if (name) { removeParticipantLocal(name); try { if (renderParticipants) renderParticipants(); } catch {} }
               return;
             }
             case 'kicked': {
@@ -480,7 +484,10 @@
       // Full JSON room-state messages
       try {
         const msg = JSON.parse(ev.data);
-        try { (window.__epVU ||= []).push(msg); } catch {}
+        try {
+          window.__epVU = window.__epVU || [];
+          window.__epVU.push(msg);
+        } catch {}
         handleMessage(msg);
       } catch (e) {
         console.warn(TAG, 'Bad message', e);
@@ -498,34 +505,34 @@
       }
       case 'roomClosed': {
         state.hardRedirect = m.redirect || '/';
-        try { state.ws && state.ws.close(4000, 'Room closed'); } catch {}
+        try { if (state.ws) state.ws.close(4000, 'Room closed'); } catch {}
         break;
       }
       case 'kicked': {
         state.hardRedirect = m.redirect || '/';
-        try { state.ws && state.ws.close(4001, 'Kicked'); } catch {}
+        try { if (state.ws) state.ws.close(4001, 'Kicked'); } catch {}
         break;
       }
       case 'participantJoined': {
         addParticipantLocal((m.name || '').trim());
-        try { renderParticipants && renderParticipants(); } catch {}
+        try { if (renderParticipants) renderParticipants(); } catch {}
         break;
       }
       case 'participantLeft': {
         removeParticipantLocal((m.name || '').trim());
-        try { renderParticipants && renderParticipants(); } catch {}
+        try { if (renderParticipants) renderParticipants(); } catch {}
         break;
       }
       case 'participantRenamed': {
         const from = m.from || '', to = m.to || '';
-        if (from !== state.youName) showToast(isDe() ? `${from} heißt jetzt ${to}` : `${from} is now ${to}`);
+        if (from !== state.youName) showToast(isDe() ? (from + ' heißt jetzt ' + to) : (from + ' is now ' + to));
         break;
       }
       case 'hostTransferred': {
         const from = m.from || '', to = m.to || '';
         const msg = (state.youName === to)
           ? (isDe() ? 'Host gewechselt. Du bist jetzt Host!' : 'Host changed. You are now host!')
-          : (isDe() ? `Host-Rolle wurde an ${to} übertragen` : `Host role transferred to ${to}`);
+          : (isDe() ? ('Host-Rolle wurde an ' + to + ' übertragen') : ('Host role transferred to ' + to));
         showToast(msg);
         break;
       }
@@ -548,10 +555,10 @@
   function rebuildDeckFromState() {
     const seqId = state.sequenceId || 'fib.scrum';
     let deck = defaultDeck(seqId, state.allowSpecials, state.specialsSelected);
-    if (seqId !== 'fib.enh') deck = deck.filter(c => c !== INFINITY_ && c !== INFINITY_ALT);
-    deck = deck.filter(c => !DISABLED_SPECIALS.has(String(c)));
+    if (seqId !== 'fib.enh') deck = deck.filter(function (c) { return c !== INFINITY_ && c !== INFINITY_ALT; });
+    deck = deck.filter(function (c) { return !DISABLED_SPECIALS.has(String(c)); });
     // QUESTION at end
-    deck = deck.filter(c => c !== QUESTION);
+    deck = deck.filter(function (c) { return c !== QUESTION; });
     deck.push(QUESTION);
     state.cards = deck;
 
@@ -563,7 +570,7 @@
 
   function applyVoteUpdate(m) {
     try {
-      const has = (obj, k) => Object.prototype.hasOwnProperty.call(obj || {}, k);
+      const has = function (obj, k) { return Object.prototype.hasOwnProperty.call(obj || {}, k); };
 
       // sequence id (guard against reverting a very recent local change)
       if (has(m, 'sequenceId')) {
@@ -593,7 +600,7 @@
       // Accept either array of emojis (['☕','💬']) or array of IDs (['coffee','speech'])
       if (has(m, 'specials') && Array.isArray(m.specials)) {
         const arr = m.specials.slice();
-        const looksLikeIds = arr.every(x => typeof x === 'string' && SPECIALS_IDS_SET.has(x));
+        const looksLikeIds = arr.every(function (x) { return typeof x === 'string' && SPECIALS_IDS_SET.has(x); });
         extrasFromServerEmoji = looksLikeIds ? idsToEmojis(arr) : arr;
         extrasEnabledFromServer = extrasFromServerEmoji.length > 0;
         // Keep selected IDs in state (stable order)
@@ -617,26 +624,26 @@
         deck = defaultDeck(seqId, state.allowSpecials, ids);
         // If server supplied explicit extras (emoji), prefer those (still always include QUESTION)
         if (extrasFromServerEmoji) {
-          deck = deck.filter(c => c !== QUESTION); // drop question, will be re-appended
+          deck = deck.filter(function (c) { return c !== QUESTION; }); // drop question, will be re-appended
           const base = defaultDeck(seqId, false, []); // no extras + QUESTION
-          deck = [...base.filter(c => c !== QUESTION), ...extrasFromServerEmoji, QUESTION];
+          deck = base.filter(function (c) { return c !== QUESTION; }).concat(extrasFromServerEmoji).concat([QUESTION]);
         }
       }
 
       // Infinity only for enh
-      if (seqId !== 'fib.enh') deck = deck.filter(c => c !== INFINITY_ && c !== INFINITY_ALT);
+      if (seqId !== 'fib.enh') deck = deck.filter(function (c) { return c !== INFINITY_ && c !== INFINITY_ALT; });
 
       // Honor local disabled specials
-      deck = deck.filter(c => !DISABLED_SPECIALS.has(String(c)));
+      deck = deck.filter(function (c) { return !DISABLED_SPECIALS.has(String(c)); });
 
       // Safety: ensure QUESTION last
-      deck = deck.filter(c => c !== QUESTION);
+      deck = deck.filter(function (c) { return c !== QUESTION; });
       deck.push(QUESTION);
 
       // Safety
       if (!deck.length) {
         deck = defaultDeck(seqId, state.allowSpecials, state.specialsSelected);
-        if (seqId !== 'fib.enh') deck = deck.filter(c => c !== INFINITY_ && c !== INFINITY_ALT);
+        if (seqId !== 'fib.enh') deck = deck.filter(function (c) { return c !== INFINITY_ && c !== INFINITY_ALT; });
       }
       state.cards = deck;
 
@@ -651,8 +658,8 @@
       if (has(m, 'medianVote') || has(m, 'median'))    state.medianVote  = has(m, 'medianVote')  ? m.medianVote  : m.median;
       if (has(m, 'range'))                              state.range       = m.range;
       else if (has(m, 'min') || has(m, 'max')) {
-        const min = m.min ?? null, max = m.max ?? null;
-        state.range = (min != null && max != null) ? `${min}–${max}` : null;
+        const min = (m.min != null ? m.min : null), max = (m.max != null ? m.max : null);
+        state.range = (min != null && max != null) ? (min + '–' + max) : null;
       }
 
       if (has(m, 'consensus'))          state.consensus = !!m.consensus;
@@ -672,41 +679,43 @@
       let hostInfoUpdated = false;
 
       if (has(m, 'participants') && Array.isArray(m.participants)) {
-        const prevByName = Object.fromEntries((state.participants || []).map(p => [p.name, p]));
+        const prevByName = {};
+        (state.participants || []).forEach(function (p) { if (p && p.name) prevByName[p.name] = p; });
         const next = [];
 
-        for (const p of m.participants) {
+        for (let i = 0; i < m.participants.length; i++) {
+          const p = m.participants[i];
           if (!p) continue;
           const prev = prevByName[p.name] || null;
 
-          const name = (p.name || prev?.name || '').trim();
+          const name = (p.name || (prev && prev.name) || '').trim();
           if (!name) continue;
 
-          const vote = has(p, 'vote') ? (p.vote ?? null) : (prev ? (prev.vote ?? null) : null);
+          const vote = has(p, 'vote') ? (p.vote != null ? p.vote : null) : (prev ? (prev.vote != null ? prev.vote : null) : null);
 
           const spectator =
             has(p, 'spectator')     ? !!p.spectator :
             has(p, 'participating') ? (p.participating === false) :
-            !!prev?.spectator;
+            !!(prev && prev.spectator);
 
           const participating =
             has(p, 'participating') ? (p.participating !== false) :
             (!spectator && (prev ? (prev.participating !== false) : true));
 
           next.push({
-            name,
-            vote,
-            spectator,
-            participating,
-            disconnected: has(p,'disconnected') ? !!p.disconnected : !!prev?.disconnected,
-            away:         has(p,'away')         ? !!p.away         : !!prev?.away,
-            isHost:       has(p,'isHost')       ? !!p.isHost       : !!prev?.isHost
+            name: name,
+            vote: vote,
+            spectator: spectator,
+            participating: participating,
+            disconnected: has(p,'disconnected') ? !!p.disconnected : !!(prev && prev.disconnected),
+            away:         has(p,'away')         ? !!p.away         : !!(prev && prev.away),
+            isHost:       has(p,'isHost')       ? !!p.isHost       : !!(prev && prev.isHost)
           });
         }
 
         if (next.length) state.participants = next;
 
-        const meNow = state.participants.find(p => p && p.name === state.youName);
+        const meNow = state.participants.find(function (p) { return p && p.name === state.youName; });
         if (meNow && typeof meNow.isHost === 'boolean') {
           state.isHost = !!meNow.isHost;
           state.selfSpectator = !!(meNow.spectator === true || meNow.participating === false);
@@ -724,7 +733,7 @@
         state._hostKnown = true;
       }
 
-      const me = state.participants.find(p => p && p.name === state.youName);
+      const me = state.participants.find(function (p) { return p && p.name === state.youName; });
       if (me && me.vote != null) state._optimisticVote = null;
 
       syncHostClass();
@@ -734,9 +743,9 @@
       renderTopic();
       renderAutoReveal();
 
-      try { (state.participants || []).forEach(p => { if (p && !p.disconnected) markAlive(p.name); }); } catch {}
+      try { (state.participants || []).forEach(function (p) { if (p && !p.disconnected) markAlive(p.name); }); } catch {}
 
-      requestAnimationFrame(() => { syncMenuFromState(); syncSequenceInMenu(); syncSpecialsPaletteFromState(); });
+      requestAnimationFrame(function () { syncMenuFromState(); syncSequenceInMenu(); syncSpecialsPaletteFromState(); });
       if (!document.documentElement.hasAttribute('data-ready')) {
         document.documentElement.setAttribute('data-ready', '1');
       }
@@ -746,7 +755,7 @@
 
     // Safety: ensure we show "self" locally if server sends an empty list initially
     if (Array.isArray(state.participants) &&
-        !state.participants.some(p => p && p.name === state.youName)) {
+        !state.participants.some(function (p) { return p && p.name === state.youName; })) {
       state.participants.unshift({
         name: state.youName || 'You',
         vote: null, disconnected:false, away:false,
@@ -768,11 +777,12 @@
 
     try {
       const list = (state.participants || [])
-        .map(p => (typeof p === 'string' ? { name: p } : p))
-        .filter(p => p && p.name);
+        .map(function (p) { return (typeof p === 'string' ? { name: p } : p); })
+        .filter(function (p) { return p && p.name; });
 
       const frag = document.createDocumentFragment();
-      list.forEach(p => {
+
+      list.forEach(function (p) {
         if (!p || !p.name) return;
 
         const li = document.createElement('li');
@@ -780,15 +790,15 @@
 
         const isInactive = !!p.disconnected || !!p.away;
         if (isInactive) li.classList.add('disconnected');
-        if (p.isHost)    li.classList.add('is-host');
+        if (p.isHost) li.classList.add('is-host');
         if (isSpectator(p)) li.classList.add('spectator');
 
         const left = document.createElement('span');
         left.className = 'participant-icon' + (p.isHost ? ' host' : '');
-        let icon = '👤';
-        if (p.isHost)              icon = '👑';
-        else if (isSpectator(p))   icon = '👁️';
-        else if (isInactive)       icon = '💤';
+        var icon = '👤';
+        if (p.isHost) icon = '👑';
+        else if (isSpectator(p)) icon = '👁️';
+        else if (isInactive) icon = '💤';
         left.textContent = icon;
         left.setAttribute('aria-hidden', 'true');
         if (isInactive) left.classList.add('inactive');
@@ -800,11 +810,10 @@
         li.appendChild(name);
 
         // SR-only host label
-        const srLabel = t('label.host', 'Host');
         if (p.isHost) {
           const sr = document.createElement('span');
           sr.className = 'host-label sr-only';
-          sr.textContent = srLabel;
+          sr.textContent = t('label.host', 'Host');
           left.appendChild(sr);
         }
 
@@ -813,36 +822,36 @@
 
         if (!state.votesRevealed) {
           if (isSpectator(p)) {
-            const eye = document.createElement('span');
+            var eye = document.createElement('span');
             eye.className = 'mini-chip spectator';
             eye.textContent = '👁️';
             right.appendChild(eye);
           } else if (!p.disconnected && p.vote != null && String(p.vote) !== '') {
-            const ok = document.createElement('span');
+            var ok = document.createElement('span');
             ok.className = 'mini-chip done';
             ok.textContent = '✓';
             right.appendChild(ok);
           } else {
-            const dash = document.createElement('span');
+            var dash = document.createElement('span');
             dash.className = isInactive ? 'mini-chip' : 'mini-chip pending';
             dash.textContent = isInactive ? '–' : '⏳';
             right.appendChild(dash);
           }
         } else {
           if (isSpectator(p)) {
-            const eye = document.createElement('span');
-            eye.className = 'mini-chip spectator';
-            eye.textContent = '👁️';
-            right.appendChild(eye);
+            var eye2 = document.createElement('span');
+            eye2.className = 'mini-chip spectator';
+            eye2.textContent = '👁️';
+            right.appendChild(eye2);
           } else if (isInactive) {
-            const dash = document.createElement('span');
-            dash.className = 'mini-chip';
-            dash.textContent = '–';
-            right.appendChild(dash);
+            var dash2 = document.createElement('span');
+            dash2.className = 'mini-chip';
+            dash2.textContent = '–';
+            right.appendChild(dash2);
           } else {
-            const chip = document.createElement('span');
-            const noVote  = (p.vote == null || p.vote === '');
-            const display = noVote ? '–' : String(p.vote);
+            var chip = document.createElement('span');
+            var noVote = (p.vote == null || p.vote === '');
+            var display = noVote ? '–' : String(p.vote);
 
             if (noVote) {
               chip.className = 'mini-chip';
@@ -852,55 +861,71 @@
               chip.className = 'vote-chip';
               chip.textContent = display;
 
-              const isInfinity = (display === INFINITY_ || display === INFINITY_ALT);
-              const isSpecial  = ALL_SPECIALS_EMOJI.has(display);
+              var isInfinity = (display === INFINITY_ || display === INFINITY_ALT);
+              var isSpecial = ALL_SPECIALS_EMOJI.has(display);
 
               if (!isInfinity && isSpecial) chip.classList.add('special');
 
               if (!isSpecial) {
-                const hue = heatHueForLabel(display);
+                var hue = heatHueForLabel(display);
                 if (hue != null) {
                   chip.classList.add('heat');
                   chip.style.setProperty('--chip-heat-h', String(hue));
                 }
               }
 
-              if (Array.isArray(state.outliers) && state.outliers.includes(p.name)) chip.classList.add('outlier');
+              if (Array.isArray(state.outliers) && state.outliers.indexOf(p.name) !== -1) chip.classList.add('outlier');
 
               right.appendChild(chip);
             }
           }
         }
 
+        // --- Host action buttons -------------------------------------------------
         if (state.isHost && !p.isHost) {
-          // --- Make Host ----------------------------------------------------
-          const makeHostBtn = document.createElement('button');
+          // Make host
+          var makeHostBtn = document.createElement('button');
           makeHostBtn.className = 'row-action host';
           makeHostBtn.type = 'button';
-          makeHostBtn.dataset.action = 'host';
-          makeHostBtn.dataset.name = p.name;
-
-          const labelMakeHost = t('action.makeHost', isDe() ? 'Zum Host machen' : 'Make host');
+          makeHostBtn.setAttribute('data-action', 'host');
+          makeHostBtn.setAttribute('data-name', p.name);
+          var labelMakeHost = t('action.makeHost', isDe() ? 'Zum Host machen' : 'Make host');
           makeHostBtn.setAttribute('aria-label', labelMakeHost);
           makeHostBtn.setAttribute('title', labelMakeHost);
-          makeHostBtn.innerHTML =
-            '<span class="ra-icon" aria-hidden="true">👑</span><span class="ra-label">Host</span>';
-
+          var makeHostLbl = document.createElement('span');
+          makeHostLbl.className = 'ra-label';
+          makeHostLbl.textContent = 'Host';
+          makeHostBtn.appendChild(makeHostLbl);
           right.appendChild(makeHostBtn);
 
-          // --- Kick ---------------------------------------------------------
-          const kickBtn = document.createElement('button');
+          // Spectator toggle
+          var spectBtn = document.createElement('button');
+          spectBtn.className = 'row-action spectator';
+          spectBtn.type = 'button';
+          spectBtn.setAttribute('data-action', 'spectator');
+          spectBtn.setAttribute('data-name', p.name);
+          var labelSpect = t('action.spectatorToggle', isDe() ? 'Zuschauer umschalten' : 'Toggle spectator');
+          spectBtn.setAttribute('aria-label', labelSpect);
+          spectBtn.setAttribute('title', labelSpect);
+          var spectLbl = document.createElement('span');
+          spectLbl.className = 'ra-label';
+          spectLbl.textContent = 'Spectator';
+          spectBtn.appendChild(spectLbl);
+          right.appendChild(spectBtn);
+
+          // Kick
+          var kickBtn = document.createElement('button');
           kickBtn.className = 'row-action kick';
           kickBtn.type = 'button';
-          kickBtn.dataset.action = 'kick';
-          kickBtn.dataset.name = p.name;
-
-          const labelKick = t('action.kick', isDe() ? 'Teilnehmer entfernen' : 'Kick participant');
+          kickBtn.setAttribute('data-action', 'kick');
+          kickBtn.setAttribute('data-name', p.name);
+          var labelKick = t('action.kick', isDe() ? 'Teilnehmer entfernen' : 'Kick participant');
           kickBtn.setAttribute('aria-label', labelKick);
           kickBtn.setAttribute('title', labelKick);
-          kickBtn.innerHTML =
-            '<span class="ra-icon" aria-hidden="true">❌</span><span class="ra-label">Kick</span>';
-
+          var kickLbl = document.createElement('span');
+          kickLbl.className = 'ra-label';
+          kickLbl.textContent = 'Kick';
+          kickBtn.appendChild(kickLbl);
           right.appendChild(kickBtn);
         }
 
@@ -926,8 +951,8 @@
   function numericDeckFromState() {
     const nums = (state.cards || [])
       .map(parseVoteNumber)
-      .filter(v => v !== null && v !== undefined && !Number.isNaN(v));
-    const uniq = [...new Set(nums)].sort((a, b) => (a === b ? 0 : a < b ? -1 : 1));
+      .filter(function (v) { return v !== null && v !== undefined && !Number.isNaN(v); });
+    const uniq = Array.from(new Set(nums)).sort(function (a, b) { return (a === b ? 0 : a < b ? -1 : 1); });
     return uniq;
   }
   const PIVOT_BY_SEQUENCE = { 'fib.enh': 13, 'fib.scrum': 13, 'fib.math': 13, 'pow2': 32 };
@@ -937,16 +962,17 @@
     const v = parseVoteNumber(label);
     if (v == null) return null;
 
-    let idx = deck.findIndex(x => Object.is(x, v));
-    if (idx < 0) { idx = deck.findIndex(x => x > v); if (idx < 0) idx = deck.length - 1; }
+    let idx = deck.findIndex(function (x) { return Object.is(x, v); });
+    if (idx < 0) { idx = deck.findIndex(function (x) { return x > v; }); if (idx < 0) idx = deck.length - 1; }
 
     const max = Math.max(1, deck.length - 1);
     let t = idx / max;
 
-    const pivotLabel = PIVOT_BY_SEQUENCE[state.sequenceId || ''] ?? null;
+    const pivRaw = PIVOT_BY_SEQUENCE[state.sequenceId || ''];
+    const pivotLabel = (typeof pivRaw !== 'undefined') ? pivRaw : null;
     let gamma = 1.25;
     if (pivotLabel != null) {
-      const pivIdx = deck.findIndex(x => Object.is(x, pivotLabel));
+      const pivIdx = deck.findIndex(function (x) { return Object.is(x, pivotLabel); });
       if (pivIdx > 0) {
         const frac = Math.min(0.999, Math.max(0.001, (pivIdx / max)));
         const g = Math.log(0.5) / Math.log(frac);
@@ -961,15 +987,15 @@
 
   /*** ---------- Cards ---------- ***/
   function mySelectedValue() {
-    const me = state.participants.find(pp => pp.name === state.youName);
+    const me = state.participants.find(function (pp) { return pp.name === state.youName; });
     if (me && me.vote != null && me.vote !== '') return String(me.vote);
     if (state._optimisticVote != null) return String(state._optimisticVote);
     return null;
   }
   function allEligibleVoted() {
-    const elig = state.participants.filter(p => p && !isSpectator(p) && !p.disconnected);
+    const elig = state.participants.filter(function (p) { return p && !isSpectator(p) && !p.disconnected; });
     if (!elig.length) return false;
-    return elig.every(p => p.vote != null && String(p.vote) !== '');
+    return elig.every(function (p) { return p.vote != null && String(p.vote) !== ''; });
   }
 
   function msg(key, en, de) {
@@ -981,14 +1007,14 @@
     const grid = $('#cardGrid'); if (!grid) return;
     grid.innerHTML = '';
 
-    const me = state.participants.find(pp => pp.name === state.youName);
+    const me = state.participants.find(function (pp) { return pp.name === state.youName; });
     const isSpectatorMe = state.selfSpectator || !!(me && isSpectator(me));
     const disabled = state.votesRevealed || isSpectatorMe;
 
     const deckSpecialsFromState = (state.cards || [])
-      .filter(v => ALL_SPECIALS_EMOJI.has(v) && !DISABLED_SPECIALS.has(String(v)));
+      .filter(function (v) { return ALL_SPECIALS_EMOJI.has(v) && !DISABLED_SPECIALS.has(String(v)); });
     const deckNumbers = (state.cards || [])
-      .filter(v => !ALL_SPECIALS_EMOJI.has(v) && !DISABLED_SPECIALS.has(String(v)));
+      .filter(function (v) { return !ALL_SPECIALS_EMOJI.has(v) && !DISABLED_SPECIALS.has(String(v)); });
 
     const specials = deckSpecialsFromState;
 
@@ -1060,7 +1086,7 @@
 
     if (!state.votesRevealed) { sink.textContent = ''; return; }
 
-    const toS = (v) => (v == null || v === '' ? null : String(v));
+    const toS = function (v) { return (v == null || v === '' ? null : String(v)); };
     const avg    = toS(fmtStat(state.averageVote));
     const median = toS(fmtStat(state.medianVote));
     let   range  = toS(fmtRange(state.range));
@@ -1068,12 +1094,12 @@
 
     let msg = '';
     if (state.consensus && avg) {
-      msg = `🎉 Consensus ${avg}`;
+      msg = '🎉 Consensus ' + avg;
     } else {
       const parts = [];
-      if (avg)    parts.push(`Average: ${avg}`);
-      if (median) parts.push(`Median: ${median}`);
-      if (range)  parts.push(`Range: ${range}`);
+      if (avg)    parts.push('Average: ' + avg);
+      if (median) parts.push('Median: ' + median);
+      if (range)  parts.push('Range: ' + range);
       msg = parts.join(', ');
     }
     sink.textContent = msg;
@@ -1100,11 +1126,11 @@
     const hasInfinity = !!(
       state.votesRevealed &&
       Array.isArray(state.participants) &&
-      state.participants.some(p => p && !isSpectator(p) && (p.vote === INFINITY_ || p.vote === INFINITY_ALT))
+      state.participants.some(function (p) { return p && !isSpectator(p) && (p.vote === INFINITY_ || p.vote === INFINITY_ALT); })
     );
 
-    const toStr  = (v) => (v == null || v === '' ? null : String(v));
-    const withInf = (base) => (base != null ? base + (hasInfinity ? ' +♾️' : '') : (hasInfinity ? '♾️' : null));
+    const toStr  = function (v) { return (v == null || v === '' ? null : String(v)); };
+    const withInf = function (base) { return (base != null ? base + (hasInfinity ? ' +♾️' : '') : (hasInfinity ? '♾️' : null)); };
 
     const avgWrap    = document.querySelector('#resultLabel .label-average');
     const consEl     = document.querySelector('#resultLabel .label-consensus');
@@ -1118,7 +1144,7 @@
 
     if (avgEl) {
       const avgTxt = withInf(toStr(fmtStat(state.averageVote)));
-      avgEl.textContent = avgTxt ?? (state.votesRevealed ? 'N/A' : '');
+      avgEl.textContent = (avgTxt != null ? avgTxt : (state.votesRevealed ? 'N/A' : ''));
     }
 
     if (row) {
@@ -1166,11 +1192,11 @@
     const s = String(input || '').trim();
     if (!s) return { label: null, url: null };
 
-    const isUrl = s.startsWith('http://') || s.startsWith('https://');
+    const isUrl = s.indexOf('http://') === 0 || s.indexOf('https://') === 0;
     const jiraKeyMatch = s.match(/\b([A-Z][A-Z0-9]+-\d+)\b/);
     const label = jiraKeyMatch ? jiraKeyMatch[1] : (s.length > MAX_LABEL ? (s.slice(0, MAX_LABEL) + '…') : s);
     const url2 = isUrl ? s : null;
-    return { label, url: url2 };
+    return { label: label, url: url2 };
   }
 
   function beginTopicEdit() {
@@ -1185,10 +1211,10 @@
     if (!row || row.__topicDelegatesBound) return;
     row.__topicDelegatesBound = true;
 
-    const act = (id) => {
+    const act = function (id) {
       if (!state.isHost) return;
 
-      const doClear = () => {
+      const doClear = function () {
         state.topicLabel = '';
         state.topicUrl = null;
         state.topicEditing = false;
@@ -1196,9 +1222,9 @@
         renderTopic();
         try { send('topicSave:' + encodeURIComponent('')); } catch {}
       };
-      const doSave = () => {
+      const doSave = function () {
         const input = row.querySelector('#topicDisplay');
-        const raw = (input && input.tagName === 'INPUT') ? input.value : (state._topicDraft ?? '');
+        const raw = (input && input.tagName === 'INPUT') ? input.value : (state._topicDraft != null ? state._topicDraft : '');
         const parsed = clientParseTopic(raw);
         state.topicLabel = parsed.label;
         state.topicUrl = parsed.url;
@@ -1207,7 +1233,7 @@
         renderTopic();
         try { send('topicSave:' + encodeURIComponent(raw)); } catch {}
       };
-      const doCancel = () => {
+      const doCancel = function () {
         state.topicEditing = false;
         state._topicDraft = null;
         renderTopic();
@@ -1220,17 +1246,17 @@
     };
 
     // Early capture
-    row.addEventListener('pointerdown', (e) => {
+    row.addEventListener('pointerdown', function (e) {
       if (e.button !== 0) return;
       const btn = e.target && e.target.closest &&
         e.target.closest('#topicEditBtn,#topicClearBtn,#topicSaveBtn,#topicCancelEditBtn');
       if (!btn) return;
-      e.preventDefault?.();
+      if (e.preventDefault) e.preventDefault();
       act(btn.id);
     }, { capture: true, passive: false });
 
     // Fallback click
-    row.addEventListener('click', (e) => {
+    row.addEventListener('click', function (e) {
       const btn = e.target && e.target.closest &&
         e.target.closest('#topicEditBtn,#topicClearBtn,#topicSaveBtn,#topicCancelEditBtn');
       if (!btn) return;
@@ -1262,7 +1288,7 @@
     ensureTopicDelegates();
 
     // Helper to render read-only text/link (no innerHTML)
-    const renderDisplayContent = (el) => {
+    const renderDisplayContent = function (el) {
       el.textContent = '';
       if (state.topicLabel && state.topicUrl) {
         const a = document.createElement('a');
@@ -1283,7 +1309,7 @@
 
     // "more" hint
     let hint = row.querySelector('#topicOverflowHint');
-    const ensureHint = () => {
+    const ensureHint = function () {
       if (!hint) {
         const btn = document.createElement('button');
         btn.id = 'topicOverflowHint';
@@ -1341,10 +1367,10 @@
       const titleClear = t('button.clearTopic', 'Clear');
 
       actions.innerHTML =
-        `<button id="topicEditBtn" class="icon-button neutral" type="button"
-                 title="${escapeHtml(titleEdit)}" aria-label="${escapeHtml(titleEdit)}">✍️</button>
-         <button id="topicClearBtn" class="icon-button neutral" type="button"
-                 title="${escapeHtml(titleClear)}" aria-label="${escapeHtml(titleClear)}">🗑️</button>`;
+        '<button id="topicEditBtn" class="icon-button neutral" type="button"' +
+                 ' title="' + escapeHtml(titleEdit) + '" aria-label="' + escapeHtml(titleEdit) + '">✍️</button>' +
+        ' <button id="topicClearBtn" class="icon-button neutral" type="button"' +
+                 ' title="' + escapeHtml(titleClear) + '" aria-label="' + escapeHtml(titleClear) + '">🗑️</button>';
 
       requestAnimationFrame(syncTopicOverflow);
       return;
@@ -1358,11 +1384,11 @@
       inp.id = 'topicDisplay';
       inp.placeholder = t('topic.placeholder', 'Paste JIRA link or type key');
       inp.value = state._topicDraft != null ? state._topicDraft : (state.topicLabel || '');
-      inp.addEventListener('input', () => { state._topicDraft = inp.value; });
+      inp.addEventListener('input', function () { state._topicDraft = inp.value; });
       if (displayEl) displayEl.replaceWith(inp);
       else row.insertBefore(inp, row.firstChild ? row.firstChild.nextSibling : null);
       displayEl = inp;
-      setTimeout(() => { try { displayEl.focus(); displayEl.select(); } catch {} }, 0);
+      setTimeout(function () { try { displayEl.focus(); displayEl.select(); } catch {} }, 0);
     }
     if (hint) hint.style.display = 'none';
 
@@ -1370,14 +1396,14 @@
     const titleCancel = t('button.cancel',    'Cancel');
 
     actions.innerHTML =
-      `<button id="topicSaveBtn" class="icon-button neutral" type="button"
-               title="${escapeHtml(titleSave)}" aria-label="${escapeHtml(titleSave)}">✅</button>
-       <button id="topicCancelEditBtn" class="icon-button neutral" type="button"
-               title="${escapeHtml(titleCancel)}" aria-label="${escapeHtml(titleCancel)}">❌</button>`;
+      '<button id="topicSaveBtn" class="icon-button neutral" type="button"' +
+               ' title="' + escapeHtml(titleSave) + '" aria-label="' + escapeHtml(titleSave) + '">✅</button>' +
+      ' <button id="topicCancelEditBtn" class="icon-button neutral" type="button"' +
+               ' title="' + escapeHtml(titleCancel) + '" aria-label="' + escapeHtml(titleCancel) + '">❌</button>';
 
-    displayEl.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter')  { e.preventDefault(); const b = $('#topicSaveBtn');   b && b.click(); }
-      if (e.key === 'Escape') { e.preventDefault(); const b = $('#topicCancelEditBtn'); b && b.click(); }
+    displayEl.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter')  { if (e.preventDefault) e.preventDefault(); const b = $('#topicSaveBtn');   if (b) b.click(); }
+      if (e.key === 'Escape') { if (e.preventDefault) e.preventDefault(); const b = $('#topicCancelEditBtn'); if (b) b.click(); }
     }, { passive: false });
   }
 
@@ -1435,7 +1461,7 @@
   function updateAllSeqRadiosChecked(seqIdRaw) {
     const vars = new Set(seqVariants(seqIdRaw));
     const radios = document.querySelectorAll('input[type="radio"][name="menu-seq"]');
-    radios.forEach(r => {
+    radios.forEach(function (r) {
       const v = String(r.value || '').toLowerCase().trim();
       const checked = vars.has(v);
       if (r.checked !== checked) r.checked = checked;
@@ -1446,7 +1472,7 @@
     const radios = document.querySelectorAll('input[type="radio"][name="menu-seq"]');
     const shouldDisable = state._hostKnown ? !state.isHost : false;
 
-    radios.forEach(r => {
+    radios.forEach(function (r) {
       r.disabled = !!shouldDisable;
       r.setAttribute('aria-disabled', String(!!shouldDisable));
       const lab = r.closest('label');
@@ -1486,7 +1512,7 @@
     if (mTgl) { mTgl.checked = !!state.topicVisible; mTgl.setAttribute('aria-checked', String(!!state.topicVisible)); }
     if (mSt)  mSt.textContent = state.topicVisible ? (isDe() ? 'An' : 'On') : (isDe() ? 'Aus' : 'Off');
 
-    const me = state.participants.find(p => p.name === state.youName);
+    const me = state.participants.find(function (p) { return p.name === state.youName; });
     const spectatorMe = state.selfSpectator || !!(me && isSpectator(me));
 
     const mPTgl = $('#menuParticipationToggle');
@@ -1515,70 +1541,41 @@
   }
 
   // ---------- Specials palette (binds to menu.html DOM) ----------
-  function specialsPaletteRoot() {
-    return document.getElementById('rowSpecialsPick') || null;
-  }
-
-  function syncSpecialsPaletteFromState() {
-    const root = specialsPaletteRoot();
-    if (!root) return;
-
-    // Visibility: show only when specials are allowed
-    const paletteOn = !!state.allowSpecials;
-    root.hidden = !paletteOn;
-    try { root.style.display = paletteOn ? '' : 'none'; } catch {}
-    root.setAttribute('aria-hidden', String(!paletteOn));
-
-    // Disabled when guest
-    const disabled = !paletteOn || (state._hostKnown && !state.isHost);
-    root.classList.toggle('disabled', !!disabled);
-
-    const iconsWrap = root.querySelector('.specials-icons') || root;
-    SPECIALS_ORDER.forEach(id => {
-      const label = iconsWrap.querySelector(`label.spc[data-id="${id}"]`);
-      const cb = label ? label.querySelector('input[type="checkbox"]') : null;
-      if (!cb) return;
-      const checked = state.specialsSelected.includes(id);
-      cb.checked = checked;
-      cb.disabled = disabled;
-      cb.setAttribute('aria-checked', String(checked));
-      cb.setAttribute('aria-disabled', String(disabled));
-      if (label) label.classList.toggle('disabled', !!disabled);
-    });
-  }
-
-  function wireSpecialsPalette() {
-    const root = specialsPaletteRoot();
-    if (!root || root.__bound) return;
-    root.__bound = true;
-
-    const iconsWrap = root.querySelector('.specials-icons') || root;
-
-    iconsWrap.addEventListener('change', () => {
-      // Host guard — bounce non-hosts visually
-      if (state._hostKnown && !state.isHost) {
-        syncSpecialsPaletteFromState();
-        return;
-      }
-      // Respect global switch
-      const on = document.getElementById('menuSpecialsToggle')?.checked ?? state.allowSpecials;
-      if (!on) {
-        syncSpecialsPaletteFromState();
-        return;
+      function specialsPaletteRoot() {
+        return document.getElementById('rowSpecialsPick') || null;
       }
 
-      // Gather selected ids in stable order
-      const ids = SPECIALS_ORDER.filter(id => {
-        const lab = iconsWrap.querySelector(`label.spc[data-id="${id}"]`);
-        const cb = lab ? lab.querySelector('input[type="checkbox"]') : null;
-        return cb && cb.checked;
+      function syncSpecialsPaletteFromState() {
+      const root = specialsPaletteRoot();
+      if (!root) return;
+
+      // Visibility: only via [hidden]/[aria-hidden] (no inline display hacks)
+      const on = !!state.allowSpecials;
+      root.hidden = !on;
+      root.setAttribute('aria-hidden', String(!on));
+
+      // Enable/disable palette for guests (keep focusability; block interaction)
+      const disabled = !on || (state._hostKnown && !state.isHost);
+      root.classList.toggle('disabled', !!disabled);
+      try { root.style.pointerEvents = disabled ? 'none' : ''; } catch {}
+
+      // Reflect selected specials onto <button.spc> (class ".on" + aria-pressed)
+      const wrap = root.querySelector('.specials-icons') || root;
+      const selected = new Set(canonicalizeIds(state.specialsSelected || []));
+      SPECIALS_ORDER.forEach(function (id) {
+        const btn = wrap.querySelector('.spc[data-id="' + id + '"]');
+        if (!btn) return;
+        const pressed = selected.has(id);
+        btn.classList.toggle('on', pressed);
+        btn.setAttribute('aria-pressed', String(pressed));
       });
+    }
 
-      document.dispatchEvent(new CustomEvent('ep:specials-set', { detail: { ids } }));
-    }, { passive: true });
-  }
 
-  document.addEventListener('ep:menu-open', () => {
+  function wireSpecialsPalette(){ /* handled by specials-bridge.js */ }
+
+
+  document.addEventListener('ep:menu-open', function () {
     wireSequenceRadios();
     wireMenuTogglesDom();
     wireSpecialsPalette();
@@ -1590,13 +1587,13 @@
 
   // Wire real DOM switches to our app events (idempotent)
   function wireMenuTogglesDom() {
-    const byId = (id) => document.getElementById(id);
+    const byId = function (id) { return document.getElementById(id); };
 
-    const bindSwitch = (id, handler) => {
+    const bindSwitch = function (id, handler) {
       const el = byId(id);
       if (!el || el.__bound) return;
       el.__bound = true;
-      el.addEventListener('change', () => {
+      el.addEventListener('change', function () {
         const checked = !!el.checked;
         el.setAttribute('aria-checked', String(checked));
         handler(checked, el);
@@ -1604,12 +1601,12 @@
     };
 
     // Participation: user-controlled, not host-gated
-    bindSwitch('menuParticipationToggle', (on /*= estimating*/, _el) => {
+    bindSwitch('menuParticipationToggle', function (on /*= estimating*/, _el) {
       document.dispatchEvent(new CustomEvent('ep:participation-toggle', { detail: { estimating: on } }));
     });
 
     // Host-only switches: revert UI immediately if a guest tries to toggle
-    const hostGuard = (next, el) => {
+    const hostGuard = function (next, el) {
       if (state._hostKnown && !state.isHost) {
         const cur = !!el.checked;
         el.checked = !cur;
@@ -1619,24 +1616,24 @@
       next();
     };
 
-    bindSwitch('menuAutoRevealToggle', (on, el) => hostGuard(() => {
-      document.dispatchEvent(new CustomEvent('ep:auto-reveal-toggle', { detail: { on } }));
-    }, el));
+    bindSwitch('menuAutoRevealToggle', function (on, el) { hostGuard(function () {
+      document.dispatchEvent(new CustomEvent('ep:auto-reveal-toggle', { detail: { on: on } }));
+    }, el); });
 
-    bindSwitch('menuTopicToggle', (on, el) => hostGuard(() => {
-      document.dispatchEvent(new CustomEvent('ep:topic-toggle', { detail: { on } }));
-    }, el));
+    bindSwitch('menuTopicToggle', function (on, el) { hostGuard(function () {
+      document.dispatchEvent(new CustomEvent('ep:topic-toggle', { detail: { on: on } }));
+    }, el); });
 
-    bindSwitch('menuSpecialsToggle', (on, el) => hostGuard(() => {
+    bindSwitch('menuSpecialsToggle', function (on, el) { hostGuard(function () {
       // Update visibility immediately for snappy UI
       state.allowSpecials = on;
       syncSpecialsPaletteFromState();
-      document.dispatchEvent(new CustomEvent('ep:specials-toggle', { detail: { on } }));
-    }, el));
+      document.dispatchEvent(new CustomEvent('ep:specials-toggle', { detail: { on: on } }));
+    }, el); });
 
-    bindSwitch('menuHardModeToggle', (on, el) => hostGuard(() => {
-      document.dispatchEvent(new CustomEvent('ep:hard-mode-toggle', { detail: { on } }));
-    }, el));
+    bindSwitch('menuHardModeToggle', function (on, el) { hostGuard(function () {
+      document.dispatchEvent(new CustomEvent('ep:hard-mode-toggle', { detail: { on: on } }));
+    }, el); });
   }
 
 
@@ -1653,7 +1650,8 @@
   window.resetRoom   = resetRoom;
 
   /*** ---------- Toast & copy helpers ---------- ***/
-  function showToast(msg, ms = 2600) {
+  function showToast(msg, ms) {
+    if (ms == null) ms = 2600;
     try {
       const tEl = document.createElement('div');
       tEl.className = 'toast';
@@ -1662,10 +1660,10 @@
       // force reflow
       // eslint-disable-next-line no-unused-expressions
       tEl.offsetHeight;
-      setTimeout(() => tEl.remove(), ms + 600);
+      setTimeout(function () { tEl.remove(); }, ms + 600);
     } catch {}
   }
-  function inviteUrl() { return `${location.origin}/invite?roomCode=${encodeURIComponent(state.roomCode)}`; }
+  function inviteUrl() { return location.origin + '/invite?roomCode=' + encodeURIComponent(state.roomCode); }
   async function copyText(text) {
     try { await navigator.clipboard.writeText(text); return true; }
     catch {
@@ -1684,7 +1682,7 @@
   }
   function bindCopyLink() {
     const candidates = ['#copyRoomLink','#copyRoomLinkBtn','#copyRoomBtn','.room-with-actions .icon-button','.main-info .icon-button']
-      .map(sel => $(sel)).filter(Boolean);
+      .map(function (sel) { return $(sel); }).filter(Boolean);
     const btn = candidates[0]; if (!btn) return;
 
     const okMsg   = t('copy.ok',   isDe() ? 'Link kopiert' : 'Link copied');
@@ -1696,11 +1694,11 @@
       btn.setAttribute('title', ok ? okMsg : failMsg);
       btn.setAttribute('aria-label', ok ? okMsg : failMsg);
       showToast(ok ? okMsg : failMsg);
-      if (prev != null) setTimeout(() => btn.setAttribute('title', prev), 2200);
-      else setTimeout(() => btn.removeAttribute('title'), 2200);
+      if (prev != null) setTimeout(function () { btn.setAttribute('title', prev); }, 2200);
+      else setTimeout(function () { btn.removeAttribute('title'); }, 2200);
     }
-    btn.addEventListener('click', (e) => { e.preventDefault(); handle(); });
-    btn.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handle(); } });
+    btn.addEventListener('click', function (e) { if (e.preventDefault) e.preventDefault(); handle(); });
+    btn.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { if (e.preventDefault) e.preventDefault(); handle(); } });
   }
 
   /*** ---------- Menu & lifecycle events ---------- ***/
@@ -1728,15 +1726,15 @@
     const norm = normalizeSeq(id);
     const val = encodeURIComponent(norm);
     const payloads = [
-      `sequence:${val}`,      // primary
-      `seq:${val}`,           // compat
-      `setSequence:${val}`,   // compat
+      'sequence:' + val,     // primary
+      'seq:' + val,          // compat
+      'setSequence:' + val,  // compat
     ];
-    for (const p of payloads) {
-      try { send(p); } catch {}
+    for (let i = 0; i < payloads.length; i++) {
+      try { send(payloads[i]); } catch {}
     }
     try { pokeServerAndSync(); } catch {}
-    setTimeout(() => { try { pokeServerAndSync(); } catch {} }, 120);
+    setTimeout(function () { try { pokeServerAndSync(); } catch {} }, 120);
   }
 
   function wireSequenceRadios() {
@@ -1745,7 +1743,7 @@
     root.__seqBound = true;
 
     // regular change
-    root.addEventListener('change', (e) => {
+    root.addEventListener('change', function (e) {
       const t = e.target;
       if (!(t instanceof HTMLInputElement)) return;
       if (t.name !== 'menu-seq') return;
@@ -1764,7 +1762,7 @@
     });
 
     // also react to input (some UIs dispatch both)
-    root.addEventListener('input', (e) => {
+    root.addEventListener('input', function (e) {
       const t = e.target;
       if (!(t instanceof HTMLInputElement)) return;
       if (t.name !== 'menu-seq') return;
@@ -1773,7 +1771,7 @@
   }
 
   // Global capture fallback for radios, resilient to DOM swaps/re-mounts
-  document.addEventListener('change', (e) => {
+  document.addEventListener('change', function (e) {
     const t = e.target;
     if (!(t instanceof HTMLInputElement)) return;
 
@@ -1781,14 +1779,14 @@
     if (t.type === 'checkbox' && t.closest('#appMenuOverlay')) {
       if (t.id !== 'menuParticipationToggle' && state._hostKnown && !state.isHost) {
         const before = t.checked;
-        queueMicrotask(() => {
+        queueMicrotask(function () {
           t.checked = !before;
           t.setAttribute('aria-checked', String(t.checked));
           const row = t.closest('.menu-item.switch');
           if (row) row.classList.add('disabled');
         });
-        e.preventDefault?.();
-        e.stopPropagation?.();
+        if (e.preventDefault) e.preventDefault();
+        if (e.stopPropagation) e.stopPropagation();
         return;
       }
     }
@@ -1800,7 +1798,7 @@
 
       if (state._hostKnown && !state.isHost) {
         updateAllSeqRadiosChecked(state.sequenceId || 'fib.scrum');
-        e.preventDefault?.();
+        if (e.preventDefault) e.preventDefault();
         return;
       }
 
@@ -1811,7 +1809,7 @@
 
 
   // Also reconcile on raw input events (covers .check() etc.)
-  document.addEventListener('input', (e) => {
+  document.addEventListener('input', function (e) {
     const t = e.target;
     if (!(t instanceof HTMLInputElement)) return;
     if (t.type === 'radio' && t.name === 'menu-seq') {
@@ -1821,20 +1819,22 @@
 
   // Observe attribute-level changes to `checked` to catch non-event flips
   (function observeSeqRadiosChecked() {
-    const mo = new MutationObserver((muts) => {
-      for (const m of muts) {
+    const mo = new MutationObserver(function (muts) {
+      for (let i = 0; i < muts.length; i++) {
+        const m = muts[i];
         if (m.type === 'attributes' && m.attributeName === 'checked') {
           const el = m.target;
           if (el instanceof HTMLInputElement && el.name === 'menu-seq') {
             queueMicrotask(reconcileSeqFromDOM);
           }
-        } else if (m.type === 'childList' && (m.addedNodes?.length)) {
-          for (const node of m.addedNodes) {
+        } else if (m.type === 'childList' && m.addedNodes && m.addedNodes.length) {
+          for (let j = 0; j < m.addedNodes.length; j++) {
+            const node = m.addedNodes[j];
             if (!(node instanceof Element)) continue;
-            if (node.matches?.('input[type="radio"][name="menu-seq"]:checked') ||
-                node.querySelector?.('input[type="radio"][name="menu-seq"]:checked')) {
-              queueMicrotask(reconcileSeqFromDOM);
-            }
+            const hasChecked =
+              (node.matches && node.matches('input[type="radio"][name="menu-seq"]:checked')) ||
+              (node.querySelector && node.querySelector('input[type="radio"][name="menu-seq"]:checked'));
+            if (hasChecked) queueMicrotask(reconcileSeqFromDOM);
           }
         }
       }
@@ -1849,7 +1849,7 @@
 
   function wireMenuEvents() {
     // Single, final close-room confirmation
-    document.addEventListener('ep:close-room', () => {
+    document.addEventListener('ep:close-room', function () {
       if (!state.isHost) return;
       const msg2 = t('confirm.closeRoom', 'Close this room for everyone?');
       if (confirm(msg2)) send('closeRoom');
@@ -1857,8 +1857,9 @@
 
     // Programmatic sequence changes (optimistic)
     if (!window.__epSeqBridgeBound) {
-      document.addEventListener('ep:sequence-change', (ev) => {
-        const id = normalizeSeq(ev?.detail?.id || ev?.detail?.sequenceId);
+      document.addEventListener('ep:sequence-change', function (ev) {
+        const d = ev && ev.detail ? ev.detail : {};
+        const id = normalizeSeq(d.id || d.sequenceId);
         if (!id) return;
         if (state._hostKnown && !state.isHost) return;
         applyLocalSequence(id);
@@ -1866,13 +1867,13 @@
       });
     }
 
-    document.addEventListener('ep:auto-reveal-toggle', (ev) => {
+    document.addEventListener('ep:auto-reveal-toggle', function (ev) {
       if (!state.isHost) return;
       const on = !!(ev && ev.detail && ev.detail.on);
-      send(`autoReveal:${on}`);
+      send('autoReveal:' + on);
     });
 
-    document.addEventListener('ep:topic-toggle', (ev) => {
+    document.addEventListener('ep:topic-toggle', function (ev) {
       if (!state.isHost) return;
       const on = !!(ev && ev.detail && ev.detail.on);
 
@@ -1881,42 +1882,43 @@
       state.topicVisible = on;
       renderTopic();
       syncMenuFromState();
-      send(`topicVisible:${on}`);
+      send('topicVisible:' + on);
     });
 
-    document.addEventListener('ep:participation-toggle', (ev) => {
+    document.addEventListener('ep:participation-toggle', function (ev) {
       const estimating = !!(ev && ev.detail && ev.detail.estimating);
       state.selfSpectator = !estimating;
 
-      const me = state.participants.find(p => p && p.name === state.youName);
+      const me = state.participants.find(function (p) { return p && p.name === state.youName; });
       if (me) {
         me.spectator = !estimating;
         me.participating = estimating;
+        if (!estimating) me.vote = null; // clear vote when switching to spectator locally as well
       }
 
       renderParticipants();
       renderCards();
       syncMenuFromState();
 
-      send(`participation:${estimating}`);
+      send('participation:' + estimating);
     });
 
-    document.addEventListener('ep:specials-toggle', () => {
+    document.addEventListener('ep:specials-toggle', function () {
       if (!state.isHost) return;
-      queueMicrotask(() => {
+      queueMicrotask(function () {
         const el = document.getElementById('menuSpecialsToggle');
         const on = el ? !!el.checked : !state.allowSpecials;
         state.allowSpecials = on;
         syncSpecialsPaletteFromState();
         rebuildDeckFromState();
-        try { send(`specials:${on}`); } catch {}
+        try { send('specials:' + on); } catch {}
       });
     });
 
     // NEW: palette selection → send IDs + rebuild local deck
-    document.addEventListener('ep:specials-set', (ev) => {
+    document.addEventListener('ep:specials-set', function (ev) {
       if (!state.isHost) return;
-      const ids = canonicalizeIds((ev?.detail?.ids) || []);
+      const ids = canonicalizeIds(((ev && ev.detail && ev.detail.ids) || []));
       state.specialsSelected = ids;
       rebuildDeckFromState();
       try {
@@ -1925,7 +1927,7 @@
       pokeServerAndSync();
     });
 
-    document.addEventListener('ep:hard-mode-toggle', (ev) => {
+    document.addEventListener('ep:hard-mode-toggle', function (ev) {
       if (!state.isHost) return;
       const on = !!(ev && ev.detail && ev.detail.on);
       state.hardMode = on;
@@ -1935,18 +1937,22 @@
   }
 
   // Presence guard (suppress join/leave toasts for self + rapid flaps)
-  const PRESENCE_KEY = (n) => 'ep-presence:' + encodeURIComponent(n);
+  const PRESENCE_KEY = function (n) { return 'ep-presence:' + encodeURIComponent(n); };
   function markAlive(name) { if (!name) return; try { localStorage.setItem(PRESENCE_KEY(name), String(Date.now())); } catch {} }
 
   // Wrap long tooltips by injecting \n
-  function wrapForTitle(text, max = 44) {
+  function wrapForTitle(text, max) {
+    if (max == null) max = 44;
     const words = String(text || '').trim().split(/\s+/);
     const out = []; let line = '';
-    for (let w of words) {
+    for (let wi = 0; wi < words.length; wi++) {
+      let w = words[wi];
       if (w.length > max) {
-        w = w.replace(/[\/\-_\.]/g, m => m + '\n');
+        w = w.replace(/[\/\-_\.]/g, function (m) { return m + '\n'; });
       }
-      for (const chunk of w.split('\n')) {
+      const chunks = w.split('\n');
+      for (let ci = 0; ci < chunks.length; ci++) {
+        const chunk = chunks[ci];
         if (!chunk) continue;
         const need = (line ? line.length + 1 : 0) + chunk.length;
         if (need > max) { if (line) out.push(line); line = chunk; }
@@ -1965,60 +1971,83 @@
     // Cards
     const grid = document.querySelector('#cardGrid');
     if (grid && !_cardGridBound) {
-      const onPick = (btn) => {
+      const onPick = function (btn) {
         if (!btn || btn.disabled) return;
         const label = btn.dataset.value || btn.textContent || '';
         if (!label) return;
         if (mySelectedValue() === String(label)) return;
         state._optimisticVote = String(label);
-        try { grid.querySelectorAll('button').forEach(b => b.classList.remove('selected')); } catch {}
+        try { grid.querySelectorAll('button').forEach(function (b) { b.classList.remove('selected'); }); } catch (e) {}
         btn.classList.add('selected');
-        try { send(`vote:${state.youName}:${label}`); } catch {}
+        try { send('vote:' + state.youName + ':' + label); } catch (e) {}
       };
 
-      grid.addEventListener('pointerdown', (e) => {
+      grid.addEventListener('pointerdown', function (e) {
         if (e.button !== 0) return;
-        const btn = e.target && e.target.closest ? e.target.closest('#cardGrid button') : null;
+        const btn = (e.target && e.target.closest) ? e.target.closest('#cardGrid button') : null;
         if (btn) onPick(btn);
-      }, { passive: true });
+      }, false);
 
-      grid.addEventListener('click', (e) => {
-        const btn = e.target && e.target.closest ? e.target.closest('#cardGrid button') : null;
+      grid.addEventListener('click', function (e) {
+        const btn = (e.target && e.target.closest) ? e.target.closest('#cardGrid button') : null;
         if (btn) onPick(btn);
-      }, { passive: true });
+      }, false);
 
       _cardGridBound = true;
     }
 
-    // Host / Kick
+    // Host / Kick / Spectator
     const list = participantsRoot();
     if (list && !_plistBound) {
-      const onAction = (btn) => {
+      const onAction = function (btn) {
         const action = btn.dataset.action;
         const name = btn.dataset.name || '';
         if (!action || !name) return;
 
         if (action === 'host') {
-          const q = isDe() ? `Host-Rolle an ${name} übertragen?` : `Transfer host role to ${name}?`;
+          const q = isDe() ? ('Host-Rolle an ' + name + ' übertragen?') : ('Transfer host role to ' + name + '?');
           if (!confirm(q)) return;
           send('makeHost:' + encodeURIComponent(name));
         } else if (action === 'kick') {
-          const q = isDe() ? `${name} wirklich entfernen?` : `Remove ${name}?`;
+          const q = isDe() ? (name + ' wirklich entfernen?') : ('Remove ' + name + '?');
           if (!confirm(q)) return;
           send('kick:' + encodeURIComponent(name));
+        } else if (action === 'spectator') {
+        // Find target participant
+        const p = (state.participants || []).find(x => x && x.name === name);
+        const currentlySpectator = !!(p && (p.spectator === true || p.participating === false));
+
+        // Toggle target state
+        const newSpectator = !currentlySpectator;   // what we want after this click
+        const nextParticipating = !newSpectator;    // participating is the inverse
+
+        // Optimistic UI update
+        if (p) {
+          p.spectator = newSpectator;
+          p.participating = nextParticipating;
+          if (!nextParticipating) p.vote = null;    // clear vote when becoming spectator
+          renderParticipants();
+          renderCards();
+          syncMenuFromState();
         }
+
+        // Host -> server (explicit and unambiguous)
+        send('setSpectator:' + encodeURIComponent(name) + ':' + newSpectator);
+        return;
+      }
+
       };
 
-      list.addEventListener('pointerdown', (e) => {
+      list.addEventListener('pointerdown', function (e) {
         if (e.button !== 0) return;
-        const btn = e.target && e.target.closest ? e.target.closest('button.row-action') : null;
-        if (btn) { e.preventDefault?.(); onAction(btn); }
-      }, { passive: false });
+        const btn = (e.target && e.target.closest) ? e.target.closest('button.row-action') : null;
+        if (btn) { if (e.preventDefault) e.preventDefault(); onAction(btn); }
+      }, false);
 
-      list.addEventListener('click', (e) => {
-        const btn = e.target && e.target.closest ? e.target.closest('button.row-action') : null;
+      list.addEventListener('click', function (e) {
+        const btn = (e.target && e.target.closest) ? e.target.closest('button.row-action') : null;
         if (btn) onAction(btn);
-      }, { passive: false });
+      }, false);
 
       _plistBound = true;
     }
@@ -2028,7 +2057,7 @@
     if (topic && !_topicBound) {
       const actions = topic.querySelector('.topic-actions') || topic;
 
-      const doSave = () => {
+      function doSave() {
         if (!state.isHost) return;
         const input = topic.querySelector('#topicDisplay');
         if (!input || input.tagName !== 'INPUT') return;
@@ -2038,33 +2067,86 @@
         state.topicUrl = parsed.url;
         state.topicEditing = false;
         renderTopic();
-        try { send('topicSave:' + encodeURIComponent(val)); } catch {}
-      };
+        try { send('topicSave:' + encodeURIComponent(val)); } catch (e) {}
+      }
 
-      const doCancel = () => {
+      function doCancel() {
         if (!state.isHost) return;
         state.topicEditing = false;
         renderTopic();
-      };
+      }
 
-      actions.addEventListener('pointerdown', (e) => {
+      actions.addEventListener('pointerdown', function (e) {
         if (e.button !== 0) return;
-        const btn = e.target && e.target.closest ? e.target.closest('#topicSaveBtn, #topicCancelEditBtn') : null;
+        const btn = (e.target && e.target.closest) ? e.target.closest('#topicSaveBtn, #topicCancelEditBtn') : null;
         if (!btn) return;
-        e.preventDefault?.();
+        if (e.preventDefault) e.preventDefault();
         if (btn.id === 'topicSaveBtn') doSave();
         else doCancel();
-      }, { passive: false });
+      }, false);
 
-      actions.addEventListener('click', (e) => {
-        const btn = e.target && e.target.closest ? e.target.closest('#topicSaveBtn, #topicCancelEditBtn') : null;
+      actions.addEventListener('click', function (e) {
+        const btn = (e.target && e.target.closest) ? e.target.closest('#topicSaveBtn, #topicCancelEditBtn') : null;
         if (!btn) return;
         if (btn.id === 'topicSaveBtn') doSave();
         else doCancel();
-      }, { passive: false });
+      }, false);
 
       _topicBound = true;
     }
+
+    // --- Universal fallback for row-action buttons (capture phase) ---
+if (!window.__epRowActionFallback) {
+  window.__epRowActionFallback = true;
+  document.addEventListener('click', function (e) {
+    var btn = (e.target && e.target.closest) ? e.target.closest('button.row-action') : null;
+    if (!btn) return;
+    e.preventDefault && e.preventDefault();
+
+    var action = btn.dataset.action;
+    var name   = btn.dataset.name || '';
+    if (!action || !name) return;
+
+    // Mirror of onAction(...)
+    if (action === 'host') {
+      var q1 = isDe() ? ('Host-Rolle an ' + name + ' übertragen?') : ('Transfer host role to ' + name + '?');
+      if (!confirm(q1)) return;
+      send('makeHost:' + encodeURIComponent(name));
+      return;
+    }
+    if (action === 'kick') {
+      var q2 = isDe() ? (name + ' wirklich entfernen?') : ('Remove ' + name + '?');
+      if (!confirm(q2)) return;
+      send('kick:' + encodeURIComponent(name));
+      return;
+    }
+    // --- Spectator (host toggles a target participant) ---
+if (action === 'spectator') {
+  const p = (state.participants || []).find(x => x && x.name === name);
+  const currentlySpectator = !!(p && (p.spectator === true || p.participating === false));
+
+  // New state after click
+  const newSpectator = !currentlySpectator;
+  const nextParticipating = !newSpectator;
+
+  // Optimistic UI update
+  if (p) {
+    p.spectator = newSpectator;
+    p.participating = nextParticipating;
+    if (!nextParticipating) p.vote = null; // clear vote when becoming spectator
+    renderParticipants();
+    renderCards();
+    syncMenuFromState();
+  }
+
+  // Server command (explicit, unambiguous)
+  send('setSpectator:' + encodeURIComponent(name) + ':' + newSpectator);
+  return;
+}
+
+  }, true); // capture=true
+}
+
   }
 
   function wireOnce() {
@@ -2077,26 +2159,26 @@
 
     const row = $('#topicRow');
     if (row) {
-      row.addEventListener('click', (e) => {
+      row.addEventListener('click', function (e) {
         if (!state.isHost || state.topicEditing) return;
         if (state.topicLabel) return;
-        if (e.target.closest('button,a,input')) return;
+        if (e.target.closest && e.target.closest('button,a,input')) return;
         beginTopicEdit();
       });
     }
 
     if (!_topicOverflowResizeBound) {
-      window.addEventListener('resize', () => requestAnimationFrame(syncTopicOverflow));
+      window.addEventListener('resize', function () { requestAnimationFrame(syncTopicOverflow); });
       _topicOverflowResizeBound = true;
     }
 
     // Lifecycle wake-ups
-    document.addEventListener('visibilitychange', () => {
+    document.addEventListener('visibilitychange', function () {
       if (document.visibilityState === 'visible') wake('visibility');
     }, true);
-    window.addEventListener('focus',  () => wake('focus'),  true);
-    window.addEventListener('online', () => wake('online'), true);
-    window.addEventListener('pageshow', () => { wake('pageshow'); }, true);
+    window.addEventListener('focus',  function () { wake('focus'); },  true);
+    window.addEventListener('online', function () { wake('online'); }, true);
+    window.addEventListener('pageshow', function () { wake('pageshow'); }, true);
 
     startWatchdog();
 
@@ -2110,18 +2192,18 @@
   function addParticipantLocal(name) {
     if (!name) return;
 
-    if (state?.participants && typeof state.participants.add === 'function') {
+    if (state && state.participants && typeof state.participants.add === 'function') {
       state.participants.add(name);
       return;
     }
 
-    if (Array.isArray(state?.participants)) {
-      const has = state.participants.some(p =>
-        (typeof p === 'string') ? (p === name) : (p && p.name === name)
-      );
+    if (Array.isArray(state && state.participants)) {
+      const has = state.participants.some(function (p) {
+        return (typeof p === 'string') ? (p === name) : (p && p.name === name);
+      });
       if (!has) {
         state.participants.push({
-          name,
+          name: name,
           vote: null,
           disconnected: false,
           away: false,
@@ -2133,48 +2215,48 @@
       return;
     }
 
-    if (state?.participantsByName && typeof state.participantsByName.set === 'function') {
-      if (!state.participantsByName.has(name)) state.participantsByName.set(name, { name });
-    } else if (state?.participantsByName && typeof state.participantsByName === 'object') {
-      state.participantsByName[name] = state.participantsByName[name] || { name };
+    if (state && state.participantsByName && typeof state.participantsByName.set === 'function') {
+      if (!state.participantsByName.has(name)) state.participantsByName.set(name, { name: name });
+    } else if (state && state.participantsByName && typeof state.participantsByName === 'object') {
+      state.participantsByName[name] = state.participantsByName[name] || { name: name };
     }
-    if (state?.room?.participants && typeof state.room.participants.add === 'function') {
+    if (state && state.room && state.room.participants && typeof state.room.participants.add === 'function') {
       state.room.participants.add(name);
-    } else if (Array.isArray(state?.room?.participants)) {
-      if (!state.room.participants.includes(name)) state.room.participants.push(name);
+    } else if (state && state.room && Array.isArray(state.room.participants)) {
+      if (state.room.participants.indexOf(name) === -1) state.room.participants.push(name);
     }
   }
 
   function removeParticipantLocal(name) {
     if (!name) return;
 
-    if (state?.participants && typeof state.participants.delete === 'function') {
+    if (state && state.participants && typeof state.participants.delete === 'function') {
       state.participants.delete(name);
-    } else if (Array.isArray(state?.participants)) {
-      const idx = state.participants.findIndex(p =>
-        (typeof p === 'string') ? (p === name) : (p && p.name === name)
-      );
+    } else if (Array.isArray(state && state.participants)) {
+      const idx = state.participants.findIndex(function (p) {
+        return (typeof p === 'string') ? (p === name) : (p && p.name === name);
+      });
       if (idx !== -1) state.participants.splice(idx, 1);
     }
 
-    if (state?.participantsByName && typeof state.participantsByName.delete === 'function') {
+    if (state && state.participantsByName && typeof state.participantsByName.delete === 'function') {
       state.participantsByName.delete(name);
-    } else if (state?.participantsByName && typeof state.participantsByName === 'object') {
+    } else if (state && state.participantsByName && typeof state.participantsByName === 'object') {
       delete state.participantsByName[name];
     }
 
-    if (state?.room?.participants && typeof state.room.participants.delete === 'function') {
+    if (state && state.room && state.room.participants && typeof state.room.participants.delete === 'function') {
       state.room.participants.delete(name);
-    } else if (Array.isArray(state?.room?.participants)) {
-      const j = state.room.participants.findIndex(p =>
-        (typeof p === 'string') ? (p === name) : (p && p.name === name)
-      );
+    } else if (state && state.room && Array.isArray(state.room.participants)) {
+      const j = state.room.participants.findIndex(function (p) {
+        return (typeof p === 'string') ? (p === name) : (p && p.name === name);
+      });
       if (j !== -1) state.room.participants.splice(j, 1);
     }
   }
 
   function escapeHtml(s) {
-    return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    return String(s).replace(/[&<>"']/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]); });
   }
 
   function rerenderAll() {
@@ -2209,12 +2291,16 @@
   async function preflightNameCheck() {
     let isReloadLike = false;
     try {
-      const nav = performance?.getEntriesByType?.('navigation')?.[0];
+      var nav = null;
+      if (typeof performance !== 'undefined' && performance.getEntriesByType) {
+        var arr = performance.getEntriesByType('navigation');
+        if (arr && arr[0]) nav = arr[0];
+      }
       if (nav && (nav.type === 'reload' || nav.type === 'back_forward')) isReloadLike = true;
     } catch {}
     if (isReloadLike) return;
 
-    const pfKey = `ep-pf-ok:${state.roomCode}:${state.youName}`;
+    const pfKey = 'ep-pf-ok:' + state.roomCode + ':' + state.youName;
 
     try {
       if (sessionStorage.getItem(pfKey) === '1') {
@@ -2232,13 +2318,13 @@
     } catch {}
 
     try {
-      const apiUrl = `/api/rooms/${encodeURIComponent(state.roomCode)}/name-available?name=${encodeURIComponent(state.youName)}`;
+      const apiUrl = '/api/rooms/' + encodeURIComponent(state.roomCode) + '/name-available?name=' + encodeURIComponent(state.youName);
       const resp = await fetch(apiUrl, { headers: { 'Accept': 'application/json' }, cache: 'no-store' });
 
       if (resp.ok) {
         const data = await resp.json();
         if (data && data.available === false) {
-          const redirectUrl = `/invite?roomCode=${encodeURIComponent(state.roomCode)}&participantName=${encodeURIComponent(state.youName)}&nameTaken=1`;
+          const redirectUrl = '/invite?roomCode=' + encodeURIComponent(state.roomCode) + '&participantName=' + encodeURIComponent(state.youName) + '&nameTaken=1';
           state.hardRedirect = redirectUrl;
           location.replace(redirectUrl);
           return;
@@ -2286,4 +2372,85 @@
   } else {
     boot();
   }
+
+  // --- Row-action: globaler Capture-Fallback (host/spectator/kick) ---
+(function bindRowActionHotfix() {
+  if (window.__epRowActionHotfixBound) return;
+  window.__epRowActionHotfixBound = true;
+
+  const onRowAction = (btn) => {
+    const action = btn?.dataset?.action || '';
+    let name = btn?.dataset?.name || '';
+    if (!name) {
+      try {
+        name = btn.closest('.participant-row')?.querySelector('.name')?.textContent?.trim() || '';
+      } catch {}
+    }
+    if (!action || !name) return;
+
+    if (action === 'spectator') {
+      // aktuellen Zustand ermitteln
+      const p = (state.participants || []).find(x => x && x.name === name);
+      const currentlySpectator = !!(p && (p.spectator === true || p.participating === false));
+      const nextParticipating = !currentlySpectator;
+
+      // Optimistische UI
+      if (p) {
+        p.spectator = !nextParticipating;
+        p.participating = nextParticipating;
+        if (!nextParticipating) p.vote = null;
+        try { renderParticipants(); renderCards(); syncMenuFromState(); } catch {}
+      }
+
+      // host → server
+      try {
+        if (state.ws && state.ws.readyState === 1) {
+          state.ws.send('setParticipating:' + encodeURIComponent(name) + ':' + nextParticipating);
+        }
+      } catch {}
+      return;
+    }
+
+    if (action === 'host') {
+      const q = isDe() ? `Host-Rolle an ${name} übertragen?` : `Transfer host role to ${name}?`;
+      if (!confirm(q)) return;
+      try {
+        if (state.ws && state.ws.readyState === 1) {
+          state.ws.send('makeHost:' + encodeURIComponent(name));
+        }
+      } catch {}
+      return;
+    }
+
+    if (action === 'kick') {
+      const q = isDe() ? `${name} wirklich entfernen?` : `Remove ${name}?`;
+      if (!confirm(q)) return;
+      try {
+        if (state.ws && state.ws.readyState === 1) {
+          state.ws.send('kick:' + encodeURIComponent(name));
+        }
+      } catch {}
+      return;
+    }
+  };
+
+  const handle = (e) => {
+    const btn = e.target && e.target.closest ? e.target.closest('button.row-action') : null;
+    if (!btn) return;
+    e.preventDefault?.();
+    e.stopPropagation?.();
+    try { e.stopImmediatePropagation?.(); } catch {}
+    onRowAction(btn);
+  };
+
+  // Klick + Tastatur (Enter/Space) im Capture-Phase, überlebt DOM-Swaps
+  document.addEventListener('click', handle, { capture: true, passive: false });
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    handle(e);
+  }, { capture: true, passive: false });
+
+  try { console.info('[ROOM] row-action hotfix bound'); } catch {}
+})();
+
 })();

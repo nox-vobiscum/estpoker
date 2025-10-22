@@ -3,7 +3,9 @@
      <th:block th:replace="~{fragments/scripts :: scripts}"></th:block>
 -->
 <th:block th:fragment="scripts">
-  <!-- (empty) reserved for future page-specific scripts; custom tooltip removed -->
+  
+<script defer src="/js/specials-bridge.js"></script>
+
   <!-- DO NOT include menu.js here.
        menu.js is loaded by the menu fragment itself to avoid double binding. -->
 </th:block>
