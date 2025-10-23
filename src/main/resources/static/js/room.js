@@ -777,48 +777,37 @@
 
     try {
       const list = (state.participants || [])
-        .map(p => (typeof p === 'string' ? { name: p } : p))
-        .filter(p => p && p.name);
+        .map(function (p) { return (typeof p === 'string' ? { name: p } : p); })
+        .filter(function (p) { return p && p.name; });
 
       const frag = document.createDocumentFragment();
 
-      list.forEach((p) => {
+      list.forEach(function (p) {
         if (!p || !p.name) return;
 
         const li = document.createElement('li');
-        // keep legacy class for compatibility + add mobile grid class
-        li.className = 'participant-row p-row';
+        li.className = 'participant-row';
 
         const isInactive = !!p.disconnected || !!p.away;
         if (isInactive) li.classList.add('disconnected');
         if (p.isHost) li.classList.add('is-host');
         if (isSpectator(p)) li.classList.add('spectator');
 
-        // --- MAIN (left icon + name) ------------------------------------------------
-        const main = document.createElement('div');
-        main.className = 'p-main';
-
-        // icon (avatar/crown/sleep/eye)
         const left = document.createElement('span');
-        left.className = 'participant-icon p-avatar' + (p.isHost ? ' host' : '');
-        let icon = '👤';
+        left.className = 'participant-icon' + (p.isHost ? ' host' : '');
+        var icon = '👤';
         if (p.isHost) icon = '👑';
         else if (isSpectator(p)) icon = '👁️';
         else if (isInactive) icon = '💤';
         left.textContent = icon;
         left.setAttribute('aria-hidden', 'true');
         if (isInactive) left.classList.add('inactive');
-        main.appendChild(left);
+        li.appendChild(left);
 
-        // name (with inner .label for ellipsis)
         const name = document.createElement('span');
-        name.className = 'name p-name';
-        name.title = p.name;
-        const nameLabel = document.createElement('span');
-        nameLabel.className = 'label';
-        nameLabel.textContent = p.name;
-        name.appendChild(nameLabel);
-        main.appendChild(name);
+        name.className = 'name';
+        name.textContent = p.name;
+        li.appendChild(name);
 
         // SR-only host label
         if (p.isHost) {
@@ -828,153 +817,119 @@
           left.appendChild(sr);
         }
 
-        li.appendChild(main);
+        const right = document.createElement('div');
+        right.className = 'row-right';
 
-        // --- VOTE PILL (top right) ---------------------------------------------------
-        const voteBox = document.createElement('div');
-        voteBox.className = 'p-vote';
-
-        // --- META / ACTIONS (second row) --------------------------------------------
-        const meta = document.createElement('div');
-        meta.className = 'p-meta';
-
-        // STATE → UI
         if (!state.votesRevealed) {
-          // before reveal: keep a neutral pill to avoid layout jumps
-          const pill = document.createElement('span');
-          pill.className = 'p-pill is-empty';
-          pill.textContent = '–';
-          pill.setAttribute('aria-label', isInactive
-            ? t('aria.inactive', 'Inactive')
-            : t('aria.pending', 'Pending'));
-          voteBox.appendChild(pill);
-
-          // small state chip in meta (optional visual hint)
           if (isSpectator(p)) {
-            const spect = document.createElement('span');
-            spect.className = 'p-chip';
-            spect.textContent = t('label.spectator', 'Spectator');
-            meta.appendChild(spect);
+            var eye = document.createElement('span');
+            eye.className = 'mini-chip spectator';
+            eye.textContent = '👁️';
+            right.appendChild(eye);
           } else if (!p.disconnected && p.vote != null && String(p.vote) !== '') {
-            const ok = document.createElement('span');
-            ok.className = 'p-chip';
+            var ok = document.createElement('span');
+            ok.className = 'mini-chip done';
             ok.textContent = '✓';
-            ok.setAttribute('title', t('label.voted', 'Vote placed'));
-            meta.appendChild(ok);
-          } else if (!isInactive) {
-            const pend = document.createElement('span');
-            pend.className = 'p-chip';
-            pend.textContent = '⏳';
-            pend.setAttribute('title', t('label.waiting', 'Waiting'));
-            meta.appendChild(pend);
+            right.appendChild(ok);
+          } else {
+            var dash = document.createElement('span');
+            dash.className = isInactive ? 'mini-chip' : 'mini-chip pending';
+            dash.textContent = isInactive ? '–' : '⏳';
+            right.appendChild(dash);
           }
         } else {
-          // after reveal
-          if (isSpectator(p) || isInactive) {
-            const pill = document.createElement('span');
-            pill.className = 'p-pill is-empty';
-            pill.textContent = '–';
-            pill.setAttribute('aria-label', isSpectator(p)
-              ? t('label.spectator', 'Spectator')
-              : t('aria.inactive', 'Inactive'));
-            voteBox.appendChild(pill);
-
-            if (isSpectator(p)) {
-              const spect = document.createElement('span');
-              spect.className = 'p-chip';
-              spect.textContent = t('label.spectator', 'Spectator');
-              meta.appendChild(spect);
-            }
+          if (isSpectator(p)) {
+            var eye2 = document.createElement('span');
+            eye2.className = 'mini-chip spectator';
+            eye2.textContent = '👁️';
+            right.appendChild(eye2);
+          } else if (isInactive) {
+            var dash2 = document.createElement('span');
+            dash2.className = 'mini-chip';
+            dash2.textContent = '–';
+            right.appendChild(dash2);
           } else {
-            const noVote = (p.vote == null || p.vote === '');
-            const display = noVote ? '–' : String(p.vote);
+            var chip = document.createElement('span');
+            var noVote = (p.vote == null || p.vote === '');
+            var display = noVote ? '–' : String(p.vote);
 
             if (noVote) {
-              const pill = document.createElement('span');
-              pill.className = 'p-pill is-empty';
-              pill.textContent = '–';
-              pill.setAttribute('aria-label', t('aria.noVote', 'No vote yet'));
-              voteBox.appendChild(pill);
+              chip.className = 'mini-chip';
+              chip.textContent = '–';
+              right.appendChild(chip);
             } else {
-              const chip = document.createElement('span');
-              chip.className = 'vote-chip p-pill';
+              chip.className = 'vote-chip';
               chip.textContent = display;
-              chip.setAttribute('aria-label', t('aria.vote', 'Vote {0}', { 0: display }));
 
-              const isInfinity = (display === INFINITY_ || display === INFINITY_ALT);
-              const isSpecial = ALL_SPECIALS_EMOJI.has(display);
+              var isInfinity = (display === INFINITY_ || display === INFINITY_ALT);
+              var isSpecial = ALL_SPECIALS_EMOJI.has(display);
 
               if (!isInfinity && isSpecial) chip.classList.add('special');
 
               if (!isSpecial) {
-                const hue = heatHueForLabel(display);
+                var hue = heatHueForLabel(display);
                 if (hue != null) {
                   chip.classList.add('heat');
                   chip.style.setProperty('--chip-heat-h', String(hue));
                 }
               }
 
-              if (Array.isArray(state.outliers) && state.outliers.indexOf(p.name) !== -1) {
-                chip.classList.add('outlier');
-              }
+              if (Array.isArray(state.outliers) && state.outliers.indexOf(p.name) !== -1) chip.classList.add('outlier');
 
-              voteBox.appendChild(chip);
+              right.appendChild(chip);
             }
           }
         }
 
-        // --- Host actions (micro-pills) ---------------------------------------------
+        // --- Host action buttons -------------------------------------------------
         if (state.isHost && !p.isHost) {
           // Make host
-          const makeHostBtn = document.createElement('button');
-          makeHostBtn.className = 'row-action host p-chip p-action';
+          var makeHostBtn = document.createElement('button');
+          makeHostBtn.className = 'row-action host';
           makeHostBtn.type = 'button';
           makeHostBtn.setAttribute('data-action', 'host');
           makeHostBtn.setAttribute('data-name', p.name);
-          const labelMakeHost = t('action.makeHost', isDe() ? 'Zum Host machen' : 'Make host');
+          var labelMakeHost = t('action.makeHost', isDe() ? 'Zum Host machen' : 'Make host');
           makeHostBtn.setAttribute('aria-label', labelMakeHost);
           makeHostBtn.setAttribute('title', labelMakeHost);
-          const makeHostLbl = document.createElement('span');
+          var makeHostLbl = document.createElement('span');
           makeHostLbl.className = 'ra-label';
           makeHostLbl.textContent = 'Host';
           makeHostBtn.appendChild(makeHostLbl);
-          meta.appendChild(makeHostBtn);
+          right.appendChild(makeHostBtn);
 
           // Spectator toggle
-          const spectBtn = document.createElement('button');
-          spectBtn.className = 'row-action spectator p-chip p-action';
+          var spectBtn = document.createElement('button');
+          spectBtn.className = 'row-action spectator';
           spectBtn.type = 'button';
           spectBtn.setAttribute('data-action', 'spectator');
           spectBtn.setAttribute('data-name', p.name);
-          const labelSpect = t('action.spectatorToggle', isDe() ? 'Zuschauer umschalten' : 'Toggle spectator');
+          var labelSpect = t('action.spectatorToggle', isDe() ? 'Zuschauer umschalten' : 'Toggle spectator');
           spectBtn.setAttribute('aria-label', labelSpect);
           spectBtn.setAttribute('title', labelSpect);
-          const spectLbl = document.createElement('span');
+          var spectLbl = document.createElement('span');
           spectLbl.className = 'ra-label';
           spectLbl.textContent = 'Spectator';
           spectBtn.appendChild(spectLbl);
-          meta.appendChild(spectBtn);
+          right.appendChild(spectBtn);
 
           // Kick
-          const kickBtn = document.createElement('button');
-          kickBtn.className = 'row-action kick p-chip p-action is-danger';
+          var kickBtn = document.createElement('button');
+          kickBtn.className = 'row-action kick';
           kickBtn.type = 'button';
           kickBtn.setAttribute('data-action', 'kick');
           kickBtn.setAttribute('data-name', p.name);
-          const labelKick = t('action.kick', isDe() ? 'Teilnehmer entfernen' : 'Kick participant');
+          var labelKick = t('action.kick', isDe() ? 'Teilnehmer entfernen' : 'Kick participant');
           kickBtn.setAttribute('aria-label', labelKick);
           kickBtn.setAttribute('title', labelKick);
-          const kickLbl = document.createElement('span');
+          var kickLbl = document.createElement('span');
           kickLbl.className = 'ra-label';
           kickLbl.textContent = 'Kick';
           kickBtn.appendChild(kickLbl);
-          meta.appendChild(kickBtn);
+          right.appendChild(kickBtn);
         }
 
-        // append the new regions
-        li.appendChild(voteBox);
-        li.appendChild(meta);
-
+        li.appendChild(right);
         frag.appendChild(li);
       });
 
@@ -983,7 +938,6 @@
       console.error('[ROOM] renderParticipants failed', e);
     }
   }
-
 
   /*** ---------- Heat hue helpers ---------- ***/
   function parseVoteNumber(label) {
