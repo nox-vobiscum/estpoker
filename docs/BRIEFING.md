@@ -203,6 +203,29 @@ For detailed instructions, troubleshooting, CI recipe, and full command list, se
 
 - Compact menu/typography adjustments live in `styles.css` (see backlog for further tuning).
 
+### 10.1 Participant list (mobile ≤ 768px)
+
+- **Two-line layout on mobile**  
+  Line 1: icon + name (left), status/vote chip (right).  
+  Line 2: **host actions** (“Host / Spectator / Kick”), right-aligned, full width.  
+  The second line is **visible only for hosts**.
+
+- **Desktop unchanged**  
+  Original action buttons remain in `.row-right` and render as before on ≥769px.
+
+- **Implementation (dev notes)**  
+  - In host view, client JS clones the existing `button.row-action` elements from `.row-right` into a sibling container **`.row-actions`** (created right after `li.appendChild(right);`).  
+  - Rows that actually get the second line are tagged with **`.has-row-actions`** (used for chip/name alignment only).  
+  - All mobile styling lives in `static/styles.css` inside `@media (max-width: 768px)`; desktop styles are not changed.
+
+- **Chip/name alignment on mobile**  
+  For rows with `.has-row-actions`, name and chip share a unified line box (`--pr-line`), chips use `inline-flex` + `vertical-align: middle`.  
+  No `transform` hacks; alignment is stable across zoom/fonts.
+
+- **Result row (stability)**  
+  Before reveal, `#resultRow` keeps its vertical space but renders no text (`#resultRow.is-hidden { visibility: hidden; }`) to prevent layout jumps.
+
+
 ---
 
 ## 11) How to start the next session (TL;DR)
