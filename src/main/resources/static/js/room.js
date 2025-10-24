@@ -930,6 +930,34 @@
         }
 
         li.appendChild(right);
+
+
+    // === Mobile full-width actions row (host view only) ======================
+    // We show a second line across full width for host actions on mobiles.
+    // Desktop keeps using the original buttons inside .row-right.
+
+    try {
+      const isHostView = document.body.classList.contains('is-host');
+      if (isHostView) {
+        // clone all action buttons that were added to the right column
+        const actionButtons = right.querySelectorAll('button.row-action');
+        if (actionButtons.length > 0) {
+          const rowActions = document.createElement('div');
+          rowActions.className = 'row-actions';
+          actionButtons.forEach(btn => rowActions.appendChild(btn.cloneNode(true)));
+          // place as a sibling so CSS grid can put it on row 2 with full width
+          li.appendChild(rowActions);
+          li.classList.add('has-row-actions');
+        }
+      }
+    } catch (e) {
+      // no-op: keep rendering even if something above fails
+    }
+
+
+
+
+
         frag.appendChild(li);
       });
 
