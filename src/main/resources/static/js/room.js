@@ -55,7 +55,9 @@
   });
   const SPECIALS_ORDER = Object.freeze(['coffee','speech','telescope','waiting','dependency','risk','relevance']);
   const SPECIALS_IDS_SET = new Set(SPECIALS_ORDER);
-  const ALL_SPECIALS_EMOJI = new Set([QUESTION].concat(Object.values(SPECIALS_ICON_BY_ID)));
+    // Do NOT include QUESTION here => it stays in the main row
+  const ALL_SPECIALS_EMOJI = new Set(Object.values(SPECIALS_ICON_BY_ID));
+
 
   const INFINITY_ = '♾️';
   const INFINITY_ALT = '∞';
@@ -110,7 +112,7 @@
     hardMode: false,
 
     // EXTRAS toggle (ON = extras shown); QUESTION is always shown regardless
-    allowSpecials: true,
+    allowSpecials: false,
 
     // host-selected specials (IDs like 'coffee', 'telescope', ...)
     specialsSelected: [],
@@ -241,7 +243,7 @@
   // Build a deck from sequence + extras (QUESTION is always included at the end)
   function defaultDeck(seqId, allowExtras, extras) {
     if (seqId == null) seqId = 'fib.scrum';
-    if (typeof allowExtras !== 'boolean') allowExtras = true;
+    if (typeof allowExtras !== 'boolean') allowExtras = false; // default OFF
     if (!Array.isArray(extras)) extras = [];
     // Core numeric deck
     const base = ['0', '1/2', '1', '2', '3', '5', '8', '13', '20', '40', '100'];
@@ -793,14 +795,18 @@
         if (p.isHost) li.classList.add('is-host');
         if (isSpectator(p)) li.classList.add('spectator');
 
-        const left = document.createElement('span');
+      const left = document.createElement('span');
         left.className = 'participant-icon' + (p.isHost ? ' host' : '');
+        // Left icon rules:
+        // - Host: crown
+        // - Inactive (disconnected/away): zzz
+        // - Everyone else (incl. spectator): silhouette
         var icon = '👤';
         if (p.isHost) icon = '👑';
-        else if (isSpectator(p)) icon = '👁️';
         else if (isInactive) icon = '💤';
         left.textContent = icon;
         left.setAttribute('aria-hidden', 'true');
+
         if (isInactive) left.classList.add('inactive');
         li.appendChild(left);
 
@@ -862,7 +868,7 @@
               chip.textContent = display;
 
               var isInfinity = (display === INFINITY_ || display === INFINITY_ALT);
-              var isSpecial = ALL_SPECIALS_EMOJI.has(display);
+              var isSpecial = (display === QUESTION) || ALL_SPECIALS_EMOJI.has(display); // treat "?" as special for styling
 
               if (!isInfinity && isSpecial) chip.classList.add('special');
 
@@ -2454,3 +2460,67 @@ if (action === 'spectator') {
 })();
 
 })();
+
+// --- mobile host-actions bridge (no new files) ----------------------------
+// On mobile (<=768px), move .row-action buttons from .row-right to a second
+// line (.row-actions). Keep the chip in .row-right. Desktop: move back.
+// Only active when current user is host (body.hasClass('is-host')).
+(() => {
+  'use strict';
+
+  const LIST     = '#liveParticipantList';
+  const ROW      = '.participant-row';
+  const RIGHT    = '.row-right';
+  const ACTION   = '.row-action';
+  const MOBILEMQ = window.matchMedia('(max-width: 768px)');
+
+  const isHost = () => document.body.classList.contains('is-host');
+
+  function ensureActionsSlot(row) {
+    let slot = row.querySelector('.row-actions');
+    if (!slot) {
+      slot = document.createElement('div');
+      slot.className = 'row-actions';       // CSS places this on line 2
+      row.appendChild(slot);
+    }
+    return slot;
+  }
+
+  function moveToBottomRow(row) {
+    const right = row.querySelector(RIGHT);
+    if (!right) return;
+    const slot = ensureActionsSlot(row);
+    [...right.querySelectorAll(ACTION)].forEach(btn => slot.appendChild(btn));
+  }
+
+  function moveBackToRight(row) {
+    const right = row.querySelector(RIGHT);
+    if (!right) return;
+    [...row.querySelectorAll(`.row-actions ${ACTION}`)].forEach(btn => right.appendChild(btn));
+  }
+
+  function adjustRow(row) {
+    // If not host, keep DOM tidy: ensure actions (if any) live in .row-right
+    if (!isHost()) { moveBackToRight(row); return; }
+    // Host
+    if (MOBILEMQ.matches) moveToBottomRow(row);
+    else moveBackToRight(row);
+  }
+
+  function updateAll() {
+    document.querySelectorAll(`${LIST} ${ROW}`).forEach(adjustRow);
+  }
+
+  function observeList() {
+    const list = document.querySelector(LIST);
+    if (!list) return;
+    new MutationObserver(updateAll).observe(list, { childList: true, subtree: true });
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    observeList();
+    updateAll();
+  });
+  window.addEventListener('resize', updateAll);
+})();
+
