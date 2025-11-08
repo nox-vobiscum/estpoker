@@ -84,6 +84,9 @@ https://ep.noxvobiscum.at/
 
 These rules keep iterations safe, quick, and easy to review.
 
+### 5.0 Golden rule — Ask before you act
+When in doubt, ask a clarifying question. Never guess. No “best-effort” patches without either the current file content or an explicit “unchanged” confirmation.
+
 ### 5.1 Kickoff checklist for every new chat/session
 - Share the **current repo shape** to prevent guessing:  
   - Windows: `tree /F > tree.txt`  
@@ -101,8 +104,9 @@ These rules keep iterations safe, quick, and easy to review.
 _No batching of unrelated edits. Prefer one change per step/commit._
 
 ### 5.3 State & assumptions policy
-- **No assumptions.** If current code may differ from memory, we first ask for the **actual “as-is”** (file tree, file content, or relevant fragment).  
-- After longer pauses, we explicitly **re-confirm** current state before proposing edits.
+- **Ask-first rule.** If anything is ambiguous or I'm not 100% sure, I stop and ask a clarifying question. I do not guess or provide “best-effort” patches without confirmation.
+- **No assumptions.** If current code may differ from memory, we first request the **actual “as-is”** (file tree, file content, or relevant fragment).
+- **After pauses, re-confirm state** before proposing edits.
 
 ### 5.4 Snippet & diff policy
 - Drop-in snippets only when the replaceable block is **uniquely identifiable**.  
