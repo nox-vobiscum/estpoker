@@ -871,7 +871,11 @@ public class GameService {
                 String newHostName = null;
                 synchronized (room) {
                     Participant host = room.getHost();
-                    if (host != null && Objects.equals(host.getName(), leavingName)) {
+                    Participant leaving = room.getParticipant(leavingName);
+                    boolean actuallyGone = (leaving == null) || !leaving.isActive();
+
+                    // Transfer host ONLY if the leaving participant is still the host AND actually gone
+                    if (host != null && Objects.equals(host.getName(), leavingName) && actuallyGone) {
                         host.setHost(false);
                         newHostName = room.assignNewHostIfNecessary(leavingName);
                     }
@@ -887,7 +891,7 @@ public class GameService {
         }, delayMs, TimeUnit.MILLISECONDS);
 
         pendingHostTransfers.put(k, hostF);
-    }
+}
 
     private void broadcastParticipantLeft(Room room, String name) {
         Map<String, Object> payload = new HashMap<>();

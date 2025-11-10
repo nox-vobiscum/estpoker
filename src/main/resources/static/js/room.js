@@ -604,10 +604,11 @@
         const arr = m.specials.slice();
         const looksLikeIds = arr.every(function (x) { return typeof x === 'string' && SPECIALS_IDS_SET.has(x); });
         extrasFromServerEmoji = looksLikeIds ? idsToEmojis(arr) : arr;
-        extrasEnabledFromServer = extrasFromServerEmoji.length > 0;
-        // Keep selected IDs in state (stable order)
+        // NOTE: A non-empty specials list does NOT imply "enabled".
+        // The server must send an explicit boolean (allowSpecials / specialsEnabled / specialsOff).
         state.specialsSelected = canonicalizeIds(looksLikeIds ? arr : emojisToIds(arr));
       }
+
       // Legacy/alt booleans
       if (has(m, 'allowSpecials'))  extrasEnabledFromServer = !!m.allowSpecials;
       if (has(m, 'specialsOff'))    extrasEnabledFromServer = !m.specialsOff;
@@ -936,6 +937,34 @@
         }
 
         li.appendChild(right);
+
+
+    // === Mobile full-width actions row (host view only) ======================
+    // We show a second line across full width for host actions on mobiles.
+    // Desktop keeps using the original buttons inside .row-right.
+
+    try {
+      const isHostView = document.body.classList.contains('is-host');
+      if (isHostView) {
+        // clone all action buttons that were added to the right column
+        const actionButtons = right.querySelectorAll('button.row-action');
+        if (actionButtons.length > 0) {
+          const rowActions = document.createElement('div');
+          rowActions.className = 'row-actions';
+          actionButtons.forEach(btn => rowActions.appendChild(btn.cloneNode(true)));
+          // place as a sibling so CSS grid can put it on row 2 with full width
+          li.appendChild(rowActions);
+          li.classList.add('has-row-actions');
+        }
+      }
+    } catch (e) {
+      // no-op: keep rendering even if something above fails
+    }
+
+
+
+
+
         frag.appendChild(li);
       });
 
@@ -2461,66 +2490,52 @@ if (action === 'spectator') {
 
 })();
 
-// --- mobile host-actions bridge (no new files) ----------------------------
-// On mobile (<=768px), move .row-action buttons from .row-right to a second
-// line (.row-actions). Keep the chip in .row-right. Desktop: move back.
-// Only active when current user is host (body.hasClass('is-host')).
-(() => {
-  'use strict';
+// normalize missing allowSpecials to false (room default OFF)
+function __normalizeAllowSpecials(obj){
+  try{
+    if (obj && typeof obj.allowSpecials === 'undefined') obj.allowSpecials = false;
+  }catch(e){}
+  return obj;
+}
 
-  const LIST     = '#liveParticipantList';
-  const ROW      = '.participant-row';
-  const RIGHT    = '.row-right';
-  const ACTION   = '.row-action';
-  const MOBILEMQ = window.matchMedia('(max-width: 768px)');
 
-  const isHost = () => document.body.classList.contains('is-host');
-
-  function ensureActionsSlot(row) {
-    let slot = row.querySelector('.row-actions');
-    if (!slot) {
-      slot = document.createElement('div');
-      slot.className = 'row-actions';       // CSS places this on line 2
-      row.appendChild(slot);
-    }
-    return slot;
-  }
-
-  function moveToBottomRow(row) {
-    const right = row.querySelector(RIGHT);
-    if (!right) return;
-    const slot = ensureActionsSlot(row);
-    [...right.querySelectorAll(ACTION)].forEach(btn => slot.appendChild(btn));
-  }
-
-  function moveBackToRight(row) {
-    const right = row.querySelector(RIGHT);
-    if (!right) return;
-    [...row.querySelectorAll(`.row-actions ${ACTION}`)].forEach(btn => right.appendChild(btn));
-  }
-
-  function adjustRow(row) {
-    // If not host, keep DOM tidy: ensure actions (if any) live in .row-right
-    if (!isHost()) { moveBackToRight(row); return; }
-    // Host
-    if (MOBILEMQ.matches) moveToBottomRow(row);
-    else moveBackToRight(row);
-  }
-
-  function updateAll() {
-    document.querySelectorAll(`${LIST} ${ROW}`).forEach(adjustRow);
-  }
-
-  function observeList() {
-    const list = document.querySelector(LIST);
+// viewport/theme sync for mobile .row-actions
+(function(){
+  if (window.__epSyncRowActions) return;
+  function isMobileVW(){ return window.matchMedia && window.matchMedia('(max-width: 768px)').matches; }
+  function syncRowActions(){
+    var list = document.getElementById('liveParticipantList');
     if (!list) return;
-    new MutationObserver(updateAll).observe(list, { childList: true, subtree: true });
+    var mobile = isMobileVW();
+    list.querySelectorAll('li.participant-row').forEach(function(li){
+      var right = li.querySelector('.row-right');
+      if (!right) return;
+      var actions = right.querySelectorAll('button.row-action');
+      var mobileRow = li.querySelector('.row-actions');
+      if (mobile){
+        if (actions.length){
+          if (!mobileRow){
+            mobileRow = document.createElement('div');
+            mobileRow.className = 'row-actions';
+            li.appendChild(mobileRow);
+          }
+          var frag = document.createDocumentFragment();
+          actions.forEach(function(btn){ frag.appendChild(btn.cloneNode(true)); });
+          mobileRow.replaceChildren();
+          mobileRow.appendChild(frag);
+        }
+      }else{
+        if (mobileRow) mobileRow.remove();
+      }
+    });
   }
-
-  document.addEventListener('DOMContentLoaded', () => {
-    observeList();
-    updateAll();
-  });
-  window.addEventListener('resize', updateAll);
+  window.__epSyncRowActions = syncRowActions;
+  var to=null;
+  window.addEventListener('resize', function(){ clearTimeout(to); to=setTimeout(syncRowActions, 120); }, {passive:true});
+  try{
+    var mo = new MutationObserver(function(){ syncRowActions(); });
+    mo.observe(document.documentElement, {attributes:true, attributeFilter:['class','data-theme']});
+    mo.observe(document.body, {attributes:true, attributeFilter:['class','data-theme']});
+  }catch(e){}
+  setTimeout(syncRowActions,0);
 })();
-

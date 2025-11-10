@@ -39,7 +39,7 @@ public class Room {
     // ---------------------------------------------------------------------
 
     /** Legacy flag: whether any specials are allowed (question card might still be rendered by clients). */
-    private boolean allowSpecials = true;
+    private boolean allowSpecials = false;
 
     // ---------------------------------------------------------------------
     // Topic
