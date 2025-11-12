@@ -824,3 +824,99 @@ html.light .vote-chip.heat, body.light .vote-chip.heat,
   }
 }
 
+
+/* Specials: "Select all" text action — match host actions (dotted underline) */
+#rowSpecialsPick :is(button:not(.spc):not([role="switch"]), a:not(.spc), .text-action){
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  padding: 2px 6px !important;       /* keep a small click area */
+  border-radius: 0 !important;
+  font-weight: 600;
+  text-decoration: none !important;  /* no text decoration */
+  display: inline-block;              /* ensure border-bottom renders nicely */
+  border-bottom: 1px dotted transparent !important; /* dotted baseline (hidden) */
+}
+
+#rowSpecialsPick :is(button:not(.spc):not([role="switch"]), a:not(.spc), .text-action):hover{
+  background: transparent !important;
+  text-decoration: none !important;  /* stay consistent with host actions */
+  border-bottom-color: currentColor !important; /* show dotted underline on hover */
+}
+
+
+
+/* === UI polish: Menu Toggles – switch aligned vertically === */
+.menu-item.switch .switch-control::after {
+  top: 3px !important;
+}
+
+
+
+
+/* Participants: long names may grow up to the chip (desktop only) */
+@media (min-width: 769px){
+  /* Let the left area (icon + name) take the remaining space */
+  #liveParticipantList .participant-row .row-left{
+    flex: 1 1 auto !important;
+    min-width: 0 !important; /* required so text can actually shrink before ellipsis */
+  }
+
+  /* The name itself can grow; ellipsis only when it truly hits the chip */
+  #liveParticipantList .participant-row .row-left .name{
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+    max-width: none !important; /* remove any hard caps */
+    white-space: nowrap;        /* keep single line */
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Keep the right area (chip + actions) content-sized, unchanged */
+  #liveParticipantList .participant-row .row-right{
+    flex: 0 0 auto !important;
+  }
+}
+
+
+/* Participant row: maximize name space on desktop (edge widths) */
+@media (min-width: 769px){
+  /* Reduce column gap a bit on narrow desktop; scales up on wide screens */
+  #liveParticipantList .participant-row{
+    column-gap: clamp(8px, 1.2vw, 16px);
+  }
+
+  /* Let the left column (icon + name) take all remaining space */
+  #liveParticipantList .participant-row .row-left{
+    flex: 1 1 auto !important;
+    min-width: 0 !important;             /* critical for proper ellipsis */
+  }
+  #liveParticipantList .participant-row .row-left > *{
+    min-width: 0 !important;             /* allow children to shrink */
+  }
+
+  /* Name element: single line, no hard caps, ellipsis only at real limit */
+  #liveParticipantList .participant-row .row-left [class*="name"]{
+    display: block;
+    min-width: 0 !important;
+    max-width: none !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Right column stays content-sized; tighten internal spacing slightly */
+  #liveParticipantList .participant-row .row-right{
+    flex: 0 0 auto !important;
+    display: flex;
+    align-items: center;
+    gap: clamp(6px, 0.8vw, 12px);         /* a touch tighter near 770–900px */
+    white-space: nowrap;                  /* keep actions on one line */
+  }
+  #liveParticipantList .participant-row .row-right .vote-chip{
+    flex: 0 0 auto;                       /* chip never shrinks */
+  }
+  #liveParticipantList .participant-row .row-right .actions{
+    white-space: nowrap;                  /* text actions never wrap */
+  }
+}
