@@ -920,25 +920,3 @@ html.light .vote-chip.heat, body.light .vote-chip.heat,
     white-space: nowrap;                  /* text actions never wrap */
   }
 }
-
-
-
-/* === Desktop: center participant vote chip exactly on page center === */
-@media (min-width: 769px){
-  /* reference box for absolute positioning */
-  #liveParticipantList .participant-row{ position: relative; }
-
-  /* place the chip on the exact page center line */
-  #liveParticipantList .participant-row .row-right :where(.vote-chip,.mini-chip,.status-icon){
-    position: absolute;           /* remove from flex flow */
-    left: 50%;                    /* page center */
-    transform: translateX(-50%);  /* true centering */
-    pointer-events: none;         /* keep Host/Spectator/Kick clickable */
-    z-index: 1;
-  }
-
-  /* host actions remain right-aligned (unchanged behavior) */
-  #liveParticipantList .participant-row .row-right > .row-action:first-of-type{
-    margin-left: auto;
-  }
-}
