@@ -23,7 +23,7 @@ class StoredRoomPersistenceServiceTest {
 
     private Room sampleLive(String code) {
         Room r = new Room(code);
-        r.setSequenceId("fibonacci");
+        r.setSequenceId("fib.scrum");
         r.setAutoRevealEnabled(true);
         r.setAllowSpecials(false);
         r.setTopicVisible(true);
@@ -62,7 +62,7 @@ class StoredRoomPersistenceServiceTest {
         StoredRoom saved = cap.getValue();
 
         assertEquals("X", saved.getCode());
-        assertEquals("fibonacci", saved.getSettings().getSequenceId());
+        assertEquals("fib.scrum", saved.getSettings().getSequenceId());
         assertTrue(saved.getSettings().isAutoRevealEnabled());
         assertFalse(saved.getSettings().isAllowSpecials());
         assertTrue(saved.getSettings().isTopicVisible());
@@ -101,7 +101,7 @@ class StoredRoomPersistenceServiceTest {
         assertEquals(existing.getPasswordHash(), saved.getPasswordHash());
 
         // New content must be applied
-        assertEquals("fibonacci", saved.getSettings().getSequenceId());
+        assertEquals("fib.scrum", saved.getSettings().getSequenceId());
         assertEquals("Sprint 42", saved.getTopicLabel());
         assertEquals("https://example.test/ticket/42", saved.getTopicUrl());
         assertEquals(2, saved.getParticipants().size());
