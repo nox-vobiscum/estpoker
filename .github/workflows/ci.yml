@@ -71,11 +71,11 @@ jobs:
           node scripts/check-menu-toggle-events.js
       # --- end guards ---
 
-      - name: Set up Java 21 (Temurin) with Maven cache
+      - name: Set up Java 25 (Temurin) with Maven cache
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '21'
+          java-version: '25'
           cache: maven
 
       - name: Make Maven Wrapper executable

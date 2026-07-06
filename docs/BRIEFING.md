@@ -21,7 +21,7 @@ https://ep.noxvobiscum.at/
 - **Editor:** VS Code  
 - **VCS:** Git (remote origin)  
 - **Build:** Maven Wrapper (`mvnw`)  
-- **Runtime:** Java 21 (OpenJDK)  
+- **Runtime:** Java 25 (OpenJDK)  
 - **Backend:** Spring Boot 3.x, WebSocket (server push), Thymeleaf views  
 - **Frontend:** vanilla JavaScript, server-rendered HTML; global stylesheet: `src/main/resources/static/styles.css`  
 - **Tests:**  

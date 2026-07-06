@@ -326,13 +326,14 @@ public class Room {
         repl.setVote(cur.getVote());
 
         addParticipant(repl);
-        removeParticipant(from);
 
-        // Reassign cids that pointed to the old name
+        // Reassign cids that pointed to the old name before removing the old participant.
+        // removeParticipant() also purges matching cid entries, so the order matters here.
         for (Map.Entry<String, String> e : cidToName.entrySet()) {
             if (from.equals(e.getValue())) e.setValue(finalName);
         }
 
+        removeParticipant(from);
         return finalName;
     }
 }
