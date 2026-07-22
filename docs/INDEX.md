@@ -9,6 +9,8 @@ Comprehensive documentation for the EstPoker estimation poker application.
 ### Quick Links
 
 - **[README.md](../README.md)** - Project overview and quick start
+- **[USER-GUIDE.md](USER-GUIDE.md)** - 📖 **Benutzerhandbuch für Endanwender** (Deutsch)
+- **[USER-GUIDE-EN.md](USER-GUIDE-EN.md)** - 📖 **User Guide for End Users** (English)
 - **[BRIEFING.md](BRIEFING.md)** - Essential project baseline (read this first!)
 
 ### Core Documentation
@@ -39,7 +41,10 @@ Comprehensive documentation for the EstPoker estimation poker application.
 
 ### Get Started
 
-**I'm new to the project**
+**I'm an end user (non-technical)**
+→ Read [USER-GUIDE.md](USER-GUIDE.md) (German) or [USER-GUIDE-EN.md](USER-GUIDE-EN.md) (English)
+
+**I'm new to the project (developer)**
 → Start with [BRIEFING.md](BRIEFING.md) for project overview and setup
 
 **I want to run it locally**
@@ -84,6 +89,21 @@ Comprehensive documentation for the EstPoker estimation poker application.
 ---
 
 ## 📖 Document Summaries
+
+### USER-GUIDE.md / USER-GUIDE-EN.md
+**End-user documentation** (German / English) covering:
+- Schnellstart für Moderatoren und Teilnehmer
+- Schritt-für-Schritt Anleitungen
+- UI-Elemente erklärt
+- Kartenwerte und ihre Bedeutung
+- Häufige Fragen (FAQ)
+- Tipps für effektive Planning-Poker Sessions
+- Troubleshooting für Endanwender
+- Beispiel-Session
+
+**For non-technical users who want to use the tool.**
+
+---
 
 ### BRIEFING.md
 **Essential project baseline** covering:
@@ -192,6 +212,10 @@ Comprehensive documentation for the EstPoker estimation poker application.
 
 ## 🗂️ Documentation by Role
 
+### End User / Team Member
+1. [USER-GUIDE.md](USER-GUIDE.md) - Complete user guide (German)
+2. [USER-GUIDE-EN.md](USER-GUIDE-EN.md) - Complete user guide (English)
+
 ### Developer
 1. [BRIEFING.md](BRIEFING.md) - Start here
 2. [ARCHITECTURE.md](ARCHITECTURE.md) - Understand the system
@@ -292,6 +316,8 @@ If you can't find what you need:
 
 | Document | Lines | Topics | Last Major Update |
 |----------|-------|--------|-------------------|
+| USER-GUIDE.md | ~650 | 15 | 2026-07-22 |
+| USER-GUIDE-EN.md | ~650 | 15 | 2026-07-22 |
 | BRIEFING.md | ~300 | 7 | Regularly updated |
 | ARCHITECTURE.md | ~800 | 11 | 2026-07-22 |
 | API.md | ~1000 | 7 | 2026-07-22 |
@@ -301,7 +327,7 @@ If you can't find what you need:
 | STYLE.md | ~100 | 4 | Regularly updated |
 | BACKLOG.md | ~150 | Varies | Ongoing |
 
-**Total documentation:** ~4,150 lines across 8 primary documents
+**Total documentation:** ~5,450 lines across 10 primary documents
 
 ---
 
