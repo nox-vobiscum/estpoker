@@ -5,7 +5,7 @@
 // Run:
 //   npx playwright test tests/participation-spectator.spec.js
 // Env:
-//   EP_BASE_URL  (e.g. http://localhost:8080 or https://ep.noxvobiscum.at)
+//   EP_BASE_URL  (e.g. http://localhost:8080 or https://ep.rbsnet.at)
 //   EP_ROOM_URL  (optional full room URL; overrides base; test appends participant & room)
 
 import { test, expect, Page, Browser } from '@playwright/test';

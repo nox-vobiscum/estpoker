@@ -179,7 +179,7 @@ GET /room?roomCode=demo&participantName=Alice
 
 **Full URL:**
 - Local: `ws://localhost:8080/gameSocket`
-- Production: `wss://ep.noxvobiscum.at/gameSocket`
+- Production: `wss://ep.rbsnet.at/gameSocket`
 
 **Handshake:**
 ```javascript
@@ -866,7 +866,7 @@ Potential future enhancements:
 **Configured in:** `application.properties`
 
 ```properties
-app.websocket.allowed-origins=http://localhost:*,https://ep.noxvobiscum.at
+app.websocket.allowed-origins=http://localhost:*,https://ep.rbsnet.at
 ```
 
 **Enforcement:** Origin header checked on WebSocket upgrade request

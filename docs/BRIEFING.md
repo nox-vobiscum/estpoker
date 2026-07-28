@@ -9,7 +9,7 @@ This document captures the shared baseline for the project, the local working en
 Lightweight online estimation poker with real-time updates, simple UX, and optional persistence (snapshots). Server-rendered HTML + vanilla JS for minimal footprint; Spring Boot backend.
 
 **Prod URL**  
-https://ep.noxvobiscum.at/
+https://ep.rbsnet.at/
 
 ---
 

@@ -12,7 +12,7 @@ This document provides a comprehensive overview of the EstPoker system architect
 - Optional persistence (in-memory or FTPS-based snapshots)
 - Minimal footprint and high performance
 
-**Production URL:** https://ep.noxvobiscum.at/
+**Production URL:** https://ep.rbsnet.at/
 
 ---
 
@@ -487,7 +487,7 @@ Server → Client: voteUpdate (initial state)
 ### WebSocket Origin Validation
 - Allowed origins configured in `application.properties`
 - Prevents unauthorized WebSocket connections
-- Production: `https://ep.noxvobiscum.at`
+- Production: `https://ep.rbsnet.at`
 - Local dev: `http://localhost:*`
 
 ### No Authentication System
@@ -531,7 +531,7 @@ features.persistentRooms.snapshot.enabled=true
 features.persistentRooms.snapshot.debounceMs=1500
 
 # WebSocket
-app.websocket.allowed-origins=http://localhost:*,https://ep.noxvobiscum.at
+app.websocket.allowed-origins=http://localhost:*,https://ep.rbsnet.at
 
 # FTPS Storage
 app.storage.mode=ftps

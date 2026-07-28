@@ -2,7 +2,7 @@
 // Run:
 //   npx playwright test tests/auto-reveal.spec.js
 // Env:
-//   EP_BASE_URL=https://ep.noxvobiscum.at   (or local http://localhost:8080)
+//   EP_BASE_URL=https://ep.rbsnet.at   (or local http://localhost:8080)
 //   EP_ROOM_URL=<full room URL>             (optional; overrides BASE)
 
 import { test, expect, Page, Browser } from '@playwright/test';

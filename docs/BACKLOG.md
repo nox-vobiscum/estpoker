@@ -18,7 +18,7 @@ Status tags:
 
 **Scope**
 - UptimeRobot Account erstellen und konfigurieren
-- Monitor für `https://ep.noxvobiscum.at/healthz` mit 5-Minuten-Intervall
+- Monitor für `https://ep.rbsnet.at/healthz` mit 5-Minuten-Intervall
 - Email-Alerts bei Downtime konfigurieren
 - Öffentliche Status Page einrichten (optional)
 - GitHub Action als Fallback beibehalten oder deaktivieren nach erfolgreicher Migration

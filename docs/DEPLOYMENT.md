@@ -23,7 +23,7 @@ Complete guide for deploying EstPoker to various environments.
 **Hosting:** Koyeb (PaaS)  
 **CDN/Proxy:** Cloudflare  
 **Persistence:** FTPS (DomainFactory)  
-**Domain:** https://ep.noxvobiscum.at/
+**Domain:** https://ep.rbsnet.at/
 
 ### Deployment Architecture
 
@@ -497,7 +497,7 @@ EstPoker uses automated health monitoring to ensure availability and prevent col
 **Configuration:**
 - **Interval:** Every 30 minutes (UTC)
 - **Active hours:** 06:00-23:00 Europe/Vienna (DST-aware)
-- **Endpoint:** `https://ep.noxvobiscum.at/healthz`
+- **Endpoint:** `https://ep.rbsnet.at/healthz`
 - **Timeout:** 8 seconds
 
 **Manual trigger:**
@@ -540,7 +540,7 @@ For production deployments, consider dedicated uptime monitoring services:
 **Setup steps:**
 1. Create account at [uptimerobot.com](https://uptimerobot.com)
 2. Add HTTP(s) monitor:
-   - **URL:** `https://ep.noxvobiscum.at/healthz`
+   - **URL:** `https://ep.rbsnet.at/healthz`
    - **Type:** HTTP(s)
    - **Interval:** 5 minutes
    - **Alert contacts:** Your email
@@ -662,12 +662,12 @@ GET /actuator/prometheus
 ### Caching
 
 **Page Rules:**
-- URL: `ep.noxvobiscum.at/*`
+- URL: `ep.rbsnet.at/*`
 - Cache Level: Standard
 - Browser Cache TTL: 4 hours (for static assets)
 
 **Bypass cache for dynamic content:**
-- URL: `ep.noxvobiscum.at/gameSocket`
+- URL: `ep.rbsnet.at/gameSocket`
 - Cache Level: Bypass
 
 ---
@@ -739,7 +739,7 @@ pg_dump -h $DB_HOST -U $DB_USER estpoker > backup-$(date +%Y%m%d).sql
 
 3. **Verify health:**
    ```bash
-   curl https://ep.noxvobiscum.at/healthz
+   curl https://ep.rbsnet.at/healthz
    ```
 
 ---
@@ -788,7 +788,7 @@ koyeb service logs estpoker --tail
 
 **Check allowed origins:**
 ```properties
-app.websocket.allowed-origins=https://ep.noxvobiscum.at
+app.websocket.allowed-origins=https://ep.rbsnet.at
 ```
 
 **Cloudflare WebSocket:**

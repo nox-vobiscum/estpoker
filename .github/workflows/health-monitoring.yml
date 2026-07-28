@@ -24,4 +24,4 @@ jobs:
 
       - name: Check application health endpoint (8s timeout)
         run: |
-          curl -fsS --max-time 8 https://ep.noxvobiscum.at/healthz || true
+          curl -fsS --max-time 8 https://ep.rbsnet.at/healthz || true

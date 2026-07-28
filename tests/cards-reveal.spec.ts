@@ -1,6 +1,6 @@
 // Critical path: 3 users → choose cards → host reveals → average shown
 // Env:
-//   EP_BASE_URL  (e.g. http://localhost:8080 or https://ep.noxvobiscum.at)
+//   EP_BASE_URL  (e.g. http://localhost:8080 or https://ep.rbsnet.at)
 //   EP_ROOM_URL  (optional full URL; if set, this test appends/overrides participant & room)
 // Run:
 //   npx playwright test tests/cards-reveal.spec.js
