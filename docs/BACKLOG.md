@@ -13,6 +13,31 @@ Status tags:
 
 ---
 
+## [P2] UptimeRobot für professionelles Health Monitoring ⏳
+**Goal:** Externe Uptime-Monitoring-Lösung einrichten für bessere Verfügbarkeitsüberwachung, schnellere Health Checks und öffentliche Status-Page.
+
+**Scope**
+- UptimeRobot Account erstellen und konfigurieren
+- Monitor für `https://ep.noxvobiscum.at/healthz` mit 5-Minuten-Intervall
+- Email-Alerts bei Downtime konfigurieren
+- Öffentliche Status Page einrichten (optional)
+- GitHub Action als Fallback beibehalten oder deaktivieren nach erfolgreicher Migration
+
+**Benefits**
+- Schnellere Health Checks (5 Min statt 30 Min) → weniger Cold Starts
+- Dedizierte Uptime-Statistiken und Monitoring-Dashboard
+- Alert-Benachrichtigungen bei Ausfällen
+- Professionelle Status-Page für User
+- Unabhängig von GitHub Actions
+
+**Acceptance**
+- UptimeRobot läuft stabil und pingt alle 5 Minuten
+- Email-Alerts funktionieren bei Downtime
+- Entscheidung getroffen: GitHub Action behalten (Redundanz) oder deaktivieren
+- Dokumentation in DEPLOYMENT.md aktualisiert
+
+---
+
 ## [P2] Debounced room snapshotter & unified mutation hooks ⏳
 **Goal:** Persist a debounced snapshot of the live room state on relevant mutations (topic, votes, join/leave/rename, settings), avoiding excessive writes.
 

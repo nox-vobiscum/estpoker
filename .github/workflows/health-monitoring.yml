@@ -1,4 +1,4 @@
-name: Warmup Koyeb (Vienna time, DST-safe)
+name: Health Check Monitoring (Vienna time, DST-safe)
 
 on:
   schedule:
@@ -6,10 +6,10 @@ on:
   workflow_dispatch:          # optional: manuell startbar
 
 jobs:
-  warmup:
+  health-check:
     runs-on: ubuntu-latest
     steps:
-      - name: Run only 07-22 Europe/Vienna (optionally Mon-Fri)
+      - name: Run only 06-23 Europe/Vienna (optionally Mon-Fri)
         shell: bash
         run: |
           export TZ=Europe/Vienna
@@ -17,11 +17,11 @@ jobs:
           DOW=$(date +%u) # 1=Mon ... 7=Sun
           # Uncomment next line to skip weekends:
           # if [ "$DOW" -gt 5 ]; then echo "Weekend → skip"; exit 0; fi
-          if [ "$HOUR" -lt 7 ] || [ "$HOUR" -gt 22 ]; then
-            echo "Outside 07-22 Vienna (current: ${HOUR}h) → skipping."
+          if [ "$HOUR" -lt 6 ] || [ "$HOUR" -gt 23 ]; then
+            echo "Outside 06-23 Vienna (current: ${HOUR}h) → skipping."
             exit 0
           fi
 
-      - name: Ping health endpoint (8s timeout)
+      - name: Check application health endpoint (8s timeout)
         run: |
           curl -fsS --max-time 8 https://ep.noxvobiscum.at/healthz || true

@@ -6,7 +6,7 @@ estpoker/
 │  ├─ workflows/
 │  │  ├─ ci.yml
 │  │  ├─ e2e.yml
-│  │  └─ warmup.yml
+│  │  └─ health-monitoring.yml
 │  └─ pull_request_template.md
 ├─ .mvn/
 │  └─ wrapper/

@@ -481,6 +481,91 @@ FEATURES_PERSISTENTROOMS_ENABLED=true
 
 ---
 
+### Automated Health Monitoring
+
+EstPoker uses automated health monitoring to ensure availability and prevent cold starts on free-tier hosting platforms.
+
+#### GitHub Actions Health Check
+
+**Location:** `.github/workflows/health-monitoring.yml`
+
+**Purpose:**
+- Periodic health endpoint monitoring
+- Prevents cold starts during active hours
+- Provides basic uptime verification
+
+**Configuration:**
+- **Interval:** Every 30 minutes (UTC)
+- **Active hours:** 06:00-23:00 Europe/Vienna (DST-aware)
+- **Endpoint:** `https://ep.noxvobiscum.at/healthz`
+- **Timeout:** 8 seconds
+
+**Manual trigger:**
+```bash
+# Via GitHub Actions UI
+# Or using GitHub CLI:
+gh workflow run health-monitoring.yml
+```
+
+**Customize active hours:**
+```yaml
+# .github/workflows/health-monitoring.yml
+if [ "$HOUR" -lt 6 ] || [ "$HOUR" -gt 23 ]; then
+  # Adjust hours as needed
+fi
+```
+
+**Weekend skip (optional):**
+```yaml
+# Uncomment in workflow file:
+if [ "$DOW" -gt 5 ]; then echo "Weekend → skip"; exit 0; fi
+```
+
+**Resource usage:** ~15 GitHub Actions minutes/month
+
+#### External Uptime Monitoring (Recommended)
+
+**Status:** ⏳ Planned (see [BACKLOG.md](BACKLOG.md))
+
+For production deployments, consider dedicated uptime monitoring services:
+
+**Recommended: UptimeRobot (Free Tier)**
+- ✅ 5-minute check intervals (faster than GitHub Actions)
+- ✅ 50 monitors included
+- ✅ Email alerts on downtime
+- ✅ Public status page
+- ✅ Response time tracking
+- ✅ 24/7 monitoring
+
+**Setup steps:**
+1. Create account at [uptimerobot.com](https://uptimerobot.com)
+2. Add HTTP(s) monitor:
+   - **URL:** `https://ep.noxvobiscum.at/healthz`
+   - **Type:** HTTP(s)
+   - **Interval:** 5 minutes
+   - **Alert contacts:** Your email
+3. Configure public status page (optional)
+4. Decide: Keep GitHub Action as redundancy or disable
+
+**Alternatives:**
+- **Healthchecks.io** - 1-minute intervals, 20 monitors free
+- **Better Uptime** - 30-second intervals, 30-day trial
+- **StatusCake** - 5-minute intervals, unlimited monitors free
+
+**Benefits over GitHub Actions:**
+- Faster check intervals (5 min vs 30 min)
+- Dedicated monitoring dashboard
+- Downtime alerts and notifications
+- Historical uptime statistics
+- Independent from GitHub availability
+
+**Migration decision factors:**
+- For hobby/low-traffic: GitHub Actions sufficient
+- For production/critical: External monitoring recommended
+- Hybrid approach: Both for redundancy
+
+---
+
 ### Actuator Endpoints (Optional)
 
 **Enable Actuator:**
