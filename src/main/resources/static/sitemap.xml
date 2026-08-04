@@ -12,6 +12,16 @@
     <xhtml:link rel="alternate" hreflang="de" href="https://ep.rbsnet.at/?lang=de"/>
   </url>
 
+  <!-- About Page -->
+  <url>
+    <loc>https://ep.rbsnet.at/about</loc>
+    <lastmod>2026-08-04</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.9</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://ep.rbsnet.at/about?lang=en"/>
+    <xhtml:link rel="alternate" hreflang="de" href="https://ep.rbsnet.at/about?lang=de"/>
+  </url>
+
   <!-- Invite Page -->
   <url>
     <loc>https://ep.rbsnet.at/invite</loc>

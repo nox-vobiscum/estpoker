@@ -12,4 +12,10 @@ public class HomeController {
     public String home() {
         return "index";
     }
+
+    // About page with SEO-optimized content
+    @GetMapping("/about")
+    public String about() {
+        return "about";
+    }
 }

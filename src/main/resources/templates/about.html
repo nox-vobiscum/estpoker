@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" th:lang="${#locale}" lang="en">
+<head th:replace="~{fragments/head :: head}"></head>
+<body class="page-about">
+
+  <!-- App menu -->
+  <div th:replace="~{fragments/menu :: appMenu(showSeq=${false}, showAuto=${false}, showRoom=${false})}"></div>
+  <div th:replace="~{fragments/header-controls :: headerControls}"></div>
+
+  <main class="container about-container">
+    <h1 class="app-title">
+      <img src="/favicon.svg" alt="" width="24" height="24" class="logo">
+      <span th:text="#{about.heading}" data-i18n="about.heading">About This Tool</span>
+    </h1>
+
+    <!-- Intro -->
+    <section class="about-intro">
+      <p class="lead" th:text="#{about.intro}" data-i18n="about.intro">
+        RBS' Estimation Poker is a free, lightweight online planning poker tool designed for agile teams. 
+        No registration required, just create a room and start estimating.
+      </p>
+    </section>
+
+    <!-- What is Planning Poker? -->
+    <section class="about-section">
+      <h2 th:text="#{about.what.title}" data-i18n="about.what.title">What is Planning Poker?</h2>
+      <p th:text="#{about.what.p1}" data-i18n="about.what.p1">
+        Planning Poker (also known as Scrum Poker or Estimation Poker) is a consensus-based technique 
+        for estimating effort or relative size of development goals in software development. 
+        Team members make estimates by playing numbered cards face-down, then reveal them simultaneously.
+      </p>
+      <p th:text="#{about.what.p2}" data-i18n="about.what.p2">
+        This method prevents cognitive bias and anchoring, where the first number spoken influences 
+        the rest of the team's estimates.
+      </p>
+    </section>
+
+    <!-- Why Use This Tool? -->
+    <section class="about-section">
+      <h2 th:text="#{about.why.title}" data-i18n="about.why.title">Why Use This Tool?</h2>
+      <ul class="feature-list">
+        <li><span class="feature-icon" aria-hidden="true">⚡</span> 
+          <span th:text="#{about.why.realtime}" data-i18n="about.why.realtime">Real-time synchronization across all participants</span>
+        </li>
+        <li><span class="feature-icon" aria-hidden="true">🚀</span> 
+          <span th:text="#{about.why.noreg}" data-i18n="about.why.noreg">No registration or sign-up required</span>
+        </li>
+        <li><span class="feature-icon" aria-hidden="true">🎴</span> 
+          <span th:text="#{about.why.sequences}" data-i18n="about.why.sequences">Multiple card sequences (Fibonacci, T-Shirt sizes, Powers of 2)</span>
+        </li>
+        <li><span class="feature-icon" aria-hidden="true">🎯</span> 
+          <span th:text="#{about.why.autoreveal}" data-i18n="about.why.autoreveal">Auto-reveal mode when everyone has voted</span>
+        </li>
+        <li><span class="feature-icon" aria-hidden="true">🔗</span> 
+          <span th:text="#{about.why.persistent}" data-i18n="about.why.persistent">Optional persistent rooms with shareable links</span>
+        </li>
+        <li><span class="feature-icon" aria-hidden="true">🌍</span> 
+          <span th:text="#{about.why.i18n}" data-i18n="about.why.i18n">Multi-language support (English, German)</span>
+        </li>
+        <li><span class="feature-icon" aria-hidden="true">💯</span> 
+          <span th:text="#{about.why.free}" data-i18n="about.why.free">Completely free and open for all teams</span>
+        </li>
+      </ul>
+    </section>
+
+    <!-- How to Get Started -->
+    <section class="about-section">
+      <h2 th:text="#{about.how.title}" data-i18n="about.how.title">How to Get Started</h2>
+      <ol class="steps-list">
+        <li th:text="#{about.how.step1}" data-i18n="about.how.step1">Enter your name and a room code</li>
+        <li th:text="#{about.how.step2}" data-i18n="about.how.step2">Share the invite link with your team</li>
+        <li th:text="#{about.how.step3}" data-i18n="about.how.step3">Choose your estimate from the cards</li>
+        <li th:text="#{about.how.step4}" data-i18n="about.how.step4">The host reveals all cards when ready</li>
+        <li th:text="#{about.how.step5}" data-i18n="about.how.step5">Discuss and re-estimate if needed</li>
+      </ol>
+    </section>
+
+    <!-- Key Features -->
+    <section class="about-section">
+      <h2 th:text="#{about.features.title}" data-i18n="about.features.title">Key Features</h2>
+      <ul class="feature-list">
+        <li th:text="#{about.features.websocket}" data-i18n="about.features.websocket">WebSocket-based real-time updates</li>
+        <li th:text="#{about.features.specials}" data-i18n="about.features.specials">Special cards: Question (❓), Coffee Break (☕), Discussion (💬)</li>
+        <li th:text="#{about.features.spectator}" data-i18n="about.features.spectator">Spectator mode for non-voting participants</li>
+        <li th:text="#{about.features.host}" data-i18n="about.features.host">Host controls: reveal, reset, kick, sequence selection</li>
+        <li th:text="#{about.features.topic}" data-i18n="about.features.topic">Ticket/Story field with JIRA link support</li>
+        <li th:text="#{about.features.themes}" data-i18n="about.features.themes">Dark and light theme support</li>
+      </ul>
+    </section>
+
+    <!-- Technology -->
+    <section class="about-section">
+      <h2 th:text="#{about.tech.title}" data-i18n="about.tech.title">Technology</h2>
+      <p th:text="#{about.tech.p}" data-i18n="about.tech.p">
+        Built with Spring Boot, WebSocket, and vanilla JavaScript for minimal footprint and maximum performance.
+      </p>
+    </section>
+
+    <!-- CTA -->
+    <section class="about-cta">
+      <a th:href="@{/}" class="button button-primary">
+        <span th:text="#{about.footer.backhome}" data-i18n="about.footer.backhome">Back to Home</span>
+      </a>
+    </section>
+  </main>
+
+  <div th:replace="~{fragments/footer :: footer}"></div>
+
+  <!-- i18n runtime switcher (if used) -->
+  <script defer th:src="@{/js/i18n-runtime.js?v=8}"></script>
+</body>
+</html>
