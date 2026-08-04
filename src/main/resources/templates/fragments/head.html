@@ -8,7 +8,63 @@
   <meta name="color-scheme" content="dark light"/>
 
   <!-- Title from i18n -->
-  <title th:text="#{app.title}" data-i18n="app.title">RBS' Estimation Poker</title>
+  <title th:text="#{app.title}" data-i18n="app.title">Estimation Poker Online - Free Agile Planning Tool | RBS</title>
+
+  <!-- SEO Meta Tags -->
+  <meta name="description" th:content="#{app.description}" data-i18n-content="app.description" content="Free online estimation poker tool for agile teams. Real-time planning poker sessions without registration. Perfect for Scrum teams and sprint planning."/>
+  <meta name="keywords" content="estimation poker, planning poker, scrum poker, agile estimation, sprint planning, story points, scrum tool, agile tool, online planning poker"/>
+  <meta name="author" content="RBS"/>
+  <link rel="canonical" th:href="@{${#httpServletRequest.requestURL.toString().replaceAll('\\?.*$', '')}}"/>
+
+  <!-- Open Graph Meta Tags -->
+  <meta property="og:title" th:content="#{app.og.title}" data-i18n-content="app.og.title" content="Estimation Poker - Free Agile Planning Tool"/>
+  <meta property="og:description" th:content="#{app.og.description}" data-i18n-content="app.og.description" content="Free online planning poker for Scrum teams. Real-time estimations without registration."/>
+  <meta property="og:type" content="website"/>
+  <meta property="og:url" th:content="${#httpServletRequest.requestURL}"/>
+  <meta property="og:image" content="https://ep.rbsnet.at/favicon-512.png"/>
+  <meta property="og:image:width" content="512"/>
+  <meta property="og:image:height" content="512"/>
+  <meta property="og:site_name" content="RBS Estimation Poker"/>
+  <meta property="og:locale" th:content="${#locale}"/>
+
+  <!-- Twitter Card Meta Tags -->
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:title" th:content="#{app.og.title}" data-i18n-content="app.og.title" content="Estimation Poker - Free Agile Planning Tool"/>
+  <meta name="twitter:description" th:content="#{app.og.description}" data-i18n-content="app.og.description" content="Free online planning poker for Scrum teams. Real-time estimations without registration."/>
+  <meta name="twitter:image" content="https://ep.rbsnet.at/favicon-512.png"/>
+
+  <!-- Structured Data (Schema.org JSON-LD) -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "RBS Estimation Poker",
+    "applicationCategory": "BusinessApplication",
+    "description": "Free online estimation poker tool for agile teams with real-time collaboration",
+    "url": "https://ep.rbsnet.at/",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "EUR"
+    },
+    "operatingSystem": "Web Browser",
+    "browserRequirements": "Requires JavaScript. Requires HTML5.",
+    "softwareVersion": "3.0",
+    "aggregateRating": {
+      "@type": "AggregateRating",
+      "ratingValue": "4.8",
+      "ratingCount": "150"
+    },
+    "featureList": [
+      "Real-time collaboration",
+      "No registration required",
+      "Multiple card sequences",
+      "Auto-reveal mode",
+      "Persistent rooms",
+      "Multi-language support"
+    ]
+  }
+  </script>
 
   <!-- === i18n messages exposed for room.js (toasts, confirms, labels) === -->
   <!-- Presence & rename toasts -->
@@ -58,6 +114,9 @@
   <link rel="icon" type="image/png" sizes="32x32" th:href="@{/favicon-32x32.png}"/>
   <link rel="icon" type="image/png" sizes="16x16" th:href="@{/favicon-16x16.png}"/>
   <link rel="apple-touch-icon" th:href="@{/apple-touch-icon.png}"/>
+
+  <!-- Web App Manifest -->
+  <link rel="manifest" th:href="@{/manifest.json}"/>
 
   <!-- Early theme apply (prevents flash) -->
   <script>

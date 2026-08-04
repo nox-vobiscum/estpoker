@@ -1,0 +1,25 @@
+# robots.txt for RBS Estimation Poker
+# Allow search engines to crawl the public pages
+
+User-agent: *
+
+# Disallow API endpoints and admin routes
+Disallow: /api/
+Disallow: /admin/
+Disallow: /actuator/
+Disallow: /healthz
+Disallow: /check
+
+# Disallow WebSocket endpoint
+Disallow: /ws
+
+# Allow everything else
+Allow: /
+Allow: /invite
+Allow: /home
+
+# Sitemap location
+Sitemap: https://ep.rbsnet.at/sitemap.xml
+
+# Crawl-delay (optional, prevents overload)
+# Crawl-delay: 1
