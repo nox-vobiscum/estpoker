@@ -14,18 +14,18 @@
   <meta name="description" th:content="#{app.description}" data-i18n-content="app.description" content="Free online estimation poker tool for agile teams. Real-time planning poker sessions without registration. Perfect for Scrum teams and sprint planning."/>
   <meta name="keywords" content="estimation poker, planning poker, scrum poker, agile estimation, sprint planning, story points, scrum tool, agile tool, online planning poker"/>
   <meta name="author" content="RBS"/>
-  <link rel="canonical" th:href="@{${#httpServletRequest.requestURL.toString().replaceAll('\\?.*$', '')}}"/>
+  <link rel="canonical" href="https://ep.rbsnet.at/"/>
 
   <!-- Open Graph Meta Tags -->
   <meta property="og:title" th:content="#{app.og.title}" data-i18n-content="app.og.title" content="Estimation Poker - Free Agile Planning Tool"/>
   <meta property="og:description" th:content="#{app.og.description}" data-i18n-content="app.og.description" content="Free online planning poker for Scrum teams. Real-time estimations without registration."/>
   <meta property="og:type" content="website"/>
-  <meta property="og:url" th:content="${#httpServletRequest.requestURL}"/>
+  <meta property="og:url" content="https://ep.rbsnet.at/"/>
   <meta property="og:image" content="https://ep.rbsnet.at/favicon-512.png"/>
   <meta property="og:image:width" content="512"/>
   <meta property="og:image:height" content="512"/>
   <meta property="og:site_name" content="RBS Estimation Poker"/>
-  <meta property="og:locale" th:content="${#locale}"/>
+  <meta property="og:locale" th:content="${#locale.language}"/>
 
   <!-- Twitter Card Meta Tags -->
   <meta name="twitter:card" content="summary"/>
