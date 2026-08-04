@@ -99,8 +99,11 @@
     <!-- CTA -->
     <section class="about-cta">
       <a th:href="@{/}" class="button button-primary">
-        <span th:text="#{about.footer.backhome}" data-i18n="about.footer.backhome">Back to Home</span>
+        <span th:text="#{about.cta.start}" data-i18n="about.cta.start">Start Estimating Now</span>
       </a>
+      <p class="hint">
+        <a th:href="@{/invite}" th:text="#{about.cta.invite}" data-i18n="about.cta.invite">Or join an existing room</a>
+      </p>
     </section>
   </main>
 

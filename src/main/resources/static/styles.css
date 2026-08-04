@@ -907,6 +907,68 @@ html.light .vote-chip.heat, body.light .vote-chip.heat,
   background: var(--color-primary-hover, #1d4ed8);
 }
 
+/* ===================================================================
+   Footer Navigation & Landing CTA
+   =================================================================== */
+
+.app-footer {
+  margin-top: 3rem;
+  padding: 1.5rem 1rem;
+  text-align: center;
+}
+
+.footer-nav {
+  margin-bottom: 0.75rem;
+  font-size: 0.9rem;
+}
+
+.footer-nav a {
+  color: var(--color-text-muted, #888);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.footer-nav a:hover {
+  color: var(--color-text, #fff);
+  text-decoration: underline;
+}
+
+.footer-nav .sep {
+  margin: 0 0.5rem;
+  color: var(--color-text-muted, #888);
+}
+
+.landing-cta {
+  margin-top: 1.5rem;
+  text-align: center;
+  font-size: 0.95rem;
+  color: var(--color-text-muted, #888);
+}
+
+.landing-cta a {
+  color: var(--color-primary, #2563eb);
+  text-decoration: none;
+  margin-left: 0.25rem;
+}
+
+.landing-cta a:hover {
+  text-decoration: underline;
+}
+
+.page-about .about-cta .hint {
+  margin-top: 1rem;
+  font-size: 0.95rem;
+  color: var(--color-text-muted, #888);
+}
+
+.page-about .about-cta .hint a {
+  color: var(--color-primary, #2563eb);
+  text-decoration: none;
+}
+
+.page-about .about-cta .hint a:hover {
+  text-decoration: underline;
+}
 
 /* Specials: "Select all" text action — match host actions (dotted underline) */
 #rowSpecialsPick :is(button:not(.spc):not([role="switch"]), a:not(.spc), .text-action){

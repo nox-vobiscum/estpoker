@@ -42,6 +42,12 @@
                 data-i18n-attr="title:button.join;aria-label:button.join">Join</button>
       </div>
     </form>
+
+    <!-- CTA for new users -->
+    <p class="landing-cta">
+      <span th:text="#{landing.newhere}" data-i18n="landing.newhere">New to Planning Poker?</span>
+      <a th:href="@{/about}" th:text="#{landing.learnmore}" data-i18n="landing.learnmore">Learn more about how it works</a>
+    </p>
   </div>
 
   <script>
