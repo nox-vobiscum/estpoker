@@ -56,13 +56,18 @@
           <button id="uiStyleDev" type="button" class="choice-btn" aria-pressed="true"
                   th:attr="title=#{title.uiStyle.dev},aria-label=#{title.uiStyle.dev}"
                   data-i18n-attr="title:title.uiStyle.dev;aria-label:title.uiStyle.dev">
-            <span class="mi-icon" aria-hidden="true">&lt;/&gt;</span>
+            <span class="mi-icon" aria-hidden="true">{&lt;_}</span>
             <span th:text="#{uiStyle.dev}" data-i18n="uiStyle.dev">Dev</span>
           </button>
           <button id="uiStyleClean" type="button" class="choice-btn" aria-pressed="false"
                   th:attr="title=#{title.uiStyle.clean},aria-label=#{title.uiStyle.clean}"
                   data-i18n-attr="title:title.uiStyle.clean;aria-label:title.uiStyle.clean">
-            <span class="mi-icon" aria-hidden="true">✨</span>
+            <svg class="mi-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
+                 fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"
+                 aria-hidden="true" focusable="false">
+              <path d="M20.2 3.8a5.5 5.5 0 0 1 0 7.8L10 21H3v-7L12.4 3.8a5.5 5.5 0 0 1 7.8 0Z"/>
+              <path d="m3 21 14-14M9 15h7"/>
+            </svg>
             <span th:text="#{uiStyle.clean}" data-i18n="uiStyle.clean">Clean</span>
           </button>
         </div>
