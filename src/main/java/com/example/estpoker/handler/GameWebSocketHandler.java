@@ -10,6 +10,7 @@ import org.slf4j.LoggerFactory;
 import org.jspecify.annotations.NonNull;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
+import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
@@ -141,7 +142,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
 
     @Override
     protected void handleTextMessage(@NonNull WebSocketSession session,
-                                     @NonNull org.springframework.web.socket.TextMessage message) throws Exception {
+                                     @NonNull TextMessage message) throws Exception {
         Conn c = bySession.get(session.getId());
         if (c == null) {
             log.warn("WS message from unknown session sid={} payload={}", session.getId(), message.getPayload());
