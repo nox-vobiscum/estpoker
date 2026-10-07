@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org" th:lang="${#locale}" lang="en">
-<head th:replace="~{fragments/head :: head}"></head>
+<head th:replace="~{fragments/head :: head(page='about')}"></head>
 <body class="page-about">
 
   <!-- App menu -->
@@ -10,7 +10,7 @@
   <main class="container about-container">
     <h1 class="app-title">
       <img src="/favicon.svg" alt="" width="24" height="24" class="logo">
-      <span th:text="#{about.heading}" data-i18n="about.heading">About This Tool</span>
+      <span th:text="#{about.heading}" data-i18n="about.heading">Free Online Planning Poker for Agile Teams</span>
     </h1>
 
     <!-- Intro -->
@@ -108,8 +108,5 @@
   </main>
 
   <div th:replace="~{fragments/footer :: footer}"></div>
-
-  <!-- i18n runtime switcher (if used) -->
-  <script defer th:src="@{/js/i18n-runtime.js?v=8}"></script>
 </body>
 </html>

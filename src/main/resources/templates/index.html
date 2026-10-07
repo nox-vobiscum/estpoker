@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org" th:lang="${#locale}" lang="en">
-<head th:replace="~{fragments/head :: head}"></head>
+<head th:replace="~{fragments/head :: head(page='home')}"></head>
 <body class="page-landing">
 
   <!-- App menu (index: no seq/room controls) -->
@@ -49,6 +49,17 @@
       <a th:href="@{/about}" th:text="#{landing.learnmore}" data-i18n="landing.learnmore">Learn more about how it works</a>
     </p>
   </div>
+
+  <section class="container landing-explainer" aria-labelledby="planning-poker-heading">
+    <h2 id="planning-poker-heading" th:text="#{seo.home.heading}" data-i18n="seo.home.heading">Free Online Planning Poker for Agile Teams</h2>
+    <p th:text="#{seo.home.intro}" data-i18n="seo.home.intro"></p>
+    <h3 th:text="#{seo.home.free.heading}" data-i18n="seo.home.free.heading">Free &amp; no registration</h3>
+    <p th:text="#{seo.home.free.text}" data-i18n="seo.home.free.text"></p>
+    <h3 th:text="#{seo.home.realtime.heading}" data-i18n="seo.home.realtime.heading">Real-time Scrum estimation</h3>
+    <p th:text="#{seo.home.realtime.text}" data-i18n="seo.home.realtime.text"></p>
+    <h3 th:text="#{seo.home.decks.heading}" data-i18n="seo.home.decks.heading">Multiple estimation decks</h3>
+    <p th:text="#{seo.home.decks.text}" data-i18n="seo.home.decks.text"></p>
+  </section>
 
   <script>
   (function(){

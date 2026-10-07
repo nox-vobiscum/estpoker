@@ -80,6 +80,8 @@ strong{color:var(--text-strong)}
 .app-title{display:flex;align-items:center;gap:.5rem;justify-content:flex-start}
 .app-title .logo{border-radius:6px;vertical-align:middle}
 .page-landing .app-title{justify-content:center;text-align:center}
+.landing-explainer{line-height:1.6}
+.landing-explainer h3{font-size:.95rem;color:var(--text-strong);margin:1rem 0 .5rem}
 @media (max-width:560px){.app-title{justify-content:center;text-align:center}}
 
 /* Header info */

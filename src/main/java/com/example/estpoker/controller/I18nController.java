@@ -16,7 +16,8 @@ public class I18nController {
         Locale locale = toLocaleOrDefault(lang, Locale.ENGLISH);
 
         // Load ResourceBundle with standard fallback chain (e.g., messages_de -> messages)
-        ResourceBundle bundle = ResourceBundle.getBundle("messages", locale);
+        ResourceBundle bundle = ResourceBundle.getBundle("messages", locale,
+                ResourceBundle.Control.getNoFallbackControl(ResourceBundle.Control.FORMAT_DEFAULT));
 
         // Flatten to a simple LinkedHashMap to keep iteration order stable
         Map<String, String> out = new LinkedHashMap<>();
