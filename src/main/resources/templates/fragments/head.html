@@ -102,8 +102,13 @@
       if(t==='system')document.documentElement.removeAttribute('data-theme');
       else document.documentElement.setAttribute('data-theme',t);
     }catch(e){}})();
+    (function(){
+      var style='dev';
+      try{if(localStorage.getItem('ep-ui-style')==='clean')style='clean';}catch(e){}
+      document.documentElement.setAttribute('data-ui-style',style);
+    })();
   </script>
 
   <!-- Base styles -->
-  <link rel="stylesheet" th:href="@{/styles.css?v=42}"/>
+  <link rel="stylesheet" th:href="@{/styles.css?v=43}"/>
 </th:block>

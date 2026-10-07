@@ -49,6 +49,25 @@
         </div>
       </div>
 
+      <!-- Interface style is independent of the color theme. -->
+      <div class="menu-section">
+        <div class="section-title" th:text="#{menu.uiStyle}" data-i18n="menu.uiStyle">Interface style</div>
+        <div class="menu-choice">
+          <button id="uiStyleDev" type="button" class="choice-btn" aria-pressed="true"
+                  th:attr="title=#{title.uiStyle.dev},aria-label=#{title.uiStyle.dev}"
+                  data-i18n-attr="title:title.uiStyle.dev;aria-label:title.uiStyle.dev">
+            <span class="mi-icon" aria-hidden="true">&lt;/&gt;</span>
+            <span th:text="#{uiStyle.dev}" data-i18n="uiStyle.dev">Dev</span>
+          </button>
+          <button id="uiStyleClean" type="button" class="choice-btn" aria-pressed="false"
+                  th:attr="title=#{title.uiStyle.clean},aria-label=#{title.uiStyle.clean}"
+                  data-i18n-attr="title:title.uiStyle.clean;aria-label:title.uiStyle.clean">
+            <span class="mi-icon" aria-hidden="true">✨</span>
+            <span th:text="#{uiStyle.clean}" data-i18n="uiStyle.clean">Clean</span>
+          </button>
+        </div>
+      </div>
+
       <!-- Card sequence -->
       <div class="menu-section" th:if="${showSeq}">
         <div class="section-title" data-i18n="menu.sequence">Card sequence [👑]</div>
@@ -236,7 +255,7 @@
   </script>
 
     <!-- Load JS -->
-  <script defer src="/js/menu.js?v=40"></script>
+  <script defer src="/js/menu.js?v=41"></script>
   <script defer src="/js/specials-bridge.js?v=1"></script>
 
 </th:block>

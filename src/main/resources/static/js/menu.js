@@ -35,6 +35,8 @@
   const themeLight  = $('#themeLight');
   const themeDark   = $('#themeDark');
   const themeSystem = $('#themeSystem');
+  const uiStyleDev = $('#uiStyleDev');
+  const uiStyleClean = $('#uiStyleClean');
   const closeBtn    = $('#closeRoomBtn');
 
   /* ---------- language helpers ---------- */
@@ -179,6 +181,14 @@
     apply(themeDark,   titleDark);
     apply(themeSystem, titleSystem);
   }
+  function setUiStyleTooltips() {
+    [[uiStyleDev, 'title.uiStyle.dev'], [uiStyleClean, 'title.uiStyle.clean']].forEach(([btn, key]) => {
+      if (!btn) return;
+      const title = t(key, btn.getAttribute('title'));
+      btn.setAttribute('title', title);
+      btn.setAttribute('aria-label', title);
+    });
+  }
   function setFunctionalTooltips(code) {
     const T = {
       auto    : t('hint.autoreveal',   'Automatically reveal once everyone voted'),
@@ -245,6 +255,7 @@
 
       // refresh tooltips/labels and layout tweaks
       setThemeTooltips(code);
+      setUiStyleTooltips();
       setFunctionalTooltips(code);
       setCloseBtnLabel();
       forceRowLayout();
@@ -253,6 +264,7 @@
       console.warn('[i18n] switch failed:', err);
       stripLangParamFromUrl();
       setThemeTooltips(code);
+      setUiStyleTooltips();
       setFunctionalTooltips(code);
       setCloseBtnLabel();
       forceRowLayout();
@@ -285,6 +297,17 @@
   themeLight?.addEventListener('click',  () => applyTheme('light'));
   themeDark?.addEventListener('click',   () => applyTheme('dark'));
   themeSystem?.addEventListener('click', () => applyTheme('system'));
+
+  /* ---------- Interface style ---------- */
+  function applyUiStyle(mode) {
+    mode = mode === 'clean' ? 'clean' : 'dev';
+    document.documentElement.dataset.uiStyle = mode;
+    try { localStorage.setItem('ep-ui-style', mode); } catch {}
+    uiStyleDev?.setAttribute('aria-pressed', String(mode === 'dev'));
+    uiStyleClean?.setAttribute('aria-pressed', String(mode === 'clean'));
+  }
+  uiStyleDev?.addEventListener('click', () => applyUiStyle('dev'));
+  uiStyleClean?.addEventListener('click', () => applyUiStyle('clean'));
 
   /* ---------- Switch rows ---------- */
   function reflectAriaChecked(inputEl, rowEl) {
@@ -420,6 +443,9 @@
 
   /* ---------- init ---------- */
   (async function init() {
+    let savedUiStyle = 'dev';
+    try { savedUiStyle = localStorage.getItem('ep-ui-style'); } catch {}
+    applyUiStyle(savedUiStyle);
     const savedTheme = localStorage.getItem('estpoker-theme') || localStorage.getItem('ep-theme');
     if (savedTheme) applyTheme(savedTheme);
 
@@ -439,6 +465,7 @@
     }
 
     setThemeTooltips(code);
+    setUiStyleTooltips();
     setFunctionalTooltips(code);
     setCloseBtnLabel();
 
