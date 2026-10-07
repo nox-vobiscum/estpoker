@@ -1155,3 +1155,104 @@ h1,h2,h3{font-weight:var(--ui-heading-weight)}
 :root[data-ui-style="clean"] .choice-btn:hover,
 :root[data-ui-style="clean"] .menu-item:not(.danger):hover{box-shadow:inset 0 0 0 1px var(--accent)}
 :root[data-ui-style="clean"] .page-about .button-primary{border-radius:var(--ui-button-radius)}
+
+/* Clean surfaces share the theme palette and preserve the existing layout rules. */
+:root[data-ui-style="clean"]{
+  --ui-panel-radius:18px;
+  --ui-large-radius:20px;
+  --ui-shadow-sm:0 2px 8px rgba(0,0,0,.08);
+  --ui-shadow-md:0 8px 24px rgba(0,0,0,.10);
+  --ui-shadow-lg:0 16px 40px rgba(0,0,0,.14);
+  --ui-surface:color-mix(in srgb,var(--panel) 75%,var(--bg));
+  --ui-surface-raised:color-mix(in srgb,var(--panel-2) 55%,var(--panel));
+  --ui-surface-border:color-mix(in srgb,var(--border) 65%,transparent);
+  --ui-panel-shadow:var(--ui-shadow-md);
+  --ui-menu-shadow:var(--ui-shadow-lg);
+  --ui-card-shadow:var(--ui-shadow-sm);
+  --ui-card-hover-shadow:var(--ui-shadow-md);
+  --ui-menu-padding:18px;
+  --ui-menu-item-padding:14px;
+  --ui-input-padding:.65rem .95rem;
+}
+:root[data-ui-style="clean"] h1{font-size:1.25rem;line-height:1.4}
+:root[data-ui-style="clean"] h2{font-size:1.1rem;line-height:1.45}
+:root[data-ui-style="clean"] h3{line-height:1.45}
+:root[data-ui-style="clean"] .page-about .about-section h2{font-size:1.65rem}
+:root[data-ui-style="clean"] .page-about .about-section p{line-height:1.8}
+
+/* Raised controls retain their existing focus and disabled affordances. */
+:root[data-ui-style="clean"] .button{padding-inline:1.4rem;box-shadow:var(--ui-shadow-sm);font-weight:600}
+:root[data-ui-style="clean"] .button:hover:not(:disabled){box-shadow:var(--ui-shadow-md);transform:translateY(-1px)}
+:root[data-ui-style="clean"] .button:active:not(:disabled){transform:translateY(1px)}
+:root[data-ui-style="clean"] :is(input[type="text"],input[type="search"],input[type="email"],input[type="url"],input[type="password"],input[type="number"],input[type="tel"],textarea,select):not(:focus){
+  background:color-mix(in srgb,var(--field-bg) 95%,var(--panel));
+  box-shadow:var(--ui-shadow-sm);
+}
+:root[data-ui-style="clean"] .card-grid button{
+  padding-block:.65rem;border-color:var(--ui-surface-border);
+  background:var(--ui-surface);font-weight:600;
+}
+:root[data-ui-style="clean"] .card-grid button:hover:not(:disabled):not(.selected){
+  background:var(--panel-hover);border-color:var(--accent);transform:translateY(-2px);
+}
+:root[data-ui-style="clean"] .card-grid button.selected{
+  border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 35%,transparent);
+}
+:root[data-ui-style="clean"] .card-grid button:disabled{background:var(--panel-2);box-shadow:none}
+
+/* Padding changes do not replace either desktop or mobile participant grids. */
+:root[data-ui-style="clean"] #liveParticipantList .participant-row{
+  padding:9px 14px;margin-bottom:.5rem;border-radius:var(--ui-card-radius);
+  border-bottom-color:var(--ui-surface-border);background:var(--ui-surface);box-shadow:var(--ui-shadow-sm);
+}
+:root[data-ui-style="clean"] #liveParticipantList .participant-row.is-host{
+  background:color-mix(in srgb,var(--ui-surface) 92%,var(--accent));
+  outline-color:color-mix(in srgb,var(--accent) 30%,transparent);
+}
+:root[data-ui-style="clean"] #liveParticipantList .name{font-weight:600}
+:root[data-ui-style="clean"] :is(.topic-row,.topic-edit){
+  padding:10px 12px;border-radius:var(--ui-panel-radius);background:var(--ui-surface);
+  border-color:var(--ui-surface-border);box-shadow:var(--ui-shadow-sm);
+}
+:root[data-ui-style="clean"] .topic-row.editable:hover{background:var(--panel-hover)}
+:root[data-ui-style="clean"] .topic-text{border-radius:var(--ui-control-radius);border-color:var(--ui-surface-border)}
+
+/* Menu surfaces keep selected states distinct without heavy surrounding rings. */
+:root[data-ui-style="clean"] .menu-panel{border-radius:var(--ui-large-radius);border-color:var(--ui-surface-border)}
+:root[data-ui-style="clean"] .menu-header{padding:8px 6px 12px;border-bottom-color:var(--ui-surface-border)}
+:root[data-ui-style="clean"] .menu-header h3{font-size:1.1rem}
+:root[data-ui-style="clean"] .menu-section{gap:12px;padding-block:10px 12px}
+:root[data-ui-style="clean"] .section-title{font-weight:600;opacity:1;color:var(--text-dim)}
+:root[data-ui-style="clean"] :is(.menu-item:not(.danger),.radio-row,.choice-btn){
+  background:var(--ui-surface-raised);border-color:var(--ui-surface-border);box-shadow:none;
+}
+:root[data-ui-style="clean"] .menu-item{border-radius:var(--ui-card-radius)}
+:root[data-ui-style="clean"] .menu-choice:not(.vertical){gap:6px}
+:root[data-ui-style="clean"] .choice-btn{height:38px;padding-inline:12px}
+:root[data-ui-style="clean"] .radio-row{padding:10px 12px;border-radius:var(--ui-card-radius)}
+:root[data-ui-style="clean"] :is(.menu-item:not(.danger),.radio-row,.choice-btn):hover{
+  background:var(--panel-2-hover);border-color:var(--accent);box-shadow:var(--ui-shadow-sm);
+}
+:root[data-ui-style="clean"] :is(.choice-btn.active,.choice-btn[aria-pressed="true"],.radio-row:has(input:checked)){
+  background:color-mix(in srgb,var(--ui-surface-raised) 88%,var(--accent));
+  border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent);font-weight:600;
+}
+:root[data-ui-style="clean"] .menu-button{border-radius:var(--ui-card-radius);border-color:var(--ui-surface-border);box-shadow:var(--ui-shadow-sm)}
+:root[data-ui-style="clean"] .menu-button:hover{border-color:var(--accent);box-shadow:var(--ui-shadow-md)}
+
+/* Explanatory content gets a softer surface and clearer reading rhythm. */
+:root[data-ui-style="clean"] :is(.knowledge-bites,.landing-explainer){
+  border-radius:var(--ui-large-radius);background:var(--ui-surface);
+  border:1px solid var(--ui-surface-border);padding:18px;box-shadow:var(--ui-shadow-md);
+}
+:root[data-ui-style="clean"] .knowledge-bites > h2{font-size:1.05rem;margin-bottom:.75rem}
+:root[data-ui-style="clean"] .kb{border-radius:var(--ui-card-radius);border-color:var(--ui-surface-border);background:var(--ui-surface-raised);margin:10px 0}
+:root[data-ui-style="clean"] .kb > summary{padding:10px 12px;flex-wrap:wrap;gap:.25rem .5rem}
+:root[data-ui-style="clean"] .kb-title{font-size:.875rem;font-weight:650}
+:root[data-ui-style="clean"] .kb-preview{font-size:.825rem;line-height:1.55;white-space:normal}
+:root[data-ui-style="clean"] .kb-body{padding:10px 12px 12px;font-size:.825rem;line-height:1.65}
+:root[data-ui-style="clean"] .kb-body li{font-size:inherit}
+:root[data-ui-style="clean"] .kb:hover{border-color:var(--accent)}
+:root[data-ui-style="clean"] .landing-explainer{line-height:1.75}
+:root[data-ui-style="clean"] .landing-explainer h2{margin-top:.25rem;margin-bottom:1rem}
+:root[data-ui-style="clean"] .landing-explainer h3{font-size:1.05rem;margin:1.2rem 0 .6rem}
