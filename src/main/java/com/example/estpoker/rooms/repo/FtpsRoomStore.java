@@ -2,7 +2,8 @@ package com.example.estpoker.rooms.repo;
 
 import com.example.estpoker.config.AppStorageProperties;
 import com.example.estpoker.rooms.model.StoredRoom;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.cfg.DateTimeFeature;
 import org.apache.commons.net.ftp.FTP;
 import org.apache.commons.net.ftp.FTPFile;
 import org.apache.commons.net.ftp.FTPSClient;
@@ -21,12 +22,16 @@ public class FtpsRoomStore implements RoomStore {
 
   private final AppStorageProperties props;
   private final Supplier<FTPSClient> ftpsSupplier;
-  private final ObjectMapper om;
+  private final JsonMapper om;
 
   public FtpsRoomStore(AppStorageProperties props, Supplier<FTPSClient> ftpsSupplier) {
     this.props = Objects.requireNonNull(props, "props");
     this.ftpsSupplier = Objects.requireNonNull(ftpsSupplier, "ftpsSupplier");
-    this.om = new ObjectMapper().findAndRegisterModules();
+    this.om = JsonMapper.builder()
+        .findAndAddModules()
+        // Preserve the timestamp representation of existing Jackson 2 snapshots.
+        .enable(DateTimeFeature.WRITE_DATES_AS_TIMESTAMPS)
+        .build();
   }
 
   // === API =================================================================

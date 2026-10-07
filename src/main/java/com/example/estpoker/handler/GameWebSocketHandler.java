@@ -3,11 +3,11 @@ package com.example.estpoker.handler;
 import com.example.estpoker.model.Participant;
 import com.example.estpoker.model.Room;
 import com.example.estpoker.service.GameService;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.json.JsonMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.lang.NonNull;
+import org.jspecify.annotations.NonNull;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.WebSocketSession;
@@ -252,7 +252,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                 try {
                     String decoded = decode(tail);
                     if (decoded.startsWith("[") && decoded.endsWith("]")) {
-                        List<String> arr = new ObjectMapper().readValue(decoded, new TypeReference<List<String>>() {});
+                        List<String> arr = new JsonMapper().readValue(decoded, new TypeReference<List<String>>() {});
                         if (arr != null && !arr.isEmpty()) {
                             List<String> emojis = looksLikeIds(arr) ? mapIdsToEmojis(arr) : new ArrayList<>(arr);
                             gameService.setSpecialsSelected(roomCode, emojis);

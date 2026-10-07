@@ -117,6 +117,13 @@ public class StoredRoom {
         return history;
     }
 
+    public void setHistory(List<HistoryItem> history) {
+        // Explicit mutator for Jackson 3; retain the collection used by callers.
+        if (history == this.history) return;
+        this.history.clear();
+        if (history != null) this.history.addAll(history);
+    }
+
     /**
      * Update the "last modified" timestamp to now.
      */

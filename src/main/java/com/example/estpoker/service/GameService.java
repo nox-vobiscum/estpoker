@@ -4,7 +4,8 @@ import com.example.estpoker.model.CardSequences;
 import com.example.estpoker.model.Participant;
 import com.example.estpoker.model.Room;
 import com.example.estpoker.rooms.service.RoomSnapshotter;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.core.JacksonException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
@@ -67,7 +68,7 @@ public class GameService {
         }
     }
 
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final JsonMapper objectMapper = new JsonMapper();
 
     // --- disconnect & host grace ---
     private static final long LEAVE_GRACE_MS = 2_000L;
@@ -611,7 +612,7 @@ public class GameService {
     }
 
     /** Build the full room-state JSON payload once so both broadcast and targeted send can reuse it. */
-    private String buildRoomStateJson(Room room) throws IOException {
+    private String buildRoomStateJson(Room room) {
         Map<String, Object> payload = new HashMap<>();
         payload.put("type", "voteUpdate");
 
@@ -713,7 +714,7 @@ public class GameService {
         try {
             String json = buildRoomStateJson(room);
             broadcastToRoom(room, json);
-        } catch (IOException e) {
+        } catch (JacksonException e) {
             e.printStackTrace();
         }
     }
@@ -724,7 +725,7 @@ public class GameService {
         try {
             String json = buildRoomStateJson(room);
             if (session.isOpen()) session.sendMessage(new TextMessage(json));
-        } catch (IOException e) {
+        } catch (IOException | JacksonException e) {
             e.printStackTrace();
         }
     }
@@ -767,7 +768,7 @@ public class GameService {
             legacy.put("oldHost", oldHostName);
             legacy.put("newHost", newHostName);
             broadcastToRoom(room, objectMapper.writeValueAsString(legacy));
-        } catch (IOException ignored) {}
+        } catch (JacksonException ignored) {}
 
         Map<String, Object> modern = new HashMap<>();
         modern.put("type", "hostTransferred");
@@ -899,7 +900,7 @@ public class GameService {
         payload.put("name", name);
         try {
             broadcastToRoom(room, objectMapper.writeValueAsString(payload));
-        } catch (IOException ignored) { }
+        } catch (JacksonException ignored) { }
     }
 
     private void broadcastParticipantRenamed(Room room, String from, String to) {
@@ -909,7 +910,7 @@ public class GameService {
         payload.put("to", to);
         try {
             broadcastToRoom(room, objectMapper.writeValueAsString(payload));
-        } catch (IOException ignored) { }
+        } catch (JacksonException ignored) { }
     }
 
     private void broadcastParticipantJoined(Room room, String name) {
@@ -918,7 +919,7 @@ public class GameService {
         payload.put("name", name);
         try {
             broadcastToRoom(room, objectMapper.writeValueAsString(payload));
-        } catch (IOException ignored) { }
+        } catch (JacksonException ignored) { }
     }
 
     public void kickParticipant(Room room, String targetName) {
@@ -930,7 +931,7 @@ public class GameService {
             payload.put("type", "kicked");
             payload.put("redirect", "/");
             json = objectMapper.writeValueAsString(payload);
-        } catch (IOException e) {
+        } catch (JacksonException e) {
             json = "{\"type\":\"kicked\",\"redirect\":\"/\"}";
         }
 
@@ -973,7 +974,7 @@ public class GameService {
             payload.put("redirect", "/");
             String json = objectMapper.writeValueAsString(payload);
             broadcastToRoom(room, json);
-        } catch (IOException e) {
+        } catch (JacksonException e) {
             e.printStackTrace();
         }
 
@@ -1004,7 +1005,7 @@ public class GameService {
             if (cid != null) payload.put("cid", cid);
             String json = objectMapper.writeValueAsString(payload);
             if (session.isOpen()) session.sendMessage(new TextMessage(json));
-        } catch (IOException e) {
+        } catch (IOException | JacksonException e) {
             e.printStackTrace();
         }
     }

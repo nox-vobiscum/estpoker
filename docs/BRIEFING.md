@@ -22,10 +22,10 @@ https://ep.rbsnet.at/
 - **VCS:** Git (remote origin)  
 - **Build:** Maven Wrapper (`mvnw`)  
 - **Runtime:** Java 25 (OpenJDK)  
-- **Backend:** Spring Boot 3.x, WebSocket (server push), Thymeleaf views  
+- **Backend:** Spring Boot 4.1.1, WebSocket (server push), Thymeleaf views
 - **Frontend:** vanilla JavaScript, server-rendered HTML; global stylesheet: `src/main/resources/static/styles.css`  
 - **Tests:**  
-  - Unit/Component: JUnit 5, Mockito  
+  - Unit/Component: JUnit 6, Mockito
   - E2E/UI: Playwright (run separately)  
 - **Deployment:** Koyeb (behind Cloudflare proxy/CDN)  
 - **Persistence options:** in-memory; FTPS file store (JSON); DB/JPA currently **not used**  
@@ -44,7 +44,7 @@ https://ep.rbsnet.at/
 - **Language:** Java (backend), HTML/CSS/JS (frontend)  
 - **Frameworks:** Spring Boot, Thymeleaf  
 - **Realtime:** Spring WebSocket → client JS  
-- **Testing:** JUnit 5, Mockito, Playwright (E2E)  
+- **Testing:** JUnit 6, Mockito, Playwright (E2E)
 - **Build:** Maven (Surefire for unit tests)  
 - **Static assets:** `src/main/resources/static/**`  
 - **Templates:** `src/main/resources/templates/**`  
