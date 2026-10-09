@@ -24,7 +24,7 @@
       "name": "app.websocket.allowed-origins",
       "type": "java.lang.String",
       "description": "Comma-separated list of allowed WebSocket origins (e.g. https://ep.rbsnet.at,http://localhost:8080).",
-      "sourceType": "com.example.estpoker.config.WebSocketConfig"
+      "sourceType": "com.example.planningpoker.config.WebSocketConfig"
     },
 
     { "name": "app.storage.mode",                 "type": "java.lang.String",  "description": "Storage backend mode (ftps)." },
