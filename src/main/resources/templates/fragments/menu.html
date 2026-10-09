@@ -235,7 +235,7 @@
         try { row.style.display = on ? '' : 'none'; } catch {}
       }
       if (document.body) document.body.dataset.topicVisible = String(!!on);
-      try { document.dispatchEvent(new CustomEvent('ep:topic:set', { detail:{ visible: !!on } })); } catch {}
+      try { document.dispatchEvent(new CustomEvent('pp:topic:set', { detail:{ visible: !!on } })); } catch {}
     }
     function init(){
       var t = $('menuTopicToggle'), s = $('menuTopicStatus');
@@ -260,7 +260,7 @@
   </script>
 
     <!-- Load JS -->
-  <script defer src="/js/menu.js?v=41"></script>
-  <script defer src="/js/specials-bridge.js?v=1"></script>
+  <script defer src="/js/menu.js?v=42"></script>
+  <script defer src="/js/specials-bridge.js?v=2"></script>
 
 </th:block>

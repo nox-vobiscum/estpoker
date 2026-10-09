@@ -1,7 +1,7 @@
 /* menu.js v40 — i18n-driven tooltips + dynamic messages (index/invite) + specials palette (visibility only here) */
 (() => {
   'use strict';
-  window.__epMenuVer = 'v40';
+  window.__ppMenuVer = 'v40';
   console.info('[menu] v40 loaded');
 
   const $  = (s, r = document) => r.querySelector(s);
@@ -108,7 +108,7 @@
     overlay.setAttribute('aria-hidden','false');    // accessibility state
     setMenuButtonState(true);
     forceRowLayout();
-    try { document.dispatchEvent(new CustomEvent('ep:menu-open')); } catch {}
+    try { document.dispatchEvent(new CustomEvent('pp:menu-open')); } catch {}
   }
 
   function closeMenu(){
@@ -277,7 +277,7 @@
     const next = getLang() === 'de' ? 'en' : 'de';
     window.setLanguage(next); // public API
     try {
-      window.dispatchEvent(new CustomEvent('est:lang-change', { detail: { lang: next, source: 'menu' } }));
+      window.dispatchEvent(new CustomEvent('pp:lang-change', { detail: { lang: next, source: 'menu' } }));
     } catch {}
   });
 
@@ -334,20 +334,20 @@
     reflectAriaChecked(inputEl, rowEl);
   }
 
-  wireSwitchRow(rowAuto,  swAuto,  (on) => document.dispatchEvent(new CustomEvent('ep:auto-reveal-toggle',  { detail: { on } })));
-  wireSwitchRow(rowTopic, swTopic, (on) => document.dispatchEvent(new CustomEvent('ep:topic-toggle',        { detail: { on } })));
-  wireSwitchRow(rowPart,  swPart,  (on) => document.dispatchEvent(new CustomEvent('ep:participation-toggle',{ detail: { estimating: on } })));
+  wireSwitchRow(rowAuto,  swAuto,  (on) => document.dispatchEvent(new CustomEvent('pp:auto-reveal-toggle',  { detail: { on } })));
+  wireSwitchRow(rowTopic, swTopic, (on) => document.dispatchEvent(new CustomEvent('pp:topic-toggle',        { detail: { on } })));
+  wireSwitchRow(rowPart,  swPart,  (on) => document.dispatchEvent(new CustomEvent('pp:participation-toggle',{ detail: { estimating: on } })));
 
   /* SPECIALS: behave like other rows (row-level toggling allowed) */
   wireSwitchRow(rowSpecials, swSpecials, (on) => {
-  document.dispatchEvent(new CustomEvent('ep:specials-toggle', { detail: { on } }));
+  document.dispatchEvent(new CustomEvent('pp:specials-toggle', { detail: { on } }));
   });
 
 
-  wireSwitchRow(rowHard,  swHard,  (on) => document.dispatchEvent(new CustomEvent('ep:hard-mode-toggle',    { detail: { on } })));
+  wireSwitchRow(rowHard,  swHard,  (on) => document.dispatchEvent(new CustomEvent('pp:hard-mode-toggle',    { detail: { on } })));
 
   closeBtn?.addEventListener('click', () => {
-    document.dispatchEvent(new CustomEvent('ep:close-room'));
+    document.dispatchEvent(new CustomEvent('pp:close-room'));
   });
 
   /* ---------- Sequence radios ---------- */
@@ -430,13 +430,13 @@
       const r = e.target && e.target.closest('input[type="radio"][name="menu-seq"]');
       if (!r || r.disabled) return;
       const id = r.value;
-      document.dispatchEvent(new CustomEvent('ep:sequence-change', { detail: { id } }));
+      document.dispatchEvent(new CustomEvent('pp:sequence-change', { detail: { id } }));
     });
   }
 
   /* ---------- Specials visibility reactions ---------- */
   // Keep the palette row in sync with master switch; all selection logic lives in specials-bridge.js
-  document.addEventListener('ep:specials-toggle', (e) => {
+  document.addEventListener('pp:specials-toggle', (e) => {
     const on = !!(e?.detail && e.detail.on);
     specials_setPaletteVisible(on);
   });
@@ -479,7 +479,7 @@
     if (swSpecials) {
       const aria = swSpecials.getAttribute('aria-checked');
       const on = aria === 'true' ? true : aria === 'false' ? false : !!swSpecials.checked;
-      document.dispatchEvent(new CustomEvent('ep:specials-toggle', { detail: { on } }));
+      document.dispatchEvent(new CustomEvent('pp:specials-toggle', { detail: { on } }));
     }
   })();
 
@@ -488,13 +488,13 @@
     try { return switchLanguage(code); }
     catch(e){ console.warn('[menu] setLanguage failed', e); }
   };
-  window.addEventListener('est:lang-change', (e) => {
+  window.addEventListener('pp:lang-change', (e) => {
     try {
       const d = e?.detail || {};
       const to = d.lang || d.to;
       if (to && normalizeLang(to) !== getLang()) window.setLanguage(to);
     } catch (err) {
-      console.warn('[menu] est:lang-change handler failed', err);
+      console.warn('[menu] pp:lang-change handler failed', err);
     }
   });
 })();

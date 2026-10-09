@@ -126,7 +126,7 @@ async function revealNow(page: Page) {
   await page.evaluate(() => {
     // @ts-ignore
     if (typeof window.revealCards === 'function') window.revealCards();
-    document.dispatchEvent(new CustomEvent('ep:reveal', { bubbles: true }));
+    document.dispatchEvent(new CustomEvent('pp:reveal', { bubbles: true }));
   });
   return true;
 }

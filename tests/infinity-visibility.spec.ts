@@ -12,7 +12,7 @@ function newRoomCode(prefix = 'INF') {
 // Dispatch the app's host-only sequence-change event
 async function selectSequenceViaEvent(page, seqId) {
   await page.evaluate((id) => {
-    window.dispatchEvent(new CustomEvent('ep:sequence-change', { detail: { sequenceId: id } }));
+    window.dispatchEvent(new CustomEvent('pp:sequence-change', { detail: { sequenceId: id } }));
   }, seqId);
 }
 

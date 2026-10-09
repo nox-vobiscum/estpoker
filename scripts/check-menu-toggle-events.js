@@ -2,9 +2,9 @@
 /* 
  * Guardrail: Verify coupling between menu.js (dispatch) and room.js (listeners)
  * Checks:
- *  - menu.js dispatches CustomEvent 'ep:auto-reveal-toggle' with detail.on (supports shorthand { on })
- *  - menu.js dispatches CustomEvent 'ep:topic-toggle'       with detail.on (supports shorthand { on })
- *  - menu.js dispatches CustomEvent 'ep:participation-toggle' with detail.estimating (supports shorthand { estimating })
+ *  - menu.js dispatches CustomEvent 'pp:auto-reveal-toggle' with detail.on (supports shorthand { on })
+ *  - menu.js dispatches CustomEvent 'pp:topic-toggle'       with detail.on (supports shorthand { on })
+ *  - menu.js dispatches CustomEvent 'pp:participation-toggle' with detail.estimating (supports shorthand { estimating })
  *  - room.js adds listeners for all three events
  *
  * Usage:
@@ -94,27 +94,27 @@ const roomSrc = read(ROOM_JS);
 const checks = [
   {
     name: "auto-reveal toggle dispatch (detail.on)",
-    ok: hasDispatchWithDetail(menuSrc, 'ep:auto-reveal-toggle', 'on')
+    ok: hasDispatchWithDetail(menuSrc, 'pp:auto-reveal-toggle', 'on')
   },
   {
     name: "topic toggle dispatch (detail.on)",
-    ok: hasDispatchWithDetail(menuSrc, 'ep:topic-toggle', 'on') // topic must send { on }
+    ok: hasDispatchWithDetail(menuSrc, 'pp:topic-toggle', 'on') // topic must send { on }
   },
   {
     name: "participation toggle dispatch (detail.estimating)",
-    ok: hasDispatchWithDetail(menuSrc, 'ep:participation-toggle', 'estimating')
+    ok: hasDispatchWithDetail(menuSrc, 'pp:participation-toggle', 'estimating')
   },
   {
-    name: "room listener: ep:auto-reveal-toggle",
-    ok: hasListener(roomSrc, 'ep:auto-reveal-toggle')
+    name: "room listener: pp:auto-reveal-toggle",
+    ok: hasListener(roomSrc, 'pp:auto-reveal-toggle')
   },
   {
-    name: "room listener: ep:topic-toggle",
-    ok: hasListener(roomSrc, 'ep:topic-toggle')
+    name: "room listener: pp:topic-toggle",
+    ok: hasListener(roomSrc, 'pp:topic-toggle')
   },
   {
-    name: "room listener: ep:participation-toggle",
-    ok: hasListener(roomSrc, 'ep:participation-toggle')
+    name: "room listener: pp:participation-toggle",
+    ok: hasListener(roomSrc, 'pp:participation-toggle')
   },
 ];
 

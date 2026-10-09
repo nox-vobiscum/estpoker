@@ -43,22 +43,22 @@ test.describe('Menu → Room toggle event contracts', () => {
 
     // Install listeners before navigation
     await page.addInitScript(() => {
-      window.__epE2EEvents = [];
-      document.addEventListener('ep:auto-reveal-toggle', (e) =>
-        window.__epE2EEvents!.push({
-          name: 'ep:auto-reveal-toggle',
+      window.__ppE2EEvents = [];
+      document.addEventListener('pp:auto-reveal-toggle', (e) =>
+        window.__ppE2EEvents!.push({
+          name: 'pp:auto-reveal-toggle',
           d: (e as CustomEvent).detail,
         })
       );
-      document.addEventListener('ep:topic-toggle', (e) =>
-        window.__epE2EEvents!.push({
-          name: 'ep:topic-toggle',
+      document.addEventListener('pp:topic-toggle', (e) =>
+        window.__ppE2EEvents!.push({
+          name: 'pp:topic-toggle',
           d: (e as CustomEvent).detail,
         })
       );
-      document.addEventListener('ep:participation-toggle', (e) =>
-        window.__epE2EEvents!.push({
-          name: 'ep:participation-toggle',
+      document.addEventListener('pp:participation-toggle', (e) =>
+        window.__ppE2EEvents!.push({
+          name: 'pp:participation-toggle',
           d: (e as CustomEvent).detail,
         })
       );
@@ -82,8 +82,8 @@ test.describe('Menu → Room toggle event contracts', () => {
       await toggle('#menuAutoRevealToggle');
       await page.waitForFunction(
         () =>
-          (window.__epE2EEvents ?? []).some(
-            (e) => e.name === 'ep:auto-reveal-toggle' && 'on' in (e.d || {})
+          (window.__ppE2EEvents ?? []).some(
+            (e) => e.name === 'pp:auto-reveal-toggle' && 'on' in (e.d || {})
           )
       );
     }
@@ -92,8 +92,8 @@ test.describe('Menu → Room toggle event contracts', () => {
     await toggle('#menuTopicToggle');
     await page.waitForFunction(
       () =>
-        (window.__epE2EEvents ?? []).some(
-          (e) => e.name === 'ep:topic-toggle' && 'on' in (e.d || {})
+        (window.__ppE2EEvents ?? []).some(
+          (e) => e.name === 'pp:topic-toggle' && 'on' in (e.d || {})
         )
     );
 
@@ -101,9 +101,9 @@ test.describe('Menu → Room toggle event contracts', () => {
     await toggle('#menuParticipationToggle');
     await page.waitForFunction(
       () =>
-        (window.__epE2EEvents ?? []).some(
+        (window.__ppE2EEvents ?? []).some(
           (e) =>
-            e.name === 'ep:participation-toggle' && 'estimating' in (e.d || {})
+            e.name === 'pp:participation-toggle' && 'estimating' in (e.d || {})
         )
     );
 

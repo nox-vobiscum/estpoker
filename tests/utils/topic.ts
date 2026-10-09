@@ -76,7 +76,7 @@ export async function forceTopicToggle(page: Page, on: boolean): Promise<void> {
       try { (row.style as any).display = want ? '' : 'none'; } catch {}
     }
     if (document.body) (document.body as any).dataset.topicVisible = String(!!want);
-    try { document.dispatchEvent(new CustomEvent('ep:topic:set', { detail: { visible: !!want } })); } catch {}
+    try { document.dispatchEvent(new CustomEvent('pp:topic:set', { detail: { visible: !!want } })); } catch {}
   }, on).catch(() => {});
 
   await ensureMenuClosed(page);

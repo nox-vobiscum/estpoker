@@ -19,7 +19,7 @@ test('Topic visibility toggles [hidden] and .is-hidden correctly', async ({ page
 
   // Turn ON (host event) → renderTopic() will sync [hidden] and classes
   await page.evaluate(() => {
-    document.dispatchEvent(new CustomEvent('ep:topic-toggle', { detail: { on: true } }));
+    document.dispatchEvent(new CustomEvent('pp:topic-toggle', { detail: { on: true } }));
   });
   await expect(row).toBeVisible();
   await expect(row).not.toHaveAttribute('hidden', /.+/);
@@ -27,7 +27,7 @@ test('Topic visibility toggles [hidden] and .is-hidden correctly', async ({ page
 
   // Turn OFF again
   await page.evaluate(() => {
-    document.dispatchEvent(new CustomEvent('ep:topic-toggle', { detail: { on: false } }));
+    document.dispatchEvent(new CustomEvent('pp:topic-toggle', { detail: { on: false } }));
   });
   await expect(row).toBeHidden();
   await expect(row).toHaveAttribute('hidden', '');

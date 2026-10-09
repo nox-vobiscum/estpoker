@@ -22,7 +22,7 @@ test('Topic shows "more" hint when overflowing', async ({ page }) => {
 
   // Turn topic ON (host event). renderTopic() will run immediately.
   await page.evaluate(() => {
-    document.dispatchEvent(new CustomEvent('ep:topic-toggle', { detail: { on: true } }));
+    document.dispatchEvent(new CustomEvent('pp:topic-toggle', { detail: { on: true } }));
   });
 
   const topicRow = page.locator('#topicRow');

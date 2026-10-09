@@ -6,16 +6,16 @@
    Responsibilities:
    - Handle clicks/keys on the palette only (no row side-effects)
    - Maintain .on + aria-pressed (buttons) or input.checked (labels)
-   - Publish ep:specials-set { ids:[...] } with a stable order
-   - React to ep:specials-toggle { on:boolean } for visibility
+   - Publish pp:specials-set { ids:[...] } with a stable order
+   - React to pp:specials-toggle { on:boolean } for visibility
    - Disable interaction for non-hosts while keeping focusability
    - Provide a small "Select all" action (host only)
 */
 
 (() => {
   'use strict';
-  if (window.__epSpecialsBridgeVer) return; // guard against double load
-  window.__epSpecialsBridgeVer = 'v1.1';
+  if (window.__ppSpecialsBridgeVer) return; // guard against double load
+  window.__ppSpecialsBridgeVer = 'v1.1';
   console.info('[specials-bridge] v1.1 loaded');
 
   const $  = (s, r = document) => r.querySelector(s);
@@ -106,9 +106,9 @@
   function dispatchSet() {
     const ids = readSelected();
     try {
-      document.dispatchEvent(new CustomEvent('ep:specials-set', { detail: { ids } }));
+      document.dispatchEvent(new CustomEvent('pp:specials-set', { detail: { ids } }));
     } catch (e) {
-      console.warn('[specials-bridge] dispatch ep:specials-set failed', e);
+      console.warn('[specials-bridge] dispatch pp:specials-set failed', e);
     }
   }
 
@@ -234,13 +234,13 @@
   new MutationObserver(updateButtonsEnabled).observe(document.body, { attributes: true, attributeFilter: ['class'] });
 
   // -------- Visibility reacts to master toggle from menu.js
-  document.addEventListener('ep:specials-toggle', (e) => {
+  document.addEventListener('pp:specials-toggle', (e) => {
     const on = !!(e && e.detail && e.detail.on);
     setPaletteVisible(on);
     if (on) dispatchSet();
     else {
       // Turning OFF → empty selection is broadcast so grids can clear
-      try { document.dispatchEvent(new CustomEvent('ep:specials-set', { detail: { ids: [] } })); } catch {}
+      try { document.dispatchEvent(new CustomEvent('pp:specials-set', { detail: { ids: [] } })); } catch {}
     }
   });
 

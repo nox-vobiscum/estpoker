@@ -274,7 +274,7 @@ export async function revealNow(page: Page): Promise<boolean> {
     .evaluate(() => {
       // @ts-ignore
       if (typeof (window as any).revealCards === 'function') (window as any).revealCards();
-      document.dispatchEvent(new CustomEvent('ep:reveal', { bubbles: true }));
+      document.dispatchEvent(new CustomEvent('pp:reveal', { bubbles: true }));
     })
     .catch(() => {});
   return revealedNow(page, 2000);
@@ -372,7 +372,7 @@ export async function resetNow(page: Page): Promise<boolean> {
       const w = window as any;
       if (typeof w.resetRoom === 'function') w.resetRoom();
       else if (typeof w.resetRound === 'function') w.resetRound();
-      document.dispatchEvent(new CustomEvent('ep:reset', { bubbles: true }));
+      document.dispatchEvent(new CustomEvent('pp:reset', { bubbles: true }));
     })
     .catch(() => {});
   return await waitPreVote(page, 4000);
@@ -570,7 +570,7 @@ export async function readAverage(page: Page): Promise<number | null> {
   /** Fire the same app event the menu would produce (stable, host-only). */
   export async function setSequenceViaEvent(page: Page, id: string) {
     await page.evaluate((seq) => {
-      document.dispatchEvent(new CustomEvent('ep:sequence-change', { detail: { id: seq } }));
+      document.dispatchEvent(new CustomEvent('pp:sequence-change', { detail: { id: seq } }));
     }, id);
   }
 
@@ -582,10 +582,10 @@ export async function readAverage(page: Page): Promise<number | null> {
     );
   }
 
-  /** Read the most recent sequenceId from the front-end event buffer (__epVU). */
+  /** Read the most recent sequenceId from the front-end event buffer (__ppVU). */
   export async function lastSeqFromBus(page: Page): Promise<string | null> {
     return page.evaluate(() => {
-      const bus = (window as any).__epVU as any[] | undefined;
+      const bus = (window as any).__ppVU as any[] | undefined;
       if (!bus || !bus.length) return null;
       for (let i = bus.length - 1; i >= 0; i--) {
         const m = bus[i];
@@ -619,7 +619,7 @@ export async function waitHostRole(page: Page, timeoutMs = 4000): Promise<void> 
 export async function waitWsOpen(page: Page, timeoutMs = 4000): Promise<void> {
   await page
     .waitForFunction(
-      () => (window as any).__epWs && (window as any).__epWs.readyState === 1,
+      () => (window as any).__ppWs && (window as any).__ppWs.readyState === 1,
       { timeout: timeoutMs }
     )
     .catch(() => {});

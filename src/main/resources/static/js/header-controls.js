@@ -6,7 +6,7 @@
        2) /i18n/messages?lang=... then apply to DOM
    - Correct flags: DE → (de, at), EN → (us, gb)
    - Persists lang in localStorage and updates <html lang="...">
-   - Emits 'est:lang-change' + 'ep:lang-changed' events
+   - Emits 'pp:lang-change' + 'pp:lang-changed' events
 */
 (() => {
   'use strict';
@@ -129,8 +129,8 @@
     reflectLangUI(target);
 
     const detail = { lang: target, source: 'header' };
-    try { window.dispatchEvent(new CustomEvent('est:lang-change', { detail })); } catch {}
-    try { document.dispatchEvent(new CustomEvent('ep:lang-changed', { detail })); } catch {}
+    try { window.dispatchEvent(new CustomEvent('pp:lang-change', { detail })); } catch {}
+    try { document.dispatchEvent(new CustomEvent('pp:lang-changed', { detail })); } catch {}
 
     return target;
   }

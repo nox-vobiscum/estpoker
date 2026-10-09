@@ -388,7 +388,7 @@
     catch (e) { console.error(TAG, e); scheduleReconnect('ctor'); return; }
 
     state.ws = s;
-    try { window.__epWs = s; } catch {}
+    try { window.__ppWs = s; } catch {}
 
     s.onopen = function () {
       state.connected = true;
@@ -487,8 +487,8 @@
       try {
         const msg = JSON.parse(ev.data);
         try {
-          window.__epVU = window.__epVU || [];
-          window.__epVU.push(msg);
+          window.__ppVU = window.__ppVU || [];
+          window.__ppVU.push(msg);
         } catch {}
         handleMessage(msg);
       } catch (e) {
@@ -1610,7 +1610,7 @@
   function wireSpecialsPalette(){ /* handled by specials-bridge.js */ }
 
 
-  document.addEventListener('ep:menu-open', function () {
+  document.addEventListener('pp:menu-open', function () {
     wireSequenceRadios();
     wireMenuTogglesDom();
     wireSpecialsPalette();
@@ -1637,7 +1637,7 @@
 
     // Participation: user-controlled, not host-gated
     bindSwitch('menuParticipationToggle', function (on /*= estimating*/, _el) {
-      document.dispatchEvent(new CustomEvent('ep:participation-toggle', { detail: { estimating: on } }));
+      document.dispatchEvent(new CustomEvent('pp:participation-toggle', { detail: { estimating: on } }));
     });
 
     // Host-only switches: revert UI immediately if a guest tries to toggle
@@ -1652,22 +1652,22 @@
     };
 
     bindSwitch('menuAutoRevealToggle', function (on, el) { hostGuard(function () {
-      document.dispatchEvent(new CustomEvent('ep:auto-reveal-toggle', { detail: { on: on } }));
+      document.dispatchEvent(new CustomEvent('pp:auto-reveal-toggle', { detail: { on: on } }));
     }, el); });
 
     bindSwitch('menuTopicToggle', function (on, el) { hostGuard(function () {
-      document.dispatchEvent(new CustomEvent('ep:topic-toggle', { detail: { on: on } }));
+      document.dispatchEvent(new CustomEvent('pp:topic-toggle', { detail: { on: on } }));
     }, el); });
 
     bindSwitch('menuSpecialsToggle', function (on, el) { hostGuard(function () {
       // Update visibility immediately for snappy UI
       state.allowSpecials = on;
       syncSpecialsPaletteFromState();
-      document.dispatchEvent(new CustomEvent('ep:specials-toggle', { detail: { on: on } }));
+      document.dispatchEvent(new CustomEvent('pp:specials-toggle', { detail: { on: on } }));
     }, el); });
 
     bindSwitch('menuHardModeToggle', function (on, el) { hostGuard(function () {
-      document.dispatchEvent(new CustomEvent('ep:hard-mode-toggle', { detail: { on: on } }));
+      document.dispatchEvent(new CustomEvent('pp:hard-mode-toggle', { detail: { on: on } }));
     }, el); });
   }
 
@@ -1884,15 +1884,15 @@
 
   function wireMenuEvents() {
     // Single, final close-room confirmation
-    document.addEventListener('ep:close-room', function () {
+    document.addEventListener('pp:close-room', function () {
       if (!state.isHost) return;
       const msg2 = t('confirm.closeRoom', 'Close this room for everyone?');
       if (confirm(msg2)) send('closeRoom');
     });
 
     // Programmatic sequence changes (optimistic)
-    if (!window.__epSeqBridgeBound) {
-      document.addEventListener('ep:sequence-change', function (ev) {
+    if (!window.__ppSeqBridgeBound) {
+      document.addEventListener('pp:sequence-change', function (ev) {
         const d = ev && ev.detail ? ev.detail : {};
         const id = normalizeSeq(d.id || d.sequenceId);
         if (!id) return;
@@ -1902,13 +1902,13 @@
       });
     }
 
-    document.addEventListener('ep:auto-reveal-toggle', function (ev) {
+    document.addEventListener('pp:auto-reveal-toggle', function (ev) {
       if (!state.isHost) return;
       const on = !!(ev && ev.detail && ev.detail.on);
       send('autoReveal:' + on);
     });
 
-    document.addEventListener('ep:topic-toggle', function (ev) {
+    document.addEventListener('pp:topic-toggle', function (ev) {
       if (!state.isHost) return;
       const on = !!(ev && ev.detail && ev.detail.on);
 
@@ -1920,7 +1920,7 @@
       send('topicVisible:' + on);
     });
 
-    document.addEventListener('ep:participation-toggle', function (ev) {
+    document.addEventListener('pp:participation-toggle', function (ev) {
       const estimating = !!(ev && ev.detail && ev.detail.estimating);
       state.selfSpectator = !estimating;
 
@@ -1938,7 +1938,7 @@
       send('participation:' + estimating);
     });
 
-    document.addEventListener('ep:specials-toggle', function () {
+    document.addEventListener('pp:specials-toggle', function () {
       if (!state.isHost) return;
       queueMicrotask(function () {
         const el = document.getElementById('menuSpecialsToggle');
@@ -1951,7 +1951,7 @@
     });
 
     // NEW: palette selection → send IDs + rebuild local deck
-    document.addEventListener('ep:specials-set', function (ev) {
+    document.addEventListener('pp:specials-set', function (ev) {
       if (!state.isHost) return;
       const ids = canonicalizeIds(((ev && ev.detail && ev.detail.ids) || []));
       state.specialsSelected = ids;
@@ -1962,7 +1962,7 @@
       pokeServerAndSync();
     });
 
-    document.addEventListener('ep:hard-mode-toggle', function (ev) {
+    document.addEventListener('pp:hard-mode-toggle', function (ev) {
       if (!state.isHost) return;
       const on = !!(ev && ev.detail && ev.detail.on);
       state.hardMode = on;
@@ -2131,8 +2131,8 @@
     }
 
     // --- Universal fallback for row-action buttons (capture phase) ---
-if (!window.__epRowActionFallback) {
-  window.__epRowActionFallback = true;
+if (!window.__ppRowActionFallback) {
+  window.__ppRowActionFallback = true;
   document.addEventListener('click', function (e) {
     var btn = (e.target && e.target.closest) ? e.target.closest('button.row-action') : null;
     if (!btn) return;
@@ -2320,7 +2320,7 @@ if (action === 'spectator') {
     }
   }).observe(document.documentElement, { attributes: true, attributeFilter: ['lang'] });
 
-  document.addEventListener('ep:lang-changed', onLangChange);
+  document.addEventListener('pp:lang-changed', onLangChange);
   
   /*** ---------- Name preflight: run once per (room+name) per tab ---------- ***/
   async function preflightNameCheck() {
@@ -2410,8 +2410,8 @@ if (action === 'spectator') {
 
   // --- Row-action: globaler Capture-Fallback (host/spectator/kick) ---
 (function bindRowActionHotfix() {
-  if (window.__epRowActionHotfixBound) return;
-  window.__epRowActionHotfixBound = true;
+  if (window.__ppRowActionHotfixBound) return;
+  window.__ppRowActionHotfixBound = true;
 
   const onRowAction = (btn) => {
     const action = btn?.dataset?.action || '';
@@ -2501,7 +2501,7 @@ function __normalizeAllowSpecials(obj){
 
 // viewport/theme sync for mobile .row-actions
 (function(){
-  if (window.__epSyncRowActions) return;
+  if (window.__ppSyncRowActions) return;
   function isMobileVW(){ return window.matchMedia && window.matchMedia('(max-width: 768px)').matches; }
   function syncRowActions(){
     var list = document.getElementById('liveParticipantList');
@@ -2529,7 +2529,7 @@ function __normalizeAllowSpecials(obj){
       }
     });
   }
-  window.__epSyncRowActions = syncRowActions;
+  window.__ppSyncRowActions = syncRowActions;
   var to=null;
   window.addEventListener('resize', function(){ clearTimeout(to); to=setTimeout(syncRowActions, 120); }, {passive:true});
   try{
