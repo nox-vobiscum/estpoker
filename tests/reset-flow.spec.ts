@@ -22,6 +22,7 @@ test('After reveal, Reset clears chips and restores pre-vote UI', async ({ brows
   const guest = await ctxGuest.newPage();
 
   await host.goto(roomUrlFor('Host', room), { waitUntil: 'domcontentloaded' });
+  await expect(host.locator('body')).toHaveClass(/is-host/);
   await guest.goto(roomUrlFor('Guest', room), { waitUntil: 'domcontentloaded' });
 
   await setSequence(host, 'fib.scrum');

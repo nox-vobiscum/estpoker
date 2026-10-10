@@ -39,11 +39,11 @@ export async function openTwoClients(browser: Browser) {
   const hostName = 'Host';
   const guestName = 'Guest';
 
-  const mkUrl = (name: string) =>
-    `${baseUrl.replace(/\/$/, '')}/room` +
-    `?roomCode=${encodeURIComponent(code)}` +
-    `&participantName=${encodeURIComponent(name)}` +
-    `&preflight=1`;
+  const mkUrl = (name: string) => {
+    const url = new URL(roomUrlFor(name, code));
+    url.searchParams.set('preflight', '1');
+    return url.toString();
+  };
 
   const ctxHost = await browser.newContext();
   const ctxGuest = await browser.newContext();
@@ -51,21 +51,11 @@ export async function openTwoClients(browser: Browser) {
   const hostPage = await ctxHost.newPage();
   const guestPage = await ctxGuest.newPage();
 
-  await Promise.all([
-    hostPage.goto(mkUrl(hostName), { waitUntil: 'domcontentloaded' }),
-    guestPage.goto(mkUrl(guestName), { waitUntil: 'domcontentloaded' }),
-  ]);
-
-  // Wait until the app is usable
-  const waitReady = (p: Page) =>
-    p.waitForFunction(
-      () =>
-        !!document.getElementById('cardGrid') ||
-        document.documentElement.hasAttribute('data-ready'),
-      { timeout: 5000 }
-    ).catch(() => {});
-
-  await Promise.all([waitReady(hostPage), waitReady(guestPage)]);
+  // The server assigns host to the first connection, not the first navigation.
+  await hostPage.goto(mkUrl(hostName), { waitUntil: 'domcontentloaded' });
+  await waitHostRole(hostPage);
+  await guestPage.goto(mkUrl(guestName), { waitUntil: 'domcontentloaded' });
+  await Promise.all([waitAppReady(hostPage), waitAppReady(guestPage)]);
 
   return {
     code,
@@ -208,6 +198,8 @@ export async function pickTwoNumeric(page: Page): Promise<[string, string] | nul
  * Clicks any numeric card available. Returns true if a click was performed.
  */
 export async function voteAnyNumber(page: Page): Promise<boolean> {
+  await page.locator('#cardGrid button').filter({ hasText: /^-?\d+(?:[.,]\d+)?$/ }).first()
+    .waitFor({ state: 'visible' });
   const deck = await readDeckValues(page);
   const pick = deck.find(isNumeric);
   return pick ? clickByValue(page, pick) : false;
@@ -599,21 +591,16 @@ export async function readAverage(page: Page): Promise<number | null> {
   // ---- App readiness & host-role waits ---------------------------------------
 
 export async function waitAppReady(page: Page, timeoutMs = 4000): Promise<void> {
-  await page
-    .waitForFunction(
-      () => document.documentElement.hasAttribute('data-ready'),
-      { timeout: timeoutMs }
-    )
-    .catch(() => {});
+  await page.waitForFunction(
+    () => document.documentElement.hasAttribute('data-ready') &&
+      !!document.querySelector('#cardGrid button'),
+    undefined, { timeout: timeoutMs });
 }
 
 export async function waitHostRole(page: Page, timeoutMs = 4000): Promise<void> {
-  await page
-    .waitForFunction(
-      () => document.body.classList.contains('is-host'),
-      { timeout: timeoutMs }
-    )
-    .catch(() => {});
+  await page.waitForFunction(
+    () => document.body.classList.contains('is-host'),
+    undefined, { timeout: timeoutMs });
 }
 
 export async function waitWsOpen(page: Page, timeoutMs = 4000): Promise<void> {

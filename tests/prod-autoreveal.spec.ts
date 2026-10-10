@@ -18,6 +18,7 @@ test('Prod: Auto-Reveal toggled → 3 votes → reveal auto', async ({ page }) =
   // Seiten: Host + 2 Gäste
   const host = page;
   await host.goto(roomUrlFor('Host', room), { waitUntil: 'domcontentloaded' });
+  await expect(host.locator('body')).toHaveClass(/is-host/);
 
   const a = await host.context().newPage();
   await a.goto(roomUrlFor('A', room), { waitUntil: 'domcontentloaded' });
@@ -29,13 +30,14 @@ test('Prod: Auto-Reveal toggled → 3 votes → reveal auto', async ({ page }) =
   await expect(host.locator('#cardGrid')).toBeVisible();
   await expect(a.locator('#cardGrid')).toBeVisible();
   await expect(b.locator('#cardGrid')).toBeVisible();
+  await expect(host.locator('#liveParticipantList .participant-row')).toHaveCount(3);
 
   // --- Host: Auto-Reveal einschalten (Toggle ist für alle sichtbar, nur Host änderbar)
   await ensureMenuOpen(host);
   const arToggle = host.locator('#menuAutoRevealToggle');
   await expect(arToggle, 'auto-reveal toggle should exist').toHaveCount(1);
   if (!(await arToggle.isChecked())) {
-    await arToggle.check({ force: true });
+    await arToggle.check();
   }
   await ensureMenuClosed(host);
 

@@ -40,23 +40,8 @@ function isDash(s: string) {
 
 // ---------- NEW: ensure host role is actually active ----------
 
-async function ensureHostRole(page: Page, timeout = 8000): Promise<boolean> {
-  // host has enabled sequence radios in the menu
-  await ensureMenuOpen(page);
-  const radios = page.locator('#menuSeqChoice input[name="menu-seq"]');
-  const ok = await expect
-    .poll(async () => {
-      const count = await radios.count().catch(() => 0);
-      if (count === 0) return false;
-      const disabled = await radios.evaluateAll(list => list.map(el => (el as HTMLInputElement).disabled));
-      return disabled.every(d => d === false);
-    }, { timeout, intervals: [200, 300, 500] })
-    .toBeTruthy()
-    .then(() => true)
-    .catch(() => false);
-
-  await ensureMenuClosed(page);
-  return ok;
+async function ensureHostRole(page: Page, timeout = 8000): Promise<void> {
+  await expect(page.locator('body')).toHaveClass(/is-host/, { timeout });
 }
 
 // ---------- topic edit helpers (multi-implementation aware) ----------
@@ -139,11 +124,12 @@ test.describe('Topic flow', () => {
 
     // Make sure HOST is truly host before guest joins
     await host.goto(roomUrlFor('Host', code),  { waitUntil: 'domcontentloaded' });
-    const hostIsHost = await ensureHostRole(host, 8000);
-    if (!hostIsHost) test.skip(true, 'Could not confirm host role for the Host page.');
+    await ensureHostRole(host, 8000);
 
     const guest = await ctxGuest.newPage();
     await guest.goto(roomUrlFor('Guest', code), { waitUntil: 'domcontentloaded' });
+    await expect(guest.locator('#cardGrid button').first()).toBeVisible();
+    await expect(host.locator('#liveParticipantList .participant-row')).toHaveCount(2);
 
     // ON => visible on both
     await forceTopicToggle(host, true);
@@ -175,11 +161,12 @@ test.describe('Topic flow', () => {
 
     // Ensure host role before guest joins
     await host.goto(roomUrlFor('Host', code),  { waitUntil: 'domcontentloaded' });
-    const hostIsHost = await ensureHostRole(host, 8000);
-    if (!hostIsHost) test.skip(true, 'Could not confirm host role for the Host page.');
+    await ensureHostRole(host, 8000);
 
     const guest = await ctxGuest.newPage();
     await guest.goto(roomUrlFor('Guest', code), { waitUntil: 'domcontentloaded' });
+    await expect(guest.locator('#cardGrid button').first()).toBeVisible();
+    await expect(host.locator('#liveParticipantList .participant-row')).toHaveCount(2);
 
     // Ensure row is visible before editing
     await forceTopicToggle(host, true);
