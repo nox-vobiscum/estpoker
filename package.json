@@ -1,5 +1,5 @@
 {
-  "name": "ep-noxvobiscum-guardrails",
+  "name": "pp-noxvobiscum-guardrails",
   "private": true,
   "scripts": {
     "check:menu-events": "node scripts/check-menu-toggle-events.js",

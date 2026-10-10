@@ -88,6 +88,6 @@ jobs:
         if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
-          name: estpoker-app
+          name: planningpoker-app
           path: target/*.jar
           if-no-files-found: ignore
