@@ -1,92 +1,80 @@
 ﻿# Rebranding implementation: resumable handoff
 
-Updated: 2026-10-10. Status: implementation committed; validation incomplete.
+Updated: 2026-10-10. Status: implementation complete; build and full browser suite pass.
 
-## Rules that remain in force
+## Current state
 
-- Work only on `rebrand/planning-poker`; do not merge, push, deploy or switch to main.
+- Branch: `rebrand/planning-poker`. No push, merge, deployment or switch to main.
 - Preserve `pre-planning-poker-rebrand` at
-  `bd0afd381a03fa1528c401276a3ad0c53557de75`.
-- Do not rename domain, repository, Koyeb, FTPS paths, external APIs or neutral data.
+  `bd0afd381a03fa1528c401276a3ad0c53557de75` (verified unchanged).
+- Domain, repository, Koyeb, FTPS paths, external APIs and neutral data unchanged.
 - Original request: `C:/Users/noxvo/.codex/attachments/7eff0e8b-f5c7-4146-bd79-4a5a70c2bb34/Pasted text.txt`.
-- The request says STOP and report if a step becomes unexpectedly risky. This
-  boundary was reached by final validation, not by an approval/usage error.
+- Full implementation, compatibility decisions and residual inventory:
+  `docs/PLANNING-POKER-REBRAND-PHASE-1.md`.
+- Historical audit: `docs/PLANNING-POKER-REBRAND-AUDIT.md`.
 
-## Source of truth
+## Latest authorized continuation
 
-Read `docs/PLANNING-POKER-REBRAND-PHASE-1.md` for all commits, completed work,
-compatibility aliases, decisions, validation evidence and the complete categorized
-residual search. `docs/PLANNING-POKER-REBRAND-AUDIT.md` is the historical audit and
-is already committed. No implementation changes are left uncommitted.
+The user explicitly authorized targeted investigation/correction without changing
+fundamental functionality. The original validation stop is resolved:
 
-Last implementation/test commit: `c99a486`; event ownership fix: `216d053`.
-The later documentation checkpoint commits this handoff and the validation report.
+- `f440c36`: serialize all WebSocket text writes per connection through
+  `GameService.sendText`. The identity/broadcast concurrency regression failed
+  before the fix and passes after it. Separate sessions stay independent;
+  payloads, recipients and game rules remain unchanged.
+- `2ce4f18`: tests wait for the confirmed host role and actual voting readiness.
+  Parallel navigation did not guarantee host assignment. Empty card containers
+  did not guarantee that the room was ready. No retries or skips were added.
+- The final documentation commit records the verified completion and handoff.
+
+Earlier implementation commits and the original 91/98 validation stop are listed
+in the phase report. Do not repeat already completed naming/storage migrations.
 
 ## Verified results
 
-- Maven verify: 26 passed; packaging after event ownership correction passed.
-- npm ci:verify: both JS guards and TypeScript check passed.
-- Explicit storage migration tests: 8 passed.
-- Exactly-once event tests: 3 passed, including all five switches and reopening.
-- Original checkpoint head bootstrap reads preserved legacy browser storage.
-  This is a limited rollback simulation, not a full old-backend deployment test.
-- Latest full Playwright suite: 91 passed / 7 failed / 0 skipped, no retries.
-  Do not describe the phase as fully validated or release-ready.
+- Maven verify: BUILD SUCCESS, 29 tests, no failures/errors/skips.
+- npm ci:verify: JS contract/helper guards and TypeScript check pass.
+- Targeted browser regression run: 6 passed without retries.
+- Full Playwright suite: 98 passed, 0 failed, 0 skipped, no retries (4.3 minutes).
+  Includes Chromium/Firefox geometry, both styles, storage migration, SEO,
+  exactly-once switches, host transfer, voting/reveal/reset and other game flows.
+- No TEXT_PARTIAL_WRITING conflict in the corrected server log.
+- One separate close/send race occurred during browser teardown: the connection
+  closed between the open check and send, raising an IllegalStateException for
+  an already closed session. No test failed from it. Close/error behavior was
+  preserved; optional narrow handling is separate from write serialization.
+- Earlier rollback simulation confirms that the original checkpoint head
+  bootstrap reads preserved legacy browser storage. This was not a full
+  old-backend deployment test. No manual production verification was performed.
 
-## Exact point to continue
+## Exact continuation point
 
-No further game/transport changes were made after discovering the risk. First
-review the user's next instruction for authorization to investigate/fix transport
-and remaining test synchronization beyond the original naming migration.
+No required implementation or validation work remains for this authorized pass.
+The dedicated local server was stopped after the successful suite. Await a new
+user instruction before pushing, merging or deploying. Keep the checkpoint tag.
+Deferred configuration/event cleanup and the disconnect-log finding are recorded
+in the phase report; do not silently broaden the completed rebranding scope.
 
-Seven failing cases in `rebrand-final-verified-browser.log`:
+## Reproduction and evidence
 
-1. control-geometry: dev/light at 1280px (no cards after room load)
-2. control-geometry: clean/light at 1280px (no cards after room load)
-3. prod-autoreveal: checkbox state did not change
-4. reset-flow: guest numeric card unavailable
-5. sequence-change: host sequence change failed
-6. specials-ui: palette chip not visible
-7. topic-flow: Show/Hide propagation timeout
-
-`rebrand-server-wiring.log` records `TEXT_PARTIAL_WRITING` transport exceptions and
-1011 socket closures. Example at 13:36:49 +02:00:
-
-```
-java.lang.IllegalStateException: The remote endpoint was in state [TEXT_PARTIAL_WRITING]
-  at StandardWebSocketSession.sendTextMessage(...)
-  at GameService.sendIdentity(GameService.java:1007)
-  at GameWebSocketHandler.afterConnectionEstablished(GameWebSocketHandler.java:126)
-```
-
-Both Java classes match the checkpoint exactly after package-name/newline
-normalization. This does not establish the cause of every test failure. Existing
-helpers also race host election (`openTwoClients` navigates both clients in
-parallel) and sometimes check DOM existence before socket readiness. Do not mask
-these failures with skipped checks, arbitrary sleeps or retries until green.
-
-After scope is agreed, inspect retained Playwright traces/error contexts under
-`test-results/` and server logs, correlate room IDs and timestamps, and reproduce
-before changing code. Keep any transport correction separate from rebranding.
-
-## Local commands and evidence
-
-Local test server used port 18088 and disabled persistent snapshots. Its process
-was stopped when saving this checkpoint. Start only if needed:
+Local verification used Java 21, port 18088 and disabled persistent snapshots:
 
 ```powershell
+./mvnw.cmd verify
+npm run ci:verify
 java -jar target/planningpoker-1.4.0-SNAPSHOT.jar --server.port=18088 --features.persistentRooms.snapshot.enabled=false
 $env:PP_BASE_URL='http://localhost:18088'
-$env:PP_ROOM_URL='http://localhost:18088/room?roomCode=verification-smoke&participantName=Smoke'
+$env:PP_ROOM_URL='http://localhost:18088/room?roomCode=transport-final&participantName=Smoke'
 npx playwright test
 ```
 
-Stop the dedicated server before rebuilding its JAR on Windows. Do not stop the
-user's IDE or other Java processes. The local server used Java 21.
+Run the server in a separate terminal. Stop it before rebuilding its JAR on
+Windows. Do not stop the user's IDE or unrelated Java processes.
 
-Useful retained logs (ignored build/test artifacts, not committed):
-`rebrand-final-maven.log`, `rebrand-final-guards.log`,
+Retained ignored logs: `websocket-regression-before.log`,
+`websocket-fix-maven.log`, `websocket-fix-guards.log`,
+`websocket-readiness-targeted.log`, `websocket-fix-full-browser.log`,
+`websocket-fixed-server.log`. Historical evidence remains in
 `rebrand-final-verified-browser.log`, `rebrand-server-wiring.log`,
 `rebrand-final-events.log`, `rebrand-rollback.log`, `rebrand-baseline-events.log`.
-Earlier runs and corrections are documented in the report; do not restart the
-implementation or redo already committed naming/storage work.
+Logs/build outputs are local artifacts; tracked reports preserve the results.

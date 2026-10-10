@@ -4,10 +4,10 @@ Date: 2026-10-10. Branch: `rebrand/planning-poker`.
 Checkpoint tag: `pre-planning-poker-rebrand`, unchanged at
 `bd0afd381a03fa1528c401276a3ad0c53557de75`.
 
-**Status: implementation committed; final browser validation is NOT green.**
-Work stopped at the user's explicit risk boundary: addressing the observed
-WebSocket transport conflict would extend beyond naming and storage migration.
-Do not treat this report as release approval.
+**Status: implementation committed; final build and browser validation pass.**
+The user authorized the targeted transport correction after the original risk
+checkpoint. All 29 Java tests and 98 browser tests pass. No push, merge or
+deployment was performed; this report does not authorize a production release.
 
 ## Commits
 
@@ -22,6 +22,9 @@ Do not treat this report as release approval.
 | 4dbf1a8 | docs: update current branding to Planning Poker |
 | 216d053 | fix: dispatch menu toggle events exactly once |
 | c99a486 | test: align rebrand validation with current room UI |
+| b63dca6 | docs: checkpoint rebrand validation and transport findings |
+| f440c36 | fix: serialize WebSocket text writes per connection |
+| 2ce4f18 | test: wait for confirmed room roles and voting readiness |
 
 The final documentation commit records this report and the handoff state.
 No commits were pushed; no merge, deployment or switch to main was performed.
@@ -94,7 +97,28 @@ dual-dispatched; test-only listeners explicitly check that they stay silent.
 - `src.zip`, `filetree.txt`, `BRIEFING-ad5aa84.md`, historical backlog/audit and
   the unused CSS copy retain their original contents.
 
-## Decision required / deferred
+## Authorized transport follow-up
+
+After the validation checkpoint, the user explicitly authorized targeted correction
+without changes to fundamental functionality. `GameService.sendText` now serializes
+text writes on the existing session object. Identity, state, broadcast, roster,
+heartbeat, kick and redirect messages all use this same path. Payload construction,
+recipients, game state and close/error behavior remain unchanged. There is no new
+queue, buffering/drop policy or global connection lock.
+
+The concurrent identity/broadcast regression test failed on the original code and
+passes with the correction. Tests also verify that one busy session does not block
+another and that closed-session handling/IOExceptions retain their contract.
+Maven verify now passes **29 tests**.
+
+The remaining targeted failures were test setup races: navigating first did not
+ensure connecting first, and an existing empty card container was mistaken for a
+ready room. Tests now wait for the server-confirmed host role and actual cards.
+The shared two-client helper establishes the host before joining the guest, uses
+the canonical ENV helper, and readiness failures are no longer swallowed. Six
+targeted tests now pass without retries. Full-suite follow-up is recorded below.
+
+## Original validation stop (resolved by the authorized follow-up above)
 
 - Final browser validation: 91 passed, 7 failed. During this run the server reports
   `IllegalStateException: ... [TEXT_PARTIAL_WRITING]` and closes sessions with code
@@ -103,11 +127,13 @@ dual-dispatched; test-only listeners explicitly check that they stay silent.
   2026-10-10 13:36:49 +02:00). Both Java files were compared with the checkpoint
   and are byte-equivalent after package-name/newline normalization. This is
   evidence of a transport/concurrency issue in unchanged code, not proof that it
-  caused every failed test. No transport fix was attempted. Diagnose and agree
-  its scope separately before declaring validation complete.
-- Some existing E2E helpers still race host assignment (`openTwoClients` navigates
-  both clients simultaneously) and accept DOM presence before server readiness.
-  Do not hide remaining failures through retries or skipped assertions.
+  caused every failed test. At that checkpoint, no transport fix had been
+  attempted. The user subsequently authorized the correction described above.
+- Existing E2E helpers raced host assignment (`openTwoClients` navigated both
+  clients simultaneously) and accepted DOM presence before server readiness.
+  The follow-up corrects these preconditions without retries or skipped assertions.
+
+## Decision required / deferred
 
 - `ep.e2e`, `ep.default-language`, `ep.default-sequence`, `ep.features.*` and
   `ep.flags.*` in the E2E profile and Spring metadata have no demonstrated runtime
@@ -124,11 +150,24 @@ dual-dispatched; test-only listeners explicitly check that they stay silent.
 
 ## Validation
 
-- Maven `verify`: BUILD SUCCESS, 26 tests, zero failures/errors/skips.
-  Packaging after the final UI-wiring correction also passed.
+- Final full Playwright run: **98 passed, 0 failed, 0 skipped**, no retries,
+  4.3 minutes (`websocket-fix-full-browser.log`). Tests used the local application
+  at port 18088 with persistent snapshots disabled, including Chromium/Firefox
+  geometry, both visual styles, storage migration, SEO and game flows.
+- No `TEXT_PARTIAL_WRITING` conflict appeared in `websocket-fixed-server.log`.
+  One separate close/send race was logged during browser teardown: a connection
+  closed after the open check but before its send completed, producing
+  `IllegalStateException: Message will not be sent because the WebSocket session
+  has been closed`. No test failed from it. This existing close/error behavior
+  remains unchanged; the correction serializes writes, not remote disconnects.
+  Optional follow-up: handle this narrowly without suppressing unrelated errors.
+- The dedicated local test server was stopped after verification.
+- Maven `verify`: BUILD SUCCESS, 29 tests, zero failures/errors/skips after the
+  authorized transport correction (`websocket-fix-maven.log`). Original rebranding
+  build had 26 tests; the transport follow-up adds three regression tests.
 - `npm run ci:verify`: menu contract guard, E2E helper guard and TypeScript check pass.
 - BRIEFING pre-commit integrity guard passes; CI title matches it exactly.
-- Latest full browser run: **91 passed, 7 failed, 0 skipped** (98 tests, 3.9 min,
+- Pre-fix full browser run: **91 passed, 7 failed, 0 skipped** (98 tests, 3.9 min,
   no retries). Log: `rebrand-final-verified-browser.log`.
   Failures: control geometry Dev/light and Clean/light at 1280px; prod auto-reveal;
   reset-flow; sequence-change; specials-ui; topic show/hide propagation.
