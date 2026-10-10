@@ -724,7 +724,7 @@ public class GameService {
         if (session == null || room == null) return;
         try {
             String json = buildRoomStateJson(room);
-            if (session.isOpen()) session.sendMessage(new TextMessage(json));
+            sendText(session, json);
         } catch (IOException | JacksonException e) {
             e.printStackTrace();
         }
@@ -748,17 +748,21 @@ public class GameService {
             if (!entry.getValue().equals(room)) return false;
 
             try {
-                if (session.isOpen()) {
-                    session.sendMessage(new TextMessage(message));
-                    return false;
-                } else {
-                    return true;
-                }
+                return !sendText(session, message);
             } catch (IOException e) {
                 e.printStackTrace();
                 return true;
             }
         });
+    }
+
+    /** Serialize all text writes per connection without buffering or changing payloads. */
+    public boolean sendText(WebSocketSession session, String message) throws IOException {
+        synchronized (session) {
+            if (!session.isOpen()) return false;
+            session.sendMessage(new TextMessage(message));
+            return true;
+        }
     }
 
     public void broadcastHostChange(Room room, String oldHostName, String newHostName) {
@@ -944,7 +948,7 @@ public class GameService {
             }
         }
         for (WebSocketSession s : targetSessions) {
-            try { if (s.isOpen()) s.sendMessage(new TextMessage(json)); } catch (IOException ignored) {}
+            try { sendText(s, json); } catch (IOException ignored) {}
             sessionToRoomMap.remove(s);
             sessionToParticipantMap.remove(s);
             try { s.close(new CloseStatus(4001, "Kicked")); } catch (IOException ignored) {}
@@ -1004,7 +1008,7 @@ public class GameService {
             payload.put("yourName", yourName);
             if (cid != null) payload.put("cid", cid);
             String json = objectMapper.writeValueAsString(payload);
-            if (session.isOpen()) session.sendMessage(new TextMessage(json));
+            sendText(session, json);
         } catch (IOException | JacksonException e) {
             e.printStackTrace();
         }

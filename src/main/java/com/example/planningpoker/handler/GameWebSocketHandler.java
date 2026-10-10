@@ -157,7 +157,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             // Heartbeat
             if ("ping".equals(payload)) {
                 try { gameService.touch(roomCode, cid); } catch (Throwable ignore) {}
-                try { if (session.isOpen()) session.sendMessage(new org.springframework.web.socket.TextMessage("pong")); }
+                try { gameService.sendText(session, "pong"); }
                 catch (Exception e) { log.warn("WS pong send failed (room={}, name={}, cid={}): {}", roomCode, c.name, cid, e.toString()); }
                 return;
             }
@@ -472,9 +472,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
 
         for (String name : names) {
             try {
-                if (session.isOpen()) {
-                    session.sendMessage(new org.springframework.web.socket.TextMessage("participantJoined:" + name));
-                }
+                gameService.sendText(session, "participantJoined:" + name);
             } catch (Exception e) {
                 log.warn("WS ROSTER send failed to {} for {}: {}", receiverName, name, e.toString());
             }
@@ -640,9 +638,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     private void sendRedirectAndClose(WebSocketSession session, String url, CloseStatus status) {
         try {
             String json = jsonRedirect(url);
-            if (session.isOpen()) {
-                session.sendMessage(new org.springframework.web.socket.TextMessage(json));
-            }
+            gameService.sendText(session, json);
         } catch (Exception ignored) { }
         try {
             session.close(status != null ? status : new CloseStatus(4005, "Rejected"));
