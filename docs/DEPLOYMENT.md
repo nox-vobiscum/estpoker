@@ -1,6 +1,11 @@
 # Deployment Guide
 
-Complete guide for deploying EstPoker to various environments.
+Complete guide for deploying RBS' Planning Poker to various environments.
+
+Phase 1 naming note: new Maven builds produce `planningpoker-<version>.jar`.
+Repository, Koyeb service, container image examples, operating-system accounts,
+installed service/JAR aliases, `/opt/estpoker`, log and backup paths below retain
+their existing identifiers. They are not migrated by this rebranding phase.
 
 ---
 
@@ -293,7 +298,7 @@ docker push ghcr.io/nox-vobiscum/estpoker:latest
 ./mvnw clean package -DskipTests
 ```
 
-**Output:** `target/estpoker-1.4.0-SNAPSHOT.jar`
+**Output:** `target/planningpoker-1.4.0-SNAPSHOT.jar`
 
 ---
 
@@ -301,13 +306,13 @@ docker push ghcr.io/nox-vobiscum/estpoker:latest
 
 **SCP:**
 ```bash
-scp target/estpoker-*.jar user@server:/opt/estpoker/
+scp target/planningpoker-*.jar user@server:/opt/estpoker/
 ```
 
 **SFTP:**
 ```bash
 sftp user@server
-put target/estpoker-*.jar /opt/estpoker/
+put target/planningpoker-*.jar /opt/estpoker/
 ```
 
 ---
@@ -316,7 +321,7 @@ put target/estpoker-*.jar /opt/estpoker/
 
 **Direct execution:**
 ```bash
-java -jar /opt/estpoker/estpoker-1.4.0-SNAPSHOT.jar
+java -jar /opt/estpoker/planningpoker-1.4.0-SNAPSHOT.jar
 ```
 
 **With profile:**
@@ -337,7 +342,7 @@ java -Xmx512m -Xms256m -jar estpoker.jar
 
 ```ini
 [Unit]
-Description=EstPoker Estimation App
+Description=RBS' Planning Poker Estimation App
 After=network.target
 
 [Service]
@@ -483,7 +488,7 @@ FEATURES_PERSISTENTROOMS_ENABLED=true
 
 ### Automated Health Monitoring
 
-EstPoker uses automated health monitoring to ensure availability and prevent cold starts on free-tier hosting platforms.
+RBS' Planning Poker uses automated health monitoring to ensure availability and prevent cold starts on free-tier hosting platforms.
 
 #### GitHub Actions Health Check
 
@@ -592,7 +597,7 @@ management.endpoints.web.exposure.include=health
 ```properties
 # application-prod.properties
 logging.level.root=INFO
-logging.level.com.example.estpoker=INFO
+logging.level.com.example.planningpoker=INFO
 
 # Log to file
 logging.file.name=/var/log/estpoker/app.log
@@ -602,7 +607,7 @@ logging.file.max-history=30
 
 **Via environment:**
 ```bash
-export LOGGING_LEVEL_COM_EXAMPLE_ESTPOKER=DEBUG
+export LOGGING_LEVEL_COM_EXAMPLE_PLANNINGPOKER=DEBUG
 ```
 
 ---

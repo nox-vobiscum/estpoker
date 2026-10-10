@@ -1,12 +1,12 @@
 # Architecture Overview
 
-This document provides a comprehensive overview of the EstPoker system architecture, component structure, and key design decisions.
+This document provides a comprehensive overview of the RBS' Planning Poker system architecture, component structure, and key design decisions.
 
 ---
 
 ## System Overview
 
-**EstPoker** is a lightweight, real-time estimation poker application built for agile teams. It provides:
+**RBS' Planning Poker** is a lightweight, real-time planning poker application built for agile teams. It provides:
 - Real-time voting and collaboration via WebSockets
 - Server-rendered HTML with vanilla JavaScript (no heavy frameworks)
 - Optional persistence (in-memory or FTPS-based snapshots)
@@ -118,7 +118,7 @@ This document provides a comprehensive overview of the EstPoker system architect
 
 ### 1. Backend Components
 
-#### 1.1 Model Layer (`com.example.estpoker.model`)
+#### 1.1 Model Layer (`com.example.planningpoker.model`)
 - **Room**: Core domain model representing a poker room
   - Participants (linked map for stable order)
   - Voting state (revealed, auto-reveal)
@@ -142,7 +142,7 @@ This document provides a comprehensive overview of the EstPoker system architect
 #### 1.2 Service Layer
 
 ##### GameService
-**Location:** `com.example.estpoker.service.GameService`
+**Location:** `com.example.planningpoker.service.GameService`
 
 Central orchestrator for all game logic:
 - Room lifecycle (create, close)
@@ -158,7 +158,7 @@ Central orchestrator for all game logic:
 **Concurrency:** Synchronizes on Room objects to ensure thread safety.
 
 ##### RoomSnapshotter
-**Location:** `com.example.estpoker.rooms.service.RoomSnapshotter`
+**Location:** `com.example.planningpoker.rooms.service.RoomSnapshotter`
 
 Debounced persistence handler:
 - Triggers on room mutations (votes, topic, settings)
@@ -167,7 +167,7 @@ Debounced persistence handler:
 - Non-blocking operation
 
 ##### RoomManager
-**Location:** `com.example.estpoker.service.RoomManager`
+**Location:** `com.example.planningpoker.service.RoomManager`
 
 Manages room registry and lifecycle operations.
 

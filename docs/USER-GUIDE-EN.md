@@ -1,12 +1,12 @@
-# User Guide – EstPoker
+# User Guide – RBS' Planning Poker
 
-Simple guide for using the EstPoker estimation tool for agile teams.
+Simple guide for using the RBS' Planning Poker estimation tool for agile teams.
 
 ---
 
-## What is EstPoker?
+## What is RBS' Planning Poker?
 
-EstPoker is an online tool for **Planning Poker** sessions in agile teams. It allows teams to estimate user stories or tasks together without personal bias influencing the estimates.
+RBS' Planning Poker is an online tool for **Planning Poker** sessions in agile teams. It allows teams to estimate user stories or tasks together without personal bias influencing the estimates.
 
 **Live App:** https://ep.rbsnet.at/
 
@@ -56,7 +56,7 @@ EstPoker is an online tool for **Planning Poker** sessions in agile teams. It al
 
 ```
 ┌─────────────────────────────────────────────────┐
-│  [EstPoker]  👤 Your Name    [⋮ Menu]  [🔗]    │  ← Header
+│  [RBS' Planning Poker]  👤 Your Name    [⋮ Menu]  [🔗]    │  ← Header
 ├─────────────────────────────────────────────────┤
 │  📋 Topic: USER-123: Implement login           │  ← Current topic
 ├─────────────────────────────────────────────────┤

@@ -1,6 +1,6 @@
 # Developer Guide
 
-Complete guide for developers working on the EstPoker project.
+Complete guide for developers working on the RBS' Planning Poker project.
 
 ---
 
@@ -81,7 +81,7 @@ app.websocket.allowed-origins=http://localhost:*,http://127.0.0.1:*
 **Optional:** Create `application-local.properties` for local overrides:
 ```properties
 # Example: enable debug logging
-logging.level.com.example.estpoker=DEBUG
+logging.level.com.example.planningpoker=DEBUG
 
 # Example: enable FTPS persistence
 features.persistentRooms.enabled=true
@@ -122,7 +122,7 @@ estpoker/
 ├── src/
 │   ├── main/
 │   │   ├── java/
-│   │   │   └── com/example/estpoker/
+│   │   │   └── com/example/planningpoker/
 │   │   │       ├── config/          # Configuration classes
 │   │   │       ├── controller/      # HTTP controllers
 │   │   │       ├── handler/         # WebSocket handler
@@ -183,11 +183,11 @@ estpoker/
 #### Option 2: Run JAR
 ```bash
 ./mvnw package -DskipTests
-java -jar target/estpoker-*.jar
+java -jar target/planningpoker-*.jar
 ```
 
 #### Option 3: IDE
-- **IntelliJ IDEA:** Right-click `EstpokerApplication.java` → Run
+- **IntelliJ IDEA:** Right-click `PlanningPokerApplication.java` → Run
 - **VS Code:** Use "Run Java" or "Debug Java" CodeLens
 
 **Application URL:** http://localhost:8080
@@ -256,7 +256,7 @@ git push -u origin feature/my-feature
 ./mvnw clean package
 ```
 
-**Output:** `target/estpoker-1.4.0-SNAPSHOT.jar`
+**Output:** `target/planningpoker-1.4.0-SNAPSHOT.jar`
 
 ### Skip Tests
 ```bash
@@ -318,33 +318,33 @@ npx playwright install --with-deps
 ./mvnw spring-boot:run -Dspring-boot.run.profiles=e2e
 
 # Or use E2E profile with JAR:
-java -jar target/estpoker-*.jar --spring.profiles.active=e2e
+java -jar target/planningpoker-*.jar --spring.profiles.active=e2e
 ```
 
 **Run tests:**
 ```bash
 # Terminal 2: Run tests
-EP_BASE_URL=http://localhost:8080 npx playwright test
+PP_BASE_URL=http://localhost:8080 npx playwright test
 ```
 
 **Run specific test:**
 ```bash
-EP_BASE_URL=http://localhost:8080 npx playwright test tests/cards-reveal.spec.ts
+PP_BASE_URL=http://localhost:8080 npx playwright test tests/cards-reveal.spec.ts
 ```
 
 **Headed mode (see browser):**
 ```bash
-EP_BASE_URL=http://localhost:8080 npx playwright test --headed
+PP_BASE_URL=http://localhost:8080 npx playwright test --headed
 ```
 
 **Debug mode:**
 ```bash
-EP_BASE_URL=http://localhost:8080 npx playwright test --debug
+PP_BASE_URL=http://localhost:8080 npx playwright test --debug
 ```
 
 **UI mode (interactive):**
 ```bash
-EP_BASE_URL=http://localhost:8080 npx playwright test --ui
+PP_BASE_URL=http://localhost:8080 npx playwright test --ui
 ```
 
 **View test report:**
@@ -378,8 +378,8 @@ npm run check
 ### Backend Debugging
 
 #### IntelliJ IDEA
-1. Right-click `EstpokerApplication.java`
-2. Select "Debug 'EstpokerApplication'"
+1. Right-click `PlanningPokerApplication.java`
+2. Select "Debug 'PlanningPokerApplication'"
 3. Set breakpoints in code
 
 #### VS Code
@@ -389,7 +389,7 @@ npm run check
 
 #### Remote Debugging (Running JAR)
 ```bash
-java -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005 -jar target/estpoker-*.jar
+java -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005 -jar target/planningpoker-*.jar
 ```
 
 **Attach debugger to port 5005.**
@@ -437,18 +437,18 @@ npm install -g wscat
 **application.properties:**
 ```properties
 # Debug specific package
-logging.level.com.example.estpoker=DEBUG
+logging.level.com.example.planningpoker=DEBUG
 
 # Debug all packages
 logging.level.root=DEBUG
 
 # Specific class
-logging.level.com.example.estpoker.service.GameService=TRACE
+logging.level.com.example.planningpoker.service.GameService=TRACE
 ```
 
 **Temporary (via JVM args):**
 ```bash
-java -Dlogging.level.com.example.estpoker=DEBUG -jar target/estpoker-*.jar
+java -Dlogging.level.com.example.planningpoker=DEBUG -jar target/planningpoker-*.jar
 ```
 
 ---
@@ -632,7 +632,7 @@ app.websocket.allowed-origins=http://localhost:*,http://127.0.0.1:*
 curl http://localhost:8080/healthz
 
 # Run with trace
-EP_BASE_URL=http://localhost:8080 npx playwright test --trace=on
+PP_BASE_URL=http://localhost:8080 npx playwright test --trace=on
 
 # View trace
 npx playwright show-trace trace.zip
@@ -689,7 +689,7 @@ docker build --network=host -t estpoker .
 
 **Increase heap size:**
 ```bash
-java -Xmx512m -jar target/estpoker-*.jar
+java -Xmx512m -jar target/planningpoker-*.jar
 ```
 
 **Or in Maven:**
@@ -709,7 +709,7 @@ java -Dcom.sun.management.jmxremote \
      -Dcom.sun.management.jmxremote.port=9010 \
      -Dcom.sun.management.jmxremote.authenticate=false \
      -Dcom.sun.management.jmxremote.ssl=false \
-     -jar target/estpoker-*.jar
+     -jar target/planningpoker-*.jar
 ```
 
 **Connect with JConsole/VisualVM:**
@@ -747,9 +747,9 @@ curl http://localhost:8080/actuator/metrics/jvm.memory.used
 2. Set SDK to Java 25
 
 **Run Configuration:**
-- Main class: `com.example.estpoker.EstpokerApplication`
+- Main class: `com.example.planningpoker.PlanningPokerApplication`
 - Working directory: `$MODULE_WORKING_DIR$`
-- Use classpath of module: `estpoker`
+- Use classpath of module: `planningpoker`
 
 ---
 
@@ -767,10 +767,10 @@ curl http://localhost:8080/actuator/metrics/jvm.memory.used
   "configurations": [
     {
       "type": "java",
-      "name": "EstpokerApplication",
+      "name": "PlanningPokerApplication",
       "request": "launch",
-      "mainClass": "com.example.estpoker.EstpokerApplication",
-      "projectName": "estpoker"
+      "mainClass": "com.example.planningpoker.PlanningPokerApplication",
+      "projectName": "planningpoker"
     }
   ]
 }

@@ -1,6 +1,6 @@
-# EstPoker Documentation Index
+# RBS' Planning Poker Documentation Index
 
-Comprehensive documentation for the EstPoker estimation poker application.
+Comprehensive documentation for the RBS' Planning Poker planning poker application.
 
 ---
 
@@ -367,4 +367,4 @@ If you can't find what you need:
 
 ---
 
-*This index is maintained as part of the EstPoker project documentation. For questions or suggestions, please create an issue on GitHub.*
+*This index is maintained as part of the RBS' Planning Poker project documentation. For questions or suggestions, please create an issue on GitHub.*

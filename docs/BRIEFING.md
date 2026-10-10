@@ -1,4 +1,4 @@
-# RBS' Estimation Poker — BRIEFING
+# RBS' Planning Poker — BRIEFING
 
 This document captures the shared baseline for the project, the local working environment, our collaboration workflow, and the testing strategy. It’s meant to be stable, concise, and actionable.
 
@@ -6,7 +6,7 @@ This document captures the shared baseline for the project, the local working en
 
 ## 0) Purpose (short)
 
-Lightweight online estimation poker with real-time updates, simple UX, and optional persistence (snapshots). Server-rendered HTML + vanilla JS for minimal footprint; Spring Boot backend.
+Lightweight online planning poker with real-time updates, simple UX, and optional persistence (snapshots). Server-rendered HTML + vanilla JS for minimal footprint; Spring Boot backend.
 
 **Prod URL**  
 https://ep.rbsnet.at/
@@ -153,11 +153,11 @@ We use **Playwright** (TypeScript) for end‑to‑end tests. The suite is design
   ```bash
   npm ci
   npx playwright install --with-deps
-  EP_BASE_URL=http://localhost:8080 npx playwright test -c playwright.config.ts --retries=1 --trace=retain-on-failure
+  PP_BASE_URL=http://localhost:8080 npx playwright test -c playwright.config.ts --retries=1 --trace=retain-on-failure
   ```
 - Prefer running the app with a **stable test profile**:
   ```bash
-  java -jar target/estpoker-<version>.jar --spring.profiles.active=e2e
+  java -jar target/planningpoker-<version>.jar --spring.profiles.active=e2e
   ```
 - Build sanity check:
   ```bash
@@ -335,13 +335,30 @@ Backlog items are maintained in `docs/BACKLOG.md`. Current examples include:
 
 ## Appendix E – Identity & Name Handling
 
+### Rebranding compatibility (phase 1)
+
+`storage.js` runs synchronously before the stylesheet. Valid theme values are read
+from `planningpoker-theme`, then `estpoker-theme`, `ep-theme`, `theme`, and
+`themeMode`, in that order. The first valid legacy value is copied to the new key.
+`pp-ui-style`, `pp-name`, `pp-room`, `pp-cid`, and `pp-pf-ok:<room>:<name>` similarly
+read their `ep-` aliases before creating new values. Legacy values remain for
+rollback; new writes use canonical keys. A rollback therefore restores the old
+settings, not necessarily subsequent changes made in the new version.
+`pp-flash` also reads `ep-flash`, but consumes both aliases once to avoid repeated
+notifications. The writer-only `ep-presence:<encoded-name>` is unchanged.
+
+Test and guard environment variables prefer `PP_BASE_URL`, `PP_ROOM_URL`,
+`PP_MENU_JS`, `PP_ROOM_JS`, and `PP_CHECK_LOG`, with their corresponding `EP_*`
+fallbacks. The production domain, repository, Koyeb and FTPS identifiers stay
+unchanged. Unbound `ep.*` profile/metadata properties require a separate decision.
+
 - **Per-tab Client ID (`cid`)**  
-  Each browser tab gets a stable `cid` via `sessionStorage` (`ep-cid`). The `cid` is sent on `/gameSocket` connect and bound to the participant identity server-side.
+  Each browser tab gets a stable `cid` via `sessionStorage` (`pp-cid`). The `cid` is sent on `/gameSocket` connect and bound to the participant identity server-side.
 
 - **Name preflight runs only on brand-new tabs**  
   On `/room`, the duplicate-name preflight check runs **only** on the first visit of a **new tab**.  
   Reloads and Back/Forward **do not** trigger the preflight and **do not** redirect.  
-  Implementation: `room.js` derives `state.cidWasNew` from `sessionStorage(ep-cid)` and, on success, marks the tuple `(roomCode|name)` as “ok in this tab” via `sessionStorage` key `ep-pf-ok:<room>:<name>` to avoid repeat checks.
+  Implementation: `room.js` derives `state.cidWasNew` from `sessionStorage(pp-cid)` and, on success, marks the tuple `(roomCode|name)` as “ok in this tab” via `sessionStorage` key `pp-pf-ok:<room>:<name>` to avoid repeat checks.
 
 - **Invite flow remains the UX source of truth for choosing a free name**  
   `/invite` probes availability via `GET /api/rooms/{room}/name-available?name=...`.  
@@ -374,13 +391,12 @@ Backlog items are maintained in `docs/BACKLOG.md`. Current examples include:
 
 ### Implementation touchpoints
 - `room.js`  
-  - `ep-cid` creation & `state.cidWasNew` detection  
-  - preflight guard (`ep-pf-ok:<room>:<name>`)  
+  - `pp-cid` creation & `state.cidWasNew` detection  
+  - preflight guard (`pp-pf-ok:<room>:<name>`)  
   - WebSocket `onclose(code===4005)` redirect for brand-new tabs only
 - `invite-name-check.js`  
   - inline availability probe + suggestion flow
 - Server (WebSocket handler/service)  
   - uniqueness enforcement  
   - `you{yourName}` identity message after successful join
-
 

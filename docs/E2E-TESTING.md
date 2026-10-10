@@ -25,9 +25,13 @@ npx playwright install --with-deps
     ```
   - **Stable test JAR with a dedicated profile** (recommended for low flakiness)
     ```bash
-    java -jar target/estpoker-.jar --spring.profiles.active=e2e
+    java -jar target/planningpoker-.jar --spring.profiles.active=e2e
     ```
-> The E2E suite targets whatever base URL you set via `EP_BASE_URL` (defaults depend on your local env).
+> The E2E suite prefers `PP_BASE_URL` and `PP_ROOM_URL`; legacy `EP_BASE_URL` and
+> `EP_ROOM_URL` remain fallbacks. With neither base variable set, the shared helper
+> defaults to `http://localhost:8080`. Production-only specs need both URLs.
+> GitHub workflows accept either secret naming scheme; manual runs fail if neither
+> is configured. Existing secrets need not be renamed or deleted.
 
 ---
 
@@ -35,17 +39,17 @@ npx playwright install --with-deps
 
 ### Run a single spec (with trace on failure and one retry)
 ```bash
-EP_BASE_URL=http://localhost:8080 npx playwright test tests/specials-stats.spec.ts -c playwright.config.ts --trace=retain-on-failure --retries=1
+PP_BASE_URL=http://localhost:8080 npx playwright test tests/specials-stats.spec.ts -c playwright.config.ts --trace=retain-on-failure --retries=1
 ```
 
 ### Run multiple focused specs
 ```bash
-EP_BASE_URL=http://localhost:8080 npx playwright test tests/persistence.spec.ts tests/reset-flow.spec.ts tests/sequence-change.spec.ts tests/specials-stats.spec.ts -c playwright.config.ts --trace=retain-on-failure --retries=1
+PP_BASE_URL=http://localhost:8080 npx playwright test tests/persistence.spec.ts tests/reset-flow.spec.ts tests/sequence-change.spec.ts tests/specials-stats.spec.ts -c playwright.config.ts --trace=retain-on-failure --retries=1
 ```
 
 ### Run the full suite
 ```bash
-EP_BASE_URL=http://localhost:8080 npx playwright test -c playwright.config.ts --retries=1 --trace=retain-on-failure
+PP_BASE_URL=http://localhost:8080 npx playwright test -c playwright.config.ts --retries=1 --trace=retain-on-failure
 ```
 
 ### Open the HTML report / view a trace
@@ -95,7 +99,7 @@ import {
 - **voteAnyNumber(page)** Pick any numeric card when only “some numeric” is required.
 - **setSequence(page, id)** Change the deck sequence using radios, labels, or event fallback. Closes the menu and allows the UI to rebuild.
 - **waitSeq(page, id, timeoutMs)** Wait until a specific sequence id becomes selected on a page.
-- **lastSeqFromBus(page)** Reads the most recent `sequenceId` from `window.__epVU`.
+- **lastSeqFromBus(page)** Reads the most recent `sequenceId` from `window.__ppVU`.
 - **deckHasInfinity(page)** Oracle: is ♾️ present in the deck?
 
 ---
@@ -117,7 +121,7 @@ npm ci
 npx playwright install --with-deps
 
 # 2) Start the app with a predictable profile
-java -jar target/estpoker-.jar --spring.profiles.active=e2e &
+java -jar target/planningpoker-.jar --spring.profiles.active=e2e &
 APP_PID=$!
 trap 'kill $APP_PID || true' EXIT
 sleep 3
@@ -126,7 +130,7 @@ sleep 3
 npm run e2e:buildcheck
 
 # 4) Run tests with traces on failure
-EP_BASE_URL=http://localhost:8080 npx playwright test -c playwright.config.ts --retries=1 --trace=retain-on-failure
+PP_BASE_URL=http://localhost:8080 npx playwright test -c playwright.config.ts --retries=1 --trace=retain-on-failure
 ```
 Artifacts to keep: `playwright-report/`, `test-results/` (traces/videos).
 
@@ -150,10 +154,10 @@ Artifacts to keep: `playwright-report/`, `test-results/` (traces/videos).
 npm run e2e:buildcheck
 
 # Run a specific test title
-EP_BASE_URL=http://localhost:8080 npx playwright test -g "Auto-Reveal" -c playwright.config.ts --trace=on
+PP_BASE_URL=http://localhost:8080 npx playwright test -g "Auto-Reveal" -c playwright.config.ts --trace=on
 
 # Debug interactively
-EP_BASE_URL=http://localhost:8080 PWDEBUG=1 npx playwright test tests/sequence-change.spec.ts -c playwright.config.ts
+PP_BASE_URL=http://localhost:8080 PWDEBUG=1 npx playwright test tests/sequence-change.spec.ts -c playwright.config.ts
 ```
 
 ---
@@ -167,12 +171,12 @@ These are **guaranteed by `room.js`** and safe to use in specs:
   - Example (spec):  
     ```ts
     // either works
-    page.evaluate(() => document.dispatchEvent(new CustomEvent('ep:sequence-change', { detail: { id: 'fib.enh' } })));
-    page.evaluate(() => window.dispatchEvent(new CustomEvent('ep:sequence-change', { detail: { sequenceId: 'pow2' } })));
+    page.evaluate(() => document.dispatchEvent(new CustomEvent('pp:sequence-change', { detail: { id: 'fib.enh' } })));
+    page.evaluate(() => window.dispatchEvent(new CustomEvent('pp:sequence-change', { detail: { sequenceId: 'pow2' } })));
     ```
 
 - **Server payload bus**
-  - Every WS JSON is pushed into `window.__epVU`. Helpers read `voteUpdate.sequenceId` from there (`lastSeqFromBus`).
+  - Every WS JSON is pushed into `window.__ppVU`. Helpers read `voteUpdate.sequenceId` from there (`lastSeqFromBus`).
 
 - **Early readiness**
   - `document.documentElement` gets `data-ready="1"` as soon as UI wiring is done; helpers wait on that.
@@ -191,7 +195,7 @@ These are **guaranteed by `room.js`** and safe to use in specs:
 
 - If a spec needs to drive a behavior, prefer **dispatching a documented event** or waiting on **ARIA/attributes** rather than adding new bespoke helpers.
 - Keep test selectors **centralized in helpers**; if the UI changes, adjust there once.
-- When a test starts failing due to timing, first check for an **existing capability** (events, `__epVU`, `data-ready`) before adding waits.
+- When a test starts failing due to timing, first check for an **existing capability** (events, `__ppVU`, `data-ready`) before adding waits.
 
 ---
 

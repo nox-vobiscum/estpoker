@@ -1,6 +1,6 @@
 # API Reference
 
-Complete reference for all HTTP and WebSocket APIs in EstPoker.
+Complete reference for all HTTP and WebSocket APIs in RBS' Planning Poker.
 
 ---
 

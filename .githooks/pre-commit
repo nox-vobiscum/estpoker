@@ -24,7 +24,7 @@ if git diff --cached --name-only --diff-filter=ACMRTUXB | tr -d '\r' | grep -x "
       missing=1
     fi
   done <<'PATTERNS'
-^# RBS' Estimation Poker — BRIEFING
+^# RBS' Planning Poker — BRIEFING
 ^## 4) Coding & Style Rules
 ^## 5) Collaboration Workflow \(Dev ↔ AI\)
 ^### 5\.2 Change workflow = small, reviewable steps
