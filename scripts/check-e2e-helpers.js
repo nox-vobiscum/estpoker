@@ -39,7 +39,8 @@ for (const file of files) {
     /\bconst\s+newRoomCode\s*=/.test(src) ||
     /\bconst\s+roomUrlFor\s*=/.test(src);
 
-  const usesHelpers = /\b(baseUrl|newRoomCode|roomUrlFor)\s*\(/.test(src);
+  // Only direct helper calls need imports; module exports inspected in compatibility tests do not.
+  const usesHelpers = /(?<![\w$.])(baseUrl|newRoomCode|roomUrlFor)\s*\(/.test(src);
 
   // Accept canonical helpers or the documented wrapper, including .js imports.
   const hasEnvImport = /from\s+['"](\.\/|\.\.\/)+(?:utils\/(?:env|helpers)|_setup\/prod-helpers)(?:\.js)?['"]/.test(src);

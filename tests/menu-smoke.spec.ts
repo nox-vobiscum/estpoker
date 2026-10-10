@@ -1,3 +1,4 @@
+import { roomUrlFor, newRoomCode } from './utils/env';
 // Menu smoke test: open/close overlay, verify toggles and optional sequence radios
 // Run:
 //   npx playwright test tests/menu-smoke.spec.js
@@ -8,15 +9,7 @@
 import { test, expect, Page, Browser } from '@playwright/test';
 
 function resolveRoomUrl() {
-  const base = (process.env.PP_BASE_URL || process.env.EP_BASE_URL) || 'http://localhost:8080';
-  const room = (process.env.PP_ROOM_URL || process.env.EP_ROOM_URL) || `${base.replace(/\/$/, '')}/room?participantName=MenuSmoke&roomCode=MENU-${Date.now().toString(36).slice(-6)}`;
-  if ((process.env.PP_ROOM_URL || process.env.EP_ROOM_URL)) {
-    const u = new URL(room);
-    if (!u.searchParams.get('participantName')) u.searchParams.set('participantName', 'MenuSmoke');
-    if (!u.searchParams.get('roomCode')) u.searchParams.set('roomCode', `MENU-${Date.now().toString(36).slice(-6)}`);
-    return u.toString();
-  }
-  return room;
+  return roomUrlFor('MenuSmoke', newRoomCode('MENU'));
 }
 
 async function ensureMenuOpen(page) {

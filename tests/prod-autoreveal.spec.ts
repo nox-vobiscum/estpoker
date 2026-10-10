@@ -51,12 +51,14 @@ test('Prod: Auto-Reveal toggled → 3 votes → reveal auto', async ({ page }) =
 
   // --- Erwartung: Raum ist automatisch auf "revealed"
   // Robustes UI-Merkmal: .post-vote wird sichtbar (und .pre-vote verschwindet)
-  await expect(host.locator('.post-vote')).toBeVisible({ timeout: 10_000 });
-  await expect(host.locator('.pre-vote')).toBeHidden({ timeout: 10_000 });
+  await expect(host.locator('#resetButton')).toBeVisible({ timeout: 10_000 });
+  await expect(host.locator('#revealButton')).toBeHidden({ timeout: 10_000 });
 
   // Sanity auf einem Gast
-  await expect(a.locator('.post-vote')).toBeVisible({ timeout: 10_000 });
-  await expect(b.locator('.post-vote')).toBeVisible({ timeout: 10_000 });
+  for (const client of [host, a, b]) {
+    await expect(client.locator('#averageVote')).toHaveText('3');
+    await expect(client.locator('.vote-chip')).toHaveText(['1', '3', '5']);
+  }
 
   // Cleanup
   await a.close();

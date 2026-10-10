@@ -50,6 +50,15 @@ test('Deck composition matches sequence rules in prod', async ({ page }) => {
   await page.goto(roomUrlFor('Host', roomCode), { waitUntil: 'domcontentloaded' });
   await expect(page.locator('#cardGrid')).toBeVisible();
 
+  // Establish the palette explicitly: coffee is not selected by default.
+  await ensureMenuOpen(page);
+  await page.locator('#menuSpecialsToggle').check();
+  const coffee = page.locator('#rowSpecialsPick .spc[data-id="coffee"]');
+  if (await coffee.getAttribute('aria-pressed') !== 'true') await coffee.click();
+  await expect(coffee).toHaveAttribute('aria-pressed', 'true');
+  await ensureMenuClosed(page);
+  await expect.poll(() => specialsPresent(page)).toBe(true);
+
   // fib.scrum
   await pickSequence(page, 'fib.scrum');
   const deckScrum = await readDeckValues(page);

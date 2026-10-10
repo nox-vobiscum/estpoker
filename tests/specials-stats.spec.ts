@@ -182,10 +182,17 @@ test('Specials do not affect average — votes [num, ☕, num] ⇒ mean(numbers)
   const g2     = await ctxG2.newPage();
 
   await host.goto(roomUrlFor('Host', room), { waitUntil: 'domcontentloaded' });
+  await expect(host.locator('#liveParticipantList .host-label')).toHaveCount(1);
   await g1.goto  (roomUrlFor('G1',   room), { waitUntil: 'domcontentloaded' });
   await g2.goto  (roomUrlFor('G2',   room), { waitUntil: 'domcontentloaded' });
 
   await ensureNumericFriendlyDeck(host);
+  await ensureMenuOpenH(host);
+  await host.locator('#menuSpecialsToggle').check();
+  const coffeeOption = host.locator('#rowSpecialsPick .spc[data-id="coffee"]');
+  if (await coffeeOption.getAttribute('aria-pressed') !== 'true') await coffeeOption.click();
+  await expect(coffeeOption).toHaveAttribute('aria-pressed', 'true');
+  await ensureMenuClosedH(host);
   await g1.waitForTimeout(150);
 
   const deck = await readDeckValues(host);
@@ -224,7 +231,7 @@ test('Specials do not affect average — votes [num, ☕, num] ⇒ mean(numbers)
   expect(await revealNow(host)).toBe(true);
 
   // Specials chip visible somewhere in results
-  const coffeeChip = host.locator('#results, #stats, #resultPanel, body').locator('text=☕').first();
+  const coffeeChip = host.locator('#liveParticipantList .vote-chip').filter({ hasText: '☕' });
   await expect(coffeeChip).toBeVisible();
 
   // Prefer explicit average; else fall back to visible numeric result tokens

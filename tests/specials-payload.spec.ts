@@ -1,5 +1,5 @@
 // Server includes specials in voteUpdate payload (and UI shows ❓ ☕)
-// Speech bubble (💬) is intentionally removed.
+// Only coffee is selected; the question card is always added by the client.
 
 import { test, expect, Page, Browser } from '@playwright/test';
 import { ensureMenuOpen, ensureMenuClosed } from './utils/helpers.js';
@@ -36,17 +36,23 @@ test('Server includes specials ❓ ☕ (no 💬) and UI shows them', async ({ pa
     waitUntil: 'domcontentloaded'
   });
 
-  // Wait until we have a voteUpdate captured and read specials
+  await expect(page.locator('#liveParticipantList .host-label')).toHaveCount(1);
+  await ensureMenuOpen(page);
+  await page.locator('#menuSpecialsToggle').check();
+  await page.locator('#rowSpecialsPick .spc[data-id="coffee"]').click();
+  await ensureMenuClosed(page);
+
+  // Wait for the selected coffee card to be echoed by the server.
   const specials = await expect
     .poll(async () => {
       return await page.evaluate(() => (window).__lastVoteUpdate && (window).__lastVoteUpdate.specials);
     }, { timeout: 15000 })
-    .not.toBeNull()
+    .toEqual(['☕'])
     .then(async () => await page.evaluate(() => (window).__lastVoteUpdate.specials));
 
-  // Expect exactly the reduced set: ❓ and ☕ (💬 removed in codebase)
+  // The payload contains selected extras, not the always-present question card.
   expect(Array.isArray(specials)).toBeTruthy();
-  expect(specials).toEqual(['❓', '☕']);
+  expect(specials).toEqual(['☕']);
 
   // If there is a Specials toggle in the menu, ensure it's ON (host-only control)
   await ensureMenuOpen(page);

@@ -16,6 +16,8 @@ test('Result row announces non-consensus stats (Average/Median/Range) in English
     waitUntil: 'domcontentloaded',
   });
 
+  await expect(host.locator('#liveParticipantList .host-label')).toHaveCount(1);
+
   // Guest joins
   await guest.goto(`/room?roomCode=${encodeURIComponent(room)}&participantName=${encodeURIComponent(guestName)}`, {
     waitUntil: 'domcontentloaded',

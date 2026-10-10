@@ -166,13 +166,13 @@ PP_BASE_URL=http://localhost:8080 PWDEBUG=1 npx playwright test tests/sequence-c
 These are **guaranteed by `room.js`** and safe to use in specs:
 
 - **Sequence change event bridge**
-  - Listen on **document _or_ window**: both work.
+  - Dispatch on **document**, matching the existing room listener.
   - Accept `detail.id` **or** `detail.sequenceId`.
   - Example (spec):  
     ```ts
     // either works
     page.evaluate(() => document.dispatchEvent(new CustomEvent('pp:sequence-change', { detail: { id: 'fib.enh' } })));
-    page.evaluate(() => window.dispatchEvent(new CustomEvent('pp:sequence-change', { detail: { sequenceId: 'pow2' } })));
+    page.evaluate(() => document.dispatchEvent(new CustomEvent('pp:sequence-change', { detail: { sequenceId: 'pow2' } })));
     ```
 
 - **Server payload bus**

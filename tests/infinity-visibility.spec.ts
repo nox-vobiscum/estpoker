@@ -8,7 +8,7 @@ import { test, expect, Page, Browser } from '@playwright/test';
 // Dispatch the app's host-only sequence-change event
 async function selectSequenceViaEvent(page, seqId) {
   await page.evaluate((id) => {
-    window.dispatchEvent(new CustomEvent('pp:sequence-change', { detail: { sequenceId: id } }));
+    document.dispatchEvent(new CustomEvent('pp:sequence-change', { detail: { sequenceId: id } }));
   }, seqId);
 }
 

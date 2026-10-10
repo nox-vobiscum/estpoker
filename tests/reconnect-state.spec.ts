@@ -19,13 +19,16 @@ test('Refresh after reset shows pre-vote UI for a non-host', async ({ browser })
   const guest = await ctxGuest.newPage();
 
   await host.goto(roomUrlFor('Host', room), { waitUntil: 'domcontentloaded' });
+  await expect(host.locator('#liveParticipantList .host-label')).toHaveCount(1);
   await guest.goto(roomUrlFor('Guest', room), { waitUntil: 'domcontentloaded' });
+  await expect(host.locator('#liveParticipantList .participant-row')).toHaveCount(2);
+  await expect(guest.locator('#cardGrid button').first()).toBeVisible();
 
   await setSequence(host, 'fib.scrum');
   await Promise.all([waitSeq(host, 'fib.scrum'), waitSeq(guest, 'fib.scrum')]);
 
-  expect(await voteAnyNumber(host)).toBeTruthy();
-  expect(await voteAnyNumber(guest)).toBeTruthy();
+  await host.locator('#cardGrid button').filter({ hasText: /^3$/ }).click();
+  await guest.locator('#cardGrid button').filter({ hasText: /^5$/ }).click();
 
   expect(await revealNow(host)).toBe(true);
   expect(await resetNow(host)).toBe(true);
