@@ -108,5 +108,43 @@ test.describe('Menu → Room toggle event contracts', () => {
     );
 
     await ensureMenuClosed(page);
+    const events = await page.evaluate(() => window.__ppE2EEvents ?? []);
+    for (const name of ['pp:auto-reveal-toggle', 'pp:topic-toggle', 'pp:participation-toggle']) {
+      expect(events.filter(event => event.name === name), `${name} must fire exactly once`).toHaveLength(1);
+    }
   });
+});
+
+test('all switch rows dispatch once per click after reopening the menu', async ({ page }) => {
+  const switches = [
+    ['menuAutoRevealToggle', 'auto-reveal-toggle'],
+    ['menuTopicToggle', 'topic-toggle'],
+    ['menuParticipationToggle', 'participation-toggle'],
+    ['menuSpecialsToggle', 'specials-toggle'],
+    ['menuHardModeToggle', 'hard-mode-toggle'],
+  ];
+  await page.addInitScript(switches => {
+    (window as any).__switchEvents = [];
+    for (const [, event] of switches) {
+      for (const prefix of ['pp:', 'ep:']) {
+        document.addEventListener(prefix + event, () => (window as any).__switchEvents.push(prefix + event));
+      }
+    }
+  }, switches);
+  await page.goto(roomUrlFor('Host', newRoomCode('ONCE')));
+  await expect(page.locator('#liveParticipantList .host-label')).toHaveCount(1);
+  for (const count of [1, 2]) {
+    await ensureMenuOpen(page);
+    for (const [id, event] of switches) {
+      // Specials also emits its initial state; count the delta caused by this click.
+      const before = await page.evaluate(event => (window as any).__switchEvents.filter(
+        (name: string) => name === 'pp:' + event).length, event);
+      await page.locator('#' + id).click();
+      expect(await page.evaluate(event => (window as any).__switchEvents.filter(
+        (name: string) => name === 'pp:' + event).length, event), event).toBe(before + 1);
+    }
+    await ensureMenuClosed(page);
+  }
+  expect(await page.evaluate(() => (window as any).__switchEvents.filter(
+    (name: string) => name.startsWith('ep:')))).toEqual([]);
 });

@@ -319,6 +319,9 @@
   }
   function wireSwitchRow(rowEl, inputEl, onChange) {
     if (!rowEl || !inputEl) return;
+    // Share ownership with room.js's fallback wiring: one change, one app event.
+    const ownsDispatch = !inputEl.__bound;
+    inputEl.__bound = true;
     rowEl.addEventListener('click', (e) => {
       if (e.target === inputEl || e.target.closest('input') === inputEl) return;
       if (inputEl.disabled) return;
@@ -328,7 +331,7 @@
     });
     inputEl.addEventListener('change', () => {
       reflectAriaChecked(inputEl, rowEl);
-      onChange?.(!!inputEl.checked);
+      if (ownsDispatch) onChange?.(!!inputEl.checked);
     });
     reflectAriaChecked(inputEl, rowEl);
   }
