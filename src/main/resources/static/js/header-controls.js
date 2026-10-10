@@ -15,12 +15,12 @@
   const LS   = window.localStorage;
 
   /* ------------------------------- Theme ---------------------------------- */
-  const THEME_KEY = 'estpoker-theme';
-  const getTheme = () => LS.getItem(THEME_KEY) || LS.getItem('theme') || LS.getItem('themeMode') || 'system';
+  const THEME_KEY = 'planningpoker-theme';
+  const getTheme = () => window.PPStorage.theme() || 'system';
   const applyTheme = (mode) => {
     const m = (mode || getTheme());
     if (m === 'system') root.removeAttribute('data-theme'); else root.setAttribute('data-theme', m);
-    try { LS.setItem(THEME_KEY, m); LS.setItem('theme', m); LS.setItem('themeMode', m); } catch {}
+    try { LS.setItem(THEME_KEY, m); } catch {}
   };
 
   /* ------------------------------- i18n helpers --------------------------- */

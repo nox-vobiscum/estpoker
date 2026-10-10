@@ -69,8 +69,8 @@
 
     document.addEventListener('DOMContentLoaded', () => {
       try {
-        const n = localStorage.getItem('ep-name');
-        const r = localStorage.getItem('ep-room');
+        const n = window.PPStorage.read('localStorage', 'pp-name', ['ep-name']);
+        const r = window.PPStorage.read('localStorage', 'pp-room', ['ep-room']);
         if (n && !nameI.value) nameI.value = n;
         if (r && !roomI.value) roomI.value = r;
         if (!nameI.value) nameI.focus();
@@ -92,8 +92,8 @@
       }
 
       try {
-        localStorage.setItem('ep-name', n);
-        localStorage.setItem('ep-room', r);
+        localStorage.setItem('pp-name', n);
+        localStorage.setItem('pp-room', r);
       } catch {}
 
       // async name-taken check (best-effort)

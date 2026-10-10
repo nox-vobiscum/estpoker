@@ -7,8 +7,8 @@ for (const width of [375, 768, 1280]) {
         await page.setViewportSize({ width, height: 900 });
         await page.emulateMedia({ colorScheme: 'light', reducedMotion: 'reduce' });
         await page.addInitScript(({ style, theme }) => {
-          localStorage.setItem('ep-ui-style', style);
-          localStorage.setItem('estpoker-theme', theme);
+          localStorage.setItem('pp-ui-style', style);
+          localStorage.setItem('planningpoker-theme', theme);
         }, { style, theme });
         const roomCode = `style-${style}-${theme}-${width}-${Date.now()}`;
         for (const path of ['/?lang=en', '/about?lang=en', `/room?roomCode=${roomCode}&participantName=Tester`]) {
@@ -52,7 +52,7 @@ test('keyboard style switching preserves theme, language and navigation state', 
   await expect(page.locator('#uiStyleClean')).toHaveAttribute('aria-pressed', 'true');
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
   expect(await page.evaluate(() => (window as any).__styleNavigationMarker)).toBe(true);
-  expect(await page.evaluate(() => localStorage.getItem('ep-ui-style'))).toBe('clean');
+  expect(await page.evaluate(() => localStorage.getItem('pp-ui-style'))).toBe('clean');
   await page.locator('#menuButton').click();
   await page.reload();
   await expect(page.locator('html')).toHaveAttribute('data-ui-style', 'clean');
@@ -74,7 +74,7 @@ test('keyboard style switching preserves theme, language and navigation state', 
 for (const stored of [null, 'invalid', 'clean']) {
   test(`style is applied before CSS loads: ${stored}`, async ({ page }) => {
     await page.addInitScript(value => {
-      if (value !== null) localStorage.setItem('ep-ui-style', value);
+      if (value !== null) localStorage.setItem('pp-ui-style', value);
     }, stored);
     let earlyStyle: string | null = null;
     await page.route('**/styles.css?*', async route => {
@@ -102,7 +102,7 @@ test('blocked storage still gives an early Dev fallback', async ({ page }) => {
 for (const style of ['dev', 'clean']) {
   test(`vote, reveal and reset remain functional in ${style}`, async ({ browser }, testInfo) => {
     const context = await browser.newContext();
-    await context.addInitScript(value => localStorage.setItem('ep-ui-style', value), style);
+    await context.addInitScript(value => localStorage.setItem('pp-ui-style', value), style);
     const host = await context.newPage();
     const guestContext = await browser.newContext();
     const guest = await guestContext.newPage();

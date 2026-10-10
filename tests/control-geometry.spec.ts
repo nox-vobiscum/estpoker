@@ -11,8 +11,8 @@ for (const width of [375, 768, 1280]) {
           try {
             const page = await browser.newPage({ viewport: { width, height: 900 } });
             await page.addInitScript(({ theme, style }) => {
-              localStorage.setItem('estpoker-theme', theme);
-              localStorage.setItem('ep-ui-style', style);
+              localStorage.setItem('planningpoker-theme', theme);
+              localStorage.setItem('pp-ui-style', style);
             }, { theme, style });
             await page.goto(`${baseURL}/room?roomCode=geometry-${engineName}-${Date.now()}&participantName=Host`);
             const cards = page.locator('#cardGrid button');

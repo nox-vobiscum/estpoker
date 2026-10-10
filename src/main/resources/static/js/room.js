@@ -136,9 +136,9 @@
   };
 
   /*** ---------- Stable per-tab client id ---------- ***/
-  const CIDKEY = 'ep-cid';
+  const CIDKEY = 'pp-cid';
   try {
-    const existing = sessionStorage.getItem(CIDKEY);
+    const existing = window.PPStorage.read('sessionStorage', CIDKEY, ['ep-cid'], value => !!value);
     if (existing) { state.cid = existing; state.cidWasNew = false; }
     else {
       state.cid = Math.random().toString(36).slice(2) + '-' + Date.now();
@@ -412,7 +412,7 @@
       if (state.hardRedirect) { location.href = state.hardRedirect; return; }
 
       if (ev.code === 4000 || ev.code === 4001) {
-        try { sessionStorage.setItem('ep-flash', ev.code === 4001 ? 'kicked' : 'roomClosed'); } catch {}
+        try { sessionStorage.setItem('pp-flash', ev.code === 4001 ? 'kicked' : 'roomClosed'); } catch {}
         location.replace('/');
         return;
       }
@@ -2335,10 +2335,10 @@ if (action === 'spectator') {
     } catch {}
     if (isReloadLike) return;
 
-    const pfKey = 'ep-pf-ok:' + state.roomCode + ':' + state.youName;
+    const pfKey = 'pp-pf-ok:' + state.roomCode + ':' + state.youName;
 
     try {
-      if (sessionStorage.getItem(pfKey) === '1') {
+      if (window.PPStorage.read('sessionStorage', pfKey, ['ep-' + pfKey.slice(3)], value => value === '1') === '1') {
         state._preflightMarkedOk = true;
         return;
       }

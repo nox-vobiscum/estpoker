@@ -95,16 +95,18 @@
   <!-- Web App Manifest -->
   <link rel="manifest" th:href="@{/manifest.json}"/>
 
+  <script th:src="@{/js/storage.js?v=1}"></script>
+
   <!-- Early theme apply (prevents flash) -->
   <script>
     (function(){try{
-      var t=localStorage.getItem('estpoker-theme')||'dark';
+      var t=window.PPStorage.theme()||'dark';
       if(t==='system')document.documentElement.removeAttribute('data-theme');
       else document.documentElement.setAttribute('data-theme',t);
     }catch(e){}})();
     (function(){
       var style='dev';
-      try{if(localStorage.getItem('ep-ui-style')==='clean')style='clean';}catch(e){}
+      try{if(window.PPStorage.uiStyle()==='clean')style='clean';}catch(e){}
       document.documentElement.setAttribute('data-ui-style',style);
     })();
   </script>

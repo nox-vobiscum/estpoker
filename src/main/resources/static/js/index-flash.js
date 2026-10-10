@@ -4,10 +4,8 @@
 (() => {
   'use strict';
 
-  const FLAG_KEY = 'ep-flash'; // set by room.js before redirecting to /
-  const flag = sessionStorage.getItem(FLAG_KEY);
+  const flag = window.PPStorage.consumeFlash();
   if (!flag) return;
-  sessionStorage.removeItem(FLAG_KEY); // one-shot
 
   const lang = (document.documentElement.lang || 'en').toLowerCase();
 
