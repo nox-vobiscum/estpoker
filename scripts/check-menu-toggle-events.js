@@ -11,17 +11,17 @@
  *   node scripts/check-menu-toggle-events.js
  *
  * Config (env overrides):
- *   EP_MENU_JS=path/to/menu.js
- *   EP_ROOM_JS=path/to/room.js
- *   EP_CHECK_LOG=1   -> verbose logs
+ *   PP_MENU_JS=path/to/menu.js
+ *   PP_ROOM_JS=path/to/room.js
+ *   PP_CHECK_LOG=1   -> verbose logs
  */
 
 const fs = require('fs');
 const path = require('path');
 
-const MENU_JS = process.env.EP_MENU_JS || path.join('src','main','resources','static','js','menu.js');
-const ROOM_JS = process.env.EP_ROOM_JS || path.join('src','main','resources','static','js','room.js');
-const VERBOSE = process.env.EP_CHECK_LOG === '1';
+const MENU_JS = (process.env.PP_MENU_JS || process.env.EP_MENU_JS) || path.join('src','main','resources','static','js','menu.js');
+const ROOM_JS = (process.env.PP_ROOM_JS || process.env.EP_ROOM_JS) || path.join('src','main','resources','static','js','room.js');
+const VERBOSE = (process.env.PP_CHECK_LOG || process.env.EP_CHECK_LOG) === '1';
 
 function read(file) {
   try {
@@ -135,7 +135,7 @@ if (failed > 0) {
     ' - Ensure menu.js dispatches: dispatchEvent(new CustomEvent("<event>", { detail: { ... } }))\n' +
     ' - Supports shorthand detail: { on } / { estimating } (no colon needed)\n' +
     ' - Required detail keys: auto/topic => detail.on, participation => detail.estimating\n' +
-    ' - Run with EP_CHECK_LOG=1 for verbose hints.'
+    ' - Run with PP_CHECK_LOG=1 for verbose hints.'
   );
   process.exit(1);
 } else {

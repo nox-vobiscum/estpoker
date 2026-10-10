@@ -1,9 +1,6 @@
+import { newRoomCode } from './utils/env';
 // tests/topic-overflow-hint.spec.ts
 import { test, expect } from '@playwright/test';
-
-function newRoomCode(prefix = 'TOPIC') {
-  return `${prefix}-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
-}
 
 test('Topic shows "more" hint when overflowing', async ({ page }) => {
   const room = newRoomCode();

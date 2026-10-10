@@ -41,8 +41,8 @@ for (const file of files) {
 
   const usesHelpers = /\b(baseUrl|newRoomCode|roomUrlFor)\s*\(/.test(src);
 
-  // Accept "./utils/env" or "../utils/env" (subfolders)
-  const hasEnvImport = /from\s+['"](\.\/|\.\.\/)+utils\/env['"]/.test(src);
+  // Accept canonical helpers or the documented wrapper, including .js imports.
+  const hasEnvImport = /from\s+['"](\.\/|\.\.\/)+(?:utils\/(?:env|helpers)|_setup\/prod-helpers)(?:\.js)?['"]/.test(src);
 
   if (definesLocal) {
     offenders.push(`${file}: defines helper that must come from ./utils/env`);

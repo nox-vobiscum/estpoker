@@ -13,10 +13,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
-    # Secrets als ENV – Tests lesen EP_* direkt
+    # Secrets als ENV – PP_* preferred; EP_* secrets remain compatible
     env:
-      EP_BASE_URL: ${{ secrets.EP_BASE_URL }}
-      EP_ROOM_URL: ${{ secrets.EP_ROOM_URL }}
+      PP_BASE_URL: ${{ secrets.PP_BASE_URL || secrets.EP_BASE_URL }}
+      PP_ROOM_URL: ${{ secrets.PP_ROOM_URL || secrets.EP_ROOM_URL }}
 
     # Push: tolerant (kein Rotspam), manuell: strict
     continue-on-error: ${{ github.event_name != 'workflow_dispatch' }}
@@ -38,17 +38,22 @@ jobs:
             npm i
           fi
 
+      - name: Require production URLs for manual runs
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        run: |
+          test -n "$PP_BASE_URL" && test -n "$PP_ROOM_URL" || { echo "Set PP_BASE_URL / PP_ROOM_URL or legacy EP_* secrets"; exit 1; }
+
       - name: Install Playwright browsers
         # nur wenn Secrets vorhanden ODER manuell gestartet
-        if: ${{ github.event_name == 'workflow_dispatch' || (env.EP_BASE_URL != '' && env.EP_ROOM_URL != '') }}
+        if: ${{ github.event_name == 'workflow_dispatch' || (env.PP_BASE_URL != '' && env.PP_ROOM_URL != '') }}
         run: npx playwright install --with-deps
 
       - name: Run Playwright (Prod-only)
-        if: ${{ github.event_name == 'workflow_dispatch' || (env.EP_BASE_URL != '' && env.EP_ROOM_URL != '') }}
+        if: ${{ github.event_name == 'workflow_dispatch' || (env.PP_BASE_URL != '' && env.PP_ROOM_URL != '') }}
         run: npx playwright test --grep "Prod" --reporter=github
 
       - name: Upload HTML report
-        if: ${{ always() && (github.event_name == 'workflow_dispatch' || (env.EP_BASE_URL != '' && env.EP_ROOM_URL != '')) }}
+        if: ${{ always() && (github.event_name == 'workflow_dispatch' || (env.PP_BASE_URL != '' && env.PP_ROOM_URL != '')) }}
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report
@@ -56,7 +61,7 @@ jobs:
           if-no-files-found: ignore
 
       - name: Upload traces on failure
-        if: ${{ failure() && (github.event_name == 'workflow_dispatch' || (env.EP_BASE_URL != '' && env.EP_ROOM_URL != '')) }}
+        if: ${{ failure() && (github.event_name == 'workflow_dispatch' || (env.PP_BASE_URL != '' && env.PP_ROOM_URL != '')) }}
         uses: actions/upload-artifact@v4
         with:
           name: traces
@@ -64,6 +69,6 @@ jobs:
           if-no-files-found: ignore
 
       - name: Skip note (no prod secrets on push)
-        if: ${{ github.event_name != 'workflow_dispatch' && (env.EP_BASE_URL == '' || env.EP_ROOM_URL == '') }}
+        if: ${{ github.event_name != 'workflow_dispatch' && (env.PP_BASE_URL == '' || env.PP_ROOM_URL == '') }}
         run: |
-          echo "Skipping E2E: EP_BASE_URL / EP_ROOM_URL not set."
+          echo "Skipping E2E: neither PP_* nor legacy EP_* production URLs are set."

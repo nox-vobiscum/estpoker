@@ -1,20 +1,5 @@
+import { newRoomCode, roomUrlFor } from './utils/env';
 import { test, expect } from '@playwright/test';
-
-function baseUrl() { return process.env.EP_BASE_URL || 'http://localhost:8080'; }
-function newRoomCode() { return `LANG-${Date.now().toString(36).slice(-6)}`; }
-function roomUrlFor(name: string, roomCode: string) {
-  const full = process.env.EP_ROOM_URL;
-  if (full) {
-    const u = new URL(full);
-    u.searchParams.set('participantName', name);
-    u.searchParams.set('roomCode', roomCode);
-    return u.toString();
-  }
-  const u = new URL(`${baseUrl().replace(/\/$/,'')}/room`);
-  u.searchParams.set('participantName', name);
-  u.searchParams.set('roomCode', roomCode);
-  return u.toString();
-}
 
 test('Header language control toggles EN ↔ DE and updates UI', async ({ page }) => {
   const roomCode = newRoomCode();

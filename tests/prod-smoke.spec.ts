@@ -1,17 +1,17 @@
 // tests/prod-smoke.spec.ts
-// Prod smoke: only runs when EP_BASE_URL and EP_ROOM_URL are provided.
+// Prod smoke: only runs when PP_BASE_URL and PP_ROOM_URL are provided.
 // Locally (no env) this test is auto-skipped.
 
 import { test, expect } from '@playwright/test';
 import type { ConsoleMessage } from '@playwright/test';
 
-const EP_BASE_URL = process.env.EP_BASE_URL || '';
-const EP_ROOM_URL = process.env.EP_ROOM_URL || '';
+const PP_BASE_URL = (process.env.PP_BASE_URL || process.env.EP_BASE_URL) || '';
+const PP_ROOM_URL = (process.env.PP_ROOM_URL || process.env.EP_ROOM_URL) || '';
 
 // Auto-skip when not configured
 test.skip(
-  !EP_BASE_URL || !EP_ROOM_URL,
-  'EP_BASE_URL / EP_ROOM_URL not set → skipping prod smoke test'
+  !PP_BASE_URL || !PP_ROOM_URL,
+  'PP_BASE_URL / PP_ROOM_URL not set → skipping prod smoke test'
 );
 
 test('Prod smoke: page loads and menu open/close', async ({ page }) => {
@@ -21,7 +21,7 @@ test('Prod smoke: page loads and menu open/close', async ({ page }) => {
     if (msg.type() === 'error') errors.push(msg.text());
   });
 
-  await page.goto(EP_ROOM_URL, { waitUntil: 'domcontentloaded' });
+  await page.goto(PP_ROOM_URL, { waitUntil: 'domcontentloaded' });
 
   // Minimal UI probe — keep selector forgiving
   await expect(page.locator('#cardGrid')).toBeVisible();

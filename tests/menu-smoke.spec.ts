@@ -2,15 +2,15 @@
 // Run:
 //   npx playwright test tests/menu-smoke.spec.js
 // Env:
-//   EP_BASE_URL  (e.g. http://localhost:8080 or https://ep.rbsnet.at)
-//   EP_ROOM_URL  (optional full room URL; overrides base; test appends participant & room)
+//   PP_BASE_URL  (e.g. http://localhost:8080 or https://ep.rbsnet.at)
+//   PP_ROOM_URL  (optional full room URL; overrides base; test appends participant & room)
 
 import { test, expect, Page, Browser } from '@playwright/test';
 
 function resolveRoomUrl() {
-  const base = process.env.EP_BASE_URL || 'http://localhost:8080';
-  const room = process.env.EP_ROOM_URL || `${base.replace(/\/$/, '')}/room?participantName=MenuSmoke&roomCode=MENU-${Date.now().toString(36).slice(-6)}`;
-  if (process.env.EP_ROOM_URL) {
+  const base = (process.env.PP_BASE_URL || process.env.EP_BASE_URL) || 'http://localhost:8080';
+  const room = (process.env.PP_ROOM_URL || process.env.EP_ROOM_URL) || `${base.replace(/\/$/, '')}/room?participantName=MenuSmoke&roomCode=MENU-${Date.now().toString(36).slice(-6)}`;
+  if ((process.env.PP_ROOM_URL || process.env.EP_ROOM_URL)) {
     const u = new URL(room);
     if (!u.searchParams.get('participantName')) u.searchParams.set('participantName', 'MenuSmoke');
     if (!u.searchParams.get('roomCode')) u.searchParams.set('roomCode', `MENU-${Date.now().toString(36).slice(-6)}`);

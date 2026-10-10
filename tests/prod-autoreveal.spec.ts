@@ -1,15 +1,15 @@
 // tests/prod-autoreveal.spec.js
 // Prod: Auto-Reveal toggled → 3 numeric votes → room reveals automatically.
-// Läuft nur, wenn EP_BASE_URL & EP_ROOM_URL gesetzt sind. Lokal sonst auto-skip.
+// Läuft nur, wenn PP_BASE_URL & PP_ROOM_URL gesetzt sind. Lokal sonst auto-skip.
 
 import { test, expect, Page, Browser } from '@playwright/test';
 import { roomUrlFor, ensureMenuOpen, ensureMenuClosed } from './_setup/prod-helpers.js';
 import { baseUrl } from './utils/env';
 
-const EP_BASE_URL = process.env.EP_BASE_URL || '';
-const EP_ROOM_URL = process.env.EP_ROOM_URL || '';
+const PP_BASE_URL = (process.env.PP_BASE_URL || process.env.EP_BASE_URL) || '';
+const PP_ROOM_URL = (process.env.PP_ROOM_URL || process.env.EP_ROOM_URL) || '';
 
-test.skip(!EP_BASE_URL || !EP_ROOM_URL, 'EP_BASE_URL / EP_ROOM_URL not set → skipping prod autoreveal test');
+test.skip(!PP_BASE_URL || !PP_ROOM_URL, 'PP_BASE_URL / PP_ROOM_URL not set → skipping prod autoreveal test');
 
 test('Prod: Auto-Reveal toggled → 3 votes → reveal auto', async ({ page }) => {
   // Frischer Raumcode für Isolation

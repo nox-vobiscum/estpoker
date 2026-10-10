@@ -1,13 +1,9 @@
+import { newRoomCode } from './utils/env';
 // ∞ is visible only for "fib.enh" and hidden for others
 // We validate via the server's voteUpdate payload (payload.cards), which is the source of truth.
 // DOM can vary in glyph/markup; payload must be correct per CardSequences.java.
 
 import { test, expect, Page, Browser } from '@playwright/test';
-
-// Local room code generator (no external helpers needed)
-function newRoomCode(prefix = 'INF') {
-  return `${prefix}-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
-}
 
 // Dispatch the app's host-only sequence-change event
 async function selectSequenceViaEvent(page, seqId) {

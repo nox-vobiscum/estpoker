@@ -4,7 +4,7 @@
 // - Clear resets label to dash on all clients
 //
 // Run (local):
-//   EP_BASE_URL=http://localhost:8080 npx playwright test -c playwright.config.ts tests/topic-flow.spec.ts --headed
+//   PP_BASE_URL=http://localhost:8080 npx playwright test -c playwright.config.ts tests/topic-flow.spec.ts --headed
 
 import { test, expect, Page } from '@playwright/test';
 import { roomUrlFor, newRoomCode } from './utils/env';

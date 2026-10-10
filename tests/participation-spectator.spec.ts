@@ -1,3 +1,4 @@
+import { newRoomCode, roomUrlFor } from './utils/env';
 // Participation / Spectator mode E2E:
 // - Toggling participation OFF (Spectator) disables all card buttons for that user
 // - Host sees 👁 spectator icon for that participant
@@ -5,29 +6,10 @@
 // Run:
 //   npx playwright test tests/participation-spectator.spec.js
 // Env:
-//   EP_BASE_URL  (e.g. http://localhost:8080 or https://ep.rbsnet.at)
-//   EP_ROOM_URL  (optional full room URL; overrides base; test appends participant & room)
+//   PP_BASE_URL  (e.g. http://localhost:8080 or https://ep.rbsnet.at)
+//   PP_ROOM_URL  (optional full room URL; overrides base; test appends participant & room)
 
 import { test, expect, Page, Browser } from '@playwright/test';
-
-function baseUrl() { return process.env.EP_BASE_URL || 'http://localhost:8080'; }
-function newRoomCode() {
-  const t = Date.now().toString(36).slice(-6);
-  return `OBS-${t}`;
-}
-function roomUrlFor(name, roomCode) {
-  const full = process.env.EP_ROOM_URL;
-  if (full) {
-    const u = new URL(full);
-    u.searchParams.set('participantName', name);
-    u.searchParams.set('roomCode', roomCode);
-    return u.toString();
-  }
-  const u = new URL(`${baseUrl().replace(/\/$/,'')}/room`);
-  u.searchParams.set('participantName', name);
-  u.searchParams.set('roomCode', roomCode);
-  return u.toString();
-}
 
 async function waitGridReady(page) {
   const grid = page.locator('#cardGrid');

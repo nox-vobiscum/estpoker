@@ -1,9 +1,6 @@
+import { newRoomCode } from './utils/env';
 // tests/host-label.spec.ts
 import { test, expect } from '@playwright/test';
-
-function newRoomCode(prefix = 'HOST') {
-  return `${prefix}-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
-}
 
 test('First participant is Host and shows a single host label', async ({ page }) => {
   const room = newRoomCode('HOST');

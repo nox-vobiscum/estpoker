@@ -1,13 +1,9 @@
+import { newRoomCode } from './utils/env';
 // tests/participants-list.spec.js
 // Initial participant list shows current user without needing a manual refresh.
 // Robust: asserts user's row is present and a first voteUpdate arrived.
 
 import { test, expect, Page, Browser } from '@playwright/test';
-
-// Local helper to avoid cross-file export mismatches
-function newRoomCode(prefix = 'LIST') {
-  return `${prefix}-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
-}
 
 test('Initial participant list shows current user without refresh', async ({ page }) => {
   const room = newRoomCode('LIST');

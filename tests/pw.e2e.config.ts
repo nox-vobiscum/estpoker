@@ -2,7 +2,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
 const PORT = process.env.PORT || '8080';
-const BASE = process.env.EP_BASE_URL || `http://localhost:${PORT}`;
+const BASE = (process.env.PP_BASE_URL || process.env.EP_BASE_URL) || `http://localhost:${PORT}`;
 
 export default defineConfig({
   testDir: './',

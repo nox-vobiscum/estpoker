@@ -1,10 +1,6 @@
+import { newRoomCode } from './utils/env';
 // tests/result-aria-non-consensus.spec.ts
 import { test, expect } from '@playwright/test';
-
-// Local helper to generate a unique room id
-function newRoomCode(prefix = 'SRN') {
-  return `${prefix}-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
-}
 
 test('Result row announces non-consensus stats (Average/Median/Range) in English', async ({ browser }) => {
   const room = newRoomCode();

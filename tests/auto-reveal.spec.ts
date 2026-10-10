@@ -1,31 +1,12 @@
+import { newRoomCode, roomUrlFor } from './utils/env';
 // Auto-Reveal E2E: after all votes, reveal happens automatically (no host click)
 // Run:
 //   npx playwright test tests/auto-reveal.spec.js
 // Env:
-//   EP_BASE_URL=https://ep.rbsnet.at   (or local http://localhost:8080)
-//   EP_ROOM_URL=<full room URL>             (optional; overrides BASE)
+//   PP_BASE_URL=https://ep.rbsnet.at   (or local http://localhost:8080)
+//   PP_ROOM_URL=<full room URL>             (optional; overrides BASE)
 
 import { test, expect, Page, Browser } from '@playwright/test';
-
-function baseUrl() { return process.env.EP_BASE_URL || 'http://localhost:8080'; }
-function newRoomCode() {
-  // Short unique code to avoid collisions
-  const t = Date.now().toString(36).slice(-6);
-  return `E2E-${t}`;
-}
-function roomUrlFor(name, roomCode) {
-  const full = process.env.EP_ROOM_URL;
-  if (full) {
-    const u = new URL(full);
-    u.searchParams.set('participantName', name);
-    u.searchParams.set('roomCode', roomCode);
-    return u.toString();
-  }
-  const u = new URL(`${baseUrl().replace(/\/$/,'')}/room`);
-  u.searchParams.set('participantName', name);
-  u.searchParams.set('roomCode', roomCode);
-  return u.toString();
-}
 
 async function waitVisible(page, selector) {
   await expect(page.locator(selector)).toBeVisible();
