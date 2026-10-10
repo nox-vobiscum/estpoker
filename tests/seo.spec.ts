@@ -23,6 +23,7 @@ for (const lang of ['en', 'de']) {
         await expect(page.locator(`meta[property="og:${property}"]`)).toHaveCount(1);
       }
       await expect(page.locator('meta[property="og:url"]')).toHaveAttribute('content', origin + path);
+      await expect(page.locator('meta[property="og:site_name"]')).toHaveAttribute('content', "RBS' Planning Poker");
       await expect(page.locator('meta[property="og:title"]')).toHaveAttribute('content', title);
       await expect(page.locator('meta[name="twitter:title"]')).toHaveAttribute('content', title);
       const description = await page.locator('meta[name="description"]').getAttribute('content');
@@ -33,7 +34,7 @@ for (const lang of ['en', 'de']) {
       await expect(structured).toHaveCount(path === '/' ? 1 : 0);
       if (path === '/') {
         const data = JSON.parse((await structured.textContent())!);
-        expect(data).toMatchObject({ '@type': 'SoftwareApplication', url: origin + '/',
+        expect(data).toMatchObject({ '@type': 'SoftwareApplication', name: "RBS' Planning Poker", url: origin + '/',
           operatingSystem: 'Web', offers: { price: '0', priceCurrency: 'EUR' } });
         expect(data.aggregateRating).toBeUndefined();
         await expect(page.locator('#joinForm')).toBeVisible();
@@ -102,4 +103,19 @@ test('language switching updates public content and metadata', async ({ page }) 
   await page.locator('#hcLangEN').click();
   await expect(page).toHaveTitle('Free Planning Poker Online – Scrum Estimation Tool | RBS');
   await expect(page.locator('meta[name="description"]')).toHaveAttribute('content', /Free online/);
+});
+
+test('product branding is consistent in both languages and manifest', async ({ page, request }) => {
+  for (const lang of ['en', 'de']) {
+    for (const path of ['/', '/about', '/invite', '/room?roomCode=brand-check&participantName=Brand']) {
+      await page.goto(`${path}${path.includes('?') ? '&' : '?'}lang=${lang}`);
+      if (path === '/about') {
+        await expect(page.locator('[data-i18n="about.intro"]')).toContainText("RBS' Planning Poker");
+      } else {
+        await expect(page.locator('h1')).toHaveText("RBS' Planning Poker");
+      }
+    }
+  }
+  const response = await request.get('/manifest.json');
+  expect(await response.json()).toMatchObject({ name: "RBS' Planning Poker", short_name: 'Planning Poker' });
 });

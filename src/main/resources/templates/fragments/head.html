@@ -9,7 +9,7 @@
   <meta name="color-scheme" content="dark light"/>
 
   <!-- Page-specific metadata uses the existing runtime translation attributes. -->
-  <title th:text="${#messages.msg(titleKey)}" th:attr="data-i18n=${titleKey}">RBS' Estimation Poker</title>
+  <title th:text="${#messages.msg(titleKey)}" th:attr="data-i18n=${titleKey}">RBS' Planning Poker</title>
   <meta th:if="${page == 'room'}" name="robots" content="noindex, nofollow"/>
 
   <th:block th:if="${publicPage}">
@@ -22,7 +22,7 @@
     <meta property="og:image" content="https://ep.rbsnet.at/favicon-512.png"/>
     <meta property="og:image:width" content="512"/>
     <meta property="og:image:height" content="512"/>
-    <meta property="og:site_name" content="RBS' Estimation Poker"/>
+    <meta property="og:site_name" content="RBS' Planning Poker"/>
     <meta property="og:locale" th:content="#{seo.locale}" data-i18n-attr="content:seo.locale"/>
     <meta name="twitter:card" content="summary"/>
     <meta name="twitter:title" th:content="${#messages.msg(titleKey)}" th:attr="data-i18n-attr=${'content:' + titleKey}"/>
@@ -35,7 +35,7 @@
   {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
-    "name": "RBS' Estimation Poker",
+    "name": "RBS' Planning Poker",
     "applicationCategory": "BusinessApplication",
     "operatingSystem": "Web",
     "url": "https://ep.rbsnet.at/",

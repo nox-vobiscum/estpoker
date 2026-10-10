@@ -1,7 +1,7 @@
 {
-  "name": "RBS Estimation Poker",
-  "short_name": "Estimation Poker",
-  "description": "Free online estimation poker tool for agile teams with real-time collaboration",
+  "name": "RBS' Planning Poker",
+  "short_name": "Planning Poker",
+  "description": "Free online planning poker tool for agile teams with real-time collaboration",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#1a1a1a",

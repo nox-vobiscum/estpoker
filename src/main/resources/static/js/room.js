@@ -1,4 +1,4 @@
-/* room.js — UI + WS glue for Estimation Poker (liveness-hardened)
+/* room.js — UI + WS glue for Planning Poker (liveness-hardened)
    - 15s heartbeat pings (ping)
    - Watchdog reconnects if we see no inbound frames for >20s
    - Wake-ups on visibilitychange / focus / online / pageshow (poke + resync)
