@@ -29,6 +29,26 @@ class ApplicationSmokeTest {
     private RoomStore roomStore;
 
     @Test
+    void acceptsBothMigrationOriginsAndRejectsUnrelatedOrigins() throws Exception {
+        try (var client = HttpClient.newHttpClient()) {
+            for (String origin : new String[]{"https://ep.rbsnet.at", "https://planning-poker.at"}) {
+                var socket = client.newWebSocketBuilder().header("Origin", origin)
+                        .connectTimeout(Duration.ofSeconds(5))
+                        .buildAsync(URI.create("ws://localhost:" + port + "/gameSocket?roomCode=origin-"
+                                + System.nanoTime() + "&participantName=OriginCheck"), new WebSocket.Listener() {})
+                        .get(10, TimeUnit.SECONDS);
+                socket.sendClose(WebSocket.NORMAL_CLOSURE, "done").get(5, TimeUnit.SECONDS);
+            }
+            var failure = assertThrows(java.util.concurrent.ExecutionException.class, () ->
+                    client.newWebSocketBuilder().header("Origin", "https://unrelated.example")
+                            .buildAsync(URI.create("ws://localhost:" + port + "/gameSocket"), new WebSocket.Listener() {})
+                            .get(10, TimeUnit.SECONDS));
+            var handshake = assertInstanceOf(java.net.http.WebSocketHandshakeException.class, failure.getCause());
+            assertEquals(403, handshake.getResponse().statusCode());
+        }
+    }
+
+    @Test
     void servesTemplatesJsonAndWebSocketRoomState() throws Exception {
         try (var client = HttpClient.newHttpClient()) {
             String base = "http://localhost:" + port;

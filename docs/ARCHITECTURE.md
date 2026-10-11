@@ -531,7 +531,7 @@ features.persistentRooms.snapshot.enabled=true
 features.persistentRooms.snapshot.debounceMs=1500
 
 # WebSocket
-app.websocket.allowed-origins=http://localhost:*,https://ep.rbsnet.at
+app.websocket.allowed-origins=http://localhost:*,https://ep.rbsnet.at,https://planning-poker.at
 
 # FTPS Storage
 app.storage.mode=ftps

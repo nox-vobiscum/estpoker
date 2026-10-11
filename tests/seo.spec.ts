@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-const origin = 'https://ep.rbsnet.at';
+const origin = (process.env.PP_CANONICAL_ORIGIN || 'https://ep.rbsnet.at').replace(/\/+$/, '');
 
 for (const lang of ['en', 'de']) {
   for (const path of ['/', '/about']) {
@@ -23,6 +23,8 @@ for (const lang of ['en', 'de']) {
         await expect(page.locator(`meta[property="og:${property}"]`)).toHaveCount(1);
       }
       await expect(page.locator('meta[property="og:url"]')).toHaveAttribute('content', origin + path);
+      await expect(page.locator('meta[property="og:image"]')).toHaveAttribute('content', origin + '/favicon-512.png');
+      await expect(page.locator('meta[name="twitter:image"]')).toHaveAttribute('content', origin + '/favicon-512.png');
       await expect(page.locator('meta[property="og:site_name"]')).toHaveAttribute('content', "RBS' Planning Poker");
       await expect(page.locator('meta[property="og:title"]')).toHaveAttribute('content', title);
       await expect(page.locator('meta[name="twitter:title"]')).toHaveAttribute('content', title);

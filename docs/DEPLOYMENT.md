@@ -793,7 +793,7 @@ koyeb service logs estpoker --tail
 
 **Check allowed origins:**
 ```properties
-app.websocket.allowed-origins=https://ep.rbsnet.at
+app.websocket.allowed-origins=https://ep.rbsnet.at,https://planning-poker.at
 ```
 
 **Cloudflare WebSocket:**

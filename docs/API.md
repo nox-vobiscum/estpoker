@@ -866,7 +866,7 @@ Potential future enhancements:
 **Configured in:** `application.properties`
 
 ```properties
-app.websocket.allowed-origins=http://localhost:*,https://ep.rbsnet.at
+app.websocket.allowed-origins=http://localhost:*,https://ep.rbsnet.at,https://planning-poker.at
 ```
 
 **Enforcement:** Origin header checked on WebSocket upgrade request
