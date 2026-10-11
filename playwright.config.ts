@@ -18,7 +18,7 @@ export default defineConfig({
 
   use: {
     headless: true,
-    baseURL: (process.env.PP_BASE_URL || process.env.EP_BASE_URL) || 'http://localhost:8080',
+    baseURL: process.env.PP_BASE_URL || 'http://localhost:8080',
     actionTimeout: 7_000,
     navigationTimeout: 25_000,
     trace: 'retain-on-failure',

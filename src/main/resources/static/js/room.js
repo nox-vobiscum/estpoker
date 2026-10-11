@@ -138,7 +138,7 @@
   /*** ---------- Stable per-tab client id ---------- ***/
   const CIDKEY = 'pp-cid';
   try {
-    const existing = window.PPStorage.read('sessionStorage', CIDKEY, ['ep-cid'], value => !!value);
+    const existing = window.PPStorage.read('sessionStorage', CIDKEY, value => !!value);
     if (existing) { state.cid = existing; state.cidWasNew = false; }
     else {
       state.cid = Math.random().toString(36).slice(2) + '-' + Date.now();
@@ -1972,7 +1972,7 @@
   }
 
   // Presence guard (suppress join/leave toasts for self + rapid flaps)
-  const PRESENCE_KEY = function (n) { return 'ep-presence:' + encodeURIComponent(n); };
+  const PRESENCE_KEY = function (n) { return 'pp-presence:' + encodeURIComponent(n); };
   function markAlive(name) { if (!name) return; try { localStorage.setItem(PRESENCE_KEY(name), String(Date.now())); } catch {} }
 
   // Wrap long tooltips by injecting \n
@@ -2338,7 +2338,7 @@ if (action === 'spectator') {
     const pfKey = 'pp-pf-ok:' + state.roomCode + ':' + state.youName;
 
     try {
-      if (window.PPStorage.read('sessionStorage', pfKey, ['ep-' + pfKey.slice(3)], value => value === '1') === '1') {
+      if (window.PPStorage.read('sessionStorage', pfKey, value => value === '1') === '1') {
         state._preflightMarkedOk = true;
         return;
       }

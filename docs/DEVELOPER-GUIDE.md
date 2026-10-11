@@ -107,7 +107,7 @@ npx playwright install --with-deps
 ## Project Structure
 
 ```
-estpoker/
+planning-poker/
 ├── .github/               # GitHub workflows (CI/CD)
 ├── .githooks/             # Git hooks
 ├── docs/                  # Documentation
@@ -680,7 +680,7 @@ RUN sed -i 's/\r$//' mvnw && chmod +x mvnw
 **Network issues:**
 ```bash
 # Build with host network
-docker build --network=host -t estpoker .
+docker build --network=host -t planning-poker .
 ```
 
 ---

@@ -1,5 +1,5 @@
 services:
-  - name: estpoker
+  - name: planning-poker
     type: web
     docker:
       context: .

@@ -29,9 +29,9 @@ class ApplicationSmokeTest {
     private RoomStore roomStore;
 
     @Test
-    void acceptsBothMigrationOriginsAndRejectsUnrelatedOrigins() throws Exception {
+    void acceptsProductionOriginAndRejectsUnrelatedOrigins() throws Exception {
         try (var client = HttpClient.newHttpClient()) {
-            for (String origin : new String[]{"https://ep.rbsnet.at", "https://planning-poker.at"}) {
+            for (String origin : new String[]{"https://planning-poker.at"}) {
                 var socket = client.newWebSocketBuilder().header("Origin", origin)
                         .connectTimeout(Duration.ofSeconds(5))
                         .buildAsync(URI.create("ws://localhost:" + port + "/gameSocket?roomCode=origin-"

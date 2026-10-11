@@ -2,10 +2,10 @@
 
 Complete guide for deploying RBS' Planning Poker to various environments.
 
-Phase 1 naming note: new Maven builds produce `planningpoker-<version>.jar`.
-Repository, Koyeb service, container image examples, operating-system accounts,
-installed service/JAR aliases, `/opt/estpoker`, log and backup paths below retain
-their existing identifiers. They are not migrated by this rebranding phase.
+Maven builds produce `planningpoker-<version>.jar`. Repository, service and
+container examples use `planning-poker`; internal names use `planningpoker`.
+Commands below are deployment examples, not an automatic migration of existing
+accounts, registry packages or filesystem paths. FTPS room paths are unchanged.
 
 ---
 
@@ -106,7 +106,7 @@ The repository includes `koyeb.yaml` for declarative configuration:
 
 ```yaml
 services:
-  - name: estpoker
+  - name: planning-poker
     type: web
     docker:
       context: .
@@ -123,7 +123,7 @@ services:
 
 Deploy using Koyeb CLI:
 ```bash
-koyeb app create estpoker --git github.com/nox-vobiscum/planning-poker
+koyeb app create planning-poker --git github.com/nox-vobiscum/planning-poker
 ```
 
 ---
@@ -155,7 +155,7 @@ git push origin main
 
 **Via CLI:**
 ```bash
-koyeb deployment list --app estpoker
+koyeb deployment list --app planning-poker
 koyeb deployment redeploy <deployment-id>
 ```
 
@@ -169,7 +169,7 @@ koyeb deployment redeploy <deployment-id>
 
 **Manual scaling:**
 ```bash
-koyeb service scale estpoker --min 1 --max 3
+koyeb service scale planning-poker --min 1 --max 3
 ```
 
 ---
@@ -196,12 +196,12 @@ ENTRYPOINT ["java", "-jar", "app.jar"]
 
 **Build:**
 ```bash
-docker build -t estpoker:latest .
+docker build -t planning-poker:latest .
 ```
 
 **Build with custom tag:**
 ```bash
-docker build -t estpoker:1.4.0 .
+docker build -t planning-poker:1.4.0 .
 ```
 
 ---
@@ -210,7 +210,7 @@ docker build -t estpoker:1.4.0 .
 
 **Basic run:**
 ```bash
-docker run -p 8080:8080 estpoker:latest
+docker run -p 8080:8080 planning-poker:latest
 ```
 
 **With environment variables:**
@@ -220,12 +220,12 @@ docker run -p 8080:8080 \
   -e DF_FTP_HOST=ftp.example.com \
   -e DF_FTP_USER=user \
   -e DF_FTP_PASS=pass \
-  estpoker:latest
+  planning-poker:latest
 ```
 
 **With environment file:**
 ```bash
-docker run -p 8080:8080 --env-file .env estpoker:latest
+docker run -p 8080:8080 --env-file .env planning-poker:latest
 ```
 
 **.env example:**
@@ -245,7 +245,7 @@ DF_FTP_PASS=pass
 version: '3.8'
 
 services:
-  estpoker:
+  planning-poker:
     build: .
     ports:
       - "8080:8080"
@@ -278,14 +278,14 @@ docker-compose down
 
 **Docker Hub:**
 ```bash
-docker tag estpoker:latest yourusername/estpoker:latest
-docker push yourusername/estpoker:latest
+docker tag planning-poker:latest yourusername/planning-poker:latest
+docker push yourusername/planning-poker:latest
 ```
 
 **GitHub Container Registry:**
 ```bash
-docker tag estpoker:latest ghcr.io/nox-vobiscum/estpoker:latest
-docker push ghcr.io/nox-vobiscum/estpoker:latest
+docker tag planning-poker:latest ghcr.io/nox-vobiscum/planning-poker:latest
+docker push ghcr.io/nox-vobiscum/planning-poker:latest
 ```
 
 ---
@@ -306,13 +306,13 @@ docker push ghcr.io/nox-vobiscum/estpoker:latest
 
 **SCP:**
 ```bash
-scp target/planningpoker-*.jar user@server:/opt/estpoker/
+scp target/planningpoker-*.jar user@server:/opt/planningpoker/
 ```
 
 **SFTP:**
 ```bash
 sftp user@server
-put target/planningpoker-*.jar /opt/estpoker/
+put target/planningpoker-*.jar /opt/planningpoker/
 ```
 
 ---
@@ -321,24 +321,24 @@ put target/planningpoker-*.jar /opt/estpoker/
 
 **Direct execution:**
 ```bash
-java -jar /opt/estpoker/planningpoker-1.4.0-SNAPSHOT.jar
+java -jar /opt/planningpoker/planningpoker-1.4.0-SNAPSHOT.jar
 ```
 
 **With profile:**
 ```bash
-java -jar estpoker.jar --spring.profiles.active=prod
+java -jar planningpoker.jar --spring.profiles.active=prod
 ```
 
 **With JVM options:**
 ```bash
-java -Xmx512m -Xms256m -jar estpoker.jar
+java -Xmx512m -Xms256m -jar planningpoker.jar
 ```
 
 ---
 
 ### Systemd Service (Linux)
 
-**Create service file:** `/etc/systemd/system/estpoker.service`
+**Create service file:** `/etc/systemd/system/planningpoker.service`
 
 ```ini
 [Unit]
@@ -347,9 +347,9 @@ After=network.target
 
 [Service]
 Type=simple
-User=estpoker
-WorkingDirectory=/opt/estpoker
-ExecStart=/usr/bin/java -jar /opt/estpoker/estpoker.jar
+User=planningpoker
+WorkingDirectory=/opt/planningpoker
+ExecStart=/usr/bin/java -jar /opt/planningpoker/planningpoker.jar
 Restart=on-failure
 RestartSec=10
 Environment="SPRING_PROFILES_ACTIVE=prod"
@@ -364,18 +364,18 @@ WantedBy=multi-user.target
 **Enable and start:**
 ```bash
 sudo systemctl daemon-reload
-sudo systemctl enable estpoker
-sudo systemctl start estpoker
+sudo systemctl enable planningpoker
+sudo systemctl start planningpoker
 ```
 
 **Check status:**
 ```bash
-sudo systemctl status estpoker
+sudo systemctl status planningpoker
 ```
 
 **View logs:**
 ```bash
-sudo journalctl -u estpoker -f
+sudo journalctl -u planningpoker -f
 ```
 
 ---
@@ -393,14 +393,14 @@ sudo journalctl -u estpoker -f
 **Activate profile:**
 ```bash
 # JVM arg
-java -jar estpoker.jar --spring.profiles.active=prod
+java -jar planningpoker.jar --spring.profiles.active=prod
 
 # Environment variable
 export SPRING_PROFILES_ACTIVE=prod
-java -jar estpoker.jar
+java -jar planningpoker.jar
 
 # Docker
-docker run -e SPRING_PROFILES_ACTIVE=prod estpoker
+docker run -e SPRING_PROFILES_ACTIVE=prod planning-poker
 ```
 
 ---
@@ -600,7 +600,7 @@ logging.level.root=INFO
 logging.level.com.example.planningpoker=INFO
 
 # Log to file
-logging.file.name=/var/log/estpoker/app.log
+logging.file.name=/var/log/planningpoker/app.log
 logging.file.max-size=10MB
 logging.file.max-history=30
 ```
@@ -643,15 +643,10 @@ GET /actuator/prometheus
 
 ### DNS Setup
 
-**A Record:**
-- Name: `ep` or `@`
-- Value: Koyeb IP (auto-configured)
-- Proxy: Enabled (orange cloud)
-
-**CNAME (Alternative):**
-- Name: `ep`
-- Value: `<app-name>.koyeb.app`
-- Proxy: Enabled
+The production hostname is `planning-poker.at` (zone apex, usually shown as `@`).
+Retain its verified DNS target and TLS setup. Use only provider-confirmed records;
+do not infer a Koyeb IP or add a subdomain alias as part of a naming cleanup.
+The optional Cloudflare examples below do not authorize enabling a proxy.
 
 ---
 
@@ -705,7 +700,7 @@ mirror rooms/ ./backup/rooms/
 #!/bin/bash
 # backup-ftps.sh
 lftp -u $DF_FTP_USER,$DF_FTP_PASS ftps://$DF_FTP_HOST <<EOF
-mirror rooms/ /backup/estpoker-$(date +%Y%m%d)/
+mirror rooms/ /backup/planning-poker-$(date +%Y%m%d)/
 bye
 EOF
 ```
@@ -722,7 +717,7 @@ EOF
 When database persistence is implemented:
 
 ```bash
-pg_dump -h $DB_HOST -U $DB_USER estpoker > backup-$(date +%Y%m%d).sql
+pg_dump -h $DB_HOST -U $DB_USER planningpoker > backup-$(date +%Y%m%d).sql
 ```
 
 ---
@@ -774,7 +769,7 @@ koyeb deployment logs <deployment-id>
 
 **Check logs:**
 ```bash
-koyeb service logs estpoker --tail
+koyeb service logs planning-poker --tail
 ```
 
 **Common issues:**
@@ -793,7 +788,7 @@ koyeb service logs estpoker --tail
 
 **Check allowed origins:**
 ```properties
-app.websocket.allowed-origins=https://ep.rbsnet.at,https://planning-poker.at
+app.websocket.allowed-origins=https://planning-poker.at
 ```
 
 **Cloudflare WebSocket:**
@@ -832,7 +827,7 @@ curl http://localhost:8080/actuator/metrics/jvm.memory.used
 
 **Increase heap size:**
 ```bash
-java -Xmx512m -jar estpoker.jar
+java -Xmx512m -jar planningpoker.jar
 ```
 
 **Docker:**

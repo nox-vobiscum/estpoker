@@ -13,10 +13,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
-    # Secrets als ENV – PP_* preferred; EP_* secrets remain compatible
+    # PP_* overrides are optional; defaults target the public production service.
     env:
-      PP_BASE_URL: ${{ secrets.PP_BASE_URL || secrets.EP_BASE_URL }}
-      PP_ROOM_URL: ${{ secrets.PP_ROOM_URL || secrets.EP_ROOM_URL }}
+      PP_BASE_URL: ${{ secrets.PP_BASE_URL || 'https://planning-poker.at' }}
+      PP_ROOM_URL: ${{ secrets.PP_ROOM_URL || format('https://planning-poker.at/room?roomCode=ci-{0}&participantName=CI', github.run_id) }}
 
     # Push: tolerant (kein Rotspam), manuell: strict
     continue-on-error: ${{ github.event_name != 'workflow_dispatch' }}
@@ -41,7 +41,7 @@ jobs:
       - name: Require production URLs for manual runs
         if: ${{ github.event_name == 'workflow_dispatch' }}
         run: |
-          test -n "$PP_BASE_URL" && test -n "$PP_ROOM_URL" || { echo "Set PP_BASE_URL / PP_ROOM_URL or legacy EP_* secrets"; exit 1; }
+          test -n "$PP_BASE_URL" && test -n "$PP_ROOM_URL" || { echo "Set PP_BASE_URL / PP_ROOM_URL"; exit 1; }
 
       - name: Install Playwright browsers
         # nur wenn Secrets vorhanden ODER manuell gestartet
@@ -71,4 +71,4 @@ jobs:
       - name: Skip note (no prod secrets on push)
         if: ${{ github.event_name != 'workflow_dispatch' && (env.PP_BASE_URL == '' || env.PP_ROOM_URL == '') }}
         run: |
-          echo "Skipping E2E: neither PP_* nor legacy EP_* production URLs are set."
+          echo "Skipping E2E: production URLs are not set."

@@ -1,9 +1,9 @@
 // tests/utils/env.ts
 export const baseUrl =
-  ((process.env.PP_BASE_URL || process.env.EP_BASE_URL) || process.env.BASE_URL || 'http://localhost:8080').replace(/\/+$/, '');
+  (process.env.PP_BASE_URL || process.env.BASE_URL || 'http://localhost:8080').replace(/\/+$/, '');
 
 export function roomUrlFor(name: string, roomCode: string) {
-  const u = new URL(process.env.PP_ROOM_URL || process.env.EP_ROOM_URL || baseUrl + '/room');
+  const u = new URL(process.env.PP_ROOM_URL || baseUrl + '/room');
   u.searchParams.set('roomCode', roomCode);
   u.searchParams.set('participantName', name);
   return u.toString();

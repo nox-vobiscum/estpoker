@@ -27,11 +27,10 @@ npx playwright install --with-deps
     ```bash
     java -jar target/planningpoker-.jar --spring.profiles.active=e2e
     ```
-> The E2E suite prefers `PP_BASE_URL` and `PP_ROOM_URL`; legacy `EP_BASE_URL` and
-> `EP_ROOM_URL` remain fallbacks. With neither base variable set, the shared helper
-> defaults to `http://localhost:8080`. Production-only specs need both URLs.
-> GitHub workflows accept either secret naming scheme; manual runs fail if neither
-> is configured. Existing secrets need not be renamed or deleted.
+> The E2E suite uses `PP_BASE_URL` and `PP_ROOM_URL`. Without a base URL,
+> the shared helper defaults to `http://localhost:8080`. Production-only specs
+> need both URLs. GitHub uses PP-named secret overrides when provided; otherwise
+> it tests `https://planning-poker.at` with a room unique to the workflow run.
 
 ---
 

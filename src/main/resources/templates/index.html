@@ -69,8 +69,8 @@
 
     document.addEventListener('DOMContentLoaded', () => {
       try {
-        const n = window.PPStorage.read('localStorage', 'pp-name', ['ep-name']);
-        const r = window.PPStorage.read('localStorage', 'pp-room', ['ep-room']);
+        const n = window.PPStorage.read('localStorage', 'pp-name');
+        const r = window.PPStorage.read('localStorage', 'pp-room');
         if (n && !nameI.value) nameI.value = n;
         if (r && !roomI.value) roomI.value = r;
         if (!nameI.value) nameI.focus();

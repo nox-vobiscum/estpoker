@@ -1,3 +1,10 @@
+# Historical domain migration record
+
+This is the completed migration record from 2026-10-11, not the current runbook.
+The final legacy cleanup retires the preparation script, old-domain tests and
+transition allowlist below. Do not run the archived commands. Current production
+uses only https://planning-poker.at; run tests/domain-cutover.config.ts for checks.
+
 # Domain migration: ep.rbsnet.at → planning-poker.at
 
 Prepared 2026-10-11. **Canonical cutover and main deployment now authorized.**

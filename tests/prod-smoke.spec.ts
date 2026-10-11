@@ -5,8 +5,8 @@
 import { test, expect } from '@playwright/test';
 import type { ConsoleMessage } from '@playwright/test';
 
-const PP_BASE_URL = (process.env.PP_BASE_URL || process.env.EP_BASE_URL) || '';
-const PP_ROOM_URL = (process.env.PP_ROOM_URL || process.env.EP_ROOM_URL) || '';
+const PP_BASE_URL = process.env.PP_BASE_URL || '';
+const PP_ROOM_URL = process.env.PP_ROOM_URL || '';
 
 // Auto-skip when not configured
 test.skip(

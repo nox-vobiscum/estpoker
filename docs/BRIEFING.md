@@ -335,22 +335,16 @@ Backlog items are maintained in `docs/BACKLOG.md`. Current examples include:
 
 ## Appendix E – Identity & Name Handling
 
-### Rebranding compatibility (phase 1)
+### Current naming and storage
 
-`storage.js` runs synchronously before the stylesheet. Valid theme values are read
-from `planningpoker-theme`, then `estpoker-theme`, `ep-theme`, `theme`, and
-`themeMode`, in that order. The first valid legacy value is copied to the new key.
-`pp-ui-style`, `pp-name`, `pp-room`, `pp-cid`, and `pp-pf-ok:<room>:<name>` similarly
-read their `ep-` aliases before creating new values. Legacy values remain for
-rollback; new writes use canonical keys. A rollback therefore restores the old
-settings, not necessarily subsequent changes made in the new version.
-`pp-flash` also reads `ep-flash`, but consumes both aliases once to avoid repeated
-notifications. The writer-only `ep-presence:<encoded-name>` is unchanged.
-
-Test and guard environment variables prefer `PP_BASE_URL`, `PP_ROOM_URL`,
-`PP_MENU_JS`, `PP_ROOM_JS`, and `PP_CHECK_LOG`, with their corresponding `EP_*`
-fallbacks. The production domain, repository, Koyeb and FTPS identifiers stay
-unchanged. Unbound `ep.*` profile/metadata properties require a separate decision.
+`storage.js` reads only `planningpoker-theme`, `pp-ui-style`, `pp-name`,
+`pp-room`, `pp-cid`, and `pp-pf-ok:<room>:<name>`. Invalid or unavailable
+storage uses the existing defaults. `pp-flash` is consumed once;
+`pp-presence:<encoded-name>` retains its existing write-only behavior.
+Test and guard variables use `PP_BASE_URL`, `PP_ROOM_URL`, `PP_MENU_JS`,
+`PP_ROOM_JS`, and `PP_CHECK_LOG` only. The public domain is
+`planning-poker.at`. Retired compatibility aliases and unread properties
+have been removed. FTPS paths and room data are unchanged.
 
 - **Per-tab Client ID (`cid`)**  
   Each browser tab gets a stable `cid` via `sessionStorage` (`pp-cid`). The `cid` is sent on `/gameSocket` connect and bound to the participant identity server-side.

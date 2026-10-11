@@ -6,8 +6,8 @@ import { test, expect, Page, Browser } from '@playwright/test';
 import { roomUrlFor, ensureMenuOpen, ensureMenuClosed } from './_setup/prod-helpers.js';
 import { baseUrl } from './utils/env';
 
-const PP_BASE_URL = (process.env.PP_BASE_URL || process.env.EP_BASE_URL) || '';
-const PP_ROOM_URL = (process.env.PP_ROOM_URL || process.env.EP_ROOM_URL) || '';
+const PP_BASE_URL = process.env.PP_BASE_URL || '';
+const PP_ROOM_URL = process.env.PP_ROOM_URL || '';
 
 test.skip(!PP_BASE_URL || !PP_ROOM_URL, 'PP_BASE_URL / PP_ROOM_URL not set → skipping prod autoreveal test');
 

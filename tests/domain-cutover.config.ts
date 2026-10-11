@@ -1,7 +1,11 @@
 import { defineConfig } from '@playwright/test';
-import ready from './domain-ready.config';
 
 process.env.PP_CANONICAL_ORIGIN = 'https://planning-poker.at';
-export default defineConfig(ready, {
-  testMatch: ['seo.spec.ts', 'domain-migration/ready.check.ts', 'domain-migration/redirect.check.ts'],
+export default defineConfig({
+  testDir: '.',
+  testMatch: ['seo.spec.ts', 'domain-migration/ready.check.ts'],
+  workers: 1,
+  retries: 0,
+  timeout: 30_000,
+  use: { baseURL: process.env.PP_DOMAIN_TEST_URL || 'https://planning-poker.at', ignoreHTTPSErrors: false },
 });

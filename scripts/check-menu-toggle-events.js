@@ -19,9 +19,9 @@
 const fs = require('fs');
 const path = require('path');
 
-const MENU_JS = (process.env.PP_MENU_JS || process.env.EP_MENU_JS) || path.join('src','main','resources','static','js','menu.js');
-const ROOM_JS = (process.env.PP_ROOM_JS || process.env.EP_ROOM_JS) || path.join('src','main','resources','static','js','room.js');
-const VERBOSE = (process.env.PP_CHECK_LOG || process.env.EP_CHECK_LOG) === '1';
+const MENU_JS = process.env.PP_MENU_JS || path.join('src','main','resources','static','js','menu.js');
+const ROOM_JS = process.env.PP_ROOM_JS || path.join('src','main','resources','static','js','room.js');
+const VERBOSE = process.env.PP_CHECK_LOG === '1';
 
 function read(file) {
   try {
