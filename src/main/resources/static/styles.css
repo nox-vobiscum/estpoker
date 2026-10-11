@@ -897,6 +897,17 @@ html.light .vote-chip.heat, body.light .vote-chip.heat,
    About Page Styles
    =================================================================== */
 
+body.page-about {
+  height: auto;
+  min-height: 100%;
+  padding-bottom: 0;
+}
+
+.page-about .app-footer {
+  position: static;
+  margin-inline: -2rem;
+}
+
 .page-about .about-container {
   max-width: 800px;
   margin: 0 auto;
