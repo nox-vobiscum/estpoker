@@ -1,5 +1,25 @@
 # Backlog
 
+## [P2] Bug: Topic-Eingabefeld nach Entfernen des Textes nicht schließbar ⏳
+
+**Reported:** 2026-10-11; vom Nutzer gemeldet, noch nicht technisch reproduziert.
+
+**Reproduktion**
+1. Ein bestehendes Topic im Topic-Eingabefeld bearbeiten.
+2. Den gesamten Topic-Text entfernen.
+3. Das Eingabefeld über den Haken oder über X schließen.
+
+**Ist-Verhalten:** Das leere Eingabefeld bleibt geöffnet; weder Haken noch X schließen es.
+
+**Erwartung / Acceptance**
+- Haken übernimmt das Entfernen des Topics und schließt den Editor.
+- X verwirft die ungespeicherte Änderung und schließt den Editor.
+- In Dev- und Clean-Modus prüfen; bestehende Berechtigungen und Synchronisierung zwischen Teilnehmern erhalten.
+
+**Scope:** Für spätere Untersuchung und gezielte Korrektur vorgemerkt; noch keine Implementierung.
+
+---
+
 This backlog collects future improvements and nice-to-haves. Priorities are indicative:
 - **P1** high – near-term value / risk
 - **P2** medium – useful, not urgent
