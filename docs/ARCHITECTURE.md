@@ -38,8 +38,12 @@ This document provides a comprehensive overview of the RBS' Planning Poker syste
 - **CI:** Automated via GitHub Actions (inferred)
 
 ### Infrastructure
+- **Domain registrar:** ALL-INKL
+- **Authoritative DNS:** Cloudflare Free
+  - DNS-only mode; Cloudflare proxy/CDN is disabled
+  - Apex CNAME flattening allows `planning-poker.at` to point to Koyeb
 - **Hosting:** Koyeb (PaaS)
-- **CDN/Proxy:** Cloudflare
+- **TLS:** Managed by Koyeb for `planning-poker.at`
 - **Persistence:** FTPS (DomainFactory file storage)
 - **Container:** Docker (multi-stage build)
 
@@ -111,6 +115,24 @@ This document provides a comprehensive overview of the RBS' Planning Poker syste
      └──────────────────────┘                            │ │
                                                           │ │
 ```
+
+### DNS and Domain Architecture
+
+`planning-poker.at` is registered with ALL-INKL, while authoritative DNS
+is delegated to Cloudflare.
+
+Cloudflare is used in DNS-only mode. Its HTTP proxy, CDN, caching and WAF
+are not part of the application request path.
+
+The zone apex `planning-poker.at` uses Cloudflare CNAME flattening to
+resolve to the Koyeb custom-domain target. Koyeb serves the application
+directly and manages the TLS certificate.
+
+This separation provides:
+
+- **ALL-INKL:** domain registration
+- **Cloudflare:** authoritative DNS and apex CNAME flattening
+- **Koyeb:** application hosting, HTTPS/WSS and TLS
 
 ---
 
@@ -514,7 +536,6 @@ Server → Client: voteUpdate (initial state)
 ### Network
 - Heartbeat every 15s per connection
 - State updates only on mutations
-- Gzip compression (via Cloudflare)
 - WebSocket keeps connections alive
 
 ---
