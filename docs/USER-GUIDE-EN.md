@@ -393,8 +393,8 @@ When someone estimates **much higher** or **lower** than the rest:
 ## Contact & Support
 
 **Live App:** https://ep.rbsnet.at/  
-**GitHub:** https://github.com/nox-vobiscum/estpoker  
-**Documentation:** https://github.com/nox-vobiscum/estpoker/tree/main/docs
+**GitHub:** https://github.com/nox-vobiscum/planning-poker  
+**Documentation:** https://github.com/nox-vobiscum/planning-poker/tree/main/docs
 
 **For problems:**
 1. Check this guide and [Troubleshooting](#troubleshooting)

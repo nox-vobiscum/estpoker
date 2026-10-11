@@ -84,7 +84,7 @@ Ensure code is in a GitHub repository accessible to Koyeb.
 1. Log in to Koyeb
 2. Create New App
 3. Select "GitHub" as source
-4. Choose repository: `nox-vobiscum/estpoker`
+4. Choose repository: `nox-vobiscum/planning-poker`
 5. Select branch: `main`
 6. Build method: **Dockerfile**
 7. Dockerfile path: `./Dockerfile`
@@ -123,7 +123,7 @@ services:
 
 Deploy using Koyeb CLI:
 ```bash
-koyeb app create estpoker --git github.com/nox-vobiscum/estpoker
+koyeb app create estpoker --git github.com/nox-vobiscum/planning-poker
 ```
 
 ---

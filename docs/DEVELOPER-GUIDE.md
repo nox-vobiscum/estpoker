@@ -61,8 +61,8 @@ git --version
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/nox-vobiscum/estpoker.git
-cd estpoker
+git clone https://github.com/nox-vobiscum/planning-poker.git
+cd planning-poker
 ```
 
 ### 2. Configuration
