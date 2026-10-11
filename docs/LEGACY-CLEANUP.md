@@ -32,6 +32,18 @@ No game rules, FTPS settings or room data structures changed.
 Logs: target/cleanup-maven.log, target/cleanup-guards-final.log,
 target/cleanup-browser.log, target/cleanup-storage-final.log (local artifacts).
 
+## Production verification
+
+Cleanup commit `e1029a8` was pushed and its new storage script delivered.
+CI build passed. Nine live domain/SEO checks and the multi-client host/voting
+flow passed. The retired WebSocket origin is rejected with HTTP 403.
+All five current storage tests pass live after removing a CSS-interception wait
+that could deadlock the preload scanner; the test now observes the stylesheet
+load event without blocking resources. No application change was required.
+CI production E2E reported 7 passed / 1 failed: the previously observed coffee
+button interception in prod-deck. This separate menu issue was not modified;
+the workflow's existing continue-on-error can still display overall success.
+
 ## Remaining matches
 
 Case-insensitive search across tracked text (README decoded as UTF-16LE), including

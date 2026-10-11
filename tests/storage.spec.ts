@@ -1,23 +1,23 @@
 import { test, expect } from '@playwright/test';
 
-test('current settings load before CSS and survive reload', async ({ page }) => {
+test('current settings are applied when CSS loads and survive reload', async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem('planningpoker-theme', 'light');
     localStorage.setItem('pp-ui-style', 'clean');
     localStorage.setItem('pp-name', 'Tester');
     localStorage.setItem('pp-room', 'current-team');
-  });
-  let early: unknown;
-  await page.route('**/styles.css*', async route => {
-    await page.waitForFunction(() => document.documentElement.hasAttribute('data-ui-style'));
-    early = await page.evaluate(() => ({
-      theme: document.documentElement.getAttribute('data-theme'),
-      style: document.documentElement.getAttribute('data-ui-style'),
-    }));
-    await route.continue();
+    // Observe bootstrap state when CSS loads without blocking the preload scanner.
+    document.addEventListener('load', event => {
+      if (event.target instanceof HTMLLinkElement && event.target.rel === 'stylesheet') {
+        (window as any).__settingsAtStylesheet = {
+          theme: document.documentElement.getAttribute('data-theme'),
+          style: document.documentElement.getAttribute('data-ui-style'),
+        };
+      }
+    }, true);
   });
   await page.goto('/');
-  expect(early).toEqual({ theme: 'light', style: 'clean' });
+  expect(await page.evaluate(() => (window as any).__settingsAtStylesheet)).toEqual({ theme: 'light', style: 'clean' });
   await expect(page.locator('#nameInput')).toHaveValue('Tester');
   await expect(page.locator('#roomInput')).toHaveValue('current-team');
   await page.reload();
