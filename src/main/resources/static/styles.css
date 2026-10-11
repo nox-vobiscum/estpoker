@@ -897,13 +897,15 @@ html.light .vote-chip.heat, body.light .vote-chip.heat,
    About Page Styles
    =================================================================== */
 
-body.page-about {
+body.page-about,
+body.page-landing {
   height: auto;
   min-height: 100%;
   padding-bottom: 0;
 }
 
-.page-about .app-footer {
+.page-about .app-footer,
+.page-landing .app-footer {
   position: static;
   margin-inline: -2rem;
 }
@@ -993,12 +995,12 @@ body.page-about {
 
 .app-footer {
   margin-top: 3rem;
-  padding: 1.5rem 1rem;
+  padding: 10px 1rem;
   text-align: center;
 }
 
 .footer-nav {
-  margin-bottom: 0.75rem;
+  margin-bottom: 6px;
   font-size: 0.9rem;
 }
 
