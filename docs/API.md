@@ -179,7 +179,7 @@ GET /room?roomCode=demo&participantName=Alice
 
 **Full URL:**
 - Local: `ws://localhost:8080/gameSocket`
-- Production: `wss://ep.rbsnet.at/gameSocket`
+- Production: `wss://planning-poker.at/gameSocket`
 
 **Handshake:**
 ```javascript

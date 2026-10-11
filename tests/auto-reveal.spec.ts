@@ -3,7 +3,7 @@ import { newRoomCode, roomUrlFor } from './utils/env';
 // Run:
 //   npx playwright test tests/auto-reveal.spec.js
 // Env:
-//   PP_BASE_URL=https://ep.rbsnet.at   (or local http://localhost:8080)
+//   PP_BASE_URL=https://planning-poker.at   (or local http://localhost:8080)
 //   PP_ROOM_URL=<full room URL>             (optional; overrides BASE)
 
 import { test, expect, Page, Browser } from '@playwright/test';

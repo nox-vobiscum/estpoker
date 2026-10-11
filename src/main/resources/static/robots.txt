@@ -11,4 +11,4 @@ Disallow: /gameSocket
 Disallow: /i18n/
 
 # Room and invite pages stay crawlable so crawlers can read their noindex tags.
-Sitemap: https://ep.rbsnet.at/sitemap.xml
+Sitemap: https://planning-poker.at/sitemap.xml

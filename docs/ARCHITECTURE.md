@@ -12,7 +12,7 @@ This document provides a comprehensive overview of the RBS' Planning Poker syste
 - Optional persistence (in-memory or FTPS-based snapshots)
 - Minimal footprint and high performance
 
-**Production URL:** https://ep.rbsnet.at/
+**Production URL:** https://planning-poker.at/
 
 ---
 
@@ -487,7 +487,7 @@ Server → Client: voteUpdate (initial state)
 ### WebSocket Origin Validation
 - Allowed origins configured in `application.properties`
 - Prevents unauthorized WebSocket connections
-- Production: `https://ep.rbsnet.at`
+- Production: `https://planning-poker.at`
 - Local dev: `http://localhost:*`
 
 ### No Authentication System

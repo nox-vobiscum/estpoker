@@ -23,7 +23,7 @@
     {
       "name": "app.websocket.allowed-origins",
       "type": "java.lang.String",
-      "description": "Comma-separated list of allowed WebSocket origins (e.g. https://ep.rbsnet.at,http://localhost:8080).",
+      "description": "Comma-separated list of allowed WebSocket origins (e.g. https://planning-poker.at,http://localhost:8080).",
       "sourceType": "com.example.planningpoker.config.WebSocketConfig"
     },
 

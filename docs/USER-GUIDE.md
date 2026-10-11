@@ -8,7 +8,7 @@ Einfache Anleitung zur Nutzung des RBS' Planning Poker Estimation Tools für agi
 
 RBS' Planning Poker ist ein Online-Tool für **Planning Poker** Sessions in agilen Teams. Damit können Teams gemeinsam User Stories oder Aufgaben schätzen, ohne dass persönliche Vorurteile die Schätzung beeinflussen.
 
-**Live-App:** https://ep.rbsnet.at/
+**Live-App:** https://planning-poker.at/
 
 ### Vorteile
 
@@ -24,7 +24,7 @@ RBS' Planning Poker ist ein Online-Tool für **Planning Poker** Sessions in agil
 
 ### 1. Raum erstellen (als Moderator/Host)
 
-1. Öffne https://ep.rbsnet.at/
+1. Öffne https://planning-poker.at/
 2. Gib einen **Raumnamen** ein (z.B. "Sprint-Planning-2024")
 3. Gib deinen **Namen** ein (z.B. "Maria")
 4. Klicke auf **"Raum erstellen"**
@@ -33,7 +33,7 @@ RBS' Planning Poker ist ein Online-Tool für **Planning Poker** Sessions in agil
 
 ### 2. Team einladen
 
-1. Kopiere den **Link** oben in der Leiste (z.B. `https://ep.rbsnet.at/room?roomCode=...`)
+1. Kopiere den **Link** oben in der Leiste (z.B. `https://planning-poker.at/room?roomCode=...`)
 2. Teile den Link mit deinem Team (Slack, Teams, E-Mail, etc.)
 3. Teammitglieder öffnen den Link und geben ihren Namen ein
 
@@ -304,7 +304,7 @@ Wenn jemand **sehr viel höher** oder **niedriger** schätzt als der Rest:
 - Prüfe deine Internetverbindung
 - Leere den Browser-Cache (Strg+Shift+R / Cmd+Shift+R)
 - Versuche einen anderen Browser
-- Prüfe, ob die App online ist: https://ep.rbsnet.at/
+- Prüfe, ob die App online ist: https://planning-poker.at/
 
 ### Problem: WebSocket-Verbindung schlägt fehl
 
@@ -392,7 +392,7 @@ Wenn jemand **sehr viel höher** oder **niedriger** schätzt als der Rest:
 
 ## Kontakt & Support
 
-**Live-App:** https://ep.rbsnet.at/  
+**Live-App:** https://planning-poker.at/  
 **GitHub:** https://github.com/nox-vobiscum/planning-poker  
 **Dokumentation:** https://github.com/nox-vobiscum/planning-poker/tree/main/docs
 

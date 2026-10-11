@@ -8,7 +8,7 @@ Simple guide for using the RBS' Planning Poker estimation tool for agile teams.
 
 RBS' Planning Poker is an online tool for **Planning Poker** sessions in agile teams. It allows teams to estimate user stories or tasks together without personal bias influencing the estimates.
 
-**Live App:** https://ep.rbsnet.at/
+**Live App:** https://planning-poker.at/
 
 ### Benefits
 
@@ -24,7 +24,7 @@ RBS' Planning Poker is an online tool for **Planning Poker** sessions in agile t
 
 ### 1. Create a Room (as Moderator/Host)
 
-1. Open https://ep.rbsnet.at/
+1. Open https://planning-poker.at/
 2. Enter a **room name** (e.g., "Sprint-Planning-2024")
 3. Enter your **name** (e.g., "Maria")
 4. Click **"Create Room"**
@@ -33,7 +33,7 @@ RBS' Planning Poker is an online tool for **Planning Poker** sessions in agile t
 
 ### 2. Invite Your Team
 
-1. Copy the **link** from the top bar (e.g., `https://ep.rbsnet.at/room?roomCode=...`)
+1. Copy the **link** from the top bar (e.g., `https://planning-poker.at/room?roomCode=...`)
 2. Share the link with your team (Slack, Teams, email, etc.)
 3. Team members open the link and enter their names
 
@@ -304,7 +304,7 @@ When someone estimates **much higher** or **lower** than the rest:
 - Check your internet connection
 - Clear browser cache (Ctrl+Shift+R / Cmd+Shift+R)
 - Try a different browser
-- Check if the app is online: https://ep.rbsnet.at/
+- Check if the app is online: https://planning-poker.at/
 
 ### Problem: WebSocket connection fails
 
@@ -392,7 +392,7 @@ When someone estimates **much higher** or **lower** than the rest:
 
 ## Contact & Support
 
-**Live App:** https://ep.rbsnet.at/  
+**Live App:** https://planning-poker.at/  
 **GitHub:** https://github.com/nox-vobiscum/planning-poker  
 **Documentation:** https://github.com/nox-vobiscum/planning-poker/tree/main/docs
 

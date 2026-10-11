@@ -6,7 +6,7 @@ import { newRoomCode, roomUrlFor } from './utils/env';
 // Run:
 //   npx playwright test tests/participation-spectator.spec.js
 // Env:
-//   PP_BASE_URL  (e.g. http://localhost:8080 or https://ep.rbsnet.at)
+//   PP_BASE_URL  (e.g. http://localhost:8080 or https://planning-poker.at)
 //   PP_ROOM_URL  (optional full room URL; overrides base; test appends participant & room)
 
 import { test, expect, Page, Browser } from '@playwright/test';

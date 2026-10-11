@@ -28,7 +28,7 @@ their existing identifiers. They are not migrated by this rebranding phase.
 **Hosting:** Koyeb (PaaS)  
 **CDN/Proxy:** Cloudflare  
 **Persistence:** FTPS (DomainFactory)  
-**Domain:** https://ep.rbsnet.at/
+**Domain:** https://planning-poker.at/
 
 ### Deployment Architecture
 
@@ -502,7 +502,7 @@ RBS' Planning Poker uses automated health monitoring to ensure availability and 
 **Configuration:**
 - **Interval:** Every 30 minutes (UTC)
 - **Active hours:** 06:00-23:00 Europe/Vienna (DST-aware)
-- **Endpoint:** `https://ep.rbsnet.at/healthz`
+- **Endpoint:** `https://planning-poker.at/healthz`
 - **Timeout:** 8 seconds
 
 **Manual trigger:**
@@ -545,7 +545,7 @@ For production deployments, consider dedicated uptime monitoring services:
 **Setup steps:**
 1. Create account at [uptimerobot.com](https://uptimerobot.com)
 2. Add HTTP(s) monitor:
-   - **URL:** `https://ep.rbsnet.at/healthz`
+   - **URL:** `https://planning-poker.at/healthz`
    - **Type:** HTTP(s)
    - **Interval:** 5 minutes
    - **Alert contacts:** Your email
@@ -667,12 +667,12 @@ GET /actuator/prometheus
 ### Caching
 
 **Page Rules:**
-- URL: `ep.rbsnet.at/*`
+- URL: `planning-poker.at/*`
 - Cache Level: Standard
 - Browser Cache TTL: 4 hours (for static assets)
 
 **Bypass cache for dynamic content:**
-- URL: `ep.rbsnet.at/gameSocket`
+- URL: `planning-poker.at/gameSocket`
 - Cache Level: Bypass
 
 ---
@@ -744,7 +744,7 @@ pg_dump -h $DB_HOST -U $DB_USER estpoker > backup-$(date +%Y%m%d).sql
 
 3. **Verify health:**
    ```bash
-   curl https://ep.rbsnet.at/healthz
+   curl https://planning-poker.at/healthz
    ```
 
 ---

@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-const origin = (process.env.PP_CANONICAL_ORIGIN || 'https://ep.rbsnet.at').replace(/\/+$/, '');
+const origin = (process.env.PP_CANONICAL_ORIGIN || 'https://planning-poker.at').replace(/\/+$/, '');
 
 for (const lang of ['en', 'de']) {
   for (const path of ['/', '/about']) {

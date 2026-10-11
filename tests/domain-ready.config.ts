@@ -1,6 +1,7 @@
 import { defineConfig } from '@playwright/test';
 
-// Explicit opt-in suite: no TLS bypass, retries or skipped readiness checks.
+// Historical pre-cutover readiness suite: deliberately expects the old canonical.
+// Use domain-cutover.config.ts for current production. No TLS bypass or retries.
 process.env.PP_CANONICAL_ORIGIN = 'https://ep.rbsnet.at';
 export default defineConfig({
   testDir: '.',

@@ -1,7 +1,7 @@
 import { newRoomCode, roomUrlFor } from './utils/env';
 // Critical path: 3 users → choose cards → host reveals → average shown
 // Env:
-//   PP_BASE_URL  (e.g. http://localhost:8080 or https://ep.rbsnet.at)
+//   PP_BASE_URL  (e.g. http://localhost:8080 or https://planning-poker.at)
 //   PP_ROOM_URL  (optional full URL; if set, this test appends/overrides participant & room)
 // Run:
 //   npx playwright test tests/cards-reveal.spec.js

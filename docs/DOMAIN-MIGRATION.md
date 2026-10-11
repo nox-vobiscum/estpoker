@@ -1,6 +1,23 @@
 # Domain migration: ep.rbsnet.at → planning-poker.at
 
-Prepared 2026-10-11. **No push, deployment, DNS change or redirect authorized.**
+Prepared 2026-10-11. **Canonical cutover and main deployment now authorized.**
+The user confirmed new-domain DNS, Koyeb Active, valid TLS and a successful live
+room/WebSocket check. External redirects remain disabled and require a separate
+step. The application now uses `https://planning-poker.at` for production SEO and
+monitoring. Both WebSocket origins remain allowed. The preparation instructions
+below are retained as the migration/rollback record; do not reapply the script.
+
+Final cutover validation before push: Maven verify (30 tests), npm guards and
+TypeScript passed; 9 local domain/SEO tests and 3 multi-client smoke tests passed.
+Rollback tag: `pre-domain-cutover-prod` at `5634377`.
+
+Remaining old-domain references are intentional: origin allowlists and their
+examples/handshake tests (transition compatibility), redirect tests and this
+runbook (redirect source), `domain-ready.config.ts` (historical pre-cutover test),
+the one-shot preparation script (old replacement input), and historical
+audit/rebranding/backlog notes. None is an active production canonical setting.
+GitHub production URL secrets and external monitors are operator-managed; verify
+their targets separately. The repository health-monitoring URL is migrated.
 Production baseline: `5634377`; branch: `prep/planning-poker-domain`.
 The existing local `docs/BACKLOG.md` change is unrelated and remains untouched.
 
@@ -11,7 +28,8 @@ The existing local `docs/BACKLOG.md` change is unrelated and remains untouched.
   `location.host`; invite URLs use the current origin. No JS changes are needed.
 - Check Koyeb environment overrides (especially `APP_WEBSOCKET_ALLOWED_ORIGINS`)
   before deployment: an override must also contain both origins.
-- All canonical/social/JSON-LD/crawl URLs still use `https://ep.rbsnet.at`.
+- At preparation time canonical/social/JSON-LD/crawl URLs used `https://ep.rbsnet.at`;
+  the authorized cutover changes them to `https://planning-poker.at`.
 - No redirect implementation is active or introduced by this preparation.
 - The scripts and opt-in test configs can be deployed without enabling cutover.
 
