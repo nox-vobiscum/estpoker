@@ -4,8 +4,9 @@
 <body class="page-landing">
 
   <!-- App menu (minimal on invite) -->
+  <div th:replace="~{fragments/app-header :: appHeader}"></div>
   <div th:replace="~{fragments/menu :: appMenu(showSeq=${false}, showAuto=${false}, showRoom=${false})}"></div>
-  <div th:replace="~{fragments/header-controls :: headerControls}"></div>
+  <th:block th:replace="~{fragments/app-header :: headerScripts}"></th:block>
 
   <!-- Use 'rc' as a safe roomCode (model or query param) -->
   <div class="container landing-container" th:with="rc=${roomCode != null ? roomCode : param.roomCode}">

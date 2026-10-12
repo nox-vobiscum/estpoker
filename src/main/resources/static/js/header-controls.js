@@ -85,25 +85,16 @@
     a.alt = ''; b.alt = '';
   }
   function reflectLangUI(lang) {
-    const isDE = (lang === 'de');
-    const enBtn = document.getElementById('hcLangEN');
-    const deBtn = document.getElementById('hcLangDE');
-    if (enBtn) {
-      setFlagPair(enBtn, 'en');
-      enBtn.classList.toggle('active', !isDE);
-      enBtn.setAttribute('aria-pressed', !isDE ? 'true' : 'false');
-      enBtn.title = 'Language: English';
-      enBtn.setAttribute('aria-label', enBtn.title);
-    }
-    if (deBtn) {
-      setFlagPair(deBtn, 'de');
-      deBtn.classList.toggle('active', isDE);
-      deBtn.setAttribute('aria-pressed', isDE ? 'true' : 'false');
-      deBtn.title = 'Language: German';
-      deBtn.setAttribute('aria-label', deBtn.title);
-    }
+    document.querySelectorAll('[data-header-language]').forEach((button) => {
+      const code = button.dataset.headerLanguage;
+      const selected = code === lang;
+      setFlagPair(button, code);
+      button.classList.toggle('active', selected);
+      button.setAttribute('aria-pressed', String(selected));
+      button.title = code === 'de' ? 'Language: German' : 'Language: English';
+      button.setAttribute('aria-label', button.title);
+    });
   }
-
   /* ------------------------------- Set Lang -------------------------------- */
   async function setLang(lang) {
     const target = norm(lang);
@@ -139,25 +130,18 @@
   function init() {
     try { applyTheme(getTheme()); } catch {}
 
-    const langEN = document.getElementById('hcLangEN');
-    const langDE = document.getElementById('hcLangDE');
-    if (!langEN && !langDE) return;
-
+    const controls = document.querySelectorAll('[data-header-language]');
+    if (!controls.length) return;
     const cur = getLang();
     root.setAttribute('lang', cur);
     reflectLangUI(cur);
-
-    // One behavior for all breakpoints: per-button click
-    langEN?.addEventListener('click', async (e) => {
+    // Both responsive views use the existing language function and event contract.
+    controls.forEach((button) => button.addEventListener('click', async (e) => {
       e.preventDefault(); e.stopPropagation();
-      if (getLang() !== 'en') await setLang('en');
-    });
-    langDE?.addEventListener('click', async (e) => {
-      e.preventDefault(); e.stopPropagation();
-      if (getLang() !== 'de') await setLang('de');
-    });
+      const target = button.dataset.headerLanguage;
+      if (getLang() !== target) await setLang(target);
+    }));
   }
-
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });
   else init();
 })();

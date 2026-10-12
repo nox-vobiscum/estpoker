@@ -2,17 +2,16 @@
 
 - Updated: 2026-10-12.
 - Active branch: feature/major-redesign (origin tracking).
-- Last production/source commit: 66d3caa4299972d46cf60673369170de5b04ad33.
-- Previous story commit: 3cf4d3d (MR-001).
-- Current story commit: docs: define major redesign target UI architecture (commit containing this update; resolve with git log -1 -- docs/MAJOR-REDESIGN-STATUS.md).
-- Safety checkpoint: annotated pre-major-redesign, unchanged and pushed.
-- Last completed story: MR-002 Define target UI architecture.
-- Current story: None in progress; MR-003 remains TODO pending explicit approval.
-- Next recommended step: Approve MR-003 to build only the shared header shell according to MAJOR-REDESIGN-ARCHITECTURE.md.
-- Tests this run: Architecture reviewed against MR-001 and frozen contracts; documentation-only diff and whitespace validation. No runtime tests repeated for unchanged source.
-- Baseline: Initialization had 30 Maven and 95 Playwright passes without runner retries/skips; MR-001 ci:verify passed. Coverage limits remain documented in the audit.
-- Working tree: Clean at start; only architecture/backlog/status documents belong to this story commit. Verify final status after commit/push.
-- Decisions: MR-002 corrected: menu.js exclusively owns transient menuOpen and full dialog lifecycle; PPUI owns theme/language/uiStyle only. Header adapter must not own state. Shared header; one settings drawer/sheet; dedicated preference owner; existing game adapters untouched; mobile <=768px; staged implementation without duplicate runtime state.
-- Known risks: Characterize existing theme/language default precedence before MR-005; preserve sequence DOM reconciliation and event fences; verify real pointer behavior and full dialog focus lifecycle. Historical production flakes and deferred topic defect remain.
-- Production: No changes/deployment performed.
-- Constraints: No UI/game/transport/storage/test/infrastructure changes. MR-003 explicitly approved after the separate MR-002 correction commit.
+- Production/source baseline: 66d3caa4299972d46cf60673369170de5b04ad33; tag pre-major-redesign unchanged.
+- Previous commit: 5a97229 (separate MR-002 correction: menu lifecycle stays in menu.js).
+- Current story commit: feat: introduce shared responsive app header shell (commit containing this update; resolve with git log -1 -- docs/MAJOR-REDESIGN-STATUS.md).
+- Last completed story: MR-003 shared header shell. MR-002 remains DONE with corrected state ownership.
+- Current story: None in progress. MR-004 remains TODO.
+- Next step: Wait for explicit MR-004 approval; rebuild settings container only.
+- Tests: Maven verify 30 passed; npm ci:verify passed; 74 relevant Playwright tests passed without retries/skips (2.1m), including 21 new header tests. Chromium/Firefox geometry and desktop/mobile home screenshots checked.
+- Working tree: Clean before work; intended MR-003 files documented in backlog. Check final status after commit/push.
+- Implementation: Shared header on all four page types; one trigger; existing branding and language function; mobile language view in settings. Theme remains in settings until MR-007. No final brandmark.
+- Functional boundary: No Java/backend, room.js, menu.js, specials-bridge.js, protocol, storage or infrastructure changes.
+- Risks: Existing preference defaults, dialog focus containment, palette pointer issues and topic defect remain deferred; no claim of full regression beyond selected tests.
+- Production: Not deployed; work stays on feature/major-redesign.
+- STOP after this commit; no further story started.

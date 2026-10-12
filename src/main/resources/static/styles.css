@@ -1281,3 +1281,25 @@ h1,h2,h3{font-weight:var(--ui-heading-weight)}
 :root[data-ui-style="clean"] .landing-explainer{line-height:1.75}
 :root[data-ui-style="clean"] .landing-explainer h2{margin-top:.25rem;margin-bottom:1rem}
 :root[data-ui-style="clean"] .landing-explainer h3{font-size:1.05rem;margin:1.2rem 0 .6rem}
+
+/* Shared header shell; final preference controls are separate redesign stories. */
+.app-header{
+  display:flex;align-items:center;justify-content:space-between;gap:16px;
+  width:100%;max-width:800px;margin:0 auto;padding:12px 16px;
+}
+.app-brand{
+  display:flex;align-items:center;gap:8px;min-width:0;
+  color:var(--text-strong);text-decoration:none;font-weight:700;
+}
+.app-brand img{flex:none}
+.app-brand span{overflow-wrap:anywhere}
+.app-utilities{display:flex;align-items:center;gap:10px;flex:none}
+.app-header .header-controls{position:static}
+.app-header .menu-button{position:relative;inset:auto;flex:none}
+.mobile-language{display:none}
+@media (max-width:768px){
+  .app-header{gap:8px;padding:8px 0}
+  .app-brand{font-size:.85rem}
+  .desktop-language{display:none}
+  .mobile-language{display:flex}
+}

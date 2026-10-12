@@ -4,8 +4,9 @@
 <body>
 
   <!-- App menu (fragment) -->
+  <div th:replace="~{fragments/app-header :: appHeader}"></div>
   <div th:replace="~{fragments/menu :: appMenu(showSeq=${true}, showAuto=${true}, showRoom=${true})}"></div>
-  <div th:replace="~{fragments/header-controls :: headerControls}"></div>
+  <th:block th:replace="~{fragments/app-header :: headerScripts}"></th:block>
 
   <div class="container">
     <h1 class="app-title">

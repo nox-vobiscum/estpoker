@@ -1,0 +1,26 @@
+<!-- Shared shell; functional page headings remain in page content. -->
+<header th:fragment="appHeader" class="app-header">
+  <a class="app-brand" th:href="@{/}">
+    <img src="/favicon.svg" alt="" width="24" height="24">
+    <span th:text="#{ui.heading}" data-i18n="ui.heading">RBS' Planning Poker</span>
+  </a>
+  <div class="app-utilities">
+    <div class="desktop-language">
+      <div th:replace="~{fragments/header-controls :: headerControls}"></div>
+    </div>
+
+  <button id="menuButton"
+          class="menu-button"
+          type="button"
+          aria-haspopup="dialog"
+          aria-expanded="false"
+          th:attr="title=#{menu.open},aria-label=#{menu.open}"
+          data-i18n-attr="title:menu.open;aria-label:menu.open"
+          aria-label="Open menu"
+          title="Open menu">☰</button>
+  </div>
+</header>
+<!-- Load after menu scripts to preserve the existing language bridge order. -->
+<th:block th:fragment="headerScripts">
+  <script defer src="/js/header-controls.js?v=13"></script>
+</th:block>

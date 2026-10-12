@@ -1,12 +1,12 @@
 <!-- templates/fragments/header-controls.html -->
-<div th:fragment="headerControls">
+<div th:fragment="headerControls" th:with="prefix='hcLang'">
   <div class="header-controls" role="group" aria-label="Header controls">
 
     <!-- Language only -->
-    <div class="hc-group" id="hcLang" role="group" aria-label="Language">
+    <div th:fragment="languageControls(prefix)" class="hc-group" th:id="${prefix}" role="group" aria-label="Language">
       <button
         class="seg"
-        id="hcLangEN"
+        th:id="${prefix + 'EN'}" data-header-language="en"
         type="button"
         aria-pressed="false"
         title="Language: English"
@@ -20,7 +20,7 @@
 
       <button
         class="seg"
-        id="hcLangDE"
+        th:id="${prefix + 'DE'}" data-header-language="de"
         type="button"
         aria-pressed="false"
         title="Language: German"
@@ -35,6 +35,5 @@
 
   </div>
 
-  <!-- JS (v=10) -->
-  <script defer src="/js/header-controls.js?v=12"></script>
+
 </div>

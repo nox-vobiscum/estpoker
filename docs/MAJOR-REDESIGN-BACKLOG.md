@@ -2,7 +2,7 @@
 
 ## Epic Goal
 
-Modernize the complete visual UI and presentation architecture of RBS' Planning Poker while preserving every existing functional effect. MR-001 audit and MR-002 target architecture completed; no UI implementation has started.
+Modernize the complete visual UI and presentation architecture of RBS' Planning Poker while preserving every existing functional effect. MR-001 audit, MR-002 architecture and MR-003 shared header shell completed.
 
 ## Frozen Functional Contracts
 
@@ -44,11 +44,11 @@ No gameplay refactoring. Before every commit inspect changes to GameService, Gam
 Only one story at a time. After explicit approval: read scope, set IN PROGRESS, implement only that scope, run relevant tests, record results/findings/decisions/downstream risks, mark DONE only when acceptance criteria hold, commit separately, update MAJOR-REDESIGN-STATUS.md, then STOP. User approval is required before the next story.
 
 Allowed statuses: TODO, READY, IN PROGRESS, BLOCKED, DONE.
-MR-001 is DONE following explicit approval on 2026-10-12. MR-002 is DONE; MR-003 through MR-018 are TODO.
+MR-001 is DONE following explicit approval on 2026-10-12. MR-002 and MR-003 are DONE; MR-004 through MR-018 are TODO.
 Stop and report an unclean baseline. Never manufacture green tests through skips, retries or weaker assertions. Intentional DOM changes may require selector updates while retaining functional assertions.
 After architecture changes additionally verify menu open/close, state synchronization, exactly-once toggles, mobile collapse, focus/Escape/overlay. MR-018 runs the full relevant suite.
 Keep each run bounded to analysis, one story, or its validation. When available usage budget falls below roughly 20%, start no new story; write a handoff and stop. Usage quota is not exposed to this run.
-MR-001 and MR-002 results are recorded below; later story results remain placeholders.
+MR-001 through MR-003 results are recorded below; later story results remain placeholders.
 
 ## User Stories
 
@@ -110,20 +110,20 @@ MR-001 and MR-002 results are recorded below; later story results remain placeho
 - Acceptance Criteria: Desktop and mobile show the specified controls without duplicate mobile menu entry points.
 - Tests: Desktop/mobile layout, navigation, keyboard and existing menu contracts.
 - Dependencies: MR-002
-- Status: TODO
-- Notes / Findings: Not started; findings pending explicit story approval.
-- Resulting Decisions: None yet.
+- Status: DONE
+- Notes / Findings: One shared header on home/about/invite/room. Existing branding left, existing language views and one menu trigger in the desktop utility cluster; mobile header exposes only the trigger. Theme remains in the existing menu until MR-007; no replacement theme behavior introduced.
+- Resulting Decisions: Reuse the existing language fragment with unique desktop/mobile IDs and the same setLang function/events. Mobile language view lives in settings. Preserve menu/specials/header/room deferred script order via app-header headerScripts fragment.
 
 #### Result
 
-- Changed files: None.
-- Technical decision: Pending.
-- Visual result: No changes.
-- Tests: Not run for this story; initialization baseline above.
-- New findings: Pending.
-- Effects on following stories: Pending.
-- Open risks: Pending analysis; known baseline risks above.
-
+- Changed files: src/main/resources/templates/fragments/app-header.html (new shell/script fragment); header-controls.html (reusable language markup); menu.html (trigger moved, mobile language view); head.html (CSS version); index.html, about.html, invite.html, room.html (shared composition); static/styles.css (scoped shell/responsive rules); static/js/header-controls.js (bind/reflect both views through existing language function); tests/header-shell.spec.ts (21 responsive regression cases); this backlog and MAJOR-REDESIGN-STATUS.md.
+- Technical decision: Normal-flow shared header, 768px mobile boundary, unique menu trigger and overlay. No new preference owner or menu lifecycle code. Existing page H1/content retained; existing favicon used without a new brandmark.
+- Visual result: Branding left and desktop language/menu cluster right; mobile branding plus menu only, with language available inside the existing settings panel. Desktop/mobile home screenshots inspected; theme/style geometry compared in Chromium and Firefox.
+- Tests: mvnw.cmd verify BUILD SUCCESS (30 tests, zero failures/errors/skips); npm run ci:verify passed; 74 selected Playwright tests passed in 2.1m with --retries=0, no skips. Includes 21 header tests across all four pages at 320/375/768/769/1280px, resize state retention, menu, language, theme, exactly-once toggles, cross-browser geometry, UI styles, SEO and core room flow.
+- New findings: Header language markup can serve both views without duplicating state or language behavior. Desktop compact theme and final flag-free controls remain MR-006/007 work.
+- Effects on following stories: MR-004 must use the existing unique trigger and sibling overlay; headerScripts must remain after menu scripts. MR-005 must keep menu state in menu.js per corrected MR-002. MR-006 can replace visual language markup without introducing new state.
+- Open risks: Existing preference default discrepancy, full dialog focus containment, palette pointer issues and deferred topic defect remain outside MR-003. Public page H1 branding is intentionally retained until the owning content/brand stories.
+- Local evidence: target/mr003-maven.log, target/mr003-browser.log, target/mr003-results and playwright-report (ignored artifacts).
 
 ### MR-004 — Rebuild settings container
 

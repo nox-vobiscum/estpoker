@@ -1,17 +1,6 @@
 <!-- templates/fragments/menu.html -->
 <th:block th:fragment="appMenu (showSeq, showAuto, showRoom)">
 
-  <!-- Floating menu button -->
-  <button id="menuButton"
-          class="menu-button"
-          type="button"
-          aria-haspopup="dialog"
-          aria-expanded="false"
-          th:attr="title=#{menu.open},aria-label=#{menu.open}"
-          data-i18n-attr="title:menu.open;aria-label:menu.open"
-          aria-label="Open menu"
-          title="Open menu">☰</button>
-
   <!-- Overlay root -->
   <div id="appMenuOverlay" class="menu-overlay hidden" aria-hidden="true" hidden>
     <div class="menu-backdrop" data-close></div>
@@ -22,6 +11,11 @@
       <!-- Header / title -->
       <div class="menu-header">
         <h3 data-i18n="menu.settings">Settings</h3>
+      </div>
+
+      <!-- Reuse the existing language adapter on narrow screens. -->
+      <div class="menu-section mobile-language">
+        <div th:replace="~{fragments/header-controls :: languageControls(prefix='menuLang')}"></div>
       </div>
 
       <!-- Theme -->
