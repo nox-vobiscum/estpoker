@@ -22,6 +22,7 @@ Retain Thymeleaf, vanilla JavaScript and the single styles.css. No framework, UI
 
 app-header is a useful new composition boundary because branding and utility markup currently have no shared parent.
 ui-preferences is a useful extraction boundary because menu/header currently duplicate preference writers.
+After MR-006/MR-007, header-controls.js must be a thin view adapter only, or be integrated into the header component if useful; neither option may introduce a second state owner.
 Create each only in its responsible story. Reuse existing files for all other responsibilities.
 
 ## 2. Shell and page composition
@@ -49,7 +50,7 @@ Until then retain functioning existing preference controls rather than creating 
 
 Use one existing overlay/dialog node with responsive CSS, not separate desktop/mobile components.
 menu.js is the sole lifecycle owner with idempotent open(), close(), isOpen().
-Until MR-005, its private boolean is authoritative; MR-005 moves that boolean to the shared UI state and removes the old copy.
+menuOpen remains private transient component state owned exclusively by menu.js, including after MR-005. menu.js owns open/close/toggle, backdrop, Escape, focus entry/trap/return, scroll/background locking and ARIA/hidden state.
 DOM attributes/classes are derived output, never an independently competing state source.
 
 Opening: remember invoker, render visible state and ARIA atomically, emit existing document pp:menu-open exactly once on the closed-to-open transition, suspend background interaction/scroll and focus the in-dialog close button.
@@ -68,10 +69,10 @@ Use dynamic viewport height with a fallback, not a fixed content height. Long se
 
 ## 4. Preference state and synchronization
 
-One small frozen/public facade, proposed window.PPUI, exposes snapshot(), subscribe(listener), setTheme(mode), setLanguage(code), setUiStyle(style), setMenuOpen(open).
-Snapshot fields: themeMode, language, uiStyle, menuOpen. Subscribers render controls; they do not write preferences back.
+One small frozen/public facade, proposed window.PPUI, exposes snapshot(), subscribe(listener), setTheme(mode), setLanguage(code), setUiStyle(style).
+Snapshot fields: themeMode, language, uiStyle. Subscribers render controls; they do not write preferences back.
 Only ui-preferences.js writes the preference root attributes/storage after MR-005.
-menuOpen is memory-only and initially false; never persist it.
+The menu may consume preferences, but PPUI never owns or exposes menuOpen or a setMenuOpen API.
 No cross-tab synchronization feature is added; existing reload behavior remains.
 Keep window.setLanguage as a forwarding adapter where callers require it; remove the old writer in the same extraction.
 
@@ -80,7 +81,7 @@ Keep window.setLanguage as a forwarding adapter where callers require it; remove
 | Theme | planningpoker-theme; html data-theme | light/dark/system; system removes the attribute and lets existing media-query CSS resolve color |
 | UI style | pp-ui-style; html data-ui-style | dev/clean; preserve Dev fallback |
 | Language | lang; html.lang and existing message application | de/en; retain normalization, existing endpoint/cookie behavior and runtime events |
-| Menu | none; overlay attributes + trigger state | derived from single boolean, no game state |
+
 
 Initialization must happen before CSS for theme/style and before preference adapters for runtime subscriptions.
 Extract existing early bootstrap responsibilities into the synchronous preference module when MR-005 lands, rather than adding a later competing initialization.

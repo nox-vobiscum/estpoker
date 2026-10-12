@@ -12,7 +12,7 @@
 - Tests this run: Architecture reviewed against MR-001 and frozen contracts; documentation-only diff and whitespace validation. No runtime tests repeated for unchanged source.
 - Baseline: Initialization had 30 Maven and 95 Playwright passes without runner retries/skips; MR-001 ci:verify passed. Coverage limits remain documented in the audit.
 - Working tree: Clean at start; only architecture/backlog/status documents belong to this story commit. Verify final status after commit/push.
-- Decisions: Shared header; one settings drawer/sheet; dedicated preference owner; existing game adapters untouched; mobile <=768px; staged implementation without duplicate runtime state.
+- Decisions: MR-002 corrected: menu.js exclusively owns transient menuOpen and full dialog lifecycle; PPUI owns theme/language/uiStyle only. Header adapter must not own state. Shared header; one settings drawer/sheet; dedicated preference owner; existing game adapters untouched; mobile <=768px; staged implementation without duplicate runtime state.
 - Known risks: Characterize existing theme/language default precedence before MR-005; preserve sequence DOM reconciliation and event fences; verify real pointer behavior and full dialog focus lifecycle. Historical production flakes and deferred topic defect remain.
 - Production: No changes/deployment performed.
-- Constraints: No UI/game/transport/storage/test/infrastructure changes. STOP; await MR-003 approval.
+- Constraints: No UI/game/transport/storage/test/infrastructure changes. MR-003 explicitly approved after the separate MR-002 correction commit.

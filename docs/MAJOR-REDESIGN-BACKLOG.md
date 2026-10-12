@@ -88,7 +88,7 @@ MR-001 and MR-002 results are recorded below; later story results remain placeho
 - Dependencies: MR-001
 - Status: DONE
 - Notes / Findings: See [target architecture](MAJOR-REDESIGN-ARCHITECTURE.md) for component ownership, lifecycle, state API, migration boundaries and per-story validation gates.
-- Resulting Decisions: Shared app-header fragment; single responsive menu; dedicated UI preference module extracted in MR-005; preserve room adapter/event contracts; new shell breakpoint at 768px.
+- Resulting Decisions: Corrected before MR-003: menuOpen and the complete dialog lifecycle stay exclusively in menu.js; PPUI contains preferences only. Header controls become a thin adapter or integrate into the header without a second state owner. Shared app-header fragment; single responsive menu; dedicated UI preference module extracted in MR-005; preserve room adapter/event contracts; new shell breakpoint at 768px.
 
 #### Result
 
@@ -155,7 +155,7 @@ MR-001 and MR-002 results are recorded below; later story results remain placeho
 - ID: MR-005
 - Title: Centralize UI preference state
 - Goal: Synchronize presentation preferences through one clear source of truth.
-- Scope: Theme, language, Dev/Clean and menu state; reuse current persistence keys and values.
+- Scope: Theme, language and Dev/Clean; reuse current persistence keys and values. Transient menu state and all dialog lifecycle remain exclusively in menu.js.
 - Out of Scope: Game state, game events and storage migration. All frozen functional contracts apply.
 - Acceptance Criteria: Controls and rendered state agree after changes/reload without parallel competing state sources.
 - Tests: Preference reload, blocked storage, state sync and exactly-once events.
