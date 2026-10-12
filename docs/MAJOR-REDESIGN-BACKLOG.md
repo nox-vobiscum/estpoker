@@ -1,5 +1,35 @@
 # Major Redesign
 
+# MANDATORY STORY START GATE
+
+This gate is mandatory before starting ANY MR-xxx story.
+
+1. STOP before making any source-code change.
+2. Re-read:
+   - README.md
+   - docs/BRIEFING.md
+   - docs/MAJOR-REDESIGN-BACKLOG.md
+   - docs/MAJOR-REDESIGN-STATUS.md
+3. Confirm:
+   - active Git branch
+   - last completed MR
+   - next MR
+   - frozen functional contracts
+4. Read the Recommended Model for the next MR.
+5. Report:
+   - currently selected model
+   - recommended model
+   - whether a model switch is recommended
+6. WAIT for explicit user approval.
+
+DO NOT edit files, run implementation commands, change story status,
+or begin implementation before the user has explicitly approved the story start.
+
+After approval, complete ONLY that MR through:
+implementation → tests → documentation → DONE → separate commit → status update.
+
+Then STOP.
+
 ## Epic Goal
 
 Modernize the complete visual UI and presentation architecture of RBS' Planning Poker while preserving every existing functional effect. MR-001 through MR-006 completed, including the shared UI preference owner.
@@ -41,7 +71,7 @@ No gameplay refactoring. Before every commit inspect changes to GameService, Gam
 
 ## Execution Rules
 
-Only one story at a time. After explicit approval: read scope, set IN PROGRESS, implement only that scope, run relevant tests, record results/findings/decisions/downstream risks, mark DONE only when acceptance criteria hold, commit separately, update MAJOR-REDESIGN-STATUS.md, then STOP. User approval is required before the next story.
+Only one story at a time. Before every MR-xxx story, re-read README.md, docs/BRIEFING.md, docs/MAJOR-REDESIGN-BACKLOG.md and docs/MAJOR-REDESIGN-STATUS.md; confirm the active branch, the last completed story and the frozen functional contracts. Then report the model recommended for that story. If the currently selected model differs, explicitly propose the model switch and WAIT for user confirmation before doing any implementation work. After explicit approval: set the story IN PROGRESS, implement only that scope through its acceptance criteria, run relevant tests, record results/findings/decisions/downstream risks, mark DONE only when acceptance criteria hold, commit separately, update MAJOR-REDESIGN-STATUS.md, then STOP. User approval is required before the next story.
 
 Allowed statuses: TODO, READY, IN PROGRESS, BLOCKED, DONE.
 MR-001 is DONE following explicit approval on 2026-10-12. MR-002 through MR-006 are DONE; MR-007 through MR-018 are TODO.
@@ -63,6 +93,8 @@ MR-001 through MR-006 results are recorded below; later story results remain pla
 - Tests: Read-only trace against existing tests; verify documentation-only diff.
 - Dependencies: None; explicit user approval required.
 - Status: DONE
+- Recommended Model: **Astra** — Architecture/audit work with broad repository context and risk mapping.
+- Story Start Protocol: Before starting this MR, re-read `README.md`, `docs/BRIEFING.md`, `docs/MAJOR-REDESIGN-BACKLOG.md` and `docs/MAJOR-REDESIGN-STATUS.md`. Confirm the active branch, the last completed MR and the frozen functional contracts. Report the recommended model below. If another model is currently selected, propose switching first and WAIT for explicit user confirmation. Only after confirmation may implementation begin; continue this MR through validation, documentation, DONE, its separate commit and status update, then STOP.
 - Notes / Findings: See [MR-001 audit](MAJOR-REDESIGN-AUDIT.md) for source ownership, load order, event/state flows, DOM/CSS coupling and test coverage limits.
 - Resulting Decisions: Preserve functional adapters and current event/payload effects; defer target architecture to MR-002. No UI or gameplay implementation.
 
@@ -87,6 +119,8 @@ MR-001 through MR-006 results are recorded below; later story results remain pla
 - Tests: Review architecture against MR-001 and all frozen contracts.
 - Dependencies: MR-001
 - Status: DONE
+- Recommended Model: **Astra** — Architecture decisions and ownership boundaries.
+- Story Start Protocol: Before starting this MR, re-read `README.md`, `docs/BRIEFING.md`, `docs/MAJOR-REDESIGN-BACKLOG.md` and `docs/MAJOR-REDESIGN-STATUS.md`. Confirm the active branch, the last completed MR and the frozen functional contracts. Report the recommended model below. If another model is currently selected, propose switching first and WAIT for explicit user confirmation. Only after confirmation may implementation begin; continue this MR through validation, documentation, DONE, its separate commit and status update, then STOP.
 - Notes / Findings: See [target architecture](MAJOR-REDESIGN-ARCHITECTURE.md) for component ownership, lifecycle, state API, migration boundaries and per-story validation gates.
 - Resulting Decisions: Corrected before MR-003: menuOpen and the complete dialog lifecycle stay exclusively in menu.js; PPUI contains preferences only. Header controls become a thin adapter or integrate into the header without a second state owner. Shared app-header fragment; single responsive menu; dedicated UI preference module extracted in MR-005; preserve room adapter/event contracts; new shell breakpoint at 768px.
 
@@ -111,6 +145,8 @@ MR-001 through MR-006 results are recorded below; later story results remain pla
 - Tests: Desktop/mobile layout, navigation, keyboard and existing menu contracts.
 - Dependencies: MR-002
 - Status: DONE
+- Recommended Model: **Sol** — Bounded presentation-shell implementation with frozen behavior.
+- Story Start Protocol: Before starting this MR, re-read `README.md`, `docs/BRIEFING.md`, `docs/MAJOR-REDESIGN-BACKLOG.md` and `docs/MAJOR-REDESIGN-STATUS.md`. Confirm the active branch, the last completed MR and the frozen functional contracts. Report the recommended model below. If another model is currently selected, propose switching first and WAIT for explicit user confirmation. Only after confirmation may implementation begin; continue this MR through validation, documentation, DONE, its separate commit and status update, then STOP.
 - Notes / Findings: One shared header on home/about/invite/room. Existing branding left, existing language views and one menu trigger in the desktop utility cluster; mobile header exposes only the trigger. Theme remains in the existing menu until MR-007; no replacement theme behavior introduced.
 - Resulting Decisions: Reuse the existing language fragment with unique desktop/mobile IDs and the same setLang function/events. Mobile language view lives in settings. Preserve menu/specials/header/room deferred script order via app-header headerScripts fragment.
 
@@ -136,6 +172,8 @@ MR-001 through MR-006 results are recorded below; later story results remain pla
 - Tests: Menu open/close, overlay, Escape, focus, mobile scroll and exactly-once handlers.
 - Dependencies: MR-003
 - Status: DONE
+- Recommended Model: **Astra** — Dialog lifecycle, focus, inertness and event-ordering are interaction-critical.
+- Story Start Protocol: Before starting this MR, re-read `README.md`, `docs/BRIEFING.md`, `docs/MAJOR-REDESIGN-BACKLOG.md` and `docs/MAJOR-REDESIGN-STATUS.md`. Confirm the active branch, the last completed MR and the frozen functional contracts. Report the recommended model below. If another model is currently selected, propose switching first and WAIT for explicit user confirmation. Only after confirmation may implementation begin; continue this MR through validation, documentation, DONE, its separate commit and status update, then STOP.
 - Notes / Findings: One responsive settings container: full-height right drawer above 768px, broad inset mobile sheet. All transient state and lifecycle remain private to menu.js.
 - Resulting Decisions: Explicit in-dialog close control; inert background and CSS scroll locking; focus entry, Tab wrapping, Escape capture, focus return and resize repair. Existing game events and settings functions retained.
 
@@ -161,6 +199,8 @@ MR-001 through MR-006 results are recorded below; later story results remain pla
 - Tests: Preference reload, blocked storage, state sync and exactly-once events.
 - Dependencies: MR-004
 - Status: DONE
+- Recommended Model: **Astra** — Central preference ownership and synchronization are state-sensitive.
+- Story Start Protocol: Before starting this MR, re-read `README.md`, `docs/BRIEFING.md`, `docs/MAJOR-REDESIGN-BACKLOG.md` and `docs/MAJOR-REDESIGN-STATUS.md`. Confirm the active branch, the last completed MR and the frozen functional contracts. Report the recommended model below. If another model is currently selected, propose switching first and WAIT for explicit user confirmation. Only after confirmation may implementation begin; continue this MR through validation, documentation, DONE, its separate commit and status update, then STOP.
 - Notes / Findings: Baseline characterized; user approved System as the initial/default theme on 2026-10-12. Existing valid keys/values retained. Denied storage now leaves preferences operational in memory.
 - Resulting Decisions: PPUI owns themeMode/language/uiStyle only. menu.js exclusively owns dialog state/lifecycle. Header and menu subscribe/render and delegate preference actions; no duplicate preference writers remain.
 
@@ -186,25 +226,21 @@ MR-001 through MR-006 results are recorded below; later story results remain pla
 - Tests: DE/EN switching, reload, responsive controls and keyboard.
 - Dependencies: MR-005
 - Status: DONE
-- Notes / Findings: Shared DE/EN text controls replace flags in desktop utilities and the mobile menu.
+- Recommended Model: **Sol** — Mostly bounded visual/control adaptation on top of established PPUI behavior.
+- Story Start Protocol: Before starting this MR, re-read `README.md`, `docs/BRIEFING.md`, `docs/MAJOR-REDESIGN-BACKLOG.md` and `docs/MAJOR-REDESIGN-STATUS.md`. Confirm the active branch, the last completed MR and the frozen functional contracts. Report the recommended model below. If another model is currently selected, propose switching first and WAIT for explicit user confirmation. Only after confirmation may implementation begin; continue this MR through validation, documentation, DONE, its separate commit and status update, then STOP.
+- Notes / Findings: Shared DE/EN text controls replace flags in desktop utilities and the mobile menu. The active language has a clear accent surface in both layouts.
 - Resulting Decisions: Keep header-controls.js a thin PPUI adapter; preserve existing language persistence, events and dialog ownership.
 
 #### Result
 
-- Changed files: None.
-- Technical decision: Pending.
-- Visual result: No changes.
-- Tests: Not run for this story; initialization baseline above.
-- New findings: Pending.
-- Effects on following stories: Pending.
-- Open risks: Pending analysis; known baseline risks above.
-
 - Changed files: header-controls.html, header-controls.js, styles.css; app-header.html/head.html asset versions; lang-runtime-header.spec.ts; backlog/status documentation.
-- Tests: Maven verify BUILD SUCCESS (30 passed); npm run ci:verify passed; 53 relevant Playwright tests passed in 2.0m with retries=0 and no skips. Includes desktop/mobile language, keyboard, reload, preference synchronization, header/dialog, Chromium/Firefox geometry and core room flow.
-- Visual result: DE then EN, with existing active-state semantics. Desktop screenshot inspected; responsive layout and mobile keyboard behavior verified by tests.
-- Effects on following stories: MR-007 remains pending approval; use existing PPUI theme preferences without taking ownership of menu lifecycle.
+- Technical decision: Reuse PPUI and `aria-pressed`; do not introduce a language-state owner in the controls.
+- Visual result: DE then EN replace flags; the selected language uses the accent surface and white text.
+- Tests: Maven verify BUILD SUCCESS (30 passed); npm run ci:verify passed; 53 relevant Playwright tests passed for MR-006, followed by 23 focused header/language tests after strengthening the active state. Retries=0 and no skips.
+- New findings: Existing selection state was functionally correct but insufficiently visible on light backgrounds.
+- Effects on following stories: MR-007 may use the same PPUI subscription pattern for compact desktop theme controls.
 - Open risks: Historical topic startup flakiness and deferred empty-topic defect remain outside this story. No game/backend/transport/storage changes.
-- Local evidence: target/mr006-maven-final.log, target/mr006-browser.log and target/mr006-results (ignored artifacts). Local preview on port 8080 restarted with this build.
+
 
 ### MR-007 — Redesign theme controls
 
@@ -217,6 +253,8 @@ MR-001 through MR-006 results are recorded below; later story results remain pla
 - Tests: Light/Dark/System, system changes, reload, keyboard and mobile.
 - Dependencies: MR-005, MR-006
 - Status: TODO
+- Recommended Model: **Sol** — Bounded theme-control presentation using established preference semantics.
+- Story Start Protocol: Before starting this MR, re-read `README.md`, `docs/BRIEFING.md`, `docs/MAJOR-REDESIGN-BACKLOG.md` and `docs/MAJOR-REDESIGN-STATUS.md`. Confirm the active branch, the last completed MR and the frozen functional contracts. Report the recommended model below. If another model is currently selected, propose switching first and WAIT for explicit user confirmation. Only after confirmation may implementation begin; continue this MR through validation, documentation, DONE, its separate commit and status update, then STOP.
 - Notes / Findings: Not started; findings pending explicit story approval.
 - Resulting Decisions: None yet.
 
@@ -242,6 +280,8 @@ MR-001 through MR-006 results are recorded below; later story results remain pla
 - Tests: Keyboard selection, persistence, theme independence and responsive layout.
 - Dependencies: MR-005, MR-007
 - Status: TODO
+- Recommended Model: **Sol** — Bounded Dev/Clean selector presentation using established preference semantics.
+- Story Start Protocol: Before starting this MR, re-read `README.md`, `docs/BRIEFING.md`, `docs/MAJOR-REDESIGN-BACKLOG.md` and `docs/MAJOR-REDESIGN-STATUS.md`. Confirm the active branch, the last completed MR and the frozen functional contracts. Report the recommended model below. If another model is currently selected, propose switching first and WAIT for explicit user confirmation. Only after confirmation may implementation begin; continue this MR through validation, documentation, DONE, its separate commit and status update, then STOP.
 - Notes / Findings: Not started; findings pending explicit story approval.
 - Resulting Decisions: None yet.
 
@@ -267,6 +307,8 @@ MR-001 through MR-006 results are recorded below; later story results remain pla
 - Tests: Menu guard, exactly-once toggles, host/guest permissions and affected room-flow tests.
 - Dependencies: MR-004, MR-005, MR-008
 - Status: TODO
+- Recommended Model: **Astra** — Exactly-once game-event dispatch, permissions and fragile toggle couplings are high-risk.
+- Story Start Protocol: Before starting this MR, re-read `README.md`, `docs/BRIEFING.md`, `docs/MAJOR-REDESIGN-BACKLOG.md` and `docs/MAJOR-REDESIGN-STATUS.md`. Confirm the active branch, the last completed MR and the frozen functional contracts. Report the recommended model below. If another model is currently selected, propose switching first and WAIT for explicit user confirmation. Only after confirmation may implementation begin; continue this MR through validation, documentation, DONE, its separate commit and status update, then STOP.
 - Notes / Findings: Not started; findings pending explicit story approval.
 - Resulting Decisions: None yet.
 
@@ -292,6 +334,8 @@ MR-001 through MR-006 results are recorded below; later story results remain pla
 - Tests: Menu reachability, host/guest visibility, keyboard order and mobile scrolling.
 - Dependencies: MR-009
 - Status: TODO
+- Recommended Model: **Sol** — Information hierarchy and menu structure, with behavior frozen.
+- Story Start Protocol: Before starting this MR, re-read `README.md`, `docs/BRIEFING.md`, `docs/MAJOR-REDESIGN-BACKLOG.md` and `docs/MAJOR-REDESIGN-STATUS.md`. Confirm the active branch, the last completed MR and the frozen functional contracts. Report the recommended model below. If another model is currently selected, propose switching first and WAIT for explicit user confirmation. Only after confirmation may implementation begin; continue this MR through validation, documentation, DONE, its separate commit and status update, then STOP.
 - Notes / Findings: Not started; findings pending explicit story approval.
 - Resulting Decisions: None yet.
 
@@ -317,6 +361,8 @@ MR-001 through MR-006 results are recorded below; later story results remain pla
 - Tests: Light/Dark, responsive overflow, accessible naming and navigation.
 - Dependencies: MR-003, MR-010
 - Status: TODO
+- Recommended Model: **Sol** — Brand/header visual integration; primarily presentation work.
+- Story Start Protocol: Before starting this MR, re-read `README.md`, `docs/BRIEFING.md`, `docs/MAJOR-REDESIGN-BACKLOG.md` and `docs/MAJOR-REDESIGN-STATUS.md`. Confirm the active branch, the last completed MR and the frozen functional contracts. Report the recommended model below. If another model is currently selected, propose switching first and WAIT for explicit user confirmation. Only after confirmation may implementation begin; continue this MR through validation, documentation, DONE, its separate commit and status update, then STOP.
 - Notes / Findings: Not started; findings pending explicit story approval.
 - Resulting Decisions: None yet.
 
@@ -342,6 +388,8 @@ MR-001 through MR-006 results are recorded below; later story results remain pla
 - Tests: Theme/style matrix, contrast, reduced motion and responsive overflow.
 - Dependencies: MR-008, MR-011
 - Status: TODO
+- Recommended Model: **Sol** — Decorative Clean-mode surfaces; primarily CSS/presentation work.
+- Story Start Protocol: Before starting this MR, re-read `README.md`, `docs/BRIEFING.md`, `docs/MAJOR-REDESIGN-BACKLOG.md` and `docs/MAJOR-REDESIGN-STATUS.md`. Confirm the active branch, the last completed MR and the frozen functional contracts. Report the recommended model below. If another model is currently selected, propose switching first and WAIT for explicit user confirmation. Only after confirmation may implementation begin; continue this MR through validation, documentation, DONE, its separate commit and status update, then STOP.
 - Notes / Findings: Not started; findings pending explicit story approval.
 - Resulting Decisions: None yet.
 
@@ -367,6 +415,8 @@ MR-001 through MR-006 results are recorded below; later story results remain pla
 - Tests: Create/join/invite, invalid input, keyboard submission and mobile layout.
 - Dependencies: MR-012
 - Status: TODO
+- Recommended Model: **Sol** — Landing/join form visual redesign with existing form behavior preserved.
+- Story Start Protocol: Before starting this MR, re-read `README.md`, `docs/BRIEFING.md`, `docs/MAJOR-REDESIGN-BACKLOG.md` and `docs/MAJOR-REDESIGN-STATUS.md`. Confirm the active branch, the last completed MR and the frozen functional contracts. Report the recommended model below. If another model is currently selected, propose switching first and WAIT for explicit user confirmation. Only after confirmation may implementation begin; continue this MR through validation, documentation, DONE, its separate commit and status update, then STOP.
 - Notes / Findings: Not started; findings pending explicit story approval.
 - Resulting Decisions: None yet.
 
@@ -392,6 +442,8 @@ MR-001 through MR-006 results are recorded below; later story results remain pla
 - Tests: Voting/reveal/reset, sequences, specials, host transfer, spectator, topic and stats contracts.
 - Dependencies: MR-009, MR-013
 - Status: TODO
+- Recommended Model: **Astra** — Room controls touch many frozen functional contracts and fragile DOM/event paths.
+- Story Start Protocol: Before starting this MR, re-read `README.md`, `docs/BRIEFING.md`, `docs/MAJOR-REDESIGN-BACKLOG.md` and `docs/MAJOR-REDESIGN-STATUS.md`. Confirm the active branch, the last completed MR and the frozen functional contracts. Report the recommended model below. If another model is currently selected, propose switching first and WAIT for explicit user confirmation. Only after confirmation may implementation begin; continue this MR through validation, documentation, DONE, its separate commit and status update, then STOP.
 - Notes / Findings: Not started; findings pending explicit story approval.
 - Resulting Decisions: None yet.
 
@@ -417,6 +469,8 @@ MR-001 through MR-006 results are recorded below; later story results remain pla
 - Tests: Narrow/mobile viewports, orientation, footer/content visibility and settings scrolling.
 - Dependencies: MR-014
 - Status: TODO
+- Recommended Model: **Sol** — Responsive refinement of already implemented components.
+- Story Start Protocol: Before starting this MR, re-read `README.md`, `docs/BRIEFING.md`, `docs/MAJOR-REDESIGN-BACKLOG.md` and `docs/MAJOR-REDESIGN-STATUS.md`. Confirm the active branch, the last completed MR and the frozen functional contracts. Report the recommended model below. If another model is currently selected, propose switching first and WAIT for explicit user confirmation. Only after confirmation may implementation begin; continue this MR through validation, documentation, DONE, its separate commit and status update, then STOP.
 - Notes / Findings: Not started; findings pending explicit story approval.
 - Resulting Decisions: None yet.
 
@@ -442,6 +496,8 @@ MR-001 through MR-006 results are recorded below; later story results remain pla
 - Tests: Keyboard flows, Escape/focus return, screen-reader announcements, contrast and reduced motion.
 - Dependencies: MR-015
 - Status: TODO
+- Recommended Model: **Astra** — Accessibility validation spans focus, keyboard, semantics and interaction lifecycle.
+- Story Start Protocol: Before starting this MR, re-read `README.md`, `docs/BRIEFING.md`, `docs/MAJOR-REDESIGN-BACKLOG.md` and `docs/MAJOR-REDESIGN-STATUS.md`. Confirm the active branch, the last completed MR and the frozen functional contracts. Report the recommended model below. If another model is currently selected, propose switching first and WAIT for explicit user confirmation. Only after confirmation may implementation begin; continue this MR through validation, documentation, DONE, its separate commit and status update, then STOP.
 - Notes / Findings: Not started; findings pending explicit story approval.
 - Resulting Decisions: None yet.
 
@@ -467,6 +523,8 @@ MR-001 through MR-006 results are recorded below; later story results remain pla
 - Tests: Cross-browser geometry and visual review on desktop/mobile; record material differences.
 - Dependencies: MR-016
 - Status: TODO
+- Recommended Model: **Sol** — Cross-browser visual/geometry consistency with frozen functionality.
+- Story Start Protocol: Before starting this MR, re-read `README.md`, `docs/BRIEFING.md`, `docs/MAJOR-REDESIGN-BACKLOG.md` and `docs/MAJOR-REDESIGN-STATUS.md`. Confirm the active branch, the last completed MR and the frozen functional contracts. Report the recommended model below. If another model is currently selected, propose switching first and WAIT for explicit user confirmation. Only after confirmation may implementation begin; continue this MR through validation, documentation, DONE, its separate commit and status update, then STOP.
 - Notes / Findings: Not started; findings pending explicit story approval.
 - Resulting Decisions: None yet.
 
@@ -492,6 +550,8 @@ MR-001 through MR-006 results are recorded below; later story results remain pla
 - Tests: Maven verify, npm ci:verify, full relevant Playwright suite without retries/skips; verify all frozen contracts and report any coverage gaps.
 - Dependencies: MR-017
 - Status: TODO
+- Recommended Model: **Astra** — Final full regression validation across all frozen contracts and remaining risks.
+- Story Start Protocol: Before starting this MR, re-read `README.md`, `docs/BRIEFING.md`, `docs/MAJOR-REDESIGN-BACKLOG.md` and `docs/MAJOR-REDESIGN-STATUS.md`. Confirm the active branch, the last completed MR and the frozen functional contracts. Report the recommended model below. If another model is currently selected, propose switching first and WAIT for explicit user confirmation. Only after confirmation may implementation begin; continue this MR through validation, documentation, DONE, its separate commit and status update, then STOP.
 - Notes / Findings: Not started; findings pending explicit story approval.
 - Resulting Decisions: None yet.
 
