@@ -97,19 +97,7 @@
 
   <script th:src="@{/js/storage.js?v=2}"></script>
 
-  <!-- Early theme apply (prevents flash) -->
-  <script>
-    (function(){try{
-      var t=window.PPStorage.theme()||'dark';
-      if(t==='system')document.documentElement.removeAttribute('data-theme');
-      else document.documentElement.setAttribute('data-theme',t);
-    }catch(e){}})();
-    (function(){
-      var style='dev';
-      try{if(window.PPStorage.uiStyle()==='clean')style='clean';}catch(e){}
-      document.documentElement.setAttribute('data-ui-style',style);
-    })();
-  </script>
+  <script th:src="@{/js/ui-preferences.js?v=1}"></script>
 
   <!-- Base styles -->
   <link rel="stylesheet" th:href="@{/styles.css?v=49}"/>

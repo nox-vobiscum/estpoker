@@ -8,6 +8,8 @@ test('Second user with the same requested name is redirected to /invite (server 
   await page.goto(`/room?roomCode=${encodeURIComponent(room)}&participantName=${encodeURIComponent(requested)}`);
   await expect(page).toHaveURL(/\/room(\?|$)/);
   await expect(page.locator('#youName')).toBeVisible({ timeout: 15000 });
+  // Establish the first server-confirmed participant before testing a collision.
+  await expect(page.locator('body')).toHaveClass(/is-host/);
 
   // 2) Second, isolated context attempts to join with the same name
   const ctx2 = await browser.newContext({ baseURL: test.info().project.use.baseURL });

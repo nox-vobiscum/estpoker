@@ -2,7 +2,7 @@
 
 ## Epic Goal
 
-Modernize the complete visual UI and presentation architecture of RBS' Planning Poker while preserving every existing functional effect. MR-001 audit, MR-002 architecture, MR-003 header shell and MR-004 settings container completed.
+Modernize the complete visual UI and presentation architecture of RBS' Planning Poker while preserving every existing functional effect. MR-001 through MR-005 completed, including the shared UI preference owner.
 
 ## Frozen Functional Contracts
 
@@ -44,11 +44,11 @@ No gameplay refactoring. Before every commit inspect changes to GameService, Gam
 Only one story at a time. After explicit approval: read scope, set IN PROGRESS, implement only that scope, run relevant tests, record results/findings/decisions/downstream risks, mark DONE only when acceptance criteria hold, commit separately, update MAJOR-REDESIGN-STATUS.md, then STOP. User approval is required before the next story.
 
 Allowed statuses: TODO, READY, IN PROGRESS, BLOCKED, DONE.
-MR-001 is DONE following explicit approval on 2026-10-12. MR-002 through MR-004 are DONE; MR-005 through MR-018 are TODO.
+MR-001 is DONE following explicit approval on 2026-10-12. MR-002 through MR-005 are DONE; MR-006 through MR-018 are TODO.
 Stop and report an unclean baseline. Never manufacture green tests through skips, retries or weaker assertions. Intentional DOM changes may require selector updates while retaining functional assertions.
 After architecture changes additionally verify menu open/close, state synchronization, exactly-once toggles, mobile collapse, focus/Escape/overlay. MR-018 runs the full relevant suite.
 Keep each run bounded to analysis, one story, or its validation. When available usage budget falls below roughly 20%, start no new story; write a handoff and stop. Usage quota is not exposed to this run.
-MR-001 through MR-004 results are recorded below; later story results remain placeholders.
+MR-001 through MR-005 results are recorded below; later story results remain placeholders.
 
 ## User Stories
 
@@ -160,20 +160,20 @@ MR-001 through MR-004 results are recorded below; later story results remain pla
 - Acceptance Criteria: Controls and rendered state agree after changes/reload without parallel competing state sources.
 - Tests: Preference reload, blocked storage, state sync and exactly-once events.
 - Dependencies: MR-004
-- Status: BLOCKED
-- Notes / Findings: Eight baseline cases measured; see MAJOR-REDESIGN-PREFERENCES-BASELINE.md. Missing/invalid theme transitions dark to System; denied storage remains dark with two errors.
-- Resulting Decisions: Apply the explicit MR-002 default migration gate; await user choice before extraction. Recommendation: consistent System fallback, including denied storage, with in-memory operation.
+- Status: DONE
+- Notes / Findings: Baseline characterized; user approved System as the initial/default theme on 2026-10-12. Existing valid keys/values retained. Denied storage now leaves preferences operational in memory.
+- Resulting Decisions: PPUI owns themeMode/language/uiStyle only. menu.js exclusively owns dialog state/lifecycle. Header and menu subscribe/render and delegate preference actions; no duplicate preference writers remain.
 
 #### Result
 
-- Changed files: Preference baseline document, backlog and status only.
-- Technical decision: No runtime changes before the default conflict is resolved.
-- Visual result: No changes.
-- Tests: Eight isolated Chromium characterization cases completed; observed results documented, not a claim of green error-free baseline.
-- New findings: Confirmed bootstrap/default mismatch and storage-denied initialization errors.
-- Effects on following stories: MR-006 remains dependent on completed MR-005.
-- Open risks: Default decision required; implementation and regression tests still outstanding.
-
+- Changed files: static/js/ui-preferences.js (new synchronous owner); static/js/header-controls.js (thin adapter); static/js/menu.js (preference adapter, lifecycle/game dispatch unchanged); fragments/head.html (single early initializer); app-header.html/menu.html (script versions); tests/ui-preferences.spec.ts (nine cases); duplicate-name-suffix.spec.ts (server-confirmed first join precondition); storage.spec.ts (ownership comment); architecture/baseline/backlog/status docs.
+- Technical decision: Immutable snapshots, subscriptions, safe current-key persistence, System/Dev defaults, saved-language precedence, asynchronous message generation guard, retryable failed language load, existing setLanguage forwarding and language events. No cross-tab feature, new storage keys, room state or menuOpen in PPUI.
+- Visual result: Existing controls/layout preserved. Missing/invalid/unavailable theme storage now follows System immediately as explicitly approved.
+- Tests: Maven verify BUILD SUCCESS, 30 tests passed; npm ci:verify passed. Full Playwright run: 129 passed, two failures. Duplicate-name test raced server confirmation: logs proved second browser connected first, so added host-confirmation precondition without changing assertions. Topic guest startup timed out before cards/WebSocket initialization; no code change or definitive cause identified. Focused diagnostic run of collision/topic/preferences: all 12 passed (18.5s), retries=0. All nine new preference cases passed in both runs. No skipped tests or weakened assertions, no claim of a single all-green full-suite run.
+- New findings: Baseline default discrepancy resolved by user decision. Storage-denied initialization no longer throws. Stale response and failed translation tests preserve latest selection and menu state. Existing collision test needed actual join confirmation rather than server-rendered name visibility.
+- Effects on following stories: MR-006 may now replace language visuals using PPUI; MR-007/008 use existing setters/subscriptions. Do not move menu lifecycle into preferences.
+- Open risks: One-off topic guest-start timeout remains unexplained, passed isolated diagnosis; historical suite flakiness and deferred topic editor defect remain separate. No Room/WebSocket/backend changes made to mask these.
+- Local evidence: target/mr005-maven.log, mr005-browser.log, mr005-focused.log and associated result folders; initial baseline measurements retained.
 
 ### MR-006 — Redesign language controls
 

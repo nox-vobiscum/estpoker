@@ -90,11 +90,11 @@ Translation loading belongs to the preference module after extraction; preserve 
 Use a request generation token so a stale language response cannot overwrite the most recently requested language.
 Maintain window pp:lang-change and document pp:lang-changed contracts and existing room language observer until a separately validated presentation-only adaptation is needed. Do not add another event bus.
 
-### Existing default discrepancy: migration gate
+### Existing default discrepancy: migration gate (resolved for MR-005)
 
 The audited head uses dark when no saved theme exists, while header initialization can resolve system. The language paths also use different precedence.
-MR-002 does not authorize changing these defaults.
-Before MR-005 extraction, characterize current first-paint and settled behavior for missing/invalid storage, blocked storage, system light/dark, server locale and lang query parameters.
+MR-002 originally required a scoped decision. On 2026-10-12 the user approved System as the default from initial bootstrap, including unavailable storage. Valid saved Light/Dark/System values remain unchanged; Dev is the style fallback; denied storage uses in-memory state. Language retains saved-value then rendered-locale precedence.
+The completed characterization is recorded in MAJOR-REDESIGN-PREFERENCES-BASELINE.md. Original gate: before MR-005 extraction, characterize current first-paint and settled behavior for missing/invalid storage, blocked storage, system light/dark, server locale and lang query parameters.
 Use that observed behavior as the acceptance fixture; preserve saved values and existing visible outcomes.
 If a single bootstrap rule would change an outcome, record the specific conflict and stop for a scoped decision instead of silently selecting a new default.
 This is a defined compatibility gate, not permission to retain duplicate writers in the final architecture.

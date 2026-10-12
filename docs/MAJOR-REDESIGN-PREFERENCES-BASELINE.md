@@ -1,8 +1,8 @@
 # MR-005: Preference baseline and decision gate
 
 Date: 2026-10-12. Application revision: f74b834.
-Status: Characterization completed; extraction blocked on the documented default decision.
-No application code changed.
+Status: Historical characterization retained; decision approved and MR-005 extraction completed.
+No application code changed during this characterization; subsequent implementation is documented in the backlog.
 
 ## Method
 
@@ -49,8 +49,16 @@ Recommendation awaiting user approval:
 - menuOpen and every dialog lifecycle responsibility stay exclusively in menu.js.
 
 Alternative: preserve the existing dark-to-system bootstrap sequence and specify a separate storage-denied default.
-No option has been implemented or approved yet.
+At the characterization checkpoint no option had been approved; see Resolution below for the subsequent approval.
 
-## Remaining MR-005 work
+## Planned MR-005 work at the characterization checkpoint
 
 After approval: add behavior fixtures for the approved rules, language response ordering and failed/blocked storage; extract the synchronous preference owner; convert menu/header into subscribers and action adapters; preserve event targets/payloads; run Maven/guards and relevant browser regressions; document and commit the completed story. No MR-006 work.
+## Resolution and implementation
+
+The user approved the recommended System default on 2026-10-12.
+ui-preferences.js now owns theme/language/uiStyle, applies the approved defaults before CSS, uses existing keys and falls back to memory on storage denial.
+Header/menu are subscribers and action adapters; menuOpen remains private to menu.js.
+Generation checks prevent stale translation responses from overwriting the latest selection; failed loads can be requested again.
+The forwarding window.setLanguage API and existing language event targets/payloads remain available.
+See MR-005 Result in MAJOR-REDESIGN-BACKLOG.md for validation and the unresolved one-off topic-start timeout.

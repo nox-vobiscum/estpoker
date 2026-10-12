@@ -32,7 +32,7 @@ test('invalid stored settings use defaults and unavailable storage is tolerated'
   });
   await page.goto('/');
   await expect(page.locator('html')).toHaveAttribute('data-ui-style', 'dev');
-  // The existing menu normalizes missing/invalid preferences to system mode.
+  // The preference owner normalizes missing/invalid preferences to system mode.
   await expect.poll(() => page.evaluate(() => (window as any).PPStorage.theme())).toBe('system');
   expect(await page.evaluate(() => {
     localStorage.setItem('planningpoker-theme', 'invalid');

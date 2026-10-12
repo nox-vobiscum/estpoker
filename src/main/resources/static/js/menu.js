@@ -39,37 +39,9 @@
   const uiStyleClean = $('#uiStyleClean');
   const closeBtn    = $('#closeRoomBtn');
 
-  /* ---------- language helpers ---------- */
-  const LANG_KEY = 'lang';
-  const normalizeLang = (v) => (String(v || '').toLowerCase().startsWith('de') ? 'de' : 'en');
-  const htmlLang = () => (document.documentElement.lang || '').toLowerCase();
-  const savedLang = () => (localStorage.getItem(LANG_KEY) || '').toLowerCase();
-  const getLang = () => normalizeLang(savedLang() || htmlLang() || 'en');
+  const getLang = () => window.PPUI.snapshot().language;
   const isDe = () => getLang() === 'de';
-
-  /* ---------- i18n store ---------- */
-  const MSG = Object.create(null);
-
-  function formatMsg(str, params) {
-    if (!str || !params) return str;
-    return String(str).replace(/\{(\w+)\}/g, (_, k) => {
-      if (Object.prototype.hasOwnProperty.call(params, k)) return params[k];
-      const i = Number(k);
-      return Number.isFinite(i) && params[i] != null ? params[i] : `{${k}}`;
-    });
-  }
-  function t(key, fallback, params) {
-    let s = (key && Object.prototype.hasOwnProperty.call(MSG, key)) ? MSG[key] : undefined;
-    if (s == null) s = fallback;
-    return params ? formatMsg(s, params) : s;
-  }
-  async function fetchMessages(code) {
-    const res = await fetch(`/i18n/messages?lang=${encodeURIComponent(code)}`, { credentials: 'same-origin' });
-    if (!res.ok) throw new Error(`i18n HTTP ${res.status}`);
-    Object.assign(MSG, await res.json());
-    return MSG;
-  }
-
+  const t = (key, fallback, params) => window.PPUI.message(key, fallback, params);
   /* ---------- open/close ---------- */
   const panel = overlay?.querySelector('.menu-panel');
   const dismiss = overlay?.querySelector('#menuCloseButton');
@@ -173,54 +145,6 @@
       (dismiss || panel).focus({ preventScroll: true });
     }
   });
-  /* ---------- apply messages to DOM ---------- */
-  function setFlagsFor(code) {
-    if (!flagA || !flagB) return;
-    if (code === 'de') { flagA.src = '/flags/de.svg'; flagB.src = '/flags/at.svg'; }
-    else               { flagA.src = '/flags/us.svg'; flagB.src = '/flags/gb.svg'; }
-  }
-  function stripLangParamFromUrl() {
-    try {
-      const u = new URL(window.location.href);
-      if (u.searchParams.has('lang')) {
-        u.searchParams.delete('lang');
-        const qs = u.searchParams.toString();
-        const next = u.pathname + (qs ? '?' + qs : '') + u.hash;
-        history.replaceState({}, '', next);
-      }
-    } catch (e) { console.warn('[menu] stripLangParam failed', e); }
-  }
-  function applyMessages(map, root = document) {
-    $$('[data-i18n]', root).forEach((el) => {
-      const key = el.getAttribute('data-i18n');
-      if (key && map[key] != null) el.textContent = map[key];
-    });
-    $$('[data-i18n-attr]', root).forEach((el) => {
-      const spec = el.getAttribute('data-i18n-attr'); if (!spec) return;
-      spec.split(';').forEach(pair => {
-        const [attr, key] = pair.split(':').map(s => s?.trim());
-        if (!attr || !key) return;
-        const val = map[key];
-        if (val != null) el.setAttribute(attr, val);
-      });
-    });
-  }
-
-  // dynamic message support: data-i18n-dyn with {0}/{name} placeholders
-  function applyDynamicMessages(root = document) {
-    $$('[data-i18n-dyn]', root).forEach((el) => {
-      const key = el.getAttribute('data-i18n-dyn');
-      const tmpl = key ? MSG[key] : null;
-      if (!tmpl) return;
-      const params = {};
-      Object.entries(el.dataset).forEach(([k, v]) => {
-        if (/^arg\d+$/.test(k)) params[Number(k.slice(3))] = v;
-        else if (k !== 'i18nDyn') params[k] = v;
-      });
-      el.innerHTML = formatMsg(tmpl, params);
-    });
-  }
-
   /* ---------- Titles / tooltips ---------- */
   function setThemeTooltips(code) {
     const titleLight  = t('title.theme.light',  'Theme: Light');
@@ -283,81 +207,30 @@
     } catch {}
   }
 
-  /* ---------- Language switch (core) ---------- */
-  async function switchLanguage(to) {
-    const code = normalizeLang(to);
-    // Guard: avoid redundant work if already set
-    if (normalizeLang(document.documentElement.lang) === code && getLang() === code) {
-      return;
+  /* ---------- Preference views: no local preference state or storage writes ---------- */
+  function reflectPreferences(state) {
+    [[themeLight, 'light'], [themeDark, 'dark'], [themeSystem, 'system']]
+      .forEach(([button, mode]) => button?.setAttribute('aria-pressed', String(state.themeMode === mode)));
+    uiStyleDev?.setAttribute('aria-pressed', String(state.uiStyle === 'dev'));
+    uiStyleClean?.setAttribute('aria-pressed', String(state.uiStyle === 'clean'));
+    if (langLabel) langLabel.textContent = state.language === 'de' ? 'Deutsch' : 'English';
+    if (flagA && flagB) {
+      flagA.src = state.language === 'de' ? '/flags/de.svg' : '/flags/us.svg';
+      flagB.src = state.language === 'de' ? '/flags/at.svg' : '/flags/gb.svg';
     }
-    try {
-      // persist + reflect
-      localStorage.setItem(LANG_KEY, code);
-      document.documentElement.lang = code;
-      setFlagsFor(code);
-      if (langLabel) langLabel.textContent = (code === 'de') ? 'Deutsch' : 'English';
-
-      // load & apply
-      await fetchMessages(code);
-      applyMessages(MSG, document);
-      applyDynamicMessages(document);
-      stripLangParamFromUrl();
-
-      // refresh tooltips/labels and layout tweaks
-      setThemeTooltips(code);
-      setUiStyleTooltips();
-      setFunctionalTooltips(code);
-      setCloseBtnLabel();
-      forceRowLayout();
-      setMenuButtonState(isMenuOpen());
-    } catch (err) {
-      console.warn('[i18n] switch failed:', err);
-      stripLangParamFromUrl();
-      setThemeTooltips(code);
-      setUiStyleTooltips();
-      setFunctionalTooltips(code);
-      setCloseBtnLabel();
-      forceRowLayout();
-      setMenuButtonState(isMenuOpen());
-    }
+    setThemeTooltips(state.language);
+    setUiStyleTooltips();
+    setFunctionalTooltips(state.language);
+    setCloseBtnLabel();
+    setMenuButtonState(isMenuOpen());
   }
-
-  // Language toggle from the menu row (if present)
-  rowLang?.addEventListener('click', () => {
-    const next = getLang() === 'de' ? 'en' : 'de';
-    window.setLanguage(next); // public API
-    try {
-      window.dispatchEvent(new CustomEvent('pp:lang-change', { detail: { lang: next, source: 'menu' } }));
-    } catch {}
-  });
-
-  /* ---------- Theme ---------- */
-  function applyTheme(mode) {
-    try {
-      if (mode === 'system') document.documentElement.removeAttribute('data-theme');
-      else                   document.documentElement.setAttribute('data-theme', mode);
-      localStorage.setItem('planningpoker-theme', mode);
-      const setPressed = (btn, on) => btn && btn.setAttribute('aria-pressed', on ? 'true' : 'false');
-      setPressed(themeLight,  mode === 'light');
-      setPressed(themeDark,   mode === 'dark');
-      setPressed(themeSystem, mode === 'system');
-    } catch {}
-  }
-  themeLight?.addEventListener('click',  () => applyTheme('light'));
-  themeDark?.addEventListener('click',   () => applyTheme('dark'));
-  themeSystem?.addEventListener('click', () => applyTheme('system'));
-
-  /* ---------- Interface style ---------- */
-  function applyUiStyle(mode) {
-    mode = mode === 'clean' ? 'clean' : 'dev';
-    document.documentElement.dataset.uiStyle = mode;
-    try { localStorage.setItem('pp-ui-style', mode); } catch {}
-    uiStyleDev?.setAttribute('aria-pressed', String(mode === 'dev'));
-    uiStyleClean?.setAttribute('aria-pressed', String(mode === 'clean'));
-  }
-  uiStyleDev?.addEventListener('click', () => applyUiStyle('dev'));
-  uiStyleClean?.addEventListener('click', () => applyUiStyle('clean'));
-
+  window.PPUI.subscribe(reflectPreferences);
+  rowLang?.addEventListener('click', () => window.PPUI.setLanguage(isDe() ? 'en' : 'de', 'menu'));
+  themeLight?.addEventListener('click', () => window.PPUI.setTheme('light'));
+  themeDark?.addEventListener('click', () => window.PPUI.setTheme('dark'));
+  themeSystem?.addEventListener('click', () => window.PPUI.setTheme('system'));
+  uiStyleDev?.addEventListener('click', () => window.PPUI.setUiStyle('dev'));
+  uiStyleClean?.addEventListener('click', () => window.PPUI.setUiStyle('clean'));
   /* ---------- Switch rows ---------- */
   function reflectAriaChecked(inputEl, rowEl) {
     if (!inputEl) return;
@@ -495,35 +368,7 @@
 
   /* ---------- init ---------- */
   (async function init() {
-    let savedUiStyle = 'dev';
-    try { savedUiStyle = window.PPStorage.uiStyle(); } catch {}
-    applyUiStyle(savedUiStyle);
-    const savedTheme = window.PPStorage.theme();
-    if (savedTheme) applyTheme(savedTheme);
-
-    const code = getLang();
-    localStorage.setItem(LANG_KEY, code);
-    document.documentElement.lang = code;
-    setFlagsFor(code);
-    if (langLabel) langLabel.textContent = (code === 'de') ? 'Deutsch' : 'English';
-    stripLangParamFromUrl();
-
-    try {
-      await fetchMessages(code);
-      applyMessages(MSG, document);
-      applyDynamicMessages(document);
-    } catch (e) {
-      console.warn('[menu] initial i18n apply failed', e);
-    }
-
-    setThemeTooltips(code);
-    setUiStyleTooltips();
-    setFunctionalTooltips(code);
-    setCloseBtnLabel();
-
-    setMenuButtonState(false);
-    if (isMenuOpen()) setMenuButtonState(true);
-
+    await window.PPUI.ready;
     forceRowLayout();
     initSequenceTooltips();
 
@@ -535,18 +380,4 @@
     }
   })();
 
-  // ---- public bridge for header-controls.js (single source of truth) ----
-  window.setLanguage = (code) => {
-    try { return switchLanguage(code); }
-    catch(e){ console.warn('[menu] setLanguage failed', e); }
-  };
-  window.addEventListener('pp:lang-change', (e) => {
-    try {
-      const d = e?.detail || {};
-      const to = d.lang || d.to;
-      if (to && normalizeLang(to) !== getLang()) window.setLanguage(to);
-    } catch (err) {
-      console.warn('[menu] pp:lang-change handler failed', err);
-    }
-  });
 })();
