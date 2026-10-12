@@ -47,9 +47,10 @@ test.describe('Header language control', () => {
 
       const selected = target === 'en' ? btnEN : btnDE;
       const other = target === 'en' ? btnDE : btnEN;
+      expect(await selected.evaluate(button => getComputedStyle(button).color))
+        .not.toBe(await other.evaluate(button => getComputedStyle(button).color));
       expect(await selected.evaluate(button => getComputedStyle(button).backgroundColor))
-        .not.toBe(await other.evaluate(button => getComputedStyle(button).backgroundColor));
-      expect(await selected.evaluate(button => getComputedStyle(button).color)).toBe('rgb(255, 255, 255)');
+        .toBe('rgba(0, 0, 0, 0)');
       // If it was already the same lang, ensure it stayed consistent (idempotent behavior)
       if (before === target) {
         await expect.poll(rootLang).toBe(target);
@@ -75,15 +76,15 @@ test('mobile DE/EN controls support keyboard, reload and desktop synchronization
   await page.keyboard.press('Enter');
   await expect(page.locator('html')).toHaveAttribute('lang', 'de');
   await expect(page.locator('#menuLangDE')).toHaveAttribute('aria-pressed', 'true');
-  expect(await page.locator('#menuLangDE').evaluate(button => getComputedStyle(button).backgroundColor))
-    .not.toBe(await page.locator('#menuLangEN').evaluate(button => getComputedStyle(button).backgroundColor));
+  expect(await page.locator('#menuLangDE').evaluate(button => getComputedStyle(button).color))
+    .not.toBe(await page.locator('#menuLangEN').evaluate(button => getComputedStyle(button).color));
   await page.keyboard.press('Escape');
   await page.reload();
   await page.evaluate(() => (window as any).PPUI.ready);
   await page.locator('#menuButton').click();
   await expect(page.locator('#menuLangDE')).toHaveAttribute('aria-pressed', 'true');
-  expect(await page.locator('#menuLangDE').evaluate(button => getComputedStyle(button).backgroundColor))
-    .not.toBe(await page.locator('#menuLangEN').evaluate(button => getComputedStyle(button).backgroundColor));
+  expect(await page.locator('#menuLangDE').evaluate(button => getComputedStyle(button).color))
+    .not.toBe(await page.locator('#menuLangEN').evaluate(button => getComputedStyle(button).color));
   await page.locator('#menuLangEN').focus();
   await page.keyboard.press('Space');
   await expect(page.locator('html')).toHaveAttribute('lang', 'en');
