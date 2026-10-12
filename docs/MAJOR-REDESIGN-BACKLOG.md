@@ -2,7 +2,7 @@
 
 ## Epic Goal
 
-Modernize the complete visual UI and presentation architecture of RBS' Planning Poker while preserving every existing functional effect. Initialization only: no audit or UI implementation has started.
+Modernize the complete visual UI and presentation architecture of RBS' Planning Poker while preserving every existing functional effect. MR-001 audit completed; no UI implementation has started.
 
 ## Frozen Functional Contracts
 
@@ -44,11 +44,11 @@ No gameplay refactoring. Before every commit inspect changes to GameService, Gam
 Only one story at a time. After explicit approval: read scope, set IN PROGRESS, implement only that scope, run relevant tests, record results/findings/decisions/downstream risks, mark DONE only when acceptance criteria hold, commit separately, update MAJOR-REDESIGN-STATUS.md, then STOP. User approval is required before the next story.
 
 Allowed statuses: TODO, READY, IN PROGRESS, BLOCKED, DONE.
-MR-001 is READY but not authorized to start. MR-002 through MR-018 are TODO.
+MR-001 is DONE following explicit approval on 2026-10-12. MR-002 through MR-018 are TODO.
 Stop and report an unclean baseline. Never manufacture green tests through skips, retries or weaker assertions. Intentional DOM changes may require selector updates while retaining functional assertions.
 After architecture changes additionally verify menu open/close, state synchronization, exactly-once toggles, mobile collapse, focus/Escape/overlay. MR-018 runs the full relevant suite.
 Keep each run bounded to analysis, one story, or its validation. When available usage budget falls below roughly 20%, start no new story; write a handoff and stop. Usage quota is not exposed to this run.
-Results below are placeholders, not completed analysis.
+MR-001 results are recorded below; other story results remain placeholders.
 
 ## User Stories
 
@@ -62,20 +62,19 @@ Results below are placeholders, not completed analysis.
 - Acceptance Criteria: A traceable inventory and coupling/risk map exists; findings cite actual files; no UI changes.
 - Tests: Read-only trace against existing tests; verify documentation-only diff.
 - Dependencies: None; explicit user approval required.
-- Status: READY
-- Notes / Findings: Not started; findings pending explicit story approval.
-- Resulting Decisions: None yet.
+- Status: DONE
+- Notes / Findings: See [MR-001 audit](MAJOR-REDESIGN-AUDIT.md) for source ownership, load order, event/state flows, DOM/CSS coupling and test coverage limits.
+- Resulting Decisions: Preserve functional adapters and current event/payload effects; defer target architecture to MR-002. No UI or gameplay implementation.
 
 #### Result
 
-- Changed files: None.
-- Technical decision: Pending.
-- Visual result: No changes.
-- Tests: Not run for this story; initialization baseline above.
-- New findings: Pending.
-- Effects on following stories: Pending.
-- Open risks: Pending analysis; known baseline risks above.
-
+- Changed files: docs/MAJOR-REDESIGN-AUDIT.md, docs/MAJOR-REDESIGN-BACKLOG.md, docs/MAJOR-REDESIGN-STATUS.md.
+- Technical decision: Documentation-only audit; no target architecture selected.
+- Visual result: Unchanged.
+- Tests: npm run ci:verify passed; documentation-only diff and whitespace checks. Existing 30 Maven/95 Playwright baseline retained, not rerun for documentation.
+- New findings: Shared binding ownership, sequence DOM reconciliation, multiple preference writers, inline layout writers, palette event fences and dialog focus coverage gaps.
+- Effects on following stories: MR-002 must resolve ownership/load-order/responsive decisions; MR-004/016 need explicit focus lifecycle evidence; MR-005 preserves preference behavior; MR-009/014 preserve exactly-once events and delegation.
+- Open risks: Existing production flakes and topic defect remain; passing keyboard-based specials tests does not demonstrate reliable pointer hit-testing.
 
 ### MR-002 — Define target UI architecture
 
