@@ -6,11 +6,15 @@
     <div class="menu-backdrop" data-close></div>
 
     <div class="menu-panel" role="dialog" aria-modal="true"
-         data-i18n-attr="aria-label:menu.settings" aria-label="Settings">
+         aria-labelledby="menuTitle" tabindex="-1">
 
       <!-- Header / title -->
       <div class="menu-header">
-        <h3 data-i18n="menu.settings">Settings</h3>
+        <h3 id="menuTitle" data-i18n="menu.settings">Settings</h3>
+        <button id="menuCloseButton" class="icon-button" type="button"
+                th:attr="aria-label=#{menu.close},title=#{menu.close}"
+                data-i18n-attr="aria-label:menu.close;title:menu.close"
+                aria-label="Close menu" title="Close menu">&#x2715;</button>
       </div>
 
       <!-- Reuse the existing language adapter on narrow screens. -->
@@ -254,7 +258,7 @@
   </script>
 
     <!-- Load JS -->
-  <script defer src="/js/menu.js?v=44"></script>
+  <script defer src="/js/menu.js?v=45"></script>
   <script defer src="/js/specials-bridge.js?v=2"></script>
 
 </th:block>

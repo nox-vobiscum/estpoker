@@ -35,7 +35,7 @@ for (const width of [320, 375, 768, 769, 1280]) {
       await expect(trigger).toHaveAttribute('aria-expanded', 'true');
       const prefix = width <= 768 ? 'menuLang' : 'hcLang';
       // On desktop close the existing overlay before using the header language buttons.
-      if (width > 768) await trigger.click();
+      if (width > 768) await page.locator('#menuCloseButton').click();
       await page.locator('#' + prefix + 'DE').click();
       await expect(page.locator('html')).toHaveAttribute('lang', 'de');
       await expect(page.locator('#hcLangDE')).toHaveAttribute('aria-pressed', 'true');

@@ -2,7 +2,7 @@
 
 ## Epic Goal
 
-Modernize the complete visual UI and presentation architecture of RBS' Planning Poker while preserving every existing functional effect. MR-001 audit, MR-002 architecture and MR-003 shared header shell completed.
+Modernize the complete visual UI and presentation architecture of RBS' Planning Poker while preserving every existing functional effect. MR-001 audit, MR-002 architecture, MR-003 header shell and MR-004 settings container completed.
 
 ## Frozen Functional Contracts
 
@@ -44,11 +44,11 @@ No gameplay refactoring. Before every commit inspect changes to GameService, Gam
 Only one story at a time. After explicit approval: read scope, set IN PROGRESS, implement only that scope, run relevant tests, record results/findings/decisions/downstream risks, mark DONE only when acceptance criteria hold, commit separately, update MAJOR-REDESIGN-STATUS.md, then STOP. User approval is required before the next story.
 
 Allowed statuses: TODO, READY, IN PROGRESS, BLOCKED, DONE.
-MR-001 is DONE following explicit approval on 2026-10-12. MR-002 and MR-003 are DONE; MR-004 through MR-018 are TODO.
+MR-001 is DONE following explicit approval on 2026-10-12. MR-002 through MR-004 are DONE; MR-005 through MR-018 are TODO.
 Stop and report an unclean baseline. Never manufacture green tests through skips, retries or weaker assertions. Intentional DOM changes may require selector updates while retaining functional assertions.
 After architecture changes additionally verify menu open/close, state synchronization, exactly-once toggles, mobile collapse, focus/Escape/overlay. MR-018 runs the full relevant suite.
 Keep each run bounded to analysis, one story, or its validation. When available usage budget falls below roughly 20%, start no new story; write a handoff and stop. Usage quota is not exposed to this run.
-MR-001 through MR-003 results are recorded below; later story results remain placeholders.
+MR-001 through MR-004 results are recorded below; later story results remain placeholders.
 
 ## User Stories
 
@@ -135,20 +135,20 @@ MR-001 through MR-003 results are recorded below; later story results remain pla
 - Acceptance Criteria: Container scrolls, opens and closes reliably; focus enters and returns appropriately.
 - Tests: Menu open/close, overlay, Escape, focus, mobile scroll and exactly-once handlers.
 - Dependencies: MR-003
-- Status: TODO
-- Notes / Findings: Not started; findings pending explicit story approval.
-- Resulting Decisions: None yet.
+- Status: DONE
+- Notes / Findings: One responsive settings container: full-height right drawer above 768px, broad inset mobile sheet. All transient state and lifecycle remain private to menu.js.
+- Resulting Decisions: Explicit in-dialog close control; inert background and CSS scroll locking; focus entry, Tab wrapping, Escape capture, focus return and resize repair. Existing game events and settings functions retained.
 
 #### Result
 
-- Changed files: None.
-- Technical decision: Pending.
-- Visual result: No changes.
-- Tests: Not run for this story; initialization baseline above.
-- New findings: Pending.
-- Effects on following stories: Pending.
-- Open risks: Pending analysis; known baseline risks above.
-
+- Changed files: static/js/menu.js (dialog lifecycle only); static/styles.css (drawer/sheet, overlay layer, scroll lock and reduced motion); templates/fragments/menu.html (accessible title and close button); fragments/head.html (CSS cache version); tests/settings-container.spec.ts (six lifecycle cases); existing close selectors in auto-reveal, header-shell, menu-smoke, participation-spectator, specials-stats, toggles, ui-style and utils/helpers tests; backlog/status.
+- Technical decision: menuOpen stays private to menu.js. Preserve pre-existing inert and scroll-lock states. Header trigger is behind the modal and inert while open; tests close via the dialog button without weakening functional assertions.
+- Visual result: Right desktop drawer and near-fullscreen mobile sheet, scrollable settings, sticky heading/close action and safe-area spacing. Existing controls, theme and game logic unchanged. Desktop/mobile screenshots inspected; overlay stacking corrected after visual review.
+- Tests: Maven verify BUILD SUCCESS, 30 passed, zero failures/errors/skips. npm run ci:verify passed. Initial full Playwright run: 119 passed, three new geometry cases measured during entry animation. Fixed test synchronization by awaiting animation completion, keeping exact assertions. All six dialog tests then passed. After the CSS overlay-layer correction, all 44 affected header/menu/toggle/dialog/cross-browser geometry tests passed (1.9m). No runner retries/skips used; all 122 distinct cases have passing evidence across these runs, not a claimed single all-green full-suite rerun.
+- New findings: Header trigger previously painted above overlay; now covered and guarded by a hit-testing assertion. Escape must be captured before nested palette event fences. Animated geometry requires settled-frame measurement.
+- Effects on following stories: MR-005 consumes preferences only and must not own menuOpen. Preserve dialog lifecycle when adapting settings views; use menuCloseButton while modal background is inert.
+- Open risks: Existing preference-default discrepancy, palette pointer behavior and deferred topic defect remain outside this story. Tests cover Chromium dialog behavior and Chromium/Firefox geometry; no physical mobile/Safari validation claimed.
+- Local evidence: target/mr004-maven.log, mr004-browser.log, mr004-settings.log, mr004-final-browser.log; target/mr004-final-results screenshots/traces (ignored artifacts).
 
 ### MR-005 — Centralize UI preference state
 

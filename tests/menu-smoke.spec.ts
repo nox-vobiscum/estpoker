@@ -23,7 +23,7 @@ async function ensureMenuOpen(page) {
 async function ensureMenuClosed(page) {
   const overlay = page.locator('#appMenuOverlay');
   if (await overlay.isVisible().catch(() => false)) {
-    await page.locator('#menuButton').click();
+    await page.locator('#menuCloseButton').click();
     await expect(overlay).toBeHidden();
   }
 }

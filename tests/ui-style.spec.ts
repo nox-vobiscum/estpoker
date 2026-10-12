@@ -28,7 +28,7 @@ for (const width of [375, 768, 1280]) {
           await expect(page.locator(style === 'dev' ? '#uiStyleDev' : '#uiStyleClean')).toHaveAttribute('aria-pressed', 'true');
           await expect(page.locator('#uiStyleDev')).toBeVisible();
           await expect(page.locator('#uiStyleClean')).toBeVisible();
-          await page.locator('#menuButton').click();
+          await page.locator('#menuCloseButton').click();
         }
         if (theme === 'system') {
           await page.emulateMedia({ colorScheme: 'dark' });
@@ -53,7 +53,7 @@ test('keyboard style switching preserves theme, language and navigation state', 
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
   expect(await page.evaluate(() => (window as any).__styleNavigationMarker)).toBe(true);
   expect(await page.evaluate(() => localStorage.getItem('pp-ui-style'))).toBe('clean');
-  await page.locator('#menuButton').click();
+  await page.locator('#menuCloseButton').click();
   await page.reload();
   await expect(page.locator('html')).toHaveAttribute('data-ui-style', 'clean');
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
@@ -65,7 +65,7 @@ test('keyboard style switching preserves theme, language and navigation state', 
   await page.keyboard.press('Space');
   await expect(page.locator('html')).toHaveAttribute('data-ui-style', 'dev');
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
-  await page.locator('#menuButton').click();
+  await page.locator('#menuCloseButton').click();
   await page.locator('#hcLangEN').click();
   await page.locator('#menuButton').click();
   await expect(page.locator('#uiStyleClean')).toHaveAttribute('title', 'Interface style: Clean');

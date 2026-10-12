@@ -71,7 +71,16 @@
   }
 
   /* ---------- open/close ---------- */
-  const isMenuOpen = () => overlay && !overlay.classList.contains('hidden');
+  const panel = overlay?.querySelector('.menu-panel');
+  const dismiss = overlay?.querySelector('#menuCloseButton');
+  let menuOpen = false;
+  let invoker = null;
+  let background = [];
+  let scrollWasLocked = false;
+  const isMenuOpen = () => menuOpen;
+  const focusable = () => $$('button, a[href], input, select, textarea, [tabindex]', panel)
+    .filter(el => !el.disabled && el.tabIndex >= 0 && !el.closest('[inert]') &&
+      el.getClientRects().length && getComputedStyle(el).visibility !== 'hidden');
   function setMenuButtonState(open) {
     if (!btnOpen) return;
     btnOpen.textContent = open ? '✕' : '☰';
@@ -102,27 +111,68 @@
     }
   }
   function openMenu(){
-    if (!overlay) return;
+    if (!overlay || !panel || menuOpen) return;
+    menuOpen = true;
+    invoker = document.activeElement;
+    background = Array.from(document.body.children)
+      .filter(el => el !== overlay && !['SCRIPT', 'STYLE', 'LINK'].includes(el.tagName))
+      .map(el => ({ el, inert: el.inert }));
+    background.forEach(({ el }) => { el.inert = true; });
+    scrollWasLocked = document.documentElement.classList.contains('menu-scroll-locked');
+    document.documentElement.classList.add('menu-scroll-locked');
     overlay.classList.remove('hidden');
-    overlay.removeAttribute('hidden');              // ensure element can render
-    overlay.setAttribute('aria-hidden','false');    // accessibility state
+    overlay.removeAttribute('hidden');
+    overlay.setAttribute('aria-hidden', 'false');
     setMenuButtonState(true);
     forceRowLayout();
     try { document.dispatchEvent(new CustomEvent('pp:menu-open')); } catch {}
+    (dismiss || panel).focus({ preventScroll: true });
   }
 
   function closeMenu(){
-    if (!overlay) return;
-    overlay.classList.add('hidden');
-    overlay.setAttribute('aria-hidden','true');  // accessibility state
-    overlay.setAttribute('hidden','');           // ensure it does not paint
+    if (!overlay || !menuOpen) return;
+    menuOpen = false;
+    background.forEach(({ el, inert }) => { el.inert = inert; });
+    background = [];
+    if (!scrollWasLocked) document.documentElement.classList.remove('menu-scroll-locked');
     setMenuButtonState(false);
-    btnOpen?.focus?.();
+    const target = invoker?.isConnected && !invoker.closest('[inert]') ? invoker : btnOpen;
+    target?.focus?.({ preventScroll: true });
+    overlay.classList.add('hidden');
+    overlay.setAttribute('aria-hidden', 'true');
+    overlay.setAttribute('hidden', '');
+    invoker = null;
   }
-  btnOpen?.addEventListener('click', () => (isMenuOpen() ? closeMenu() : openMenu()));
+  function toggleMenu(){ if (menuOpen) closeMenu(); else openMenu(); }
+  btnOpen?.addEventListener('click', toggleMenu);
+  dismiss?.addEventListener('click', closeMenu);
   backdrop?.addEventListener('click', (e) => { if (e.target.hasAttribute('data-close')) closeMenu(); });
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && isMenuOpen()) closeMenu(); });
-
+  // Capture Escape before nested palette handlers stop event propagation.
+  document.addEventListener('keydown', (e) => {
+    if (!menuOpen) return;
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+      closeMenu();
+    } else if (e.key === 'Tab') {
+      const items = focusable();
+      const first = items[0], last = items[items.length - 1];
+      if (!first) { e.preventDefault(); panel.focus(); }
+      else if (e.shiftKey && (document.activeElement === first || !items.includes(document.activeElement))) {
+        e.preventDefault(); last.focus();
+      } else if (!e.shiftKey && (document.activeElement === last || !items.includes(document.activeElement))) {
+        e.preventDefault(); first.focus();
+      }
+    }
+  }, true);
+  document.addEventListener('focusin', (e) => {
+    if (menuOpen && !panel.contains(e.target)) (focusable()[0] || panel).focus();
+  });
+  window.addEventListener('resize', () => {
+    if (menuOpen && document.activeElement !== panel && !focusable().includes(document.activeElement)) {
+      (dismiss || panel).focus({ preventScroll: true });
+    }
+  });
   /* ---------- apply messages to DOM ---------- */
   function setFlagsFor(code) {
     if (!flagA || !flagB) return;

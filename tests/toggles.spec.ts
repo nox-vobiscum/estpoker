@@ -15,7 +15,7 @@ async function ensureMenuOpen(page: import('@playwright/test').Page) {
 async function ensureMenuClosed(page: import('@playwright/test').Page) {
   const overlay = page.locator('#appMenuOverlay');
   if (await overlay.isVisible().catch(() => false)) {
-    await page.locator('#menuButton').click();
+    await page.locator('#menuCloseButton').click();
     await expect(overlay).toBeHidden();
   }
 }

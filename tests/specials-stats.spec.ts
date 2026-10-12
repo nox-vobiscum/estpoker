@@ -23,7 +23,7 @@ async function ensureMenuOpen(page: Page) {
 async function ensureMenuClosed(page: Page) {
   const overlay = page.locator('#appMenuOverlay');
   const aria = await overlay.getAttribute('aria-hidden').catch(() => null);
-  if (aria === 'false') await page.locator('#menuButton').click();
+  if (aria === 'false') await page.locator('#menuCloseButton').click();
   await expect(overlay).toHaveAttribute('aria-hidden', 'true');
 }
 

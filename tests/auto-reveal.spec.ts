@@ -24,7 +24,7 @@ async function ensureMenuClosed(page) {
   const overlay = page.locator('#appMenuOverlay');
   if (await overlay.isVisible().catch(()=>false)) {
     // Prefer the explicit close button to avoid clicking the backdrop in front of the grid
-    await page.locator('#menuButton').click();
+    await page.locator('#menuCloseButton').click();
     await expect(overlay).toBeHidden();
   }
 }

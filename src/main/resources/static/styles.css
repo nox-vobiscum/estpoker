@@ -1303,3 +1303,26 @@ h1,h2,h3{font-weight:var(--ui-heading-weight)}
   .desktop-language{display:none}
   .mobile-language{display:flex}
 }
+/* One modal settings container: desktop drawer and mobile sheet. */
+.menu-overlay{z-index:1200}
+html.menu-scroll-locked, .menu-scroll-locked body{overflow:hidden}
+.menu-overlay .menu-panel{
+  top:0;right:0;bottom:0;width:min(440px,100%);height:100vh;height:100dvh;
+  max-height:none;border-radius:0;overscroll-behavior:contain;
+  padding-top:max(12px,env(safe-area-inset-top));
+  padding-bottom:max(14px,env(safe-area-inset-bottom));
+  animation:settings-enter 160ms ease-out;
+}
+.menu-overlay .menu-header{display:flex;align-items:center;justify-content:space-between;gap:12px}
+#menuCloseButton{flex:none;min-width:44px;min-height:44px}
+@keyframes settings-enter{from{opacity:0;transform:translateX(12px)}to{opacity:1;transform:translateX(0)}}
+@media (max-width:768px){
+  .menu-overlay .menu-panel{
+    top:max(8px,env(safe-area-inset-top));right:8px;bottom:8px;
+    width:calc(100% - 16px);height:auto;
+    border-radius:var(--ui-radius-lg);
+  }
+}
+@media (prefers-reduced-motion:reduce){
+  .menu-overlay .menu-panel{animation:none}
+}

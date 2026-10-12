@@ -95,7 +95,7 @@ export async function ensureMenuOpen(page: Page): Promise<void> {
  * Ensures the app menu is closed. Prefer toggling via the button, attribute-based waiting.
  */
 export async function ensureMenuClosed(page: Page): Promise<void> {
-  const btn = page.locator('#menuButton');
+  const btn = page.locator('#menuCloseButton');
   const overlay = page.locator('#appMenuOverlay');
 
   await overlay.waitFor({ state: 'attached' }).catch(() => {});
