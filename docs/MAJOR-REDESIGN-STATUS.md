@@ -1,17 +1,16 @@
 # Major Redesign Status
 
 - Updated: 2026-10-12.
-- Active branch: feature/major-redesign (origin tracking).
-- Production/source baseline: 66d3caa4299972d46cf60673369170de5b04ad33; pre-major-redesign tag unchanged.
-- Previous story commit: 800cbb7 (MR-003); architecture correction: 5a97229.
-- Current story commit: feat: rebuild responsive settings container (commit containing this file; resolve with git log -1 -- docs/MAJOR-REDESIGN-STATUS.md).
-- Last completed story: MR-004 Rebuild settings container.
-- Current story: None in progress. MR-005 remains TODO, not started.
-- Next step: Wait for explicit MR-005 approval; characterize existing preference defaults before extracting preference ownership. menuOpen stays exclusively in menu.js.
-- Tests: Maven verify 30 passed; npm ci:verify passed. Full browser run 119 passed/3 new animation-timing failures; unchanged exact assertions synchronized to animation completion, six dialog cases passed. Subsequent overlay CSS correction validated by 44 affected tests passing. No runner retries/skips. All 122 distinct cases have passing evidence across runs; no single final full-suite pass claimed.
-- Verification: Diff limited to dialog presentation/lifecycle, close-selector adaptations, new tests and documentation. Backend, room.js, protocol, identity and storage unchanged. Existing event guard and exactly-once tests pass.
-- Working tree: Intended files documented in backlog; final clean state verified after commit/push.
-- Known risks: Preference default mismatch, pre-existing palette pointer issue, deferred topic defect and historical production flakiness. No physical mobile/Safari verification.
-- Local evidence: target/mr004-*.log and target/mr004-final-results (ignored artifacts).
-- Production: No deployment; work remains on feature/major-redesign.
-- STOP. Do not begin MR-005 automatically.
+- Branch: feature/major-redesign.
+- Last completed story: MR-004, f74b834.
+- Current story: MR-005 BLOCKED on the explicit MR-002 preference-default decision gate.
+- Current checkpoint: docs: characterize preference defaults before MR-005 (commit containing this file).
+- Work completed: Eight isolated Chromium baseline cases; findings in MAJOR-REDESIGN-PREFERENCES-BASELINE.md.
+- Finding: Missing/invalid stored theme initializes dark then settles to System; denied storage remains dark and raises two page errors.
+- Next step: Obtain approval for a consistent System fallback from bootstrap, including denied storage, or a precise alternative. Then continue MR-005 extraction and tests.
+- Application changes: None; only three documentation files.
+- Tests: Characterization only this run. Prior MR-004 Maven/guard/regression evidence remains recorded in backlog; no fresh full regression claimed.
+- Working tree: Documentation checkpoint to be committed/pushed; verify clean status afterward.
+- Risks: Defaults unresolved; language race handling and storage failure behavior still require implementation/testing.
+- Invariants: Menu lifecycle stays in menu.js; no game, backend, protocol, identity, storage-key or infrastructure changes.
+- No deployment. MR-006 not started.

@@ -160,19 +160,19 @@ MR-001 through MR-004 results are recorded below; later story results remain pla
 - Acceptance Criteria: Controls and rendered state agree after changes/reload without parallel competing state sources.
 - Tests: Preference reload, blocked storage, state sync and exactly-once events.
 - Dependencies: MR-004
-- Status: TODO
-- Notes / Findings: Not started; findings pending explicit story approval.
-- Resulting Decisions: None yet.
+- Status: BLOCKED
+- Notes / Findings: Eight baseline cases measured; see MAJOR-REDESIGN-PREFERENCES-BASELINE.md. Missing/invalid theme transitions dark to System; denied storage remains dark with two errors.
+- Resulting Decisions: Apply the explicit MR-002 default migration gate; await user choice before extraction. Recommendation: consistent System fallback, including denied storage, with in-memory operation.
 
 #### Result
 
-- Changed files: None.
-- Technical decision: Pending.
+- Changed files: Preference baseline document, backlog and status only.
+- Technical decision: No runtime changes before the default conflict is resolved.
 - Visual result: No changes.
-- Tests: Not run for this story; initialization baseline above.
-- New findings: Pending.
-- Effects on following stories: Pending.
-- Open risks: Pending analysis; known baseline risks above.
+- Tests: Eight isolated Chromium characterization cases completed; observed results documented, not a claim of green error-free baseline.
+- New findings: Confirmed bootstrap/default mismatch and storage-denied initialization errors.
+- Effects on following stories: MR-006 remains dependent on completed MR-005.
+- Open risks: Default decision required; implementation and regression tests still outstanding.
 
 
 ### MR-006 — Redesign language controls
