@@ -2,7 +2,7 @@
 
 ## Epic Goal
 
-Modernize the complete visual UI and presentation architecture of RBS' Planning Poker while preserving every existing functional effect. MR-001 audit completed; no UI implementation has started.
+Modernize the complete visual UI and presentation architecture of RBS' Planning Poker while preserving every existing functional effect. MR-001 audit and MR-002 target architecture completed; no UI implementation has started.
 
 ## Frozen Functional Contracts
 
@@ -44,11 +44,11 @@ No gameplay refactoring. Before every commit inspect changes to GameService, Gam
 Only one story at a time. After explicit approval: read scope, set IN PROGRESS, implement only that scope, run relevant tests, record results/findings/decisions/downstream risks, mark DONE only when acceptance criteria hold, commit separately, update MAJOR-REDESIGN-STATUS.md, then STOP. User approval is required before the next story.
 
 Allowed statuses: TODO, READY, IN PROGRESS, BLOCKED, DONE.
-MR-001 is DONE following explicit approval on 2026-10-12. MR-002 through MR-018 are TODO.
+MR-001 is DONE following explicit approval on 2026-10-12. MR-002 is DONE; MR-003 through MR-018 are TODO.
 Stop and report an unclean baseline. Never manufacture green tests through skips, retries or weaker assertions. Intentional DOM changes may require selector updates while retaining functional assertions.
 After architecture changes additionally verify menu open/close, state synchronization, exactly-once toggles, mobile collapse, focus/Escape/overlay. MR-018 runs the full relevant suite.
 Keep each run bounded to analysis, one story, or its validation. When available usage budget falls below roughly 20%, start no new story; write a handoff and stop. Usage quota is not exposed to this run.
-MR-001 results are recorded below; other story results remain placeholders.
+MR-001 and MR-002 results are recorded below; later story results remain placeholders.
 
 ## User Stories
 
@@ -86,20 +86,19 @@ MR-001 results are recorded below; other story results remain placeholders.
 - Acceptance Criteria: Responsibilities, state ownership, responsive behavior and migration boundaries are documented.
 - Tests: Review architecture against MR-001 and all frozen contracts.
 - Dependencies: MR-001
-- Status: TODO
-- Notes / Findings: Not started; findings pending explicit story approval.
-- Resulting Decisions: None yet.
+- Status: DONE
+- Notes / Findings: See [target architecture](MAJOR-REDESIGN-ARCHITECTURE.md) for component ownership, lifecycle, state API, migration boundaries and per-story validation gates.
+- Resulting Decisions: Shared app-header fragment; single responsive menu; dedicated UI preference module extracted in MR-005; preserve room adapter/event contracts; new shell breakpoint at 768px.
 
 #### Result
 
-- Changed files: None.
-- Technical decision: Pending.
-- Visual result: No changes.
-- Tests: Not run for this story; initialization baseline above.
-- New findings: Pending.
-- Effects on following stories: Pending.
-- Open risks: Pending analysis; known baseline risks above.
-
+- Changed files: docs/MAJOR-REDESIGN-ARCHITECTURE.md, docs/MAJOR-REDESIGN-BACKLOG.md, docs/MAJOR-REDESIGN-STATUS.md.
+- Technical decision: Reuse Thymeleaf/vanilla JS/styles.css; no external library or parallel application. Separate presentation preferences from frozen room logic.
+- Visual result: None; architecture only.
+- Tests: Static review against MR-001 findings and frozen contracts; documentation-only staged diff and whitespace checks. Runtime suite not repeated for unchanged source.
+- New findings: Default precedence needs characterization before preference extraction; one responsive dialog must own focus and resize lifecycle.
+- Effects on following stories: MR-003 builds shell only; MR-004 implements lifecycle; MR-005 characterizes and preserves current preference outcomes before extraction. Remaining stories follow the architecture validation table.
+- Open risks: Preference default conflicts, palette hit-testing, existing inline styles, focus coverage gaps, production flakes and deferred topic defect remain explicit gates.
 
 ### MR-003 — Introduce redesigned app header shell
 
