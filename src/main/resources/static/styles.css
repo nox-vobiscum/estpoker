@@ -557,6 +557,19 @@ html.light .vote-chip.heat, body.light .vote-chip.heat,
   color:#fff;
   box-shadow:none;
 }
+.theme-control{
+  display:inline-flex;align-items:center;padding:var(--hc-pad);gap:var(--hc-gap);
+  border:1px solid var(--border-1,rgba(255,255,255,.12));border-radius:var(--ui-control-radius);
+  background:var(--surface-2,rgba(255,255,255,.08));box-shadow:var(--shadow-1,0 2px 8px rgba(0,0,0,.2));
+}
+.theme-seg{
+  display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;padding:0;
+  border:0;border-radius:var(--ui-small-control-radius);background:transparent;color:inherit;
+  cursor:pointer;font-size:1rem;line-height:1;transition:background 180ms,color 180ms,box-shadow 180ms;
+}
+.theme-icon{width:18px;height:18px;display:block}
+.theme-seg:hover{background:var(--surface-3,rgba(255,255,255,.10))}
+.theme-seg[aria-pressed="true"],.theme-seg.active{background:var(--accent-strong);color:#fff;box-shadow:none}
 
 /* Compact: ≤420px (always show both segments, keep pill look) */
 @media (max-width:420px){
@@ -1297,6 +1310,7 @@ h1,h2,h3{font-weight:var(--ui-heading-weight)}
   .app-header{gap:8px;padding:8px 0}
   .app-brand{font-size:.85rem}
   .desktop-language{display:none}
+  .desktop-theme{display:none}
   .mobile-language{display:flex}
 }
 /* One modal settings container: desktop drawer and mobile sheet. */

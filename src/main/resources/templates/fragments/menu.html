@@ -26,19 +26,19 @@
       <div class="menu-section">
         <div class="section-title" data-i18n="menu.theme">Theme</div>
         <div class="menu-choice">
-          <button id="themeLight"  type="button" class="choice-btn" aria-pressed="false"
+          <button id="themeLight"  type="button" class="choice-btn" data-theme-mode="light" aria-pressed="false"
                   th:attr="title=#{theme.light},aria-label=#{theme.light}"
                   data-i18n-attr="title:theme.light;aria-label:theme.light">
             <span class="mi-icon" aria-hidden="true">☀️</span>
             <span data-i18n="theme.light">Light</span>
           </button>
-          <button id="themeDark"   type="button" class="choice-btn" aria-pressed="false"
+          <button id="themeDark"   type="button" class="choice-btn" data-theme-mode="dark" aria-pressed="false"
                   th:attr="title=#{theme.dark},aria-label=#{theme.dark}"
                   data-i18n-attr="title:theme.dark;aria-label:theme.dark">
             <span class="mi-icon" aria-hidden="true">🌙</span>
             <span data-i18n="theme.dark">Dark</span>
           </button>
-          <button id="themeSystem" type="button" class="choice-btn" aria-pressed="false"
+          <button id="themeSystem" type="button" class="choice-btn" data-theme-mode="system" aria-pressed="false"
                   th:attr="title=#{theme.system},aria-label=#{theme.system}"
                   data-i18n-attr="title:theme.system;aria-label:theme.system">
             <span class="mi-icon" aria-hidden="true">🖥️</span>
@@ -258,7 +258,7 @@
   </script>
 
     <!-- Load JS -->
-  <script defer src="/js/menu.js?v=46"></script>
+  <script defer src="/js/menu.js?v=47"></script>
   <script defer src="/js/specials-bridge.js?v=2"></script>
 
 </th:block>

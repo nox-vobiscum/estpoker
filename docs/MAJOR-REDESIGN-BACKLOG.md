@@ -32,7 +32,7 @@ Then STOP.
 
 ## Epic Goal
 
-Modernize the complete visual UI and presentation architecture of RBS' Planning Poker while preserving every existing functional effect. MR-001 through MR-006 completed, including the shared UI preference owner.
+Modernize the complete visual UI and presentation architecture of RBS' Planning Poker while preserving every existing functional effect. MR-001 through MR-007 completed, including the shared UI preference owner.
 
 ## Frozen Functional Contracts
 
@@ -74,11 +74,11 @@ No gameplay refactoring. Before every commit inspect changes to GameService, Gam
 Only one story at a time. Before every MR-xxx story, re-read README.md, docs/BRIEFING.md, docs/MAJOR-REDESIGN-BACKLOG.md and docs/MAJOR-REDESIGN-STATUS.md; confirm the active branch, the last completed story and the frozen functional contracts. Then report the model recommended for that story. If the currently selected model differs, explicitly propose the model switch and WAIT for user confirmation before doing any implementation work. After explicit approval: set the story IN PROGRESS, implement only that scope through its acceptance criteria, run relevant tests, record results/findings/decisions/downstream risks, mark DONE only when acceptance criteria hold, commit separately, update MAJOR-REDESIGN-STATUS.md, then STOP. User approval is required before the next story.
 
 Allowed statuses: TODO, READY, IN PROGRESS, BLOCKED, DONE.
-MR-001 is DONE following explicit approval on 2026-10-12. MR-002 through MR-006 are DONE; MR-007 through MR-018 are TODO.
+MR-001 is DONE following explicit approval on 2026-10-12. MR-002 through MR-007 are DONE; MR-008 through MR-018 are TODO.
 Stop and report an unclean baseline. Never manufacture green tests through skips, retries or weaker assertions. Intentional DOM changes may require selector updates while retaining functional assertions.
 After architecture changes additionally verify menu open/close, state synchronization, exactly-once toggles, mobile collapse, focus/Escape/overlay. MR-018 runs the full relevant suite.
 Keep each run bounded to analysis, one story, or its validation. When available usage budget falls below roughly 20%, start no new story; write a handoff and stop. Usage quota is not exposed to this run.
-MR-001 through MR-006 results are recorded below; later story results remain placeholders.
+MR-001 through MR-007 results are recorded below; later story results remain placeholders.
 
 ## User Stories
 
@@ -252,21 +252,21 @@ MR-001 through MR-006 results are recorded below; later story results remain pla
 - Acceptance Criteria: All three modes persist and follow existing system-theme behavior.
 - Tests: Light/Dark/System, system changes, reload, keyboard and mobile.
 - Dependencies: MR-005, MR-006
-- Status: TODO
+- Status: DONE
 - Recommended Model: **Sol** — Bounded theme-control presentation using established preference semantics.
 - Story Start Protocol: Before starting this MR, re-read `README.md`, `docs/BRIEFING.md`, `docs/MAJOR-REDESIGN-BACKLOG.md` and `docs/MAJOR-REDESIGN-STATUS.md`. Confirm the active branch, the last completed MR and the frozen functional contracts. Report the recommended model below. If another model is currently selected, propose switching first and WAIT for explicit user confirmation. Only after confirmation may implementation begin; continue this MR through validation, documentation, DONE, its separate commit and status update, then STOP.
-- Notes / Findings: Not started; findings pending explicit story approval.
-- Resulting Decisions: None yet.
+- Notes / Findings: Desktop now exposes a compact Light/Dark/System control; mobile retains the labeled choices inside the settings menu. Both views reflect the same PPUI state.
+- Resulting Decisions: `header-controls.js` is the thin view adapter for language and theme controls. PPUI remains the only theme preference owner; menu.js retains only menu lifecycle and other menu adapters.
 
 #### Result
 
-- Changed files: None.
-- Technical decision: Pending.
-- Visual result: No changes.
-- Tests: Not run for this story; initialization baseline above.
-- New findings: Pending.
-- Effects on following stories: Pending.
-- Open risks: Pending analysis; known baseline risks above.
+- Changed files: app-header.html, menu.html, head.html, header-controls.js, menu.js, styles.css, theme-runtime-menu.spec.ts, backlog/status documentation.
+- Technical decision: Reuse the existing Light/Dark/System values, storage key and PPUI setter/subscription; expose no new preference or state owner.
+- Visual result: Compact icon-only segmented theme control on desktop with accessible labels and clear selected state; labeled Light/Dark/System buttons remain in the mobile menu.
+- Tests: Maven verify BUILD SUCCESS (30 passed); npm run ci:verify passed; 76 relevant Playwright tests passed in 2.2m with retries=0 and no skips. After the final SVG icon refinement, 24 focused theme/header tests passed in 25.5s.
+- New findings: One shared `data-theme-mode` adapter keeps desktop and menu controls synchronized without menu lifecycle coupling.
+- Effects on following stories: MR-008 can reuse the established preference-control pattern for Dev/Clean while preserving theme independence.
+- Open risks: Historical topic startup flakiness and deferred empty-topic defect remain outside this story. No game/backend/transport/storage changes.
 
 
 ### MR-008 — Redesign Dev / Clean control

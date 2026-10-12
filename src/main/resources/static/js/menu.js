@@ -32,9 +32,6 @@
 
   const seqRoot    = $('#menuSeqChoice');
 
-  const themeLight  = $('#themeLight');
-  const themeDark   = $('#themeDark');
-  const themeSystem = $('#themeSystem');
   const uiStyleDev = $('#uiStyleDev');
   const uiStyleClean = $('#uiStyleClean');
   const closeBtn    = $('#closeRoomBtn');
@@ -146,15 +143,6 @@
     }
   });
   /* ---------- Titles / tooltips ---------- */
-  function setThemeTooltips(code) {
-    const titleLight  = t('title.theme.light',  'Theme: Light');
-    const titleDark   = t('title.theme.dark',   'Theme: Dark');
-    const titleSystem = t('title.theme.system', 'Theme: System');
-    const apply = (btn, text) => { if (btn) { btn.setAttribute('title', text); btn.setAttribute('aria-label', text); } };
-    apply(themeLight,  titleLight);
-    apply(themeDark,   titleDark);
-    apply(themeSystem, titleSystem);
-  }
   function setUiStyleTooltips() {
     [[uiStyleDev, 'title.uiStyle.dev'], [uiStyleClean, 'title.uiStyle.clean']].forEach(([btn, key]) => {
       if (!btn) return;
@@ -209,8 +197,6 @@
 
   /* ---------- Preference views: no local preference state or storage writes ---------- */
   function reflectPreferences(state) {
-    [[themeLight, 'light'], [themeDark, 'dark'], [themeSystem, 'system']]
-      .forEach(([button, mode]) => button?.setAttribute('aria-pressed', String(state.themeMode === mode)));
     uiStyleDev?.setAttribute('aria-pressed', String(state.uiStyle === 'dev'));
     uiStyleClean?.setAttribute('aria-pressed', String(state.uiStyle === 'clean'));
     if (langLabel) langLabel.textContent = state.language === 'de' ? 'Deutsch' : 'English';
@@ -218,7 +204,6 @@
       flagA.src = state.language === 'de' ? '/flags/de.svg' : '/flags/us.svg';
       flagB.src = state.language === 'de' ? '/flags/at.svg' : '/flags/gb.svg';
     }
-    setThemeTooltips(state.language);
     setUiStyleTooltips();
     setFunctionalTooltips(state.language);
     setCloseBtnLabel();
@@ -226,9 +211,6 @@
   }
   window.PPUI.subscribe(reflectPreferences);
   rowLang?.addEventListener('click', () => window.PPUI.setLanguage(isDe() ? 'en' : 'de', 'menu'));
-  themeLight?.addEventListener('click', () => window.PPUI.setTheme('light'));
-  themeDark?.addEventListener('click', () => window.PPUI.setTheme('dark'));
-  themeSystem?.addEventListener('click', () => window.PPUI.setTheme('system'));
   uiStyleDev?.addEventListener('click', () => window.PPUI.setUiStyle('dev'));
   uiStyleClean?.addEventListener('click', () => window.PPUI.setUiStyle('clean'));
   /* ---------- Switch rows ---------- */
