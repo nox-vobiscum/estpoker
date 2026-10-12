@@ -232,12 +232,13 @@ strong{color:var(--text-strong)}
 .preference-control-two{--preference-columns:2}
 .preference-control-three{--preference-columns:3}
 .menu-panel :is(.preference-control,.preference-language){
-  display:grid;grid-template-columns:repeat(var(--preference-columns),minmax(0,1fr));
-  width:100%;gap:4px;padding:4px;border:1px solid var(--border);border-radius:var(--ui-control-radius);
-  background:var(--panel-2);box-shadow:none;
+  display:inline-flex;align-items:center;align-self:flex-start;width:auto;
+  gap:var(--hc-gap);padding:var(--hc-pad);border:1px solid var(--border-1,rgba(255,255,255,.12));
+  border-radius:var(--ui-control-radius);background:var(--surface-2,rgba(255,255,255,.08));
+  box-shadow:var(--shadow-1,0 2px 8px rgba(0,0,0,.2));
 }
 :root .menu-panel :is(.menu-choice.preference-control .choice-btn,.hc-group.preference-language .seg){
-  width:100%;min-width:0;height:40px;padding:0 8px;border:0;border-radius:var(--ui-small-control-radius);
+  width:auto;min-width:44px;height:40px;padding:0 12px;border:0;border-radius:var(--ui-small-control-radius);
   background:transparent;color:color-mix(in srgb,var(--text) 50%,transparent);box-shadow:none;
 }
 :root .menu-panel :is(.menu-choice.preference-control .choice-btn,.hc-group.preference-language .seg):hover{
@@ -245,7 +246,7 @@ strong{color:var(--text-strong)}
 }
 :root .menu-panel :is(.preference-control .choice-btn,.preference-language .seg)[aria-pressed="true"],
 :root .menu-panel :is(.preference-control .choice-btn,.preference-language .seg).active{
-  background:transparent;border-color:transparent;color:var(--text);box-shadow:inset 0 -2px 0 currentColor;font-weight:600;
+  background:transparent;border-color:transparent;color:var(--text);box-shadow:none;font-weight:600;
 }
 .preference-control .mi-icon{display:inline-flex;align-items:center;justify-content:center;min-width:24px}
 

@@ -13,3 +13,4 @@
 - Evidence: target/mr008-* and target/preference-harmony-* logs/results (ignored artifacts). Focused harmony validation: four functional tests plus one Chromium/Firefox mobile geometry test, all passed without retries.
 - Local preview: http://localhost:8080 runs the MR-008 build for user testing.
 - Production: No deployment. STOP; MR-009 not started.
+- Pending validation: The three menu preference controls were aligned to the compact desktop treatment in a user-approved, test-deferred correction. Run focused language/theme/ui-style browser tests and responsive visual checks in the next usage window.
