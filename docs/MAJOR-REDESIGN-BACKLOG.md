@@ -282,14 +282,14 @@ MR-001 through MR-008 results are recorded below; later story results remain pla
 - Status: DONE
 - Recommended Model: **Sol** — Bounded Dev/Clean selector presentation using established preference semantics.
 - Story Start Protocol: Before starting this MR, re-read `README.md`, `docs/BRIEFING.md`, `docs/MAJOR-REDESIGN-BACKLOG.md` and `docs/MAJOR-REDESIGN-STATUS.md`. Confirm the active branch, the last completed MR and the frozen functional contracts. Report the recommended model below. If another model is currently selected, propose switching first and WAIT for explicit user confirmation. Only after confirmation may implementation begin; continue this MR through validation, documentation, DONE, its separate commit and status update, then STOP.
-- Notes / Findings: Dev/Clean now uses one equal-width segmented control in the existing settings container. Selection remains synchronized through PPUI and keeps the established icons and labels.
+- Notes / Findings: Language, Theme and Dev/Clean now share one segmented-control treatment in the settings container. Selection remains synchronized through PPUI and keeps the established icons and labels.
 - Resulting Decisions: Extend the thin header-controls preference adapter to all presentation selectors. PPUI remains the sole uiStyle owner; menu.js keeps no preference state.
 
 #### Result
 
 - Changed files: menu.html, app-header.html, head.html, header-controls.js, menu.js, styles.css, ui-style.spec.ts, backlog/status documentation.
 - Technical decision: Reuse `pp-ui-style`, the existing Dev/Clean values and PPUI setter/subscription. The selector is a view only and introduces no state or persistence changes.
-- Visual result: Contemporary two-segment control with equal widths, retained Dev/feather icons, normal text for the active option and muted text for the inactive option.
+- Visual result: Language, Theme and Dev/Clean share the same container, height, spacing and selected-state treatment; only segment count and content differ.
 - Tests: Maven verify BUILD SUCCESS (30 passed); npm run ci:verify passed; 55 relevant Playwright tests passed in 2.8m with retries=0 and no skips. Includes keyboard, persistence, blocked storage, theme independence, Desktop/Mobile and Chromium/Firefox geometry.
 - New findings: The existing clean-mode choice styling required a scoped selector so the segmented selected state stays consistent across both UI styles.
 - Effects on following stories: MR-009 can update functional toggles without touching presentation preference ownership.

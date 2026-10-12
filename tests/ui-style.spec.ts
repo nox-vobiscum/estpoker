@@ -46,7 +46,14 @@ test('keyboard style switching preserves theme, language and navigation state', 
   await page.locator('#menuButton').click();
   await page.locator('#themeLight').click();
   await page.locator('#uiStyleClean').focus();
-  await expect(page.locator('.ui-style-control')).toHaveCSS('grid-template-columns', /.+ .+/);
+  const preferenceControls = page.locator('#menuLang, #menuTheme, #menuUiStyle');
+  await expect(preferenceControls).toHaveCount(3);
+  for (const control of await preferenceControls.all()) {
+    await expect(control).toHaveCSS('display', 'grid');
+  }
+  for (const segment of await page.locator('#menuLangDE, #themeLight, #uiStyleDev').all()) {
+    await expect(segment).toHaveCSS('height', '40px');
+  }
   await page.keyboard.press('Enter');
   await expect(page.locator('html')).toHaveAttribute('data-ui-style', 'clean');
   await expect(page.locator('#uiStyleDev')).toHaveAttribute('aria-pressed', 'false');

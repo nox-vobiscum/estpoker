@@ -229,19 +229,25 @@ strong{color:var(--text-strong)}
 .choice-btn .mi-icon{font-size:18px;line-height:1}
 .choice-btn:hover{background:var(--panel-2-hover);border-color:var(--accent);box-shadow:0 0 0 2px rgba(0,122,204,.12)}
 .choice-btn.active,.choice-btn[aria-pressed="true"]{border-color:var(--accent);box-shadow:0 0 0 2px rgba(0,122,204,.20)}
-.ui-style-control{
-  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px;padding:4px;
-  border:1px solid var(--border);border-radius:var(--ui-control-radius);background:var(--panel-2);
+.preference-control-two{--preference-columns:2}
+.preference-control-three{--preference-columns:3}
+.menu-panel :is(.preference-control,.preference-language){
+  display:grid;grid-template-columns:repeat(var(--preference-columns),minmax(0,1fr));
+  width:100%;gap:4px;padding:4px;border:1px solid var(--border);border-radius:var(--ui-control-radius);
+  background:var(--panel-2);box-shadow:none;
 }
-.ui-style-control .choice-btn{
-  width:100%;height:40px;border:0;background:transparent;box-shadow:none;
-  color:color-mix(in srgb,var(--text) 50%,transparent);
+:root .menu-panel :is(.menu-choice.preference-control .choice-btn,.hc-group.preference-language .seg){
+  width:100%;min-width:0;height:40px;padding:0 8px;border:0;border-radius:var(--ui-small-control-radius);
+  background:transparent;color:color-mix(in srgb,var(--text) 50%,transparent);box-shadow:none;
 }
-.ui-style-control .choice-btn:hover{background:var(--panel-2-hover);border-color:transparent;box-shadow:none}
-:root .menu-choice.ui-style-control .choice-btn[aria-pressed="true"],:root .menu-choice.ui-style-control .choice-btn.active{
+:root .menu-panel :is(.menu-choice.preference-control .choice-btn,.hc-group.preference-language .seg):hover{
+  background:var(--panel-2-hover);border-color:transparent;box-shadow:none;
+}
+:root .menu-panel :is(.preference-control .choice-btn,.preference-language .seg)[aria-pressed="true"],
+:root .menu-panel :is(.preference-control .choice-btn,.preference-language .seg).active{
   background:transparent;border-color:transparent;color:var(--text);box-shadow:inset 0 -2px 0 currentColor;font-weight:600;
 }
-.ui-style-control .mi-icon{display:inline-flex;align-items:center;justify-content:center;min-width:24px}
+.preference-control .mi-icon{display:inline-flex;align-items:center;justify-content:center;min-width:24px}
 
 /* Sequence radios */
 .menu-choice.vertical{flex-direction:column;gap:6px}

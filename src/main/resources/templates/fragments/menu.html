@@ -25,7 +25,8 @@
       <!-- Theme -->
       <div class="menu-section">
         <div class="section-title" data-i18n="menu.theme">Theme</div>
-        <div class="menu-choice">
+        <div id="menuTheme" class="menu-choice preference-control preference-control-three" role="group"
+             th:attr="aria-label=#{menu.theme}" aria-label="Theme">
           <button id="themeLight"  type="button" class="choice-btn" data-theme-mode="light" aria-pressed="false"
                   th:attr="title=#{theme.light},aria-label=#{theme.light}"
                   data-i18n-attr="title:theme.light;aria-label:theme.light">
@@ -50,7 +51,8 @@
       <!-- Interface style is independent of the color theme. -->
       <div class="menu-section">
         <div class="section-title" th:text="#{menu.uiStyle}" data-i18n="menu.uiStyle">Interface style</div>
-        <div class="menu-choice ui-style-control" role="group" th:attr="aria-label=#{menu.uiStyle}" aria-label="Interface style">
+        <div id="menuUiStyle" class="menu-choice preference-control preference-control-two" role="group"
+             th:attr="aria-label=#{menu.uiStyle}" aria-label="Interface style">
           <button id="uiStyleDev" type="button" class="choice-btn" data-ui-style-mode="dev" aria-pressed="true"
                   th:attr="title=#{title.uiStyle.dev},aria-label=#{title.uiStyle.dev}"
                   data-i18n-attr="title:title.uiStyle.dev;aria-label:title.uiStyle.dev">
