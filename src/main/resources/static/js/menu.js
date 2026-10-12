@@ -32,8 +32,6 @@
 
   const seqRoot    = $('#menuSeqChoice');
 
-  const uiStyleDev = $('#uiStyleDev');
-  const uiStyleClean = $('#uiStyleClean');
   const closeBtn    = $('#closeRoomBtn');
 
   const getLang = () => window.PPUI.snapshot().language;
@@ -143,14 +141,6 @@
     }
   });
   /* ---------- Titles / tooltips ---------- */
-  function setUiStyleTooltips() {
-    [[uiStyleDev, 'title.uiStyle.dev'], [uiStyleClean, 'title.uiStyle.clean']].forEach(([btn, key]) => {
-      if (!btn) return;
-      const title = t(key, btn.getAttribute('title'));
-      btn.setAttribute('title', title);
-      btn.setAttribute('aria-label', title);
-    });
-  }
   function setFunctionalTooltips(code) {
     const T = {
       auto    : t('hint.autoreveal',   'Automatically reveal once everyone voted'),
@@ -197,22 +187,17 @@
 
   /* ---------- Preference views: no local preference state or storage writes ---------- */
   function reflectPreferences(state) {
-    uiStyleDev?.setAttribute('aria-pressed', String(state.uiStyle === 'dev'));
-    uiStyleClean?.setAttribute('aria-pressed', String(state.uiStyle === 'clean'));
     if (langLabel) langLabel.textContent = state.language === 'de' ? 'Deutsch' : 'English';
     if (flagA && flagB) {
       flagA.src = state.language === 'de' ? '/flags/de.svg' : '/flags/us.svg';
       flagB.src = state.language === 'de' ? '/flags/at.svg' : '/flags/gb.svg';
     }
-    setUiStyleTooltips();
     setFunctionalTooltips(state.language);
     setCloseBtnLabel();
     setMenuButtonState(isMenuOpen());
   }
   window.PPUI.subscribe(reflectPreferences);
   rowLang?.addEventListener('click', () => window.PPUI.setLanguage(isDe() ? 'en' : 'de', 'menu'));
-  uiStyleDev?.addEventListener('click', () => window.PPUI.setUiStyle('dev'));
-  uiStyleClean?.addEventListener('click', () => window.PPUI.setUiStyle('clean'));
   /* ---------- Switch rows ---------- */
   function reflectAriaChecked(inputEl, rowEl) {
     if (!inputEl) return;

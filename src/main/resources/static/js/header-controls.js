@@ -18,10 +18,18 @@
       button.setAttribute('aria-pressed', String(selected));
     });
   }
+  function reflectStyleUI(style) {
+    document.querySelectorAll('[data-ui-style-mode]').forEach((button) => {
+      const selected = button.dataset.uiStyleMode === style;
+      button.classList.toggle('active', selected);
+      button.setAttribute('aria-pressed', String(selected));
+    });
+  }
   function init() {
     window.PPUI.subscribe(state => {
       reflectLangUI(state.language);
       reflectThemeUI(state.themeMode);
+      reflectStyleUI(state.uiStyle);
     });
     document.querySelectorAll('[data-header-language]').forEach(button => {
       button.addEventListener('click', event => {
@@ -35,6 +43,13 @@
         event.preventDefault();
         event.stopPropagation();
         window.PPUI.setTheme(button.dataset.themeMode);
+      });
+    });
+    document.querySelectorAll('[data-ui-style-mode]').forEach(button => {
+      button.addEventListener('click', event => {
+        event.preventDefault();
+        event.stopPropagation();
+        window.PPUI.setUiStyle(button.dataset.uiStyleMode);
       });
     });
   }
