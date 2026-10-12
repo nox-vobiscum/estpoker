@@ -1,5 +1,24 @@
 # Backlog
 
+## [P2] Impressum nach Abschluss des Major Redesigns anlegen
+
+**Status:** Geplant.
+**Reported:** 2026-10-12.
+**Abhängigkeit:** Abschluss des Major-Redesign-Epics (MR-018).
+
+**Ziel / Scope**
+- Eine öffentliche Impressumsseite für Planning Poker anlegen.
+- Benötigte Betreiber- und Kontaktangaben vor Umsetzung mit dem Betreiber klären.
+- Aus dem gemeinsamen Footer verlinken; vorhandene Templates und Internationalisierung berücksichtigen.
+
+**Acceptance**
+- Impressum mit bestätigten Angaben veröffentlicht und von allen Seiten erreichbar.
+- Darstellung auf Desktop und Mobile geprüft.
+
+**Zeitpunkt:** Erst nach Abschluss des Redesigns umsetzen; aktuell nur vorgemerkt.
+
+---
+
 ## [P2] Bug: Topic-Eingabefeld nach Entfernen des Textes nicht schließbar ⏳
 
 **Reported:** 2026-10-11; vom Nutzer gemeldet, noch nicht technisch reproduziert.
