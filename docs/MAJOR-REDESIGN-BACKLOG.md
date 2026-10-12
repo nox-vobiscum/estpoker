@@ -241,6 +241,14 @@ MR-001 through MR-008 results are recorded below; later story results remain pla
 - Effects on following stories: MR-007 may use the same PPUI subscription pattern for compact desktop theme controls.
 - Open risks: Historical topic startup flakiness and deferred empty-topic defect remain outside this story. No game/backend/transport/storage changes.
 
+#### Required MR-008 follow-up before MR-009
+
+- Status: PENDING VALIDATION. Complete this checkpoint before starting MR-009.
+- Visual contract: Language, Theme and Dev/Clean controls inside the hamburger menu must match the corresponding compact controls shown beside the hamburger on desktop. Apply the same minimalist container, button geometry, spacing and state treatment consistently.
+- Selected state: Keep the normal foreground color of the active theme; inactive choices are approximately half-muted. Do not add an active fill, accent-colored button, underline or other menu-only selection treatment.
+- Scope: Correct remaining menu-only visual differences if the comparison finds any. Do not change PPUI state, preference values, persistence, menu lifecycle or game behavior.
+- Deferred validation: Run focused language/theme/ui-style interaction tests plus responsive visual comparisons in Dev/Clean and Light/Dark/System. Confirm desktop header and hamburger-menu parity before marking this checkpoint complete.
+
 
 ### MR-007 — Redesign theme controls
 
@@ -305,7 +313,7 @@ MR-001 through MR-008 results are recorded below; later story results remain pla
 - Out of Scope: Events, payloads, permissions and host-only rules. All frozen functional contracts apply.
 - Acceptance Criteria: All toggles preserve their exact functional effect and permission visibility; no duplicate dispatch.
 - Tests: Menu guard, exactly-once toggles, host/guest permissions and affected room-flow tests.
-- Dependencies: MR-004, MR-005, MR-008
+- Dependencies: MR-004, MR-005, MR-008 including its required visual-parity follow-up
 - Status: TODO
 - Recommended Model: **Astra** — Exactly-once game-event dispatch, permissions and fragile toggle couplings are high-risk.
 - Story Start Protocol: Before starting this MR, re-read `README.md`, `docs/BRIEFING.md`, `docs/MAJOR-REDESIGN-BACKLOG.md` and `docs/MAJOR-REDESIGN-STATUS.md`. Confirm the active branch, the last completed MR and the frozen functional contracts. Report the recommended model below. If another model is currently selected, propose switching first and WAIT for explicit user confirmation. Only after confirmation may implementation begin; continue this MR through validation, documentation, DONE, its separate commit and status update, then STOP.
