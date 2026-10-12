@@ -2,14 +2,14 @@
 
 - Updated: 2026-10-12.
 - Branch: feature/major-redesign.
-- Last completed story: MR-005 Centralize UI preference state.
-- Previous commit: 865bd9b (baseline/decision checkpoint); application baseline f74b834.
-- Current commit: refactor: centralize UI preferences (commit containing this file; resolve with git log -1 -- docs/MAJOR-REDESIGN-STATUS.md).
-- Current story: None in progress. MR-006 remains TODO; await explicit approval.
-- Decision: User approved System fallback from first bootstrap, including denied storage. Valid stored values preserved; style defaults Dev; saved language precedes rendered locale.
-- Implementation: ui-preferences.js is the only preference writer; header/menu subscribe and delegate. menuOpen and complete lifecycle remain in menu.js; no game/backend/identity/storage schema changes.
-- Tests: Maven verify 30 passed; npm ci:verify passed. Full browser run 129 passed/2 failed; collision precondition corrected from server evidence, isolated collision/topic/preferences run 12 passed without retries/skips. All nine preference tests passed. Do not describe the full run as all green.
-- Remaining risk: Topic guest-start timeout had no definitive diagnosis and did not reproduce in focused run. Historical flakiness and deferred empty-topic editor defect remain.
-- Working tree: Story changes limited to preference extraction, relevant tests and docs; verify clean after commit/push.
-- Evidence: target/mr005-*.log, mr005-results, mr005-focused-results; baseline and result documented in tracked docs.
-- Production: No deployment. STOP; no MR-006 implementation started.
+- Last completed story: MR-006 Redesign language controls.
+- Previous commits: 5ebb9c9 (MR-005 preferences), 6e7d34b (post-redesign imprint backlog).
+- Current commit: style: replace language flags with DE EN controls (resolve with git log -1 -- docs/MAJOR-REDESIGN-STATUS.md).
+- Current story: None in progress. MR-007 remains TODO; await explicit approval under the story start gate.
+- Implementation: Shared DE/EN text controls in desktop header and mobile menu. Header remains a thin PPUI adapter; menu.js exclusively owns dialog state/lifecycle. No game/backend/transport/storage changes.
+- Tests: Maven verify 30 passed; npm run ci:verify passed; 53 selected Playwright tests passed in 2.0m with retries=0 and no skips. Desktop/mobile keyboard, language reload/synchronization, preferences, header/dialog, Chromium/Firefox geometry and core room flow covered. This is not a full-suite rerun.
+- Remaining risk: Historical topic guest-start timeout and deferred empty-topic editor defect remain outside this story.
+- Working tree: MR-006 changes committed separately; independently added story-start gate is preserved locally and excluded from the story commit.
+- Evidence: target/mr006-maven-final.log, target/mr006-browser.log, target/mr006-results (ignored artifacts).
+- Local preview: http://localhost:8080 runs the MR-006 build for user testing.
+- Production: No deployment. STOP; MR-007 not started.

@@ -6,30 +6,24 @@
     <div th:fragment="languageControls(prefix)" class="hc-group" th:id="${prefix}" role="group" aria-label="Language">
       <button
         class="seg"
-        th:id="${prefix + 'EN'}" data-header-language="en"
-        type="button"
-        aria-pressed="false"
-        title="Language: English"
-        aria-label="Language: English"
-      >
-        <span class="flag-pair">
-          <img class="flag flag-a" alt="" loading="lazy">
-          <img class="flag flag-b" alt="" loading="lazy">
-        </span>
-      </button>
-
-      <button
-        class="seg"
         th:id="${prefix + 'DE'}" data-header-language="de"
         type="button"
         aria-pressed="false"
         title="Language: German"
         aria-label="Language: German"
       >
-        <span class="flag-pair">
-          <img class="flag flag-a" alt="" loading="lazy">
-          <img class="flag flag-b" alt="" loading="lazy">
-        </span>
+        <span lang="de">DE</span>
+      </button>
+
+      <button
+        class="seg"
+        th:id="${prefix + 'EN'}" data-header-language="en"
+        type="button"
+        aria-pressed="false"
+        title="Language: English"
+        aria-label="Language: English"
+      >
+        <span lang="en">EN</span>
       </button>
     </div>
 

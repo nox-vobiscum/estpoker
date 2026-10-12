@@ -13,6 +13,9 @@ test.describe('Header language control', () => {
     const btnEN = page.locator('#hcLangEN');
     const btnDE = page.locator('#hcLangDE');
 
+    await expect(btnDE).toHaveText('DE');
+    await expect(btnEN).toHaveText('EN');
+    await expect(page.locator('[data-header-language] img')).toHaveCount(0);
     // Sanity: both buttons present and visible in non-compact mode
     await expect(btnEN).toBeVisible();
     await expect(btnDE).toBeVisible();
@@ -54,4 +57,31 @@ test.describe('Header language control', () => {
     await flipTo('de');
     await flipTo('en');
   });
+});
+
+test('mobile DE/EN controls support keyboard, reload and desktop synchronization', async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 800 });
+  await page.goto('/');
+  await page.evaluate(() => (window as any).PPUI.ready);
+  await expect(page.locator('.app-header button:visible')).toHaveCount(1);
+  await page.locator('#menuButton').click();
+  await expect(page.locator('#menuLang [data-header-language]')).toHaveText(['DE', 'EN']);
+  await page.locator('#menuLangDE').focus();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('html')).toHaveAttribute('lang', 'de');
+  await expect(page.locator('#menuLangDE')).toHaveAttribute('aria-pressed', 'true');
+  await page.keyboard.press('Escape');
+  await page.reload();
+  await page.evaluate(() => (window as any).PPUI.ready);
+  await page.locator('#menuButton').click();
+  await expect(page.locator('#menuLangDE')).toHaveAttribute('aria-pressed', 'true');
+  await page.locator('#menuLangEN').focus();
+  await page.keyboard.press('Space');
+  await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+  await expect(page.locator('#menuLangEN')).toHaveAttribute('aria-pressed', 'true');
+  await page.keyboard.press('Escape');
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await expect(page.locator('#hcLangEN')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('#hcLang [data-header-language]')).toHaveText(['DE', 'EN']);
+  expect(await page.evaluate(() => localStorage.getItem('lang'))).toBe('en');
 });

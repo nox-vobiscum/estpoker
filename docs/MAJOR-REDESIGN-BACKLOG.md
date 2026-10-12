@@ -2,7 +2,7 @@
 
 ## Epic Goal
 
-Modernize the complete visual UI and presentation architecture of RBS' Planning Poker while preserving every existing functional effect. MR-001 through MR-005 completed, including the shared UI preference owner.
+Modernize the complete visual UI and presentation architecture of RBS' Planning Poker while preserving every existing functional effect. MR-001 through MR-006 completed, including the shared UI preference owner.
 
 ## Frozen Functional Contracts
 
@@ -44,11 +44,11 @@ No gameplay refactoring. Before every commit inspect changes to GameService, Gam
 Only one story at a time. After explicit approval: read scope, set IN PROGRESS, implement only that scope, run relevant tests, record results/findings/decisions/downstream risks, mark DONE only when acceptance criteria hold, commit separately, update MAJOR-REDESIGN-STATUS.md, then STOP. User approval is required before the next story.
 
 Allowed statuses: TODO, READY, IN PROGRESS, BLOCKED, DONE.
-MR-001 is DONE following explicit approval on 2026-10-12. MR-002 through MR-005 are DONE; MR-006 through MR-018 are TODO.
+MR-001 is DONE following explicit approval on 2026-10-12. MR-002 through MR-006 are DONE; MR-007 through MR-018 are TODO.
 Stop and report an unclean baseline. Never manufacture green tests through skips, retries or weaker assertions. Intentional DOM changes may require selector updates while retaining functional assertions.
 After architecture changes additionally verify menu open/close, state synchronization, exactly-once toggles, mobile collapse, focus/Escape/overlay. MR-018 runs the full relevant suite.
 Keep each run bounded to analysis, one story, or its validation. When available usage budget falls below roughly 20%, start no new story; write a handoff and stop. Usage quota is not exposed to this run.
-MR-001 through MR-005 results are recorded below; later story results remain placeholders.
+MR-001 through MR-006 results are recorded below; later story results remain placeholders.
 
 ## User Stories
 
@@ -185,9 +185,9 @@ MR-001 through MR-005 results are recorded below; later story results remain pla
 - Acceptance Criteria: Both layouts switch language with the same existing effect and synchronized state.
 - Tests: DE/EN switching, reload, responsive controls and keyboard.
 - Dependencies: MR-005
-- Status: TODO
-- Notes / Findings: Not started; findings pending explicit story approval.
-- Resulting Decisions: None yet.
+- Status: DONE
+- Notes / Findings: Shared DE/EN text controls replace flags in desktop utilities and the mobile menu.
+- Resulting Decisions: Keep header-controls.js a thin PPUI adapter; preserve existing language persistence, events and dialog ownership.
 
 #### Result
 
@@ -199,6 +199,12 @@ MR-001 through MR-005 results are recorded below; later story results remain pla
 - Effects on following stories: Pending.
 - Open risks: Pending analysis; known baseline risks above.
 
+- Changed files: header-controls.html, header-controls.js, styles.css; app-header.html/head.html asset versions; lang-runtime-header.spec.ts; backlog/status documentation.
+- Tests: Maven verify BUILD SUCCESS (30 passed); npm run ci:verify passed; 53 relevant Playwright tests passed in 2.0m with retries=0 and no skips. Includes desktop/mobile language, keyboard, reload, preference synchronization, header/dialog, Chromium/Firefox geometry and core room flow.
+- Visual result: DE then EN, with existing active-state semantics. Desktop screenshot inspected; responsive layout and mobile keyboard behavior verified by tests.
+- Effects on following stories: MR-007 remains pending approval; use existing PPUI theme preferences without taking ownership of menu lifecycle.
+- Open risks: Historical topic startup flakiness and deferred empty-topic defect remain outside this story. No game/backend/transport/storage changes.
+- Local evidence: target/mr006-maven-final.log, target/mr006-browser.log and target/mr006-results (ignored artifacts). Local preview on port 8080 restarted with this build.
 
 ### MR-007 — Redesign theme controls
 
