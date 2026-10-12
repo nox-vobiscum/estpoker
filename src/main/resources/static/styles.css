@@ -553,9 +553,9 @@ html.light .vote-chip.heat, body.light .vote-chip.heat,
 }
 .hc-group .seg:hover{background:var(--surface-3, rgba(255,255,255,0.10))}
 .hc-group .seg[aria-pressed="true"], .hc-group .seg.active{
-  background:var(--surface-3, rgba(255,255,255,0.12));
-  box-shadow:inset 0 0 0 var(--hc-active-ring) var(--hc-active-ring-color), inset 0 0 0 9999px rgba(255,255,255,0.04);
-  border-color:rgba(255,255,255,0.35);
+  background:var(--accent-strong);
+  color:#fff;
+  box-shadow:none;
 }
 
 /* Compact: ≤420px (always show both segments, keep pill look) */
