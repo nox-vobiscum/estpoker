@@ -142,7 +142,8 @@ strong{color:var(--text-strong)}
 .app-title .logo{border-radius:6px;vertical-align:middle;object-fit:contain}
 .page-landing .app-title{justify-content:center;text-align:center}
 .landing-explainer{line-height:1.6}
-.landing-explainer h3{font-size:.95rem;color:var(--text-strong);margin:1rem 0 .5rem}
+.landing-explainer h1{font-size:.98rem;margin:1.2rem 0 .8rem}
+.landing-explainer h2{font-size:.95rem;color:var(--text-strong);margin:1rem 0 .5rem}
 @media (max-width:560px){.app-title{justify-content:center;text-align:center}}
 
 /* Header info */
@@ -1323,8 +1324,8 @@ h1,h2,h3{font-weight:var(--ui-heading-weight)}
 :root[data-ui-style="clean"] .kb-body li{font-size:inherit}
 :root[data-ui-style="clean"] .kb:hover{border-color:var(--accent)}
 :root[data-ui-style="clean"] .landing-explainer{line-height:1.75}
-:root[data-ui-style="clean"] .landing-explainer h2{margin-top:.25rem;margin-bottom:1rem}
-:root[data-ui-style="clean"] .landing-explainer h3{font-size:1.05rem;margin:1.2rem 0 .6rem}
+:root[data-ui-style="clean"] .landing-explainer h1{font-size:1.1rem;line-height:1.45;margin-top:.25rem;margin-bottom:1rem}
+:root[data-ui-style="clean"] .landing-explainer h2{font-size:1.05rem;margin:1.2rem 0 .6rem}
 
 /* Shared header shell; final preference controls are separate redesign stories. */
 .app-header{

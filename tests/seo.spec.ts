@@ -40,6 +40,8 @@ for (const lang of ['en', 'de']) {
           operatingSystem: 'Web', offers: { price: '0', priceCurrency: 'EUR' } });
         expect(data.aggregateRating).toBeUndefined();
         await expect(page.locator('#joinForm')).toBeVisible();
+        await expect(page.locator('main > .app-title, .container > .app-title')).toHaveCount(0);
+        await expect(page.locator('#planning-poker-heading')).toHaveJSProperty('tagName', 'H1');
         const content = page.locator('.landing-explainer');
         const words = (await content.innerText()).trim().split(/\s+/).length;
         expect(words).toBeGreaterThanOrEqual(250);
@@ -114,7 +116,14 @@ test('product branding is consistent in both languages and manifest', async ({ p
       if (path === '/about') {
         await expect(page.locator('[data-i18n="about.intro"]')).toContainText("RBS' Planning Poker");
       } else {
-        await expect(page.locator('h1')).toHaveText('Planning Poker');
+        if (path === '/') {
+          await page.locator(lang === 'en' ? '#hcLangEN' : '#hcLangDE').click();
+          await expect(page.locator('h1')).toHaveText(lang === 'en'
+            ? 'Free Online Planning Poker for Agile Teams'
+            : 'Kostenloses Online Planning Poker für agile Teams');
+        } else {
+          await expect(page.locator('h1')).toHaveText('Planning Poker');
+        }
       }
     }
   }
