@@ -1354,6 +1354,15 @@ h1,h2,h3{font-weight:var(--ui-heading-weight)}
   .desktop-language{display:none}
   .desktop-theme{display:none}
   .mobile-language{display:flex}
+  .page-room .room-with-actions{display:flex;width:100%;min-width:0}
+  .page-room #roomCodeVal{min-width:0;overflow:hidden;text-overflow:ellipsis}
+  .page-room .room-with-actions .icon-button{flex:none;margin-left:0}
+  .page-room .room-with-actions .icon-button,
+  .page-room .topic-actions .icon-button{min-width:40px;min-height:40px}
+  .page-room #rowSpecials .specials-icons .spc{width:40px;height:40px}
+  .page-room #liveParticipantList .participant-row .row-actions .row-action{
+    min-width:40px;min-height:40px;display:inline-flex;align-items:center;justify-content:center;
+  }
 }
 /* One modal settings container: desktop drawer and mobile sheet. */
 .menu-overlay{z-index:1200}

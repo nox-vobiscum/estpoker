@@ -32,7 +32,7 @@ Then STOP.
 
 ## Epic Goal
 
-Modernize the complete visual UI and presentation architecture of RBS' Planning Poker while preserving every existing functional effect. MR-001 through MR-010 and MR-012 through MR-014 completed; MR-011 awaits header visuals.
+Modernize the complete visual UI and presentation architecture of RBS' Planning Poker while preserving every existing functional effect. MR-001 through MR-010 and MR-012 through MR-015 completed; MR-011 awaits header visuals.
 
 ## Frozen Functional Contracts
 
@@ -74,7 +74,7 @@ No gameplay refactoring. Before every commit inspect changes to GameService, Gam
 Only one story at a time. Before every MR-xxx story, re-read README.md, docs/BRIEFING.md, docs/MAJOR-REDESIGN-BACKLOG.md and docs/MAJOR-REDESIGN-STATUS.md; confirm the active branch, the last completed story and the frozen functional contracts. Then report the model recommended for that story. If the currently selected model differs, explicitly propose the model switch and WAIT for user confirmation before doing any implementation work. After explicit approval: set the story IN PROGRESS, implement only that scope through its acceptance criteria, run relevant tests, record results/findings/decisions/downstream risks, mark DONE only when acceptance criteria hold, commit separately, update MAJOR-REDESIGN-STATUS.md, then STOP. User approval is required before the next story.
 
 Allowed statuses: TODO, READY, IN PROGRESS, BLOCKED, DONE.
-MR-001 is DONE following explicit approval on 2026-10-12. MR-002 through MR-010 and MR-012 through MR-014 are DONE; MR-011 is deferred, MR-015 through MR-018 are TODO.
+MR-001 is DONE following explicit approval on 2026-10-12. MR-002 through MR-010 and MR-012 through MR-015 are DONE; MR-011 is deferred, MR-016 through MR-018 are TODO.
 Stop and report an unclean baseline. Never manufacture green tests through skips, retries or weaker assertions. Intentional DOM changes may require selector updates while retaining functional assertions.
 After architecture changes additionally verify menu open/close, state synchronization, exactly-once toggles, mobile collapse, focus/Escape/overlay. MR-018 runs the full relevant suite.
 Keep each run bounded to analysis, one story, or its validation. When available usage budget falls below roughly 20%, start no new story; write a handoff and stop. Usage quota is not exposed to this run.
@@ -478,21 +478,21 @@ Completed story results are recorded below; later story results remain placehold
 - Acceptance Criteria: Small screens have no clipped content, blocked controls or duplicate entry points.
 - Tests: Narrow/mobile viewports, orientation, footer/content visibility and settings scrolling.
 - Dependencies: MR-014
-- Status: TODO
+- Status: DONE
 - Recommended Model: **Sol** — Responsive refinement of already implemented components.
 - Story Start Protocol: Before starting this MR, re-read `README.md`, `docs/BRIEFING.md`, `docs/MAJOR-REDESIGN-BACKLOG.md` and `docs/MAJOR-REDESIGN-STATUS.md`. Confirm the active branch, the last completed MR and the frozen functional contracts. Report the recommended model below. If another model is currently selected, propose switching first and WAIT for explicit user confirmation. Only after confirmation may implementation begin; continue this MR through validation, documentation, DONE, its separate commit and status update, then STOP.
-- Notes / Findings: Not started; findings pending explicit story approval.
-- Resulting Decisions: None yet.
+- Notes / Findings: Started on the user's Sol confirmation. The existing header already shows one mobile menu trigger, and the settings sheet scrolls to its final control. A long room code could hide the copy control on narrow screens.
+- Resulting Decisions: Keep the shared header and settings lifecycle. Scope small-screen touch targets and room-code truncation to the room page; preserve the compact footer and existing sticky action placement.
 
 #### Result
 
-- Changed files: None.
-- Technical decision: Pending.
-- Visual result: No changes.
-- Tests: Not run for this story; initialization baseline above.
-- New findings: Pending.
-- Effects on following stories: Pending.
-- Open risks: Pending analysis; known baseline risks above.
+- Changed files: `src/main/resources/templates/room.html`, `src/main/resources/static/styles.css`, `src/main/resources/templates/fragments/head.html`, `tests/mobile-content-visibility.spec.ts`, this backlog and `docs/MAJOR-REDESIGN-STATUS.md`.
+- Technical decision: Add a room-page class for scoped CSS. No JavaScript, routes or game behavior changed. The stylesheet cache version was bumped.
+- Visual result: The copy action stays visible next to an ellipsized long room code; small room/topic/special/participant actions have 40px touch targets. The single mobile menu entry and scrollable settings remain intact.
+- Tests: Maven verify 30 passed; npm CI guards and final TypeScript check passed. 30 mobile/header/settings cases passed after correcting a test timing assumption, plus 3 topic/spectator cases passed. Portrait 320/375px and landscape 667px layouts, footer/content separation, menu reachability and copy-control hit testing were checked without retries or skips.
+- New findings: A full-page screenshot placed fixed controls over later content, but viewport-end geometry confirmed the footer and last block remain reachable. The first mobile test measured before room rendering finished; it now waits for the rendered room and scroll endpoint.
+- Effects on following stories: MR-016 accessibility pass is next (Astra); MR-011 still awaits header visuals.
+- Open risks: The known empty-topic editor defect remains outside this visual story.
 
 
 ### MR-016 — Accessibility pass
