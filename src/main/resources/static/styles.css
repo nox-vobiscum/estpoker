@@ -135,6 +135,12 @@ button,input,select,textarea{font:inherit;color:inherit}
 body.menu-open{overflow:hidden}
 :focus-visible{outline:2px solid var(--accent); outline-offset:2px}
 .container{max-width:800px;margin:0 auto;padding:1rem}
+.room-return{max-width:800px;margin:12px auto 0;padding:0 1rem}
+.room-return[hidden]{display:none}
+.room-return a{display:inline-flex;align-items:center;gap:.35em;max-width:100%;min-height:36px;padding:6px 10px;border:1px solid var(--border);border-radius:var(--ui-small-control-radius);background:var(--panel);color:var(--text);text-decoration:none;font-size:.85rem}
+.room-return a:hover{text-decoration:underline}
+.room-return-name-wrap{display:inline-flex;min-width:0}
+.room-return-name{display:inline-block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 h1{color:var(--text-strong);margin-bottom:2rem;font-size:1.1rem}
 h2{color:var(--text-strong);margin:1.2rem 0 .8rem;font-size:.98rem}
 strong{color:var(--text-strong)}

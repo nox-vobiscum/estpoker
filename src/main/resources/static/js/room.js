@@ -412,12 +412,14 @@
       if (state.hardRedirect) { location.href = state.hardRedirect; return; }
 
       if (ev.code === 4000 || ev.code === 4001) {
+        window.PPRoomReturn?.clear(state.roomCode, state.youName);
         try { sessionStorage.setItem('pp-flash', ev.code === 4001 ? 'kicked' : 'roomClosed'); } catch {}
         location.replace('/');
         return;
       }
 
       if (ev.code === 4005) {
+        window.PPRoomReturn?.clear(state.roomCode, state.youName);
         if (state.cidWasNew) {
           const redirectUrl =
             '/invite?roomCode=' + encodeURIComponent(state.roomCode) +
@@ -474,6 +476,7 @@
               return;
             }
             case 'kicked': {
+              window.PPRoomReturn?.clear(state.roomCode, state.youName);
               if (msg.redirect) {
                 try { window.location.assign(msg.redirect); } catch { window.location.href = msg.redirect; }
               }
@@ -503,14 +506,17 @@
       case 'you': {
         if (m.yourName && m.yourName !== state.youName) { state.youName = m.yourName; setText('#youName', state.youName); }
         if (m.cid && m.cid !== state.cid) { state.cid = m.cid; try { sessionStorage.setItem(CIDKEY, state.cid); } catch {} }
+        window.PPRoomReturn?.remember(state.roomCode, state.youName);
         break;
       }
       case 'roomClosed': {
+        window.PPRoomReturn?.clear(state.roomCode, state.youName);
         state.hardRedirect = m.redirect || '/';
         try { if (state.ws) state.ws.close(4000, 'Room closed'); } catch {}
         break;
       }
       case 'kicked': {
+        window.PPRoomReturn?.clear(state.roomCode, state.youName);
         state.hardRedirect = m.redirect || '/';
         try { if (state.ws) state.ws.close(4001, 'Kicked'); } catch {}
         break;
@@ -2359,6 +2365,7 @@ if (action === 'spectator') {
       if (resp.ok) {
         const data = await resp.json();
         if (data && data.available === false) {
+          window.PPRoomReturn?.clear(state.roomCode, state.youName);
           const redirectUrl = '/invite?roomCode=' + encodeURIComponent(state.roomCode) + '&participantName=' + encodeURIComponent(state.youName) + '&nameTaken=1';
           state.hardRedirect = redirectUrl;
           location.replace(redirectUrl);

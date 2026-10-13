@@ -5,6 +5,7 @@
 
   <!-- App menu (minimal on invite) -->
   <div th:replace="~{fragments/app-header :: appHeader}"></div>
+  <div th:replace="~{fragments/room-return :: roomReturn}"></div>
   <div th:replace="~{fragments/menu :: appMenu(showSeq=${false}, showAuto=${false}, showRoom=${false})}"></div>
   <th:block th:replace="~{fragments/app-header :: headerScripts}"></th:block>
 

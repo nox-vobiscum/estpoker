@@ -32,7 +32,7 @@ Then STOP.
 
 ## Epic Goal
 
-Modernize the complete visual UI and presentation architecture of RBS' Planning Poker while preserving every existing functional effect. MR-001 through MR-010 and MR-012 through MR-015 completed; MR-011 awaits header visuals.
+Modernize the complete visual UI and presentation architecture of RBS' Planning Poker while preserving every existing functional effect. MR-001 through MR-015 and MR-019 are complete; MR-016 through MR-018 remain.
 
 ## Frozen Functional Contracts
 
@@ -74,7 +74,7 @@ No gameplay refactoring. Before every commit inspect changes to GameService, Gam
 Only one story at a time. Before every MR-xxx story, re-read README.md, docs/BRIEFING.md, docs/MAJOR-REDESIGN-BACKLOG.md and docs/MAJOR-REDESIGN-STATUS.md; confirm the active branch, the last completed story and the frozen functional contracts. Then report the model recommended for that story. If the currently selected model differs, explicitly propose the model switch and WAIT for user confirmation before doing any implementation work. After explicit approval: set the story IN PROGRESS, implement only that scope through its acceptance criteria, run relevant tests, record results/findings/decisions/downstream risks, mark DONE only when acceptance criteria hold, commit separately, update MAJOR-REDESIGN-STATUS.md, then STOP. User approval is required before the next story.
 
 Allowed statuses: TODO, READY, IN PROGRESS, BLOCKED, DONE.
-MR-001 is DONE following explicit approval on 2026-10-12. MR-002 through MR-010 and MR-012 through MR-015 are DONE; MR-011 is deferred, MR-016 through MR-018 are TODO.
+MR-001 through MR-015 and MR-019 are DONE. MR-016 through MR-018 are TODO.
 Stop and report an unclean baseline. Never manufacture green tests through skips, retries or weaker assertions. Intentional DOM changes may require selector updates while retaining functional assertions.
 After architecture changes additionally verify menu open/close, state synchronization, exactly-once toggles, mobile collapse, focus/Escape/overlay. MR-018 runs the full relevant suite.
 Keep each run bounded to analysis, one story, or its validation. When available usage budget falls below roughly 20%, start no new story; write a handoff and stop. Usage quota is not exposed to this run.
@@ -854,18 +854,18 @@ Completed story results are recorded below; later story results remain placehold
 - Dependencies:
   - MR-015
   - Should be completed before MR-016 so accessibility, MR-017 cross-browser validation and MR-018 final regression include this navigation behavior.
-- Status: TODO
+- Status: DONE
 - Recommended Model: **GPT-5.6 Sol** — bounded navigation/state implementation using existing per-tab architecture; escalate only if unexpected room/CID lifecycle coupling is discovered.
 - Story Start Protocol: Before starting this MR, re-read `README.md`, `docs/BRIEFING.md`, `docs/MAJOR-REDESIGN-BACKLOG.md` and `docs/MAJOR-REDESIGN-STATUS.md`. Confirm the active branch, the last completed MR and the frozen functional contracts. Report the recommended model. If another model is currently selected, propose switching first and WAIT for explicit user confirmation. Only after confirmation may implementation begin; continue this MR through validation, documentation, DONE, its separate commit and status update, then STOP.
-- Notes / Findings: Not started; findings pending explicit story approval.
-- Resulting Decisions: None yet.
+- Notes / Findings: The server's `you` message confirms successful room entry. A dedicated sessionStorage context is written there and removed for terminal room events, duplicate-name rejection and failed name preflight. A tab marker also prevents opener-cloned sessionStorage from showing another tab's return link.
+- Resulting Decisions: Place one compact translated link below the shared header on Home, About and Invite. Keep Room unchanged visually; preserve CID and preflight semantics. Never clear the context for normal navigation or transient disconnects.
 
 #### Result
 
-- Changed files: None.
-- Technical decision: Pending.
-- Visual result: No changes.
-- Tests: Not run for this story.
-- New findings: Pending.
+- Changed files: Shared head and public-page templates, new return fragment/helper, room event adapter, stylesheet, EN/DE messages, focused Playwright spec and redesign documentation.
+- Technical decision: Store the canonical room URL per tab under `pp-room-return`; only a confirmed server identity makes it available. Terminal events remove the matching context.
+- Visual result: Compact contextual link directly below the header on public pages, with truncation for long room names and unchanged main layout.
+- Tests: Maven verify passed (30 Java tests); npm run ci:verify passed; 36 focused browser tests passed, then 16 targeted browser tests passed after the final duplicate-name cleanup and opener-tab case. No skips or retries.
+- New findings: An opener-created tab can clone sessionStorage, so a window-name tab marker guards the return link without changing the existing CID behavior.
 - Effects on following stories: MR-016/017/018 must validate the final return-navigation behavior.
-- Open risks: Pending analysis; special attention required for duplicate-name redirects, room-close cleanup and per-tab identity continuity.
+- Open risks: A room closed while this tab is away has no existing push channel to the public pages; a stale return link is resolved by the existing room-entry flow. MR-016 should review focus and contrast; MR-017 should validate cross-browser behavior.
