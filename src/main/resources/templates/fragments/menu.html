@@ -25,25 +25,22 @@
       <!-- Theme -->
       <div class="menu-section">
         <div class="section-title" data-i18n="menu.theme">Theme</div>
-        <div id="menuTheme" class="menu-choice preference-control preference-control-three" role="group"
+        <div id="menuTheme" class="preference-control" role="group"
              th:attr="aria-label=#{menu.theme}" aria-label="Theme">
-          <button id="themeLight"  type="button" class="choice-btn" data-theme-mode="light" aria-pressed="false"
+          <button id="themeLight"  type="button" class="preference-seg" data-theme-mode="light" aria-pressed="false"
                   th:attr="title=#{theme.light},aria-label=#{theme.light}"
                   data-i18n-attr="title:theme.light;aria-label:theme.light">
-            <span class="mi-icon" aria-hidden="true">☀️</span>
-            <span data-i18n="theme.light">Light</span>
+            <svg th:replace="~{fragments/app-header :: themeLightIcon}"></svg>
           </button>
-          <button id="themeDark"   type="button" class="choice-btn" data-theme-mode="dark" aria-pressed="false"
+          <button id="themeDark"   type="button" class="preference-seg" data-theme-mode="dark" aria-pressed="false"
                   th:attr="title=#{theme.dark},aria-label=#{theme.dark}"
                   data-i18n-attr="title:theme.dark;aria-label:theme.dark">
-            <span class="mi-icon" aria-hidden="true">🌙</span>
-            <span data-i18n="theme.dark">Dark</span>
+            <svg th:replace="~{fragments/app-header :: themeDarkIcon}"></svg>
           </button>
-          <button id="themeSystem" type="button" class="choice-btn" data-theme-mode="system" aria-pressed="false"
+          <button id="themeSystem" type="button" class="preference-seg" data-theme-mode="system" aria-pressed="false"
                   th:attr="title=#{theme.system},aria-label=#{theme.system}"
                   data-i18n-attr="title:theme.system;aria-label:theme.system">
-            <span class="mi-icon" aria-hidden="true">🖥️</span>
-            <span data-i18n="theme.system">System</span>
+            <svg th:replace="~{fragments/app-header :: themeSystemIcon}"></svg>
           </button>
         </div>
       </div>
@@ -51,15 +48,15 @@
       <!-- Interface style is independent of the color theme. -->
       <div class="menu-section">
         <div class="section-title" th:text="#{menu.uiStyle}" data-i18n="menu.uiStyle">Interface style</div>
-        <div id="menuUiStyle" class="menu-choice preference-control preference-control-two" role="group"
+        <div id="menuUiStyle" class="preference-control" role="group"
              th:attr="aria-label=#{menu.uiStyle}" aria-label="Interface style">
-          <button id="uiStyleDev" type="button" class="choice-btn" data-ui-style-mode="dev" aria-pressed="true"
+          <button id="uiStyleDev" type="button" class="preference-seg" data-ui-style-mode="dev" aria-pressed="true"
                   th:attr="title=#{title.uiStyle.dev},aria-label=#{title.uiStyle.dev}"
                   data-i18n-attr="title:title.uiStyle.dev;aria-label:title.uiStyle.dev">
             <span class="mi-icon" aria-hidden="true">{ &gt;_ }</span>
             <span th:text="#{uiStyle.dev}" data-i18n="uiStyle.dev">Dev</span>
           </button>
-          <button id="uiStyleClean" type="button" class="choice-btn" data-ui-style-mode="clean" aria-pressed="false"
+          <button id="uiStyleClean" type="button" class="preference-seg" data-ui-style-mode="clean" aria-pressed="false"
                   th:attr="title=#{title.uiStyle.clean},aria-label=#{title.uiStyle.clean}"
                   data-i18n-attr="title:title.uiStyle.clean;aria-label:title.uiStyle.clean">
             <svg class="mi-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"

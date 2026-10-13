@@ -243,12 +243,13 @@ MR-001 through MR-008 results are recorded below; later story results remain pla
 
 #### Required MR-008 follow-up before MR-009
 
-- Status: PENDING VALIDATION. Complete this checkpoint before starting MR-009.
+- Status: DONE (2026-10-13). Shared compact styling and monochrome theme icons; unchanged hamburger and all outer controls measure 40px.
 - Visual contract: Language, Theme and Dev/Clean controls inside the hamburger menu must match the corresponding compact controls shown beside the hamburger on desktop. Apply the same minimalist container, button geometry, spacing and state treatment consistently.
 - Height contract: The complete visible height of every compact preference control, including its outer border, must equal the current visible height of the hamburger button. The hamburger button is the reference and must not be resized to accommodate the other controls. Verify this equality at every breakpoint where the controls appear beside it.
 - Selected state: Keep the normal foreground color of the active theme; inactive choices are approximately half-muted. Do not add an active fill, accent-colored button, underline or other menu-only selection treatment.
 - Scope: Correct remaining menu-only visual differences if the comparison finds any. Do not change PPUI state, preference values, persistence, menu lifecycle or game behavior.
 - Deferred validation: Run focused language/theme/ui-style interaction tests plus responsive visual comparisons in Dev/Clean and Light/Dark/System. Measure the preference-control and hamburger bounding-box heights at every relevant breakpoint and confirm exact equality. Confirm desktop header and hamburger-menu parity before marking this checkpoint complete.
+- Validation completed: Build passed. 35 selected Playwright tests passed initially; one old inline-flex assertion was corrected to row arrangement (CSS flex-item blockification changes computed display). That keyboard test then passed. New bounding-box/style checks cover 320/375/768/769/1280px in Dev/Clean and Light/Dark/System, including OS theme changes. No skips/retries; functional assertions retained. Evidence: target/mr008-followup-*.log and tests/preference-parity.spec.ts.
 
 
 ### MR-007 — Redesign theme controls

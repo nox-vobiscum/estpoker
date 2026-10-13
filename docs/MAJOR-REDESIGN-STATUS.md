@@ -1,16 +1,13 @@
 # Major Redesign Status
 
-- Updated: 2026-10-12.
+- Updated: 2026-10-13.
 - Branch: feature/major-redesign.
-- Last completed story: MR-008 Redesign Dev / Clean control.
-- Previous commits: d245bbf (MR-007 theme controls), a1dc5eb (softened active header states).
-- Current commit: style: redesign Dev Clean selector (resolve with git log -1 -- docs/MAJOR-REDESIGN-STATUS.md).
-- Current story: None in progress. MR-009 remains TODO; await explicit approval under the story start gate.
-- Implementation: Language, Theme and Dev/Clean use one harmonized segmented-control treatment in the settings container and stay synchronized through PPUI. The thin preference view adapter handles all three; menu.js exclusively owns dialog state/lifecycle. No game/backend/transport/storage changes.
-- Tests: Maven verify 30 passed; npm run ci:verify passed; 55 selected Playwright tests passed in 2.8m with retries=0 and no skips. Covers keyboard, persistence, blocked storage, theme independence, Desktop/Mobile, both UI styles and Chromium/Firefox geometry. This is not a full-suite rerun.
-- Remaining risk: Historical topic guest-start timeout and deferred empty-topic editor defect remain outside this story.
-- Working tree: MR-008 changes ready for their separate commit; verify clean after commit/push.
-- Evidence: target/mr008-* and target/preference-harmony-* logs/results (ignored artifacts). Focused harmony validation: four functional tests plus one Chromium/Firefox mobile geometry test, all passed without retries.
-- Local preview: http://localhost:8080 runs the MR-008 build for user testing.
-- Production: No deployment. STOP; MR-009 not started.
-- Pending validation before MR-009: Compare the three hamburger-menu preference controls directly with their compact desktop counterparts. They must use the same minimalist container, geometry, spacing and state treatment: active foreground color, approximately half-muted inactive choices, no active fill or underline. Every visible compact preference control, including its outer border, must exactly match the current hamburger-button height; the hamburger is the fixed reference. Run focused language/theme/ui-style tests, bounding-box height checks at relevant breakpoints and responsive Dev/Clean plus Light/Dark/System visual checks; correct any remaining difference before proceeding.
+- Last completed story: MR-008, including preference parity and hamburger-height follow-up.
+- Current story: MR-009 approved by the user with Astra; starts after committing the prerequisite.
+- Implementation: One compact preference presentation in header/menu; monochrome theme icons reused; 40px outer control height matches the unchanged hamburger. Active foreground and half-muted inactive choices; no active fill/underline.
+- Tests: Build passed. 35 selected Playwright tests passed initially; the remaining keyboard test passed after correcting a computed-display assertion to row arrangement. New actual-dimension/style tests cover 320/375/768/769/1280px, Dev/Clean, Light/Dark/System. No skips/retries.
+- Evidence: target/mr008-followup-*.log; tests/preference-parity.spec.ts.
+- Frozen contracts: No JavaScript/state, event, permission, gameplay, transport or storage changes. Menu lifecycle remains exclusively in menu.js.
+- Remaining risks: Historical topic startup flakiness and empty-topic editor defect remain outside this story.
+- Local preview: http://localhost:8080 runs the corrected preference build.
+- Production: No deployment. Complete MR-009 only, then STOP before MR-010.
