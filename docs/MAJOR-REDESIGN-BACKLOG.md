@@ -74,11 +74,11 @@ No gameplay refactoring. Before every commit inspect changes to GameService, Gam
 Only one story at a time. Before every MR-xxx story, re-read README.md, docs/BRIEFING.md, docs/MAJOR-REDESIGN-BACKLOG.md and docs/MAJOR-REDESIGN-STATUS.md; confirm the active branch, the last completed story and the frozen functional contracts. Then report the model recommended for that story. If the currently selected model differs, explicitly propose the model switch and WAIT for user confirmation before doing any implementation work. After explicit approval: set the story IN PROGRESS, implement only that scope through its acceptance criteria, run relevant tests, record results/findings/decisions/downstream risks, mark DONE only when acceptance criteria hold, commit separately, update MAJOR-REDESIGN-STATUS.md, then STOP. User approval is required before the next story.
 
 Allowed statuses: TODO, READY, IN PROGRESS, BLOCKED, DONE.
-MR-001 is DONE following explicit approval on 2026-10-12. MR-002 through MR-008 are DONE; MR-009 through MR-018 are TODO.
+MR-001 is DONE following explicit approval on 2026-10-12. MR-002 through MR-009 are DONE; MR-010 through MR-018 are TODO.
 Stop and report an unclean baseline. Never manufacture green tests through skips, retries or weaker assertions. Intentional DOM changes may require selector updates while retaining functional assertions.
 After architecture changes additionally verify menu open/close, state synchronization, exactly-once toggles, mobile collapse, focus/Escape/overlay. MR-018 runs the full relevant suite.
 Keep each run bounded to analysis, one story, or its validation. When available usage budget falls below roughly 20%, start no new story; write a handoff and stop. Usage quota is not exposed to this run.
-MR-001 through MR-008 results are recorded below; later story results remain placeholders.
+MR-001 through MR-009 results are recorded below; later story results remain placeholders.
 
 ## User Stories
 
@@ -241,17 +241,6 @@ MR-001 through MR-008 results are recorded below; later story results remain pla
 - Effects on following stories: MR-007 may use the same PPUI subscription pattern for compact desktop theme controls.
 - Open risks: Historical topic startup flakiness and deferred empty-topic defect remain outside this story. No game/backend/transport/storage changes.
 
-#### Required MR-008 follow-up before MR-009
-
-- Status: DONE (2026-10-13). Shared compact styling and monochrome theme icons; unchanged hamburger and all outer controls measure 40px.
-- Visual contract: Language, Theme and Dev/Clean controls inside the hamburger menu must match the corresponding compact controls shown beside the hamburger on desktop. Apply the same minimalist container, button geometry, spacing and state treatment consistently.
-- Height contract: The complete visible height of every compact preference control, including its outer border, must equal the current visible height of the hamburger button. The hamburger button is the reference and must not be resized to accommodate the other controls. Verify this equality at every breakpoint where the controls appear beside it.
-- Selected state: Keep the normal foreground color of the active theme; inactive choices are approximately half-muted. Do not add an active fill, accent-colored button, underline or other menu-only selection treatment.
-- Scope: Correct remaining menu-only visual differences if the comparison finds any. Do not change PPUI state, preference values, persistence, menu lifecycle or game behavior.
-- Deferred validation: Run focused language/theme/ui-style interaction tests plus responsive visual comparisons in Dev/Clean and Light/Dark/System. Measure the preference-control and hamburger bounding-box heights at every relevant breakpoint and confirm exact equality. Confirm desktop header and hamburger-menu parity before marking this checkpoint complete.
-- Validation completed: Build passed. 35 selected Playwright tests passed initially; one old inline-flex assertion was corrected to row arrangement (CSS flex-item blockification changes computed display). That keyboard test then passed. New bounding-box/style checks cover 320/375/768/769/1280px in Dev/Clean and Light/Dark/System, including OS theme changes. No skips/retries; functional assertions retained. Evidence: target/mr008-followup-*.log and tests/preference-parity.spec.ts.
-
-
 ### MR-007 — Redesign theme controls
 
 - ID: MR-007
@@ -306,6 +295,16 @@ MR-001 through MR-008 results are recorded below; later story results remain pla
 - Open risks: Historical topic startup flakiness and deferred empty-topic defect remain outside this story. No game/backend/transport/storage changes.
 
 
+#### Required MR-008 follow-up before MR-009
+
+- Status: DONE (2026-10-13). Shared compact styling and monochrome theme icons; unchanged hamburger and all outer controls measure 40px.
+- Visual contract: Language, Theme and Dev/Clean controls inside the hamburger menu must match the corresponding compact controls shown beside the hamburger on desktop. Apply the same minimalist container, button geometry, spacing and state treatment consistently.
+- Height contract: The complete visible height of every compact preference control, including its outer border, must equal the current visible height of the hamburger button. The hamburger button is the reference and must not be resized to accommodate the other controls. Verify this equality at every breakpoint where the controls appear beside it.
+- Selected state: Keep the normal foreground color of the active theme; inactive choices are approximately half-muted. Do not add an active fill, accent-colored button, underline or other menu-only selection treatment.
+- Scope: Correct remaining menu-only visual differences if the comparison finds any. Do not change PPUI state, preference values, persistence, menu lifecycle or game behavior.
+- Deferred validation: Run focused language/theme/ui-style interaction tests plus responsive visual comparisons in Dev/Clean and Light/Dark/System. Measure the preference-control and hamburger bounding-box heights at every relevant breakpoint and confirm exact equality. Confirm desktop header and hamburger-menu parity before marking this checkpoint complete.
+- Validation completed: Build passed. 35 selected Playwright tests passed initially; one old inline-flex assertion was corrected to row arrangement (CSS flex-item blockification changes computed display). That keyboard test then passed. New bounding-box/style checks cover 320/375/768/769/1280px in Dev/Clean and Light/Dark/System, including OS theme changes. No skips/retries; functional assertions retained. Evidence: target/mr008-followup-*.log and tests/preference-parity.spec.ts.
+
 ### MR-009 — Redesign menu toggles
 
 - ID: MR-009
@@ -316,21 +315,21 @@ MR-001 through MR-008 results are recorded below; later story results remain pla
 - Acceptance Criteria: All toggles preserve their exact functional effect and permission visibility; no duplicate dispatch.
 - Tests: Menu guard, exactly-once toggles, host/guest permissions and affected room-flow tests.
 - Dependencies: MR-004, MR-005, MR-008 including its required visual-parity follow-up
-- Status: TODO
+- Status: DONE
 - Recommended Model: **Astra** — Exactly-once game-event dispatch, permissions and fragile toggle couplings are high-risk.
 - Story Start Protocol: Before starting this MR, re-read `README.md`, `docs/BRIEFING.md`, `docs/MAJOR-REDESIGN-BACKLOG.md` and `docs/MAJOR-REDESIGN-STATUS.md`. Confirm the active branch, the last completed MR and the frozen functional contracts. Report the recommended model below. If another model is currently selected, propose switching first and WAIT for explicit user confirmation. Only after confirmation may implementation begin; continue this MR through validation, documentation, DONE, its separate commit and status update, then STOP.
-- Notes / Findings: Not started; findings pending explicit story approval.
-- Resulting Decisions: None yet.
+- Notes / Findings: Dark/system-dark lacked off-track tokens; nowrap labels crowded switches on narrow screens; a late thumb offset and generic input focus rule conflicted with switch styling.
+- Resulting Decisions: CSS-only presentation change. Preserve native inputs, IDs, listeners, payloads, permissions and lifecycle. All five switches use flat rows, stacked wrapping label/status text, a centered white thumb and explicit keyboard focus. Reduced motion disables switch transitions.
 
 #### Result
 
-- Changed files: None.
-- Technical decision: Pending.
-- Visual result: No changes.
-- Tests: Not run for this story; initialization baseline above.
-- New findings: Pending.
-- Effects on following stories: Pending.
-- Open risks: Pending analysis; known baseline risks above.
+- Changed files: src/main/resources/static/styles.css, src/main/resources/templates/fragments/head.html, tests/menu-toggle-presentation.spec.ts, docs/MAJOR-REDESIGN-BACKLOG.md, docs/MAJOR-REDESIGN-STATUS.md.
+- Technical decision: Reuse existing theme variables and switch markup. Remove conflicting Clean row surfaces and obsolete thumb override; normalize shared preference button appearance across engines. No application JavaScript or backend changes.
+- Visual result: Consistent minimal switch rows in Dev/Clean and both themes; status below label, visible off/on states, clear focus and disabled presentation, no label/track overlap at 320px.
+- Tests: Maven verify: 30 passed, zero skips. npm run ci:verify passed. 14 existing targeted Playwright cases passed (events, drawer lifecycle, auto-reveal, participation, topic visibility, specials and hard-mode/host transfer). New tests initially exposed the focus-rule collision; after correction, all 12 selected final cases passed (4 Chromium/Firefox switch/permission cases, 2 cross-engine geometry cases, 6 preference-parity cases), retries=0, no skips. Final package build and CI guards passed. No full-suite rerun.
+- New findings: Native keyboard Space and large-row pointer actions each dispatch exactly one unchanged event/payload; guests retain four disabled host switches and their enabled personal participation control. Existing hard mode remains client-local by design.
+- Effects on following stories: MR-010 can adjust section hierarchy while retaining these controls and their contracts. Await separate user approval.
+- Open risks: Existing topic startup flakiness and empty-topic editor defect remain out of scope. Evidence: target/mr009-*.log, target/mr009-*.png, test-results/menu-toggle-presentation-*/switches.png (ignored local artifacts).
 
 
 ### MR-010 — Redesign menu sections and hierarchy
