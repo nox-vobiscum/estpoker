@@ -424,21 +424,21 @@ Completed story results are recorded below; later story results remain placehold
 - Acceptance Criteria: Same data and actions produce the same result; labels and errors remain accessible.
 - Tests: Create/join/invite, invalid input, keyboard submission and mobile layout.
 - Dependencies: MR-012
-- Status: TODO
+- Status: DONE
 - Recommended Model: **Sol** — Landing/join form visual redesign with existing form behavior preserved.
 - Story Start Protocol: Before starting this MR, re-read `README.md`, `docs/BRIEFING.md`, `docs/MAJOR-REDESIGN-BACKLOG.md` and `docs/MAJOR-REDESIGN-STATUS.md`. Confirm the active branch, the last completed MR and the frozen functional contracts. Report the recommended model below. If another model is currently selected, propose switching first and WAIT for explicit user confirmation. Only after confirmation may implementation begin; continue this MR through validation, documentation, DONE, its separate commit and status update, then STOP.
-- Notes / Findings: Not started; findings pending explicit story approval.
-- Resulting Decisions: None yet.
+- Notes / Findings: The home and invite forms already share the same structure and labels. Their JavaScript and submit paths required no changes.
+- Resulting Decisions: Scope the form layout to landing pages; use existing Clean surface tokens and keep Dev styling plain.
 
 #### Result
 
-- Changed files: None.
-- Technical decision: Pending.
-- Visual result: No changes.
-- Tests: Not run for this story; initialization baseline above.
-- New findings: Pending.
-- Effects on following stories: Pending.
-- Open risks: Pending analysis; known baseline risks above.
+- Changed files: `src/main/resources/static/styles.css`, `src/main/resources/templates/fragments/head.html`, `tests/landing-form.spec.ts`, this backlog and `docs/MAJOR-REDESIGN-STATUS.md`.
+- Technical decision: CSS-only presentation update with scoped rules for both landing forms; no changes to form fields, names, routes, validation or JavaScript.
+- Visual result: Left-aligned labels, aligned input and CTA widths, consistent touch targets and a subtle Clean form surface. Dev stays unadorned.
+- Tests: Maven verify 30 passed; npm CI guards passed; 31 existing focused Playwright tests and 2 new landing-form tests passed. The new tests cover validation, Enter submission, labels and 320px layout.
+- New findings: None.
+- Effects on following stories: MR-014 can start after separate approval; MR-011 remains deferred for header visuals.
+- Open risks: Existing unrelated baseline risks remain.
 
 
 ### MR-014 — Redesign room controls
