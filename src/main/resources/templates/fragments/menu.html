@@ -18,13 +18,14 @@
       </div>
 
       <!-- Reuse the existing language adapter on narrow screens. -->
-      <div class="menu-section mobile-language">
+      <div class="menu-section mobile-language" role="group" aria-labelledby="menuLanguageHeading">
+        <h4 id="menuLanguageHeading" class="section-title" data-i18n="menu.language">Language</h4>
         <div th:replace="~{fragments/header-controls :: languageControls(prefix='menuLang')}"></div>
       </div>
 
       <!-- Theme -->
-      <div class="menu-section">
-        <div class="section-title" data-i18n="menu.theme">Theme</div>
+      <div class="menu-section" role="group" aria-labelledby="menuThemeHeading">
+        <h4 id="menuThemeHeading" class="section-title" data-i18n="menu.theme">Theme</h4>
         <div id="menuTheme" class="preference-control" role="group"
              th:attr="aria-label=#{menu.theme}" aria-label="Theme">
           <button id="themeLight"  type="button" class="preference-seg" data-theme-mode="light" aria-pressed="false"
@@ -46,8 +47,8 @@
       </div>
 
       <!-- Interface style is independent of the color theme. -->
-      <div class="menu-section">
-        <div class="section-title" th:text="#{menu.uiStyle}" data-i18n="menu.uiStyle">Interface style</div>
+      <div class="menu-section" role="group" aria-labelledby="menuUiStyleHeading">
+        <h4 id="menuUiStyleHeading" class="section-title" th:text="#{menu.uiStyle}" data-i18n="menu.uiStyle">Interface style</h4>
         <div id="menuUiStyle" class="preference-control" role="group"
              th:attr="aria-label=#{menu.uiStyle}" aria-label="Interface style">
           <button id="uiStyleDev" type="button" class="preference-seg" data-ui-style-mode="dev" aria-pressed="true"
@@ -71,8 +72,8 @@
       </div>
 
       <!-- Card sequence -->
-      <div class="menu-section" th:if="${showSeq}">
-        <div class="section-title" data-i18n="menu.sequence">Card sequence [👑]</div>
+      <div class="menu-section menu-section--sequence" role="group" aria-labelledby="menuSequenceHeading" th:if="${showSeq}">
+        <h4 id="menuSequenceHeading" class="section-title" data-i18n="menu.sequence">Card sequence [👑]</h4>
         <fieldset id="menuSeqChoice" class="menu-choice vertical">
           <label class="radio-row">
             <input type="radio" name="menu-seq" value="fib.scrum" checked>
@@ -98,8 +99,8 @@
       </div>
 
       <!-- Room functions -->
-      <div class="menu-section" th:if="${showRoom}">
-        <div class="section-title" data-i18n="menu.roomFunctions">Room functions [👑]</div>
+      <div class="menu-section menu-section--room" role="group" aria-labelledby="menuRoomHeading" th:if="${showRoom}">
+        <h4 id="menuRoomHeading" class="section-title" data-i18n="menu.roomFunctions">Room functions [👑]</h4>
 
         <!-- Auto-reveal -->
         <div class="menu-item switch" role="group" id="rowAutoReveal"
@@ -192,8 +193,8 @@
       </div>
 
       <!-- Personal functions -->
-      <div class="menu-section">
-        <div class="section-title" data-i18n="menu.personalFunctions">Personal functions</div>
+      <div class="menu-section menu-section--personal" role="group" aria-labelledby="menuPersonalHeading">
+        <h4 id="menuPersonalHeading" class="section-title" data-i18n="menu.personalFunctions">Personal functions</h4>
         <div class="menu-item switch" role="group" id="rowParticipation"
              th:attr="title=#{menu.participation}" data-i18n-attr="title:menu.participation">
           <span class="mi-icon" aria-hidden="true">🧑‍💻</span>
@@ -208,7 +209,8 @@
       </div>
 
       <!-- Close room -->
-      <div class="menu-section" th:if="${showRoom}">
+      <div class="menu-section menu-section--secondary" role="group" aria-labelledby="menuSecondaryHeading" th:if="${showRoom}">
+        <h4 id="menuSecondaryHeading" class="section-title" data-i18n="menu.secondaryActions">More actions</h4>
         <button id="closeRoomBtn" type="button" class="menu-item danger"
                 th:attr="title=#{room.close},aria-label=#{room.close}"
                 data-i18n-attr="title:room.close;aria-label:room.close"

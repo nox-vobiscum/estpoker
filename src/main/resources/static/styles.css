@@ -200,6 +200,9 @@ strong{color:var(--text-strong)}
 .menu-header h3{margin:0;font-size:1rem;color:var(--text-strong)}
 .menu-section{display:flex;flex-direction:column;gap:10px;padding:8px 4px 10px}
 .section-title{margin:6px 8px 6px;font-weight:600;font-size:.9rem;opacity:.85;color:var(--text-strong)}
+.menu-panel :is(.menu-section--sequence,.menu-section--room,.menu-section--personal,.menu-section--secondary){
+  border-top:1px solid var(--border);margin-top:6px;
+}
 
 /* Closed overlay must not paint at all */
 #appMenuOverlay[hidden],
