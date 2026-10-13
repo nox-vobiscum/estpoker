@@ -23,8 +23,8 @@ for (const lang of ['en', 'de']) {
         await expect(page.locator(`meta[property="og:${property}"]`)).toHaveCount(1);
       }
       await expect(page.locator('meta[property="og:url"]')).toHaveAttribute('content', origin + path);
-      await expect(page.locator('meta[property="og:image"]')).toHaveAttribute('content', origin + '/favicon-512.png');
-      await expect(page.locator('meta[name="twitter:image"]')).toHaveAttribute('content', origin + '/favicon-512.png');
+      await expect(page.locator('meta[property="og:image"]')).toHaveAttribute('content', origin + '/assets/branding/pwa/icon-512x512.png');
+      await expect(page.locator('meta[name="twitter:image"]')).toHaveAttribute('content', origin + '/assets/branding/pwa/icon-512x512.png');
       await expect(page.locator('meta[property="og:site_name"]')).toHaveAttribute('content', "RBS' Planning Poker");
       await expect(page.locator('meta[property="og:title"]')).toHaveAttribute('content', title);
       await expect(page.locator('meta[name="twitter:title"]')).toHaveAttribute('content', title);
@@ -89,7 +89,7 @@ test('crawl files and social image are served correctly', async ({ request, page
   }, xml);
   expect(parsed).toEqual({ errors: 0, namespace: 'http://www.sitemaps.org/schemas/sitemap/0.9',
     urls: [origin + '/', origin + '/about'] });
-  const image = await request.get('/favicon-512.png');
+  const image = await request.get('/assets/branding/pwa/icon-512x512.png');
   expect(image.status()).toBe(200);
   expect(image.headers()['content-type']).toContain('image/png');
 });
@@ -114,7 +114,7 @@ test('product branding is consistent in both languages and manifest', async ({ p
       if (path === '/about') {
         await expect(page.locator('[data-i18n="about.intro"]')).toContainText("RBS' Planning Poker");
       } else {
-        await expect(page.locator('h1')).toHaveText("RBS' Planning Poker");
+        await expect(page.locator('h1')).toHaveText('Planning Poker');
       }
     }
   }

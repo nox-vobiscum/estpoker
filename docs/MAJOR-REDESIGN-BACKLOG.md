@@ -363,28 +363,149 @@ Completed story results are recorded below; later story results remain placehold
 
 - ID: MR-011
 - Title: Introduce new brand header visual
-- Goal: Strengthen the product identity.
-- Scope: Card/Scrum-inspired mark; RBS' Planning Poker; optional short subline; Light/Dark support.
-- Out of Scope: PP abbreviation, product rename and infrastructure. All frozen functional contracts apply.
-- Acceptance Criteria: Full product name and legible brandmark work in both themes and narrow layouts.
-- Tests: Light/Dark, responsive overflow, accessible naming and navigation.
-- Dependencies: MR-003, MR-010
-- Status: TODO
-- Scheduling: Deferred at the user's request until the header visuals are ready. Keep its brandmark and responsive header acceptance criteria open.
-- Notes / Findings: MR-012 was completed ahead of this story with About content surfaces only. Recheck Clean surfaces against the final header visual when MR-011 resumes; its visual and navigation acceptance criteria remain open.
-- Recommended Model: **Sol** — Brand/header visual integration; primarily presentation work.
-- Story Start Protocol: Before starting this MR, re-read `README.md`, `docs/BRIEFING.md`, `docs/MAJOR-REDESIGN-BACKLOG.md` and `docs/MAJOR-REDESIGN-STATUS.md`. Confirm the active branch, the last completed MR and the frozen functional contracts. Report the recommended model below. If another model is currently selected, propose switching first and WAIT for explicit user confirmation. Only after confirmation may implementation begin; continue this MR through validation, documentation, DONE, its separate commit and status update, then STOP.
-- Resulting Decisions: None yet.
+- Goal: Establish the final Planning Poker brand identity consistently across the in-app header, PWA installation assets and browser favicons.
+- Scope:
+  - Integrate the final supplied brand asset package.
+  - Use the supplied three-card `RBS` brandmark as the primary in-app / header mark.
+  - Keep the visible product name `Planning Poker` as HTML text beside the brandmark.
+  - Do not embed the product wordmark inside image assets.
+  - Use the supplied PWA icons for installable-app assets.
+  - Use the supplied simplified three-card `R` mark for favicon usage.
+  - Support Light and Dark themes using the same coherent asset family.
+  - Replace obsolete legacy logo/favicon references where safe.
+  - Update asset references, manifest entries and favicon metadata as required by the existing application structure.
+  - Preserve the existing responsive header shell and utility controls.
+- Brand Asset Package:
+  - Input package: `assets-incoming/planning-poker-brand-assets-originaltreu.zip` (removed locally after verified transfer; separately backed up by the user)
+  - The package contains:
+    - transparent `RBS` header/brandmark PNGs in multiple sizes
+    - primary PWA icons in 192x192, 512x512 and 1024x1024
+    - Apple touch icon
+    - favicon PNG fallbacks
+    - multi-size `favicon.ico`
+    - no SVG: the supplied R mark is available as ICO and PNG only
+    - asset manifest and integration notes
+- Visual Contract:
+  - Three portrait-format cards with intentionally slightly irregular overlap/spacing.
+  - The cards must not be rearranged into a mechanically even fan.
+  - Primary brandmark uses `RBS`.
+  - Favicon uses the reduced three-card mark with `R`.
+  - Palette: elegant navy / steel / white.
+  - Keep the overall appearance restrained, modern and professional.
+  - No bright multicolor card treatment.
+  - No `PP` abbreviation.
+  - No graphical `Planning Poker` wordmark.
+  - Avoid excessive glow, 3D effects or decorative animation.
+- Header Contract:
+  - Visible header identity:
+    - supplied `RBS` brandmark
+    - HTML text `Planning Poker`
+  - Remove the visible `RBS' Planning Poker` wording where the new brandmark already provides the RBS signature.
+  - The page/product name should therefore visually read as:
+    - `[RBS card mark] Planning Poker`
+  - Keep the brandmark decorative with appropriate accessible naming on the containing brand link; avoid redundant screen-reader repetition.
+  - Preserve the existing single shared app-header fragment.
+  - Do not introduce a second header implementation.
+  - Desktop utility controls remain unchanged functionally.
+  - Mobile continues to expose only branding plus the existing menu trigger.
+- Asset Integration:
+  - Inspect the existing Spring Boot static-resource layout first.
+  - Place the supplied files into the most appropriate existing static asset directories rather than inventing parallel structures unnecessarily.
+  - Rename assets only if required by the existing project conventions.
+  - Update all relevant references consistently:
+    - shared app header
+    - page title/logo instances
+    - favicon metadata
+    - PWA manifest
+    - Apple touch icon
+    - social/metadata image references only if they currently depend on the old icon and replacement is appropriate
+  - Prefer responsive image sizing through CSS/HTML dimensions; do not distort the source aspect ratio.
+  - Keep high-resolution sources available for HiDPI displays.
+- Out of Scope:
+  - No product rename.
+  - No infrastructure or domain changes.
+  - No gameplay changes.
+  - No WebSocket changes.
+  - No preference/state changes.
+  - No menu lifecycle changes.
+  - No new UI framework.
+  - No redesign of language/theme/menu controls.
+  - No changes to frozen functional contracts.
+- Accessibility:
+  - Brand link retains a meaningful accessible name.
+  - Decorative image content must not produce duplicate spoken branding.
+  - Header remains keyboard-navigable.
+  - Brandmark contrast remains visually sufficient in Light and Dark modes.
+  - No text should be rasterized solely for accessibility-relevant product naming.
+- Acceptance Criteria:
+  - Header displays the final three-card `RBS` mark beside HTML text `Planning Poker`.
+  - Legacy visible `RBS' Planning Poker` presentation is replaced consistently where appropriate.
+  - Brandmark renders cleanly in Light and Dark themes.
+  - Brandmark remains legible and unclipped at narrow widths.
+  - Mobile header retains the established branding + single-menu-trigger contract.
+  - PWA manifest references the supplied 192x192 and 512x512 icons.
+  - Maskable PWA assets are correctly referenced if the manifest supports purpose-specific icons.
+  - Apple touch icon is wired correctly.
+  - Browser favicon uses the simplified three-card `R` identity with SVG/ICO/PNG fallbacks as appropriate.
+  - No obsolete competing favicon/logo reference remains active unintentionally.
+  - No asset includes a graphical `Planning Poker` wordmark.
+  - No frozen gameplay or state contract changes.
+- Tests:
+  - Verify header rendering in:
+    - Light Dev
+    - Dark Dev
+    - Light Clean
+    - Dark Clean
+    - System theme
+  - Verify desktop and mobile at:
+    - 320px
+    - 375px
+    - 768px
+    - 769px
+    - 1280px
+  - Verify:
+    - no header overflow
+    - no distorted logo aspect ratio
+    - no duplicate visible branding
+    - keyboard navigation
+    - accessible brand naming
+    - favicon references resolve successfully
+    - PWA icon files resolve successfully
+    - manifest icon metadata is valid
+  - Run relevant existing header, responsive, SEO/metadata and navigation Playwright tests.
+  - Run Maven verify and npm CI guards.
+  - Retries=0; do not weaken existing assertions.
+- Dependencies:
+  - MR-003
+  - MR-010
+  - Recheck MR-012 Clean surfaces against the final brand visual.
+- Status: DONE
+- Scheduling: Completed after the Mandatory Story Start Gate and explicit user approval.
+- Notes / Findings:
+  - MR-012 was completed ahead of this story with About content surfaces only.
+  - Final brand decision:
+    - primary/header/PWA identity = three-card `RBS` mark
+    - favicon identity = simplified three-card `R` mark
+    - visible product name remains HTML text `Planning Poker`
+    - palette = elegant navy / steel / white
+    - no `PP` abbreviation
+    - no graphical wordmark
+- Recommended Model: **GPT-5.6 Sol** — bounded visual asset integration using the established shared header architecture.
+- Story Start Protocol: Before starting this MR, re-read `README.md`, `docs/BRIEFING.md`, `docs/MAJOR-REDESIGN-BACKLOG.md` and `docs/MAJOR-REDESIGN-STATUS.md`. Confirm the active branch, the last completed MR and the frozen functional contracts. Report the recommended model. If another model is currently selected, propose switching first and WAIT for explicit user confirmation. Only after confirmation may implementation begin; continue this MR through validation, documentation, DONE, its separate commit and status update, then STOP.
+- Resulting Decisions:
+  - Use the supplied asset package as the source of truth for MR-011.
+  - Keep `Planning Poker` as HTML text, never baked into the logo asset.
+  - Use `RBS` for primary brand identity and `R` only for the reduced favicon identity.
 
 #### Result
 
-- Changed files: None.
-- Technical decision: Pending.
-- Visual result: No changes.
-- Tests: Not run for this story; initialization baseline above.
-- New findings: Pending.
-- Effects on following stories: Pending.
-- Open risks: Pending analysis; known baseline risks above.
+- Changed files: Shared header and head fragments; Home, About, Invite and Room headings; both message bundles; manifest, stylesheet, original image assets, SEO and asset tests; this backlog and redesign status.
+- Technical decision: Use only byte-identical PNG/ICO files from `planning-poker-brand-assets-originaltreu.zip`. The supplied RBS mark is used for header, page headings, PWA, Apple and social image; the supplied R mark is used only for favicon. The package has no SVG or maskable-safe icon, so remove the obsolete SVG reference and declare PWA icons with `purpose: any`.
+- Visual result: The existing shared header and page headings show the RBS card mark beside HTML text `Planning Poker`; desktop/mobile controls and functionality remain unchanged. Obsolete competing favicon files and the temporary incoming-asset directory were removed.
+- Tests: Full isolated Maven verify passed (30 tests, zero skips); npm CI guards and TypeScript check passed. 37 focused header, language, SEO and asset Playwright cases passed; seven brand cases including System theme passed after correcting a test assertion made while the menu dialog hid background content. No retries or skipped cases. Asset SHA-256 hashes match the approved ZIP.
+- New findings: The normal Maven repackage was blocked by an existing lock on `target`; an isolated source copy completed the full verify. The provided asset documentation explicitly forbids SVG recreation and false `maskable` declarations.
+- Effects on following stories: MR-016, MR-017 and MR-018 can validate the integrated final brand assets.
+- Open risks: Favicon appearance at very small sizes and OS-specific PWA/Apple backgrounds should receive manual visual review; the source graphics must remain unchanged.
 
 
 ### MR-012 — Introduce Clean-mode decorative surfaces

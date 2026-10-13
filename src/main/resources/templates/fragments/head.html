@@ -19,7 +19,7 @@
     <meta property="og:description" th:content="${#messages.msg(descriptionKey)}" th:attr="data-i18n-attr=${'content:' + descriptionKey}"/>
     <meta property="og:url" th:content="${canonicalUrl}"/>
     <meta property="og:type" content="website"/>
-    <meta property="og:image" content="https://planning-poker.at/favicon-512.png"/>
+    <meta property="og:image" content="https://planning-poker.at/assets/branding/pwa/icon-512x512.png"/>
     <meta property="og:image:width" content="512"/>
     <meta property="og:image:height" content="512"/>
     <meta property="og:site_name" content="RBS' Planning Poker"/>
@@ -27,7 +27,7 @@
     <meta name="twitter:card" content="summary"/>
     <meta name="twitter:title" th:content="${#messages.msg(titleKey)}" th:attr="data-i18n-attr=${'content:' + titleKey}"/>
     <meta name="twitter:description" th:content="${#messages.msg(descriptionKey)}" th:attr="data-i18n-attr=${'content:' + descriptionKey}"/>
-    <meta name="twitter:image" content="https://planning-poker.at/favicon-512.png"/>
+    <meta name="twitter:image" content="https://planning-poker.at/assets/branding/pwa/icon-512x512.png"/>
   </th:block>
 
   <!-- Only the homepage describes the application; no unverified rating claims. -->
@@ -86,11 +86,10 @@
   <meta name="msg.name.conflict.suggestion"  th:content="#{name.conflict.suggestion}"/>
 
   <!-- Favicons -->
-  <link rel="icon" type="image/svg+xml" th:href="@{/favicon.svg}"/>
-  <link rel="alternate icon" th:href="@{/favicon.ico}" sizes="any"/>
+  <link rel="icon" th:href="@{/favicon.ico}" sizes="any"/>
   <link rel="icon" type="image/png" sizes="32x32" th:href="@{/favicon-32x32.png}"/>
   <link rel="icon" type="image/png" sizes="16x16" th:href="@{/favicon-16x16.png}"/>
-  <link rel="apple-touch-icon" th:href="@{/apple-touch-icon.png}"/>
+  <link rel="apple-touch-icon" sizes="180x180" th:href="@{/apple-touch-icon.png}"/>
 
   <!-- Web App Manifest -->
   <link rel="manifest" th:href="@{/manifest.json}"/>
@@ -100,5 +99,5 @@
   <script th:src="@{/js/ui-preferences.js?v=1}"></script>
 
   <!-- Base styles -->
-  <link rel="stylesheet" th:href="@{/styles.css?v=64}"/>
+  <link rel="stylesheet" th:href="@{/styles.css?v=65}"/>
 </th:block>
