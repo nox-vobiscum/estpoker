@@ -225,8 +225,13 @@ test('Specials do not affect average — votes [num, ☕, num] ⇒ mean(numbers)
   await expect.poll(() => hasCoffeeCardH(g2),   { timeout: 3000, intervals: [150, 250] }).toBeTruthy();
 
   const coffee = g1.locator('#cardGrid button, #cardGrid .card', { hasText: '☕' }).first();
-  if (await coffee.count()) { await coffee.click({ force: true }); } else { expect(await clickByValue(g1, '☕')).toBeTruthy(); }
+  await expect(coffee).toBeEnabled();
+  await coffee.click();
+  await expect(host.locator('#liveParticipantList .participant-row').filter({ hasText: 'G1' }).locator('.mini-chip.done')).toBeVisible();
   expect(await clickByValue(g2, b)).toBeTruthy();
+
+  // Reveal only after every client's vote has reached the host through the server.
+  await expect(host.locator('#liveParticipantList .mini-chip.done')).toHaveCount(3);
 
   expect(await revealNow(host)).toBe(true);
 

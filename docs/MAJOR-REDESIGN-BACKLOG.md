@@ -32,7 +32,7 @@ Then STOP.
 
 ## Epic Goal
 
-Modernize the complete visual UI and presentation architecture of RBS' Planning Poker while preserving every existing functional effect. MR-001 through MR-010 and MR-012 completed; MR-011 awaits header visuals.
+Modernize the complete visual UI and presentation architecture of RBS' Planning Poker while preserving every existing functional effect. MR-001 through MR-010 and MR-012 through MR-014 completed; MR-011 awaits header visuals.
 
 ## Frozen Functional Contracts
 
@@ -74,7 +74,7 @@ No gameplay refactoring. Before every commit inspect changes to GameService, Gam
 Only one story at a time. Before every MR-xxx story, re-read README.md, docs/BRIEFING.md, docs/MAJOR-REDESIGN-BACKLOG.md and docs/MAJOR-REDESIGN-STATUS.md; confirm the active branch, the last completed story and the frozen functional contracts. Then report the model recommended for that story. If the currently selected model differs, explicitly propose the model switch and WAIT for user confirmation before doing any implementation work. After explicit approval: set the story IN PROGRESS, implement only that scope through its acceptance criteria, run relevant tests, record results/findings/decisions/downstream risks, mark DONE only when acceptance criteria hold, commit separately, update MAJOR-REDESIGN-STATUS.md, then STOP. User approval is required before the next story.
 
 Allowed statuses: TODO, READY, IN PROGRESS, BLOCKED, DONE.
-MR-001 is DONE following explicit approval on 2026-10-12. MR-002 through MR-010 and MR-012 are DONE; MR-011 is deferred, MR-013 through MR-018 are TODO.
+MR-001 is DONE following explicit approval on 2026-10-12. MR-002 through MR-010 and MR-012 through MR-014 are DONE; MR-011 is deferred, MR-015 through MR-018 are TODO.
 Stop and report an unclean baseline. Never manufacture green tests through skips, retries or weaker assertions. Intentional DOM changes may require selector updates while retaining functional assertions.
 After architecture changes additionally verify menu open/close, state synchronization, exactly-once toggles, mobile collapse, focus/Escape/overlay. MR-018 runs the full relevant suite.
 Keep each run bounded to analysis, one story, or its validation. When available usage budget falls below roughly 20%, start no new story; write a handoff and stop. Usage quota is not exposed to this run.
@@ -451,21 +451,21 @@ Completed story results are recorded below; later story results remain placehold
 - Acceptance Criteria: Controls retain their exact effects, permissions and state rendering.
 - Tests: Voting/reveal/reset, sequences, specials, host transfer, spectator, topic and stats contracts.
 - Dependencies: MR-009, MR-013
-- Status: TODO
+- Status: DONE
 - Recommended Model: **Astra** — Room controls touch many frozen functional contracts and fragile DOM/event paths.
 - Story Start Protocol: Before starting this MR, re-read `README.md`, `docs/BRIEFING.md`, `docs/MAJOR-REDESIGN-BACKLOG.md` and `docs/MAJOR-REDESIGN-STATUS.md`. Confirm the active branch, the last completed MR and the frozen functional contracts. Report the recommended model below. If another model is currently selected, propose switching first and WAIT for explicit user confirmation. Only after confirmation may implementation begin; continue this MR through validation, documentation, DONE, its separate commit and status update, then STOP.
-- Notes / Findings: Not started; findings pending explicit story approval.
-- Resulting Decisions: None yet.
+- Notes / Findings: Started after explicit user confirmation of the Astra switch. Room rendering and delegated events depend on existing selectors; no markup or JavaScript changes are needed.
+- Resulting Decisions: Refine existing CSS rules for cards, participant spacing, topic surfaces, result values and host buttons. Preserve grids, visibility, disabled states and mobile sticky actions.
 
 #### Result
 
-- Changed files: None.
-- Technical decision: Pending.
-- Visual result: No changes.
-- Tests: Not run for this story; initialization baseline above.
-- New findings: Pending.
-- Effects on following stories: Pending.
-- Open risks: Pending analysis; known baseline risks above.
+- Changed files: `src/main/resources/static/styles.css`, `src/main/resources/templates/fragments/head.html`, `tests/specials-stats.spec.ts`, this backlog and `docs/MAJOR-REDESIGN-STATUS.md`.
+- Technical decision: Update existing CSS only; keep room DOM, JS, event delegation, permissions and rendering states intact. Bump the stylesheet cache version.
+- Visual result: Consistent card height, restrained selected-card ring without scale shifts, theme-aware hover borders, balanced participant/topic spacing, clearer statistic values and aligned host-action styling.
+- Tests: Maven verify 30 passed; npm CI guards and final TypeScript check passed. 35 focused Playwright cases passed across the initial and follow-up runs: style matrix, voting/reveal/reset, sequence, specials/statistics, spectator, topic, host transfer and mobile/desktop Chromium/Firefox geometry. No skips or automatic retries.
+- New findings: The initial specials/statistics test revealed before checking that every vote had reached the host. Replaced its forced coffee click with an actionable click and explicit server-rendered vote acknowledgements; the corrected test passed. Application logic is unchanged.
+- Effects on following stories: MR-015 responsive refinement is next (Sol); MR-011 remains deferred for header visuals.
+- Open risks: Existing topic editor defect remains deferred. Sticky footer/action placement and broader responsive refinement belong to MR-015.
 
 
 ### MR-015 — Responsive mobile refinement

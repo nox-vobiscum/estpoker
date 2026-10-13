@@ -157,7 +157,7 @@ strong{color:var(--text-strong)}
 .room-with-actions .icon-button{margin-left:10px}
 
 /* ---------- Topic row ---------------------------------------------------- */
-.topic-row{display:grid;grid-template-columns:max-content 1fr max-content;gap:8px 10px;align-items:center;padding:8px 10px;background:var(--panel-2);border:1px solid var(--border);border-radius:var(--ui-radius);margin:1.2rem 0 1rem}
+.topic-row{display:grid;grid-template-columns:max-content 1fr max-content;gap:8px 10px;align-items:center;padding:10px 12px;background:var(--panel);border:1px solid var(--border);border-radius:var(--ui-radius);margin:1.2rem 0 1rem}
 .topic-label{white-space:nowrap;color:var(--text-strong)}
 .topic-text{display:inline-block;color:var(--text);padding:.15rem .45rem;border-radius:6px;background:var(--panel);border:1px solid var(--border);min-height:26px;line-height:1.3;font-size:.92rem}
 .topic-text a{color:inherit;text-decoration:none}
@@ -165,7 +165,7 @@ strong{color:var(--text-strong)}
 .topic-actions{display:flex;align-items:center;gap:6px}
 
 /* Optional edit block */
-.topic-edit{display:grid;grid-template-columns:1fr max-content;gap:8px;align-items:center;margin:1.2rem 0 1rem;padding:8px 10px;background:var(--panel-2);border:1px solid var(--border);border-radius:var(--ui-radius)}
+.topic-edit{display:grid;grid-template-columns:minmax(0,1fr) max-content;gap:8px;align-items:center;margin:1.2rem 0 1rem;padding:10px 12px;background:var(--panel);border:1px solid var(--border);border-radius:var(--ui-radius)}
 .topic-input{height:36px;border-radius:var(--ui-small-control-radius);border:1px solid var(--border);background:var(--panel);color:var(--text);padding:0 .75rem}
 
 /* #topicRow specific (ellipsis hint) */
@@ -349,13 +349,13 @@ button.shake{animation:shake .4s}
 .card-grid.fixed4{grid-template-columns:repeat(4,minmax(var(--card-min-desktop),var(--card-max-desktop)))}
 .card-grid button{
   /* An explicit track-relative width avoids Firefox's intrinsic button sizing. */
-  width:calc(100% - .7rem);min-width:0;line-height:1.15;
+  width:calc(100% - .7rem);min-width:0;min-height:48px;line-height:1.15;
   display:inline-block;padding:.55rem .6rem;margin:.35rem;background:var(--panel);border:1px solid var(--border);border-radius:var(--ui-card-radius);box-shadow:var(--ui-card-shadow);cursor:pointer;
   transition:transform .15s,box-shadow .2s,background .2s,border-color .2s;
   font-size:clamp(1.05rem,2.2vw,1.3rem);text-align:center;color:var(--text);position:relative;aspect-ratio:5/3
 }
-.card-grid button:hover{background:var(--panel-hover);transform:translateY(-1px);box-shadow:var(--ui-card-hover-shadow);border-color:#4a4a4a}
-button.selected{background:#163a52 !important;color:#fff !important;font-weight:bold;border:2px solid rgba(0,122,204,.6);box-shadow:0 0 0 4px rgba(0,122,204,.22),0 0 12px rgba(0,122,204,.35);transform:scale(1.03)}
+.card-grid button:hover{background:var(--panel-hover);transform:translateY(-1px);box-shadow:var(--ui-card-hover-shadow);border-color:var(--accent)}
+.card-grid button.selected{background:var(--accent-strong) !important;color:#fff !important;font-weight:700;border-color:var(--accent);box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 30%,transparent);transform:none}
 .card-grid .grid-break{grid-column:1 / -1;height:0;pointer-events:none}
 .card-grid .checkmark{display:none !important}
 .card-grid button:disabled{opacity:.55;cursor:not-allowed;filter:grayscale(35%);background:var(--panel-2);border-color:var(--border);box-shadow:none;transform:none !important}
@@ -372,8 +372,8 @@ li{margin-bottom:.4rem;line-height:1.5;font-size:1rem}
   display:grid;
   grid-template-columns:var(--icon-col-width) 1fr 1fr;
   align-items:center; column-gap:.4rem;
-  margin-bottom:.4rem; padding:6px 8px;
-  border-bottom:1px solid var(--border); border-radius:6px;
+  margin-bottom:.5rem; padding:10px 12px;
+  border-bottom:1px solid var(--border); border-radius:var(--ui-small-control-radius);
 }
 #liveParticipantList .participant-row.is-host{background:rgba(0,122,204,.08);outline:1px solid rgba(0,122,204,.22)}
 :root[data-theme="light"] #liveParticipantList .participant-row.is-host{background:#e8f1ff;outline-color:rgba(37,99,235,.35)}
@@ -471,8 +471,12 @@ html.light .vote-chip.heat, body.light .vote-chip.heat,
 /* Center the results row itself */
 #resultRow{
   display:flex;justify-content:center;align-items:baseline;gap:.35rem .6rem;
-  flex-wrap:nowrap;text-align:center;min-height:1.6rem;margin-inline:auto
+  flex-wrap:nowrap;text-align:center;min-height:1.6rem;margin-inline:auto;
+  padding:.65rem .75rem;border:1px solid var(--border);border-radius:var(--ui-radius);
+  background:var(--panel);font-variant-numeric:tabular-nums;
 }
+#resultRow .value{font-weight:700}
+#resultRow #averageVote{font-size:1rem}
 #resultRow #resultLabel,#resultRow #averageVote,#resultRow #medianWrap,#resultRow #rangeWrap{white-space:nowrap}
 #resultRow .sep{opacity:.6;margin:0 .45rem}
 @media (max-width:640px){
@@ -500,6 +504,9 @@ html.light .vote-chip.heat, body.light .vote-chip.heat,
 
 /* Reserve space even when hidden */
 #resultRow.is-hidden{visibility:hidden}
+
+/* Preserve host button visibility and the existing mobile sticky placement. */
+.vote-actions .button{margin-top:.5rem;min-width:9rem;font-weight:600;box-shadow:none}
 
 /* ---------- Toast -------------------------------------------------------- */
 .toast{position:fixed;top:20px;right:20px;background:rgba(51,51,51,.95);color:#fff;padding:12px 20px;border-radius:var(--ui-radius);z-index:9999;font-size:14px;box-shadow:var(--ui-panel-shadow);transform:translateY(-10px);opacity:0;animation:fadein 220ms ease forwards,fadeout 400ms ease 2400ms forwards}
@@ -1250,7 +1257,7 @@ h1,h2,h3{font-weight:var(--ui-heading-weight)}
 }
 :root[data-ui-style="clean"] .card-grid button.selected{
   background:var(--accent-strong) !important;border-color:var(--accent);
-  box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 25%,transparent),var(--ui-shadow-sm);
+  box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 30%,transparent),var(--ui-shadow-sm);
 }
 :root[data-ui-style="clean"] .card-grid button:disabled{background:var(--panel-2);box-shadow:none}
 
@@ -1270,6 +1277,10 @@ h1,h2,h3{font-weight:var(--ui-heading-weight)}
 }
 :root[data-ui-style="clean"] .topic-row.editable:hover{background:var(--panel-hover)}
 :root[data-ui-style="clean"] .topic-text{border-radius:var(--ui-control-radius);border-color:var(--ui-surface-border)}
+:root[data-ui-style="clean"] #resultRow{
+  background:var(--ui-surface);border-color:var(--ui-surface-border);
+  border-radius:var(--ui-panel-radius);box-shadow:var(--ui-shadow-sm);
+}
 
 /* Menu surfaces keep selected states distinct without heavy surrounding rings. */
 :root[data-ui-style="clean"] .menu-panel{border-radius:var(--ui-large-radius);border-color:var(--ui-surface-border)}
