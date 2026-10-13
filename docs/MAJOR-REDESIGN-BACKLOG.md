@@ -495,6 +495,63 @@ Completed story results are recorded below; later story results remain placehold
 - Open risks: The known empty-topic editor defect remains outside this visual story.
 
 
+## Required visual polish follow-up before MR-016 — Shape language consistency
+
+- Status: DONE
+- Recommended Model: **GPT-5.6 Sol** — bounded presentation-system cleanup; no gameplay or state changes.
+- Goal: Make the redesigned UI feel intentional and coherent by reducing the currently inconsistent corner-radius, control-height and surface-shape vocabulary.
+- Scope: Audit and normalize the shape language of visible interactive controls and surfaces, especially:
+  - desktop DE/EN segmented control
+  - desktop Light/Dark/System segmented control
+  - hamburger/menu trigger
+  - settings close button
+  - menu preference controls
+  - primary CTA buttons such as Join
+  - text inputs
+  - settings drawer/sheet and major cards/panels
+- Design Direction: Use a small, explicit radius system instead of ad-hoc per-component values. Prefer at most three levels:
+  - **small** for compact segmented controls and similar small controls
+  - **medium** for normal buttons, icon buttons and inputs
+  - **large** for cards, panels and drawer/sheet surfaces
+  A practical target is approximately **10px / 14px / 20px**, but preserve current proportions if a nearby token value produces a cleaner migration. The important contract is a consistent three-level system, not arbitrary one-off radii.
+- Shape-family contract:
+  - language and theme segmented controls must share the same outer radius, height, border treatment and internal segment geometry
+  - hamburger/menu trigger and settings close button must belong to the same icon-button family: same size, radius, border language, focus treatment and visual weight
+  - normal CTA buttons and inputs should share the same medium-radius design language unless a documented accessibility/layout reason requires otherwise
+  - large cards/panels/drawer surfaces may use the large radius, but should not introduce additional unrelated radii
+- Visual-system audit: Record the current `border-radius`, visible control height, border width/style, shadow treatment and focus-ring treatment for the affected components before changing them. Remove obsolete or conflicting one-off overrides where safe.
+- CSS architecture: Prefer shared CSS custom properties/tokens for the radius levels and reuse them consistently. Do not introduce inline styles or a new UI library.
+- Out of Scope: Any change to PPUI state, preference semantics, menu lifecycle, event listeners, game events/payloads, room logic, permissions, persistence, backend, WebSocket behavior, routes or form semantics. All frozen functional contracts remain unchanged.
+- Acceptance Criteria:
+  - no more than three intentional radius levels are used for the audited control/surface families
+  - related controls visibly belong to the same component family
+  - hamburger and settings close button have matching geometry and shape language
+  - language/theme preference controls retain the existing compact parity contract
+  - CTA/input/card/panel rounding looks systematic rather than ad hoc
+  - keyboard focus remains clearly visible and is not clipped by the new radii
+  - Dev/Clean and Light/Dark/System remain visually distinct and fully usable
+  - no layout regressions or clipped controls at 320/375/768/769/1280px
+- Tests / Validation:
+  - run Maven verify and npm CI guards
+  - run focused Playwright tests for header, settings container, preference parity, landing form and responsive layout
+  - add or extend geometry assertions for the audited control families where useful
+  - compare Dev/Clean in Light/Dark/System on desktop and mobile
+  - inspect Chromium and Firefox for border-radius, focus-ring and control-height consistency
+  - retries=0; do not weaken existing functional assertions
+- Result Recording: Document changed files, chosen radius tokens/values, any intentionally retained exception, screenshots/geometry evidence, test results and downstream risks in this backlog and `docs/MAJOR-REDESIGN-STATUS.md`.
+- Completion Gate: Finish this follow-up before MR-016 so accessibility, cross-browser and final regression validate the polished shape system rather than an intermediate one.
+
+#### Audit and result
+
+- Pre-change computed audit (desktop, Chromium, Light; radii Dev/Clean): DE/EN and Light/Dark/System outer controls 10/12px at 40px height; their menu counterparts matched. Hamburger 12/16px at 40px; settings close 8/8px at 44px. Join button 12/14px and name input 10/12px, both 48px high. Clean join panel 22px; Dev join form had no panel. Desktop drawer 0/22px, mobile sheet 16/22px. Controls used 1px solid borders except the borderless CTA. The compact controls, hamburger, form CTA and drawer had shadows; the desktop close button had none. Keyboard focus used a 2px accent outline with 2px offset, while text inputs used a 3px focus shadow.
+- Chosen shape tokens: `--shape-radius-small: 10px` for compact segments; `--shape-radius-medium: 14px` for input, CTA, icon actions, row cards and smaller content cards; `--shape-radius-large: 20px` for panels and mobile sheets. Existing `--ui-*radius` variables now map to these shared values. Dev/Clean still differ through typography, palette and shadows.
+- Intentional exceptions: the desktop drawer is square where it meets the viewport edge; the Dev landing form is an unboxed layout. Switch tracks/knobs remain pill/circle shapes because their geometry conveys switch state. Logos and decorative flags are not part of the control-radius system.
+- Changed files: `src/main/resources/static/styles.css`, `src/main/resources/templates/fragments/head.html`, `tests/shape-language.spec.ts`, this backlog and `docs/MAJOR-REDESIGN-STATUS.md`.
+- Visual result: Header language/theme outer controls and menu preferences share one compact family. Hamburger and settings close now match at 40px with the same radius, border, surface, shadow and keyboard outline. CTA and text input share the medium radius. Major Clean panels use the large radius; smaller cards use the medium radius.
+- Validation: Maven verify 30 passed; npm CI guards passed. Twelve cross-browser shape cases covered Dev/Clean, Light/Dark/System, 375/1280px, Chromium/Firefox and focus rings. Forty-four existing header, settings, preference, landing, mobile and Clean-surface cases passed. Fourteen final shape/topic cases passed after removing redundant overrides. Six final room geometry, participant and special-control checks passed after the last radius alignment. No retries or skips.
+- Evidence: baseline computed values above; final values from `node target/shape-audit.cjs`; shape screenshots in `test-results/shape-language-*/`, including mobile Chromium and desktop Firefox. Generated artifacts are local and ignored by Git.
+- Downstream risk: MR-016 should review touch-target requirements independently, especially the 40px header/close family preserved from the earlier header-height decision. No functional contract or behavior changed.
+
 ### MR-016 — Accessibility pass
 
 - ID: MR-016
