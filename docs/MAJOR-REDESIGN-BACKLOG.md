@@ -682,7 +682,7 @@ Completed story results are recorded below; later story results remain placehold
 - Out of Scope: Functional redesign or new game behavior. All frozen functional contracts apply.
 - Acceptance Criteria: Core flows work without a pointer; focus/semantics and visual accessibility checks are documented.
 - Tests: Keyboard flows, Escape/focus return, screen-reader announcements, contrast and reduced motion.
-- Dependencies: MR-015
+- Dependencies: MR-015, MR-019
 - Status: TODO
 - Recommended Model: **Astra** — Accessibility validation spans focus, keyboard, semantics and interaction lifecycle.
 - Story Start Protocol: Before starting this MR, re-read `README.md`, `docs/BRIEFING.md`, `docs/MAJOR-REDESIGN-BACKLOG.md` and `docs/MAJOR-REDESIGN-STATUS.md`. Confirm the active branch, the last completed MR and the frozen functional contracts. Report the recommended model below. If another model is currently selected, propose switching first and WAIT for explicit user confirmation. Only after confirmation may implementation begin; continue this MR through validation, documentation, DONE, its separate commit and status update, then STOP.
@@ -753,3 +753,119 @@ Completed story results are recorded below; later story results remain placehold
 - Effects on following stories: Pending.
 - Open risks: Pending analysis; known baseline risks above.
 
+
+
+### MR-019 — Contextual active-room return navigation
+
+- ID: MR-019
+- Title: Contextual active-room return navigation
+- Goal: Provide a visible, reliable way to return to the previously active room after navigating from the room to Home, About or Invite.
+- Scope:
+  - Introduce a per-tab active-room return context using `sessionStorage`.
+  - Store the return context only after a successful room entry / successful room connection.
+  - Store at least:
+    - `roomCode`
+    - `participantName`
+    - canonical room URL
+  - The canonical return URL must use:
+    - `/room?roomCode=...&participantName=...`
+    - without `preflight=1`
+  - Show a contextual return control on:
+    - Home (`/`)
+    - About (`/about`)
+    - Invite (`/invite`)
+  - Do not show the return control on `/room`.
+  - Prefer a clearly visible contextual banner or compact navigation row directly below the shared app header.
+  - Example labels:
+    - EN: `Return to room "room-name"`
+    - DE: `Zurück zu Raum „room-name“`
+  - The return control must navigate directly to the stored canonical room URL.
+  - Browser history must not be used as the primary return mechanism.
+  - Preserve normal browser Back/Forward behavior.
+  - Clear the stored return context when the room is definitively no longer valid, for example:
+    - explicit room close
+    - confirmed room-not-found / room-ended state
+    - other existing terminal room redirects where returning to the same room would be invalid
+  - Do not clear the return context for:
+    - normal navigation to Home/About/Invite
+    - temporary WebSocket disconnects
+    - tab sleep / browser backgrounding
+    - transient reconnect attempts
+  - Handle Invite carefully:
+    - a duplicate-name / name-taken redirect must not expose a misleading return action that would immediately re-enter the same invalid identity state
+    - preserve all existing duplicate-name and invite semantics
+- Out of Scope:
+  - No new backend session mechanism.
+  - No new room lifecycle semantics.
+  - No change to WebSocket protocol or payloads.
+  - No change to participant identity/CID behavior.
+  - No change to room creation, join, invite, voting, host logic or persistence.
+  - Do not use `localStorage` as the active-room return source of truth.
+  - Do not use `history.back()` as the primary return action.
+  - All frozen functional contracts remain unchanged.
+- Technical Direction:
+  - Reuse the existing per-tab architecture.
+  - `sessionStorage` is the preferred storage because the return point belongs to the current browser tab.
+  - Keep the existing `pp-cid` behavior unchanged.
+  - The new return context must not conflict with existing `pp-name` / `pp-room` values in `localStorage`.
+  - Use a dedicated key, e.g. `pp-room-return`.
+  - Prefer a small isolated UI adapter/helper rather than coupling the logic into unrelated preference or menu state.
+- UX Contract:
+  - The return action must be immediately discoverable after leaving a room.
+  - It must not be hidden only in the footer.
+  - It must not clutter the desktop utility cluster or violate the mobile header rule.
+  - Preferred placement: directly below the shared app header.
+  - The control should visually read as contextual navigation, not as a primary CTA.
+  - It should disappear completely when no valid return context exists.
+  - Long room names must truncate gracefully without breaking layout.
+- Accessibility:
+  - Use a normal keyboard-focusable link or button with clear accessible text.
+  - The room name must be included in the accessible label.
+  - Focus styling must remain visible in all themes/styles.
+  - No automatic focus stealing when the banner appears.
+  - Respect reduced motion if any transition is used.
+- Acceptance Criteria:
+  - Room → About → Return restores the same room and participant identity.
+  - Room → Home → Return restores the same room and participant identity.
+  - Room → About → Home → Return still returns directly to the room.
+  - Reloading Home/About in the same tab preserves the return option.
+  - Opening Home/About in a new tab without prior room participation shows no return option.
+  - Two tabs in different rooms retain independent return targets.
+  - The return URL contains no `preflight=1`.
+  - Returning does not trigger a duplicate-name false positive for an existing valid tab identity.
+  - A definitively closed/invalid room does not leave a misleading persistent return action.
+  - Invite duplicate-name handling remains correct and does not offer an invalid immediate return loop.
+  - No room/game/WebSocket behavior changes.
+- Tests:
+  - Add focused Playwright coverage for:
+    - Room → About → Return
+    - Room → Home → Return
+    - Room → About → Home → Return
+    - Home/About reload with stored tab context
+    - new tab without stored context
+    - independent room-return contexts across two tabs
+    - explicit room close / invalid room cleanup
+    - duplicate-name / Invite edge case
+    - keyboard navigation and visible focus
+    - 320/375/768/769/1280px responsive layouts
+  - Run relevant existing room, invite, navigation, storage and header tests.
+  - Run Maven verify and npm CI guards.
+  - No retries, skips or weakened assertions.
+- Dependencies:
+  - MR-015
+  - Should be completed before MR-016 so accessibility, MR-017 cross-browser validation and MR-018 final regression include this navigation behavior.
+- Status: TODO
+- Recommended Model: **GPT-5.6 Sol** — bounded navigation/state implementation using existing per-tab architecture; escalate only if unexpected room/CID lifecycle coupling is discovered.
+- Story Start Protocol: Before starting this MR, re-read `README.md`, `docs/BRIEFING.md`, `docs/MAJOR-REDESIGN-BACKLOG.md` and `docs/MAJOR-REDESIGN-STATUS.md`. Confirm the active branch, the last completed MR and the frozen functional contracts. Report the recommended model. If another model is currently selected, propose switching first and WAIT for explicit user confirmation. Only after confirmation may implementation begin; continue this MR through validation, documentation, DONE, its separate commit and status update, then STOP.
+- Notes / Findings: Not started; findings pending explicit story approval.
+- Resulting Decisions: None yet.
+
+#### Result
+
+- Changed files: None.
+- Technical decision: Pending.
+- Visual result: No changes.
+- Tests: Not run for this story.
+- New findings: Pending.
+- Effects on following stories: MR-016/017/018 must validate the final return-navigation behavior.
+- Open risks: Pending analysis; special attention required for duplicate-name redirects, room-close cleanup and per-tab identity continuity.
