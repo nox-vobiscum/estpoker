@@ -1282,6 +1282,17 @@ h1,h2,h3{font-weight:var(--ui-heading-weight)}
 :root[data-ui-style="clean"] .menu-button:hover{border-color:var(--accent);box-shadow:var(--ui-shadow-md)}
 
 /* Explanatory content gets a softer surface and clearer reading rhythm. */
+:root[data-ui-style="clean"] .page-about :is(.about-intro,.about-section){
+  border:1px solid var(--ui-surface-border);
+  border-radius:var(--ui-large-radius);
+  background:var(--ui-surface);
+  padding:clamp(16px,2vw,24px);
+  box-shadow:var(--ui-shadow-sm);
+}
+:root[data-ui-style="clean"] .page-about .about-intro{
+  background:linear-gradient(135deg,color-mix(in srgb,var(--ui-surface) 92%,var(--accent)),var(--ui-surface));
+}
+:root[data-ui-style="clean"] .page-about .lead{color:var(--text)}
 :root[data-ui-style="clean"] :is(.knowledge-bites,.landing-explainer){
   border-radius:var(--ui-large-radius);background:var(--ui-surface);
   border:1px solid var(--ui-surface-border);padding:20px;box-shadow:var(--ui-shadow-md);

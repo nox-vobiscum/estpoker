@@ -32,7 +32,7 @@ Then STOP.
 
 ## Epic Goal
 
-Modernize the complete visual UI and presentation architecture of RBS' Planning Poker while preserving every existing functional effect. MR-001 through MR-010 completed, including the shared UI preference owner and menu hierarchy.
+Modernize the complete visual UI and presentation architecture of RBS' Planning Poker while preserving every existing functional effect. MR-001 through MR-010 and MR-012 completed; MR-011 awaits header visuals.
 
 ## Frozen Functional Contracts
 
@@ -74,11 +74,11 @@ No gameplay refactoring. Before every commit inspect changes to GameService, Gam
 Only one story at a time. Before every MR-xxx story, re-read README.md, docs/BRIEFING.md, docs/MAJOR-REDESIGN-BACKLOG.md and docs/MAJOR-REDESIGN-STATUS.md; confirm the active branch, the last completed story and the frozen functional contracts. Then report the model recommended for that story. If the currently selected model differs, explicitly propose the model switch and WAIT for user confirmation before doing any implementation work. After explicit approval: set the story IN PROGRESS, implement only that scope through its acceptance criteria, run relevant tests, record results/findings/decisions/downstream risks, mark DONE only when acceptance criteria hold, commit separately, update MAJOR-REDESIGN-STATUS.md, then STOP. User approval is required before the next story.
 
 Allowed statuses: TODO, READY, IN PROGRESS, BLOCKED, DONE.
-MR-001 is DONE following explicit approval on 2026-10-12. MR-002 through MR-010 are DONE; MR-011 through MR-018 are TODO.
+MR-001 is DONE following explicit approval on 2026-10-12. MR-002 through MR-010 and MR-012 are DONE; MR-011 is deferred, MR-013 through MR-018 are TODO.
 Stop and report an unclean baseline. Never manufacture green tests through skips, retries or weaker assertions. Intentional DOM changes may require selector updates while retaining functional assertions.
 After architecture changes additionally verify menu open/close, state synchronization, exactly-once toggles, mobile collapse, focus/Escape/overlay. MR-018 runs the full relevant suite.
 Keep each run bounded to analysis, one story, or its validation. When available usage budget falls below roughly 20%, start no new story; write a handoff and stop. Usage quota is not exposed to this run.
-MR-001 through MR-010 results are recorded below; later story results remain placeholders.
+Completed story results are recorded below; later story results remain placeholders.
 
 ## User Stories
 
@@ -370,9 +370,10 @@ MR-001 through MR-010 results are recorded below; later story results remain pla
 - Tests: Light/Dark, responsive overflow, accessible naming and navigation.
 - Dependencies: MR-003, MR-010
 - Status: TODO
+- Scheduling: Deferred at the user's request until the header visuals are ready. Keep its brandmark and responsive header acceptance criteria open.
+- Notes / Findings: MR-012 was completed ahead of this story with About content surfaces only. Recheck Clean surfaces against the final header visual when MR-011 resumes; its visual and navigation acceptance criteria remain open.
 - Recommended Model: **Sol** — Brand/header visual integration; primarily presentation work.
 - Story Start Protocol: Before starting this MR, re-read `README.md`, `docs/BRIEFING.md`, `docs/MAJOR-REDESIGN-BACKLOG.md` and `docs/MAJOR-REDESIGN-STATUS.md`. Confirm the active branch, the last completed MR and the frozen functional contracts. Report the recommended model below. If another model is currently selected, propose switching first and WAIT for explicit user confirmation. Only after confirmation may implementation begin; continue this MR through validation, documentation, DONE, its separate commit and status update, then STOP.
-- Notes / Findings: Not started; findings pending explicit story approval.
 - Resulting Decisions: None yet.
 
 #### Result
@@ -395,22 +396,22 @@ MR-001 through MR-010 results are recorded below; later story results remain pla
 - Out of Scope: Functional changes and shared game state. All frozen functional contracts apply.
 - Acceptance Criteria: Modes are visibly distinct while content remains legible and unobstructed.
 - Tests: Theme/style matrix, contrast, reduced motion and responsive overflow.
-- Dependencies: MR-008, MR-011
-- Status: TODO
+- Dependencies: MR-008. MR-011 is deferred by user decision; this story excludes the header and must be reviewed against the brand visual when MR-011 resumes.
+- Status: DONE
 - Recommended Model: **Sol** — Decorative Clean-mode surfaces; primarily CSS/presentation work.
 - Story Start Protocol: Before starting this MR, re-read `README.md`, `docs/BRIEFING.md`, `docs/MAJOR-REDESIGN-BACKLOG.md` and `docs/MAJOR-REDESIGN-STATUS.md`. Confirm the active branch, the last completed MR and the frozen functional contracts. Report the recommended model below. If another model is currently selected, propose switching first and WAIT for explicit user confirmation. Only after confirmation may implementation begin; continue this MR through validation, documentation, DONE, its separate commit and status update, then STOP.
-- Notes / Findings: Not started; findings pending explicit story approval.
-- Resulting Decisions: None yet.
+- Notes / Findings: Existing Clean styles already cover menu, landing explainer and room controls. The About sections were the remaining plain content surfaces. The new cards use the same Clean palette and shadow tokens; Dev remains unchanged.
+- Resulting Decisions: Add only passive About intro/section surfaces and readable intro text. Keep the header out of scope pending MR-011 and leave forms, room controls and all functional state unchanged.
 
 #### Result
 
-- Changed files: None.
-- Technical decision: Pending.
-- Visual result: No changes.
-- Tests: Not run for this story; initialization baseline above.
-- New findings: Pending.
-- Effects on following stories: Pending.
-- Open risks: Pending analysis; known baseline risks above.
+- Changed files: src/main/resources/static/styles.css, src/main/resources/templates/fragments/head.html, tests/clean-surfaces.spec.ts, docs/MAJOR-REDESIGN-BACKLOG.md, docs/MAJOR-REDESIGN-STATUS.md.
+- Technical decision: CSS-only About surfaces using existing Clean tokens and a subtle intro gradient. No new asset, layout mode, script or game-state change.
+- Visual result: Intro and explanatory sections use soft cards in Clean Light/Dark/System; Dev keeps its plain sections. Desktop/mobile full-page screenshots inspected.
+- Tests: Maven verify 30 passed; npm run ci:verify passed. All 25 existing ui-style Playwright tests passed. The first run of the new contrast tests misread Chromium color(srgb) values; after fixing that test parser, all 6 new surface tests passed without retries/skips. They cover 375/1280px, theme/style matrix, color contrast, reduced motion and overflow. No full suite.
+- New findings: Browser computed colors can use color(srgb) rather than rgb(0-255); the contrast test now handles both. System-theme surfaces respond to OS color changes without reload.
+- Effects on following stories: MR-013 can proceed on the form independently. MR-011 remains open for later brand visuals; recheck its integration with Clean About surfaces.
+- Open risks: Existing topic startup flakiness and empty-topic editor defect remain separate. MR-011 brand/header acceptance criteria have not been validated. Evidence: target/mr012-*.log and test-results/clean-surfaces-*/{light,dark}-about.png (ignored local artifacts).
 
 
 ### MR-013 — Redesign landing/join form
