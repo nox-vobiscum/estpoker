@@ -9,10 +9,7 @@
   <th:block th:replace="~{fragments/app-header :: headerScripts}"></th:block>
 
   <div class="container">
-    <h1 class="app-title">
-      <img src="/assets/branding/brandmark-rbs-96.png" alt="" width="24" height="24" class="logo">
-      <span th:text="#{ui.heading}" data-i18n="ui.heading">Planning Poker</span>
-    </h1>
+    <h1 class="sr-only"><span th:text="#{label.room}">Room:</span> <span th:text="${roomCode}">demo</span></h1>
 
     <dl class="main-info">
       <dt><span class="mi-icon" aria-hidden="true">👤</span><span class="mi-label" th:text="#{label.you}" data-i18n="label.you">You are:</span></dt>

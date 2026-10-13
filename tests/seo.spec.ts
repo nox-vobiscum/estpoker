@@ -113,6 +113,8 @@ test('product branding is consistent in both languages and manifest', async ({ p
   for (const lang of ['en', 'de']) {
     for (const path of ['/', '/about', '/invite', '/room?roomCode=brand-check&participantName=Brand']) {
       await page.goto(`${path}${path.includes('?') ? '&' : '?'}lang=${lang}`);
+      await expect(page.locator('.app-brand img')).toHaveCount(1);
+      await expect(page.locator('.container img[src*="brandmark-rbs"]')).toHaveCount(0);
       if (path === '/about') {
         await expect(page.locator('[data-i18n="about.intro"]')).toContainText("RBS' Planning Poker");
       } else {
@@ -122,7 +124,8 @@ test('product branding is consistent in both languages and manifest', async ({ p
             ? 'Free Online Planning Poker for Agile Teams'
             : 'Kostenloses Online Planning Poker für agile Teams');
         } else {
-          await expect(page.locator('h1')).toHaveText('Planning Poker');
+          await expect(page.locator('h1')).toHaveClass(/sr-only/);
+          await expect(page.locator('h1')).not.toHaveText('Planning Poker');
         }
       }
     }

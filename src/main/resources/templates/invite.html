@@ -10,10 +10,7 @@
 
   <!-- Use 'rc' as a safe roomCode (model or query param) -->
   <div class="container landing-container" th:with="rc=${roomCode != null ? roomCode : param.roomCode}">
-    <h1 class="app-title">
-      <img src="/assets/branding/brandmark-rbs-96.png" alt="" width="24" height="24" class="logo">
-      <span th:text="#{ui.heading}" data-i18n="ui.heading">Planning Poker</span>
-    </h1>
+    <h1 class="sr-only" th:text="#{invite.pageTitle}" data-i18n="invite.pageTitle">Join a room</h1>
 
     <!-- Safe heading without MessageFormat to avoid 500s -->
     <p class="hint" id="inviteHeading"
