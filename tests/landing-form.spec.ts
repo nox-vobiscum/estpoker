@@ -34,3 +34,13 @@ test('landing and invite forms fit a narrow mobile viewport', async ({ page }) =
     await expect(form.locator('button[type="submit"]')).toBeVisible();
   }
 });
+
+test('home form has breathing room below the header', async ({ page }) => {
+  for (const width of [375, 1280]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto('/');
+    const header = (await page.locator('.app-header').boundingBox())!;
+    const form = (await page.locator('#joinForm').boundingBox())!;
+    expect(form.y - (header.y + header.height)).toBeGreaterThanOrEqual(width < 600 ? 32 : 48);
+  }
+});
