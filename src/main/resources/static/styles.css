@@ -910,14 +910,6 @@ html.light .vote-chip.heat, body.light .vote-chip.heat,
     margin-left:0; /* override previous flex auto-push */
   }
 
-  /* Align the results row to the same horizontal column as the chips */
-  #resultRow{
-    width: calc((100% - var(--icon-col-width)) / 2);
-    margin-inline: 0; /* cancel earlier auto-centering */
-    margin-left: calc(var(--icon-col-width) + ((100% - var(--icon-col-width)) / 2));
-    margin-right: 0;
-    justify-content: center;
-  }
 }
 
 

@@ -42,3 +42,11 @@
 - Visual inspection covered Dev/Clean in Light/Dark at 375px and 1280px. Alignment is consistent and no horizontal overflow was found.
 - Local preview is running at http://localhost:8080. No push or deployment.
 - STOP: Full-width header polish complete; no further UI work started.
+
+## Result/deck center alignment — 2026-10-14
+
+- Removed the desktop-only result-row offset that aligned statistics to the participant-chip column instead of the centered voting deck.
+- No card-grid, participant-list, button, responsive wrapping, HTML or JavaScript rules changed.
+- Four focused Chromium geometry cases passed without retries: Consensus and Average/Median/Range at 375px and 1280px. Result and deck centers match within the required 1px tolerance, with no horizontal overflow.
+- No full E2E, Maven test or cross-browser suite was run for this CSS-only correction.
+- STOP: Alignment polish complete; no further change started.
