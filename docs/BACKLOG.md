@@ -2,7 +2,7 @@
 
 ## [P2] Impressum nach Abschluss des Major Redesigns anlegen
 
-**Status:** Geplant.
+**Status:** ✅ Done (2026-10-14).
 **Reported:** 2026-10-12.
 **Abhängigkeit:** Abschluss des Major-Redesign-Epics (MR-018).
 
@@ -15,7 +15,7 @@
 - Impressum mit bestätigten Angaben veröffentlicht und von allen Seiten erreichbar.
 - Darstellung auf Desktop und Mobile geprüft.
 
-**Zeitpunkt:** Erst nach Abschluss des Redesigns umsetzen; aktuell nur vorgemerkt.
+**Result:** Bilingual `/imprint` page published and linked through the shared footer.
 
 ---
 
@@ -57,7 +57,7 @@ Status tags:
 
 **Scope**
 - UptimeRobot Account erstellen und konfigurieren
-- Monitor für `https://ep.rbsnet.at/healthz` mit 5-Minuten-Intervall
+- Monitor für `https://planning-poker.at/healthz` mit 5-Minuten-Intervall
 - Email-Alerts bei Downtime konfigurieren
 - Öffentliche Status Page einrichten (optional)
 - GitHub Action als Fallback beibehalten oder deaktivieren nach erfolgreicher Migration
@@ -143,6 +143,7 @@ Status tags:
 ---
 
 ## [P3] Optional “compact mode” toggle (room setting) ⏳
+**Status:** Superseded by the released per-user Dev/Clean interface styles; retain only if a distinct synchronized room-level requirement is approved later.
 **Goal:** Toggle a denser layout per room, controlled by the host.
 
 **Scope**

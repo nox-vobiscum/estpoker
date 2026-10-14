@@ -866,7 +866,7 @@ Potential future enhancements:
 **Configured in:** `application.properties`
 
 ```properties
-app.websocket.allowed-origins=http://localhost:*,https://planning-poker.at
+app.websocket.allowed-origins=http://localhost:*,http://127.0.0.1:*,https://planning-poker.at
 ```
 
 **Enforcement:** Origin header checked on WebSocket upgrade request
@@ -875,7 +875,7 @@ app.websocket.allowed-origins=http://localhost:*,https://planning-poker.at
 
 ### HTTPS/WSS
 
-**Production:** Enforced via Cloudflare proxy  
+**Production:** HTTPS/WSS and TLS are served by Koyeb for `planning-poker.at`; Cloudflare is DNS-only
 **Local Dev:** Plain HTTP/WS acceptable
 
 ---

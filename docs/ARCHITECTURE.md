@@ -20,7 +20,7 @@ This document provides a comprehensive overview of the RBS' Planning Poker syste
 
 ### Backend
 - **Runtime:** Java 25 (OpenJDK)
-- **Framework:** Spring Boot 3.5.7
+- **Framework:** Spring Boot 4.1.1
 - **WebSockets:** Spring WebSocket (STOMP-free, custom protocol)
 - **Templating:** Thymeleaf
 - **Build Tool:** Maven 3.x
@@ -33,9 +33,9 @@ This document provides a comprehensive overview of the RBS' Planning Poker syste
 - **No frameworks:** React/Vue/Angular not used
 
 ### Testing
-- **Unit Tests:** JUnit 5, Mockito
+- **Unit Tests:** JUnit 6, Mockito
 - **E2E Tests:** Playwright (TypeScript)
-- **CI:** Automated via GitHub Actions (inferred)
+- **CI:** GitHub Actions (`CI` and Playwright E2E workflows)
 
 ### Infrastructure
 - **Domain registrar:** ALL-INKL
@@ -61,8 +61,8 @@ This document provides a comprehensive overview of the RBS' Planning Poker syste
              │                            │
              ▼                            ▼
 ┌────────────────────────────────────────────────────────────┐
-│                      CLOUDFLARE CDN                        │
-│                   (Proxy + TLS Termination)                │
+│                 CLOUDFLARE AUTHORITATIVE DNS              │
+│            (DNS only; not in the HTTP/WSS path)            │
 └────────────┬────────────────────────────┬──────────────────┘
              │                            │
              ▼                            ▼
@@ -302,8 +302,8 @@ Three implementations (strategy pattern):
 Single centralized stylesheet with:
 - CSS custom properties (design tokens)
 - Responsive layout
-- Compact mode support
-- Dark theme (optional)
+- Light, Dark and System themes
+- Dev and Clean interface styles
 - Animation/transitions
 
 **Design Tokens:** See [STYLE.md](STYLE.md) for details.
@@ -552,7 +552,7 @@ features.persistentRooms.snapshot.enabled=true
 features.persistentRooms.snapshot.debounceMs=1500
 
 # WebSocket
-app.websocket.allowed-origins=http://localhost:*,https://planning-poker.at
+app.websocket.allowed-origins=http://localhost:*,http://127.0.0.1:*,https://planning-poker.at
 
 # FTPS Storage
 app.storage.mode=ftps

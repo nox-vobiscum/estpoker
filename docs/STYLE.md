@@ -26,10 +26,16 @@ Declare tokens in CSS (see snippet below). Suggested defaults:
 | `--radius-sm`    | `4px`      | Small rounding |
 | `--radius-md`    | `8px`      | Default rounding |
 
-**Compact mode overrides** (activated by `.compact` on `<body>`):
-- Slightly smaller font sizes (`-0.0625–0.125rem`)
-- Tighter line-height (`--lh-tight: 1.2`)
-- Reduced paddings (`-1 step` on `--space-*` where sensible)
+## Active appearance axes
+
+- **Theme:** Light, Dark or System. System follows `prefers-color-scheme` and
+  is represented by the absence of a `data-theme` attribute.
+- **Interface style:** Dev or Clean, represented by
+  `data-ui-style="dev|clean"` on the document root.
+
+`ui-preferences.js` (`window.PPUI`) owns language, theme and interface style.
+`menu.js` owns the menu lifecycle only. Do not introduce the former `.compact`
+body mode: Dev/Clean are per-user preferences, not synchronized room settings.
 
 ## CSS boilerplate
 
@@ -53,20 +59,6 @@ Add this to your main stylesheet (e.g., `styles.css`):
   --radius-md: 8px;
 }
 
-/* Compact mode: applied via <body class="compact"> */
-body.compact {
-  --font-size-sm: 0.8125rem;
-  --font-size-md: 0.9375rem;
-  --font-size-lg: 1.0625rem;
-
-  --lh-tight: 1.2;
-
-  --space-1: 0.2rem;
-  --space-2: 0.4rem;
-  --space-3: 0.6rem;
-  --space-4: 0.8rem;
-}
-
 /* Example usage */
 .topbar {
   font-size: var(--font-size-md);
@@ -86,7 +78,7 @@ body.compact {
   line-height: var(--lh-normal);
 }
 
-/* Keep minimum tap targets even in compact mode */
+/* Keep minimum tap targets in both interface styles */
 .button, .icon-button {
   min-height: 36px;
   min-width: 36px;

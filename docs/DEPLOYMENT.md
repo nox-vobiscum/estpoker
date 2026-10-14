@@ -26,7 +26,7 @@ accounts, registry packages or filesystem paths. FTPS room paths are unchanged.
 ### Current Production Setup
 
 **Hosting:** Koyeb (PaaS)  
-**CDN/Proxy:** Cloudflare  
+**DNS:** Cloudflare DNS-only; HTTP proxy/CDN disabled
 **Persistence:** FTPS (DomainFactory)  
 **Domain:** https://planning-poker.at/
 
@@ -35,16 +35,16 @@ accounts, registry packages or filesystem paths. FTPS room paths are unchanged.
 ```
 ┌─────────────────────────────────────────────┐
 │               Cloudflare                     │
-│  - DNS                                       │
-│  - CDN/Cache                                 │
-│  - TLS Termination                           │
-│  - DDoS Protection                           │
+│  - Authoritative DNS                         │
+│  - Apex CNAME flattening                     │
+│  - No HTTP proxy/CDN in production path      │
 └──────────────┬──────────────────────────────┘
                │
                ▼
 ┌──────────────────────────────────────────────┐
 │               Koyeb                           │
 │  - Docker Container                          │
+│  - HTTPS/WSS and TLS                          │
 │  - Auto-scaling                              │
 │  - Health Checks                             │
 │  - Zero-downtime deploys                     │
@@ -67,7 +67,7 @@ accounts, registry packages or filesystem paths. FTPS room paths are unchanged.
 1. **Koyeb Account:** https://www.koyeb.com/
 2. **GitHub Repository:** Connected to Koyeb
 3. **Docker Hub (Optional):** For pre-built images
-4. **Cloudflare Account:** For DNS and CDN
+4. **Authoritative DNS access:** Currently Cloudflare DNS-only; do not enable its HTTP proxy as part of a routine deployment
 
 ---
 
@@ -639,48 +639,24 @@ GET /actuator/prometheus
 
 ---
 
-## Cloudflare Configuration
+## Production DNS Configuration
 
 ### DNS Setup
 
 The production hostname is `planning-poker.at` (zone apex, usually shown as `@`).
 Retain its verified DNS target and TLS setup. Use only provider-confirmed records;
 do not infer a Koyeb IP or add a subdomain alias as part of a naming cleanup.
-The optional Cloudflare examples below do not authorize enabling a proxy.
+Cloudflare is authoritative DNS only. Its HTTP proxy, CDN, cache, TLS settings
+and WAF are not part of the active production request path.
 
 ---
 
-### SSL/TLS
+### TLS and request path
 
-**Settings:**
-- Encryption mode: **Full (strict)**
-- Minimum TLS version: 1.2
-- Automatic HTTPS Rewrites: Enabled
-
----
-
-### Caching
-
-**Page Rules:**
-- URL: `planning-poker.at/*`
-- Cache Level: Standard
-- Browser Cache TTL: 4 hours (for static assets)
-
-**Bypass cache for dynamic content:**
-- URL: `planning-poker.at/gameSocket`
-- Cache Level: Bypass
-
----
-
-### Firewall Rules (Optional)
-
-**Rate limiting:**
-- Limit: 100 requests/minute per IP
-- Action: Challenge or Block
-
-**Geographic restrictions:**
-- Allow: Specific countries
-- Block: Others (if applicable)
+Koyeb terminates HTTPS/WSS and manages the certificate for
+`planning-poker.at`. Do not enable the Cloudflare HTTP proxy during routine
+deployment or documentation maintenance. Treat any future proxy/CDN activation
+as a separate infrastructure change with WebSocket and cache validation.
 
 ---
 
@@ -845,7 +821,7 @@ curl http://localhost:8080/actuator/metrics/http.server.requests
 ```
 
 **Optimize:**
-- Enable Cloudflare caching for static assets
+- Review static-asset cache headers before introducing an external CDN
 - Review database queries (if applicable)
 - Consider adding Redis for session storage (future)
 
@@ -853,22 +829,22 @@ curl http://localhost:8080/actuator/metrics/http.server.requests
 
 ## Security Checklist
 
-- [ ] HTTPS enforced (via Cloudflare)
+- [ ] HTTPS/WSS and the custom-domain certificate are healthy in Koyeb
 - [ ] Allowed origins configured correctly
 - [ ] Sensitive environment variables not in code
 - [ ] Actuator endpoints secured or disabled
 - [ ] Logs don't contain sensitive data
 - [ ] Dependencies up to date (`mvn versions:display-dependency-updates`)
 - [ ] Security headers configured (CSP, X-Frame-Options, etc.)
-- [ ] Rate limiting enabled (Cloudflare)
+- [ ] Any optional rate limiting is documented and tested with WebSockets
 - [ ] Regular backups scheduled
 
 ---
 
 ## Performance Checklist
 
-- [ ] Gzip compression enabled (Cloudflare)
-- [ ] Static assets cached (Cloudflare)
+- [ ] Response compression verified at the active serving layer
+- [ ] Static-asset cache headers verified
 - [ ] Heap size appropriately configured
 - [ ] Connection pooling configured (if applicable)
 - [ ] Unnecessary debug logging disabled

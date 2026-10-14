@@ -56,7 +56,7 @@ RBS' Planning Poker is an online tool for **Planning Poker** sessions in agile t
 
 ```
 ┌─────────────────────────────────────────────────┐
-│  [RBS' Planning Poker]  👤 Your Name    [⋮ Menu]  [🔗]    │  ← Header
+│ [Planning Poker]   [DE EN] [☀︎ ◐ ▣] [☰] │  ← Header
 ├─────────────────────────────────────────────────┤
 │  📋 Topic: USER-123: Implement login           │  ← Current topic
 ├─────────────────────────────────────────────────┤
@@ -149,6 +149,13 @@ The standard card values follow the Fibonacci sequence, which has proven effecti
 ### Adjust Settings (Menu)
 
 Click on **[⋮ Menu]** in the top right to open settings:
+
+- **Language:** German or English
+- **Theme:** Light, Dark or System
+- **Interface style:** Dev or Clean
+
+On larger screens these preferences are also available directly in the header.
+On mobile they remain available through the menu.
 
 #### 📊 Switch Card Set
 

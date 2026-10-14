@@ -38,17 +38,17 @@ npx playwright install --with-deps
 
 ### Run a single spec (with trace on failure and one retry)
 ```bash
-PP_BASE_URL=http://localhost:8080 npx playwright test tests/specials-stats.spec.ts -c playwright.config.ts --trace=retain-on-failure --retries=1
+PP_BASE_URL=http://localhost:8080 npx playwright test tests/specials-stats.spec.ts -c playwright.config.ts --trace=retain-on-failure --retries=0
 ```
 
 ### Run multiple focused specs
 ```bash
-PP_BASE_URL=http://localhost:8080 npx playwright test tests/persistence.spec.ts tests/reset-flow.spec.ts tests/sequence-change.spec.ts tests/specials-stats.spec.ts -c playwright.config.ts --trace=retain-on-failure --retries=1
+PP_BASE_URL=http://localhost:8080 npx playwright test tests/persistence.spec.ts tests/reset-flow.spec.ts tests/sequence-change.spec.ts tests/specials-stats.spec.ts -c playwright.config.ts --trace=retain-on-failure --retries=0
 ```
 
 ### Run the full suite
 ```bash
-PP_BASE_URL=http://localhost:8080 npx playwright test -c playwright.config.ts --retries=1 --trace=retain-on-failure
+PP_BASE_URL=http://localhost:8080 npx playwright test -c playwright.config.ts --retries=0 --trace=retain-on-failure
 ```
 
 ### Open the HTML report / view a trace
@@ -129,7 +129,7 @@ sleep 3
 npm run e2e:buildcheck
 
 # 4) Run tests with traces on failure
-PP_BASE_URL=http://localhost:8080 npx playwright test -c playwright.config.ts --retries=1 --trace=retain-on-failure
+PP_BASE_URL=http://localhost:8080 npx playwright test -c playwright.config.ts --retries=0 --trace=retain-on-failure
 ```
 Artifacts to keep: `playwright-report/`, `test-results/` (traces/videos).
 
