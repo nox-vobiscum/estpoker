@@ -1,13 +1,15 @@
 # Major Redesign Status
 
-- Updated: 2026-10-13.
+- Updated: 2026-10-14.
 - Branch: feature/major-redesign.
-- Last completed work: MR-019 contextual active-room return navigation (DONE), after MR-011 brand asset integration.
-- Current story: None in progress. MR-016 accessibility pass is next and requires separate approval; recommended model: Astra.
-- Implementation: Home, About and Invite show a compact translated return link below the shared header when this tab has successfully joined a room. The link preserves the room and participant identity without preflight. Definitive close/kick/name rejection clears the matching context. An opener-created tab cannot inherit the link.
+- Last completed work: MR-016 accessibility pass (DONE), following MR-019.
+- Current story: None in progress. MR-017 cross-browser visual consistency is next; recommended model: Sol. Separate story-start approval required.
+- Implementation: Accessible main landmarks, special-card labels, sequence semantics and card selection state; preserved card focus after full grid rebuild; localized persistent result announcements; readable inactive preferences, public links and muted text; reduced-motion support for result and interaction effects.
 - Frozen contracts: Game, WebSocket protocol, backend, permissions, CID, persistence and preference/menu owners remain unchanged.
-- Tests: Maven verify passed (30 tests, zero skips); npm run ci:verify passed. 36 focused Playwright cases passed, then 16 targeted cases passed after the final duplicate-name and opener-tab checks; no retries or skips.
-- Remaining risks: Public pages cannot learn that another tab closed a room without a new server signal; the existing room-entry flow handles such stale links. MR-016 should review keyboard focus and contrast, MR-017 cross-browser behavior, and MR-018 final regression.
-- Local preview: Updated MR-019 build is running at http://localhost:8080 with persistent room snapshots disabled.
-- Delivery: Separate feature-branch commit; no production deployment.
-- STOP: MR-019 complete. Do not begin MR-016 automatically.
+- Tests: Final Maven verify passed (30 tests, zero failures/errors/skips); npm run ci:verify passed. Final focused Playwright run: 37 passed, zero retries/skips. Includes Chromium/Firefox switch contracts, keyboard join/vote/reveal/reset, result announcements, menu focus/Escape, return navigation, responsive targets and preference parity.
+- Audit evidence: Main preference and landing text/link/button contrast measured at least 4.5:1 in Light/Dark Dev/Clean. Representative mobile controls retain at least 24px targets and the existing 40px header geometry. Persistent result announcements clear after reset; reduced-motion chips remain visible.
+- Interrupted-work reconciliation: Recovered the prior run (35 passed, two pointer failures), fixed partial-grid focus restoration, rebuilt and completed the entire focused run. Documentation and separate commit complete the story.
+- Remaining limits: Screen-reader names/live-region DOM were tested automatically; actual NVDA/VoiceOver speech still merits manual review. This is not a full conformance certification. Existing topic-editor and stale-room-return limitations are unchanged.
+- Local preview: Final MR-016 build is running at http://localhost:8080 with persistent room snapshots disabled.
+- Delivery: Separate feature-branch commit; no push or production deployment.
+- STOP: MR-016 complete. Do not begin MR-017 automatically.

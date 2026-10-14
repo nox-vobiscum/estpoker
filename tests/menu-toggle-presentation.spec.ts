@@ -55,7 +55,8 @@ for (const [engineName, engine] of Object.entries({ chromium, firefox })) {
           expect(text.x + text.width).toBeLessThanOrEqual(box.x);
           expect(box.x + box.width).toBeLessThan(width);
           expect(box.width).toBe(42);
-          expect(box.height).toBe(24);
+          await expect(input).toHaveCSS('height', '24px');
+          expect(box.height).toBeCloseTo(24, 3);
           await expect(row).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
 
           const before = await input.isChecked();

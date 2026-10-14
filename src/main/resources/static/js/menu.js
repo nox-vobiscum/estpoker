@@ -203,7 +203,7 @@
     if (!inputEl) return;
     const v = inputEl.checked ? 'true' : 'false';
     inputEl.setAttribute('aria-checked', v);
-    if (rowEl) rowEl.setAttribute('aria-checked', v);
+    if (rowEl?.getAttribute('role') === 'switch') rowEl.setAttribute('aria-checked', v);
     const roleSwitchEl = rowEl?.getAttribute('role') === 'switch' ? rowEl : inputEl.closest('[role="switch"]');
     if (roleSwitchEl && roleSwitchEl !== rowEl) roleSwitchEl.setAttribute('aria-checked', v);
   }
@@ -284,6 +284,7 @@
     const inputs = Array.from(seqRoot.querySelectorAll('input[type="radio"][name="menu-seq"]'));
     inputs.forEach(r => {
       r.disabled = !isHost;
+      r.setAttribute('aria-disabled', String(!isHost));
       const label = r.closest('label');
       if (label) {
         label.classList.toggle('disabled', !isHost);

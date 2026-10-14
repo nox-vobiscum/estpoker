@@ -32,7 +32,7 @@ Then STOP.
 
 ## Epic Goal
 
-Modernize the complete visual UI and presentation architecture of RBS' Planning Poker while preserving every existing functional effect. MR-001 through MR-015 and MR-019 are complete; MR-016 through MR-018 remain.
+Modernize the complete visual UI and presentation architecture of RBS' Planning Poker while preserving every existing functional effect. MR-001 through MR-016 and MR-019 are complete; MR-017 and MR-018 remain.
 
 ## Frozen Functional Contracts
 
@@ -74,7 +74,7 @@ No gameplay refactoring. Before every commit inspect changes to GameService, Gam
 Only one story at a time. Before every MR-xxx story, re-read README.md, docs/BRIEFING.md, docs/MAJOR-REDESIGN-BACKLOG.md and docs/MAJOR-REDESIGN-STATUS.md; confirm the active branch, the last completed story and the frozen functional contracts. Then report the model recommended for that story. If the currently selected model differs, explicitly propose the model switch and WAIT for user confirmation before doing any implementation work. After explicit approval: set the story IN PROGRESS, implement only that scope through its acceptance criteria, run relevant tests, record results/findings/decisions/downstream risks, mark DONE only when acceptance criteria hold, commit separately, update MAJOR-REDESIGN-STATUS.md, then STOP. User approval is required before the next story.
 
 Allowed statuses: TODO, READY, IN PROGRESS, BLOCKED, DONE.
-MR-001 through MR-015 and MR-019 are DONE. MR-016 through MR-018 are TODO.
+MR-001 through MR-016 and MR-019 are DONE. MR-017 and MR-018 are TODO.
 Stop and report an unclean baseline. Never manufacture green tests through skips, retries or weaker assertions. Intentional DOM changes may require selector updates while retaining functional assertions.
 After architecture changes additionally verify menu open/close, state synchronization, exactly-once toggles, mobile collapse, focus/Escape/overlay. MR-018 runs the full relevant suite.
 Keep each run bounded to analysis, one story, or its validation. When available usage budget falls below roughly 20%, start no new story; write a handoff and stop. Usage quota is not exposed to this run.
@@ -683,21 +683,21 @@ Completed story results are recorded below; later story results remain placehold
 - Acceptance Criteria: Core flows work without a pointer; focus/semantics and visual accessibility checks are documented.
 - Tests: Keyboard flows, Escape/focus return, screen-reader announcements, contrast and reduced motion.
 - Dependencies: MR-015, MR-019
-- Status: TODO
+- Status: DONE
 - Recommended Model: **Astra** — Accessibility validation spans focus, keyboard, semantics and interaction lifecycle.
 - Story Start Protocol: Before starting this MR, re-read `README.md`, `docs/BRIEFING.md`, `docs/MAJOR-REDESIGN-BACKLOG.md` and `docs/MAJOR-REDESIGN-STATUS.md`. Confirm the active branch, the last completed MR and the frozen functional contracts. Report the recommended model below. If another model is currently selected, propose switching first and WAIT for explicit user confirmation. Only after confirmation may implementation begin; continue this MR through validation, documentation, DONE, its separate commit and status update, then STOP.
-- Notes / Findings: Not started; findings pending explicit story approval.
-- Resulting Decisions: None yet.
+- Notes / Findings: Removed invalid group-level aria-checked; corrected sequence disabled semantics; named the sequence group, special-card buttons and topic input. Card selection now exposes aria-pressed and retains focus after rebuilding the complete deck. Result announcements are localized in one persistent live region.
+- Resulting Decisions: Preserve menu ownership, existing event payloads, permissions and game behavior. Keep 40px header geometry and minimalist preference styling; raise inactive text opacity from 50% to 75% for readable contrast. Disable non-essential motion when requested without hiding result chips or toasts.
 
 #### Result
 
-- Changed files: None.
-- Technical decision: Pending.
-- Visual result: No changes.
-- Tests: Not run for this story; initialization baseline above.
-- New findings: Pending.
-- Effects on following stories: Pending.
-- Open risks: Pending analysis; known baseline risks above.
+- Changed files: menu.js, room.js, styles.css; shared head/menu and Home/Invite/Room templates; accessibility.spec.ts and menu-toggle-presentation.spec.ts; redesign backlog/status.
+- Technical decision: Restore focus only after the complete card grid is rebuilt; focusing a partially built grid caused scroll-anchor movement and intercepted pointer clicks in two existing tests. Keep result announcements outside the visually hidden result row; add main landmarks and reuse existing translation keys.
+- Visual result: Inactive controls remain gray with no active background fill. Public links, muted text and placeholders use theme-aware readable colors; focus outlines use the theme focus token. Motion reduction covers panels, cards, result chips, averages and toasts.
+- Tests: Final Maven verify passed (30 tests, zero failures/errors/skips); npm run ci:verify passed. Final focused Playwright run: 37 passed, zero retries/skips, including Chromium/Firefox switch contracts, EN/DE result announcements, reset clearing, keyboard voting, focus trap/return, preference parity, room return and mobile geometry.
+- New findings: Four new tests initially inspected a hidden specials palette; corrected the test setup to enable it by keyboard. Firefox returned 24.00003px for a 24px switch: retain exact computed CSS height plus 0.001px geometric precision. Two result click failures exposed the partial-grid focus regression; fixed the implementation and passed unchanged pointer tests.
+- Effects on following stories: MR-017 cross-browser visual consistency is next; MR-018 performs the final full regression. Include the new focus, announcement and motion contracts.
+- Open risks: Automated checks verify accessible names, live-region DOM and keyboard behavior, not spoken output from NVDA/VoiceOver. Manual assistive-technology review remains advisable; this pass is not a full accessibility-conformance certification. Known topic-editor and stale-room-return limitations remain unchanged.
 
 
 ### MR-017 — Cross-browser visual consistency

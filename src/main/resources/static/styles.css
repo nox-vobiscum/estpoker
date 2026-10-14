@@ -9,8 +9,9 @@
 /* ---------- Theme tokens ------------------------------------------------ */
 :root{
   --bg:#1e1e1e; --text:#d4d4d4; --text-strong:#fff; --text-dim:#aeb3bb;
+  --color-text-muted:var(--text-dim);
   --panel:#2d2d30; --panel-2:#3c3c3c; --panel-2-hover:#47494d; --panel-hover:#34363a; --border:#3c3c3c;
-  --accent:#007acc; --accent-strong:#005a9e;
+  --accent:#007acc; --accent-strong:#005a9e; --link:#7dbbff;
   --switch-off-track:color-mix(in srgb,var(--text) 50%,var(--panel));
   --switch-off-border:color-mix(in srgb,var(--text) 65%,var(--panel));
   --ok:#4caf50; --ok-border:#81c784; --warn:#ffd54f; --danger:#ef4444;
@@ -51,7 +52,7 @@
 :root[data-theme="light"]{
   --bg:#f6f7f9; --text:#1f2937; --text-strong:#111827; --text-dim:#374151;
   --panel:#fff; --panel-2:#eef2f7; --panel-2-hover:#e7ebf2; --panel-hover:#f7f8fb; --border:#e5e7eb;
-  --accent:#2563eb; --accent-strong:#1d4ed8;
+  --accent:#2563eb; --accent-strong:#1d4ed8; --link:#1d4ed8;
   --shadow:0 10px 24px rgba(0,0,0,.08);
 
   --chip-special-bg:#eaf2ff; --chip-special-border:#cfe0ff; --chip-special-text:#0b1220;
@@ -68,7 +69,7 @@
   :root:not([data-theme]){
   --bg:#f6f7f9; --text:#1f2937; --text-strong:#111827; --text-dim:#374151;
   --panel:#fff; --panel-2:#eef2f7; --panel-2-hover:#e7ebf2; --panel-hover:#f7f8fb; --border:#e5e7eb;
-  --accent:#2563eb; --accent-strong:#1d4ed8;
+  --accent:#2563eb; --accent-strong:#1d4ed8; --link:#1d4ed8;
   --shadow:0 10px 24px rgba(0,0,0,.08);
 
   --chip-special-bg:#eaf2ff; --chip-special-border:#cfe0ff; --chip-special-text:#0b1220;
@@ -133,7 +134,8 @@ button,input,select,textarea{font:inherit;color:inherit}
 :is(.button,.choice-btn,button.menu-item){line-height:1.2}
 :is(.icon-button,.menu-button){padding:1px 6px;line-height:1}
 body.menu-open{overflow:hidden}
-:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+a{color:var(--link)}
+:focus-visible{outline:2px solid var(--field-focus); outline-offset:2px}
 .container{max-width:800px;margin:0 auto;padding:1rem}
 .room-return{max-width:800px;margin:12px auto 0;padding:0 1rem}
 .room-return[hidden]{display:none}
@@ -323,7 +325,7 @@ textarea,select{
   -webkit-appearance:none; appearance:none;
   transition:background-color .15s,border-color .15s,box-shadow .15s,color .15s;
 }
-input::placeholder,textarea::placeholder{color:var(--field-placeholder)}
+input::placeholder,textarea::placeholder{color:var(--text-dim)}
 input:focus,textarea:focus,select:focus{
   outline:none; border-color:var(--field-focus);
   box-shadow:0 0 0 3px color-mix(in srgb, var(--field-focus) 35%, transparent);
@@ -595,7 +597,7 @@ html.light .vote-chip.heat, body.light .vote-chip.heat,
   display:inline-flex;align-items:center;justify-content:center;gap:8px;
   min-width:40px;height:100%;padding:0 10px;box-sizing:border-box;
   border:0;border-radius:var(--shape-radius-small);background:transparent;
-  color:color-mix(in srgb,var(--text) 50%,transparent);box-shadow:none;
+  color:color-mix(in srgb,var(--text) 75%,transparent);box-shadow:none;
   cursor:pointer;user-select:none;font-size:.8rem;font-weight:600;line-height:1;
 }
 .preference-control > button:hover{background:var(--surface-3, rgba(255,255,255,0.10))}
@@ -1073,7 +1075,7 @@ body.page-landing {
 }
 
 .landing-cta a {
-  color: var(--color-primary, #2563eb);
+  color: var(--link);
   text-decoration: none;
   margin-left: 0.25rem;
 }
@@ -1089,7 +1091,7 @@ body.page-landing {
 }
 
 .page-about .about-cta .hint a {
-  color: var(--color-primary, #2563eb);
+  color: var(--link);
   text-decoration: none;
 }
 
@@ -1399,4 +1401,10 @@ html.menu-scroll-locked, .menu-scroll-locked body{overflow:hidden}
 }
 @media (prefers-reduced-motion:reduce){
   .menu-overlay .menu-panel{animation:none}
+  *,*::before,*::after{transition:none !important;scroll-behavior:auto !important}
+  .vote-chip{animation:none;opacity:1;transform:none}
+  .toast{animation:none;opacity:1;transform:none}
+  .average-label #averageVote{animation:none;opacity:1;transform:none}
+  button.shake{animation:none}
+  .button:hover,.button:active,.card-grid button:hover{transform:none !important}
 }

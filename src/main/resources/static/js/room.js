@@ -1046,6 +1046,7 @@
 
   function renderCards() {
     const grid = $('#cardGrid'); if (!grid) return;
+    const focusedValue = grid.contains(document.activeElement) ? document.activeElement.dataset.value : null;
     grid.innerHTML = '';
 
     const me = state.participants.find(function (pp) { return pp.name === state.youName; });
@@ -1067,6 +1068,7 @@
       const label = String(val);
       btn.textContent = label;
       btn.dataset.value = label;
+      btn.setAttribute('aria-pressed', String(selectedVal != null && String(selectedVal) === label));
 
       if (ALL_SPECIALS_EMOJI.has(label)) {
         const tip = tipForSpecialEmoji(label);
@@ -1088,6 +1090,12 @@
       br.setAttribute('aria-hidden', 'true');
       grid.appendChild(br);
       specials.forEach(addCardButton);
+    }
+
+    // Restore focus only after the whole deck is laid out; focusing a partial
+    // grid can move the scroll anchor while subsequent cards are inserted.
+    if (focusedValue != null && !disabled) {
+      Array.from(grid.querySelectorAll('button')).find(btn => btn.dataset.value === focusedValue)?.focus({ preventScroll: true });
     }
 
     const revealBtn = $('#revealButton');
@@ -1120,8 +1128,8 @@
     }
   } // end renderCards()
 
-  // SR announcement: concise sentence for screen readers (English only)
-  function announceResultForSR_EN() {
+  // Keep the result announcement localized and outside the hidden visual row.
+  function announceResultForSR() {
     const sink = document.getElementById('resultAnnounce');
     if (!sink) return;
 
@@ -1131,16 +1139,15 @@
     const avg    = toS(fmtStat(state.averageVote));
     const median = toS(fmtStat(state.medianVote));
     let   range  = toS(fmtRange(state.range));
-    if (range) range = range.replace('–', ' to ');
 
     let msg = '';
     if (state.consensus && avg) {
-      msg = '🎉 Consensus ' + avg;
+      msg = t('label.consensus', 'Consensus') + ' ' + avg;
     } else {
       const parts = [];
-      if (avg)    parts.push('Average: ' + avg);
-      if (median) parts.push('Median: ' + median);
-      if (range)  parts.push('Range: ' + range);
+      if (avg)    parts.push(t('label.average', 'Average:') + ' ' + avg);
+      if (median) parts.push(t('label.median', 'Median:') + ' ' + median);
+      if (range)  parts.push(t('label.range', 'Range:') + ' ' + range);
       msg = parts.join(', ');
     }
     sink.textContent = msg;
@@ -1197,7 +1204,7 @@
         if (medianWrap) medianWrap.hidden = true;
         if (rangeSep)  rangeSep.hidden  = true;
         if (rangeWrap) rangeWrap.hidden = true;
-        announceResultForSR_EN();
+        announceResultForSR();
         return;
       } else {
         row.classList.remove('consensus');
@@ -1224,7 +1231,7 @@
       if (showRange) setText('#rangeVote', withInf(toStr(fmtRange(state.range))));
     }
 
-    announceResultForSR_EN();
+    announceResultForSR();
   }
 
   /*** ---------- Topic row (robust, delegated, optimistic) ---------- ***/
@@ -1423,6 +1430,7 @@
       inp.type = 'text';
       inp.className = 'topic-inline-input';
       inp.id = 'topicDisplay';
+      inp.setAttribute('aria-label', t('label.topic', 'Ticket/Story'));
       inp.placeholder = t('topic.placeholder', 'Paste JIRA link or type key');
       inp.value = state._topicDraft != null ? state._topicDraft : (state.topicLabel || '');
       inp.addEventListener('input', function () { state._topicDraft = inp.value; });
@@ -1696,6 +1704,7 @@
     try {
       const tEl = document.createElement('div');
       tEl.className = 'toast';
+      tEl.setAttribute('role', 'status');
       tEl.textContent = msg;
       document.body.appendChild(tEl);
       // force reflow

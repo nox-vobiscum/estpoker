@@ -8,7 +8,7 @@
   <div th:replace="~{fragments/menu :: appMenu(showSeq=${true}, showAuto=${true}, showRoom=${true})}"></div>
   <th:block th:replace="~{fragments/app-header :: headerScripts}"></th:block>
 
-  <div class="container">
+  <div class="container" role="main">
     <h1 class="sr-only"><span th:text="#{label.room}">Room:</span> <span th:text="${roomCode}">demo</span></h1>
 
     <dl class="main-info">
@@ -54,8 +54,7 @@
 
     <!-- Result row (always present; space is reserved even when hidden) -->
     <p id="resultRow"
-       class="average-label consensus-row result-row is-hidden"
-       role="status" aria-live="polite" aria-atomic="true">
+       class="average-label consensus-row result-row is-hidden">
 
       <!-- Long+short labels + dedicated consensus label -->
       <span id="resultLabel" class="label">
@@ -79,10 +78,9 @@
         <span id="rangeVote" class="value">–</span>
       </span>
 
-      <!-- SR-only live region: compact sentence for screen readers -->
-      <span id="resultAnnounce" class="sr-only" aria-live="polite" aria-atomic="true"></span>
-
     </p>
+    <!-- Persistent live region outside the conditionally hidden visual result. -->
+    <span id="resultAnnounce" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></span>
 
     <!-- Card grid (always visible; disabled after reveal via body class + JS) -->
     <div class="card-grid" id="cardGrid"></div>
@@ -108,7 +106,7 @@
   </div>
 
   <!-- Room connector (bump v-param if clients cache JS) -->
-  <script defer th:src="@{/js/room.js?v=54}"
+  <script defer th:src="@{/js/room.js?v=55}"
           th:attr="data-participant=${participantName},data-room=${roomCode}"></script>
 
   <div th:replace="~{fragments/footer :: footer}"></div>

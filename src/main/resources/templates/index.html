@@ -9,6 +9,7 @@
   <div th:replace="~{fragments/menu :: appMenu(showSeq=${false}, showAuto=${false}, showRoom=${false})}"></div>
   <th:block th:replace="~{fragments/app-header :: headerScripts}"></th:block>
 
+  <main>
   <div class="container home-container">
     <!-- Join form (posts to /join like invite.html) -->
     <form id="joinForm" class="join-form" th:action="@{/join}" method="post" novalidate>
@@ -57,6 +58,7 @@
     <h2 th:text="#{seo.home.decks.heading}" data-i18n="seo.home.decks.heading">Multiple estimation decks</h2>
     <p th:text="#{seo.home.decks.text}" data-i18n="seo.home.decks.text"></p>
   </section>
+  </main>
 
   <script>
   (function(){

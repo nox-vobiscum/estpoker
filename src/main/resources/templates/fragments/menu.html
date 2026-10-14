@@ -74,7 +74,7 @@
       <!-- Card sequence -->
       <div class="menu-section menu-section--sequence" role="group" aria-labelledby="menuSequenceHeading" th:if="${showSeq}">
         <h4 id="menuSequenceHeading" class="section-title" data-i18n="menu.sequence">Card sequence [👑]</h4>
-        <fieldset id="menuSeqChoice" class="menu-choice vertical">
+        <fieldset id="menuSeqChoice" class="menu-choice vertical" aria-labelledby="menuSequenceHeading">
           <label class="radio-row">
             <input type="radio" name="menu-seq" value="fib.scrum" checked>
             <span data-i18n="sequence.fib.scrum">Fibonacci (Scrum basic)</span>
@@ -147,13 +147,13 @@
 
       <div class="specials-icons" role="group" aria-label="Special cards">
 
-          <button type="button" class="spc" data-id="coffee"     aria-pressed="false" title="Coffee / short break"><span class="ico">☕</span></button>
-          <button type="button" class="spc" data-id="speech"     aria-pressed="false" title="Needs separate discussion"><span class="ico">💬</span></button>
-          <button type="button" class="spc" data-id="telescope"  aria-pressed="false" title="Spike / exploration first"><span class="ico">🔭</span></button>
-          <button type="button" class="spc" data-id="waiting"    aria-pressed="false" title="Waiting for prerequisite"><span class="ico">⏳</span></button>
-          <button type="button" class="spc" data-id="dependency" aria-pressed="false" title="Depends on another task"><span class="ico">🔗</span></button>
-          <button type="button" class="spc" data-id="risk"       aria-pressed="false" title="Notable risks"><span class="ico">⚠️</span></button>
-          <button type="button" class="spc" data-id="relevance"  aria-pressed="false" title="Check goals/vision first"><span class="ico">🎯</span></button>
+          <button type="button" class="spc" data-id="coffee" th:attr="aria-label=#{card.special.coffee}" data-i18n-attr="aria-label:card.special.coffee"     aria-pressed="false" title="Coffee / short break"><span class="ico">☕</span></button>
+          <button type="button" class="spc" data-id="speech" th:attr="aria-label=#{card.special.speech}" data-i18n-attr="aria-label:card.special.speech"     aria-pressed="false" title="Needs separate discussion"><span class="ico">💬</span></button>
+          <button type="button" class="spc" data-id="telescope" th:attr="aria-label=#{card.special.telescope}" data-i18n-attr="aria-label:card.special.telescope"  aria-pressed="false" title="Spike / exploration first"><span class="ico">🔭</span></button>
+          <button type="button" class="spc" data-id="waiting" th:attr="aria-label=#{card.special.waiting}" data-i18n-attr="aria-label:card.special.waiting"    aria-pressed="false" title="Waiting for prerequisite"><span class="ico">⏳</span></button>
+          <button type="button" class="spc" data-id="dependency" th:attr="aria-label=#{card.special.dependency}" data-i18n-attr="aria-label:card.special.dependency" aria-pressed="false" title="Depends on another task"><span class="ico">🔗</span></button>
+          <button type="button" class="spc" data-id="risk" th:attr="aria-label=#{card.special.risk}" data-i18n-attr="aria-label:card.special.risk"       aria-pressed="false" title="Notable risks"><span class="ico">⚠️</span></button>
+          <button type="button" class="spc" data-id="relevance" th:attr="aria-label=#{card.special.relevance}" data-i18n-attr="aria-label:card.special.relevance"  aria-pressed="false" title="Check goals/vision first"><span class="ico">🎯</span></button>
         </div>
 
 
@@ -259,7 +259,7 @@
   </script>
 
     <!-- Load JS -->
-  <script defer src="/js/menu.js?v=48"></script>
+  <script defer src="/js/menu.js?v=49"></script>
   <script defer src="/js/specials-bridge.js?v=2"></script>
 
 </th:block>

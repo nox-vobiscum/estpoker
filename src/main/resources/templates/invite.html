@@ -10,7 +10,7 @@
   <th:block th:replace="~{fragments/app-header :: headerScripts}"></th:block>
 
   <!-- Use 'rc' as a safe roomCode (model or query param) -->
-  <div class="container landing-container" th:with="rc=${roomCode != null ? roomCode : param.roomCode}">
+  <div class="container landing-container" role="main" th:with="rc=${roomCode != null ? roomCode : param.roomCode}">
     <h1 class="sr-only" th:text="#{invite.pageTitle}" data-i18n="invite.pageTitle">Join a room</h1>
 
     <!-- Safe heading without MessageFormat to avoid 500s -->
