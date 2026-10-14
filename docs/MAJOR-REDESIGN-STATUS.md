@@ -24,3 +24,11 @@
 - Presentation coverage: DE/EN, Dev/Clean, Light/Dark/System with both system appearances, desktop/mobile, consistent placement on Home/About/Invite/Imprint, hover/active/focus and accessible names. Existing responsive navigation tests cover 320, 375, 768, 769 and 1280px. Clean/light mobile and Dev/dark desktop screenshots were visually inspected.
 - Local preview rebuilt at http://localhost:8080. No push or deployment. User-owned backlog edits remain outside this change.
 - STOP: This visual polish is complete; no next story is authorized by this task.
+
+## Presence reconnect correction — 2026-10-14
+
+- Live logs confirmed a timing-dependent false sleep/wake transition: initial `pageshow` could open a replacement WebSocket while the first connection was still opening, and the delayed close of the older socket scheduled a disconnect for the shared participant identity.
+- Client wake handling now leaves an in-progress connection untouched. Server disconnect handling checks for another open session for the same room participant and cancels stale disconnect timers when the replacement session is registered.
+- Existing two-second unexpected-disconnect grace, heartbeat interval, host transfer rules, CID identity, room state, event protocol and gameplay remain unchanged.
+- Added regression coverage for initial join, lifecycle wake signals, forced reconnect, real disconnect and a full heartbeat interval, plus a server unit test for overlapping sessions.
+- Validation: clean Maven verify passed 31 tests with zero failures/skips; npm CI guards passed. Eight targeted Playwright cases passed without retries/skips, covering Presence, Heartbeat, Reconnect, Reload, Host/Close, Participation and both Dev/Clean vote-change flows.

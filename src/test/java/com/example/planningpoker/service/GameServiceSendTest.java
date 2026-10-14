@@ -18,6 +18,25 @@ import static org.mockito.Mockito.*;
 
 class GameServiceSendTest {
     @Test
+    void openSessionKeepsParticipantPresentWhenAnOlderSessionCloses() {
+        var service = new GameService();
+        var room = service.getOrCreateRoom("presence-test");
+        var oldSession = mock(WebSocketSession.class);
+        var currentSession = mock(WebSocketSession.class);
+        when(currentSession.isOpen()).thenReturn(true);
+
+        service.addSession(oldSession, room);
+        service.trackParticipant(oldSession, "Guest");
+        service.addSession(currentSession, room);
+        service.trackParticipant(currentSession, "Guest");
+        service.removeSession(oldSession);
+
+        assertTrue(service.hasOpenSession(room, "Guest"));
+        service.removeSession(currentSession);
+        assertFalse(service.hasOpenSession(room, "Guest"));
+    }
+
+    @Test
     void closedConnectionsAreSkippedAndTransportErrorsRemainVisible() throws Exception {
         var service = new GameService();
         var session = mock(WebSocketSession.class);

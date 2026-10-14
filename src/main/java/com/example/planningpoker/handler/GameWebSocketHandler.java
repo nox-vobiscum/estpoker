@@ -118,6 +118,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             // Track this session for service broadcasts
             gameService.addSession(session, room);
             gameService.trackParticipant(session, canonicalName);
+            gameService.cancelPendingDisconnect(room, canonicalName);
 
             // Local index
             bySession.put(session.getId(), new Conn(roomCode, cid, canonicalName));
@@ -384,7 +385,11 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             gameService.removeSession(session);
             Room room = gameService.getRoom(roomCode);
             if (room != null) {
-                gameService.scheduleDisconnect(room, c.name); // grace on unexpected close
+                if (gameService.hasOpenSession(room, c.name)) {
+                    gameService.cancelPendingDisconnect(room, c.name);
+                } else {
+                    gameService.scheduleDisconnect(room, c.name); // grace on unexpected close
+                }
             }
             gameService.ensureHost(roomCode, 0L, HOST_INACTIVE_MS);
         } catch (Throwable t) {

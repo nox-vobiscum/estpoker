@@ -102,6 +102,19 @@ public class GameService {
         sessionToParticipantMap.remove(session);
     }
 
+    public boolean hasOpenSession(Room room, String participantName) {
+        if (room == null || participantName == null) return false;
+        for (Map.Entry<WebSocketSession, Room> entry : sessionToRoomMap.entrySet()) {
+            WebSocketSession session = entry.getKey();
+            if (entry.getValue() == room
+                    && session.isOpen()
+                    && participantName.equals(sessionToParticipantMap.get(session))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     // ========================================================================
     //  JOIN / RENAME
     // ========================================================================

@@ -362,6 +362,10 @@
       return;
     }
     const ws = state.ws;
+    if (ws && ws.readyState === WebSocket.CONNECTING) {
+      console.info(TAG, 'wake:', reason, '→ connection already in progress');
+      return;
+    }
     if (ws && ws.readyState === 1) {
       console.info(TAG, 'wake:', reason, '→ poke + resync');
       pokeServerAndSync();
