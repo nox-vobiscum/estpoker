@@ -1,44 +1,5 @@
 # Backlog
 
-## [P2] Impressum nach Abschluss des Major Redesigns anlegen
-
-**Status:** ✅ Done (2026-10-14).
-**Reported:** 2026-10-12.
-**Abhängigkeit:** Abschluss des Major-Redesign-Epics (MR-018).
-
-**Ziel / Scope**
-- Eine öffentliche Impressumsseite für Planning Poker anlegen.
-- Benötigte Betreiber- und Kontaktangaben vor Umsetzung mit dem Betreiber klären.
-- Aus dem gemeinsamen Footer verlinken; vorhandene Templates und Internationalisierung berücksichtigen.
-
-**Acceptance**
-- Impressum mit bestätigten Angaben veröffentlicht und von allen Seiten erreichbar.
-- Darstellung auf Desktop und Mobile geprüft.
-
-**Result:** Bilingual `/imprint` page published and linked through the shared footer.
-
----
-
-## [P2] Bug: Topic-Eingabefeld nach Entfernen des Textes nicht schließbar ⏳
-
-**Reported:** 2026-10-11; vom Nutzer gemeldet, noch nicht technisch reproduziert.
-
-**Reproduktion**
-1. Ein bestehendes Topic im Topic-Eingabefeld bearbeiten.
-2. Den gesamten Topic-Text entfernen.
-3. Das Eingabefeld über den Haken oder über X schließen.
-
-**Ist-Verhalten:** Das leere Eingabefeld bleibt geöffnet; weder Haken noch X schließen es.
-
-**Erwartung / Acceptance**
-- Haken übernimmt das Entfernen des Topics und schließt den Editor.
-- X verwirft die ungespeicherte Änderung und schließt den Editor.
-- In Dev- und Clean-Modus prüfen; bestehende Berechtigungen und Synchronisierung zwischen Teilnehmern erhalten.
-
-**Scope:** Für spätere Untersuchung und gezielte Korrektur vorgemerkt; noch keine Implementierung.
-
----
-
 This backlog collects future improvements and nice-to-haves. Priorities are indicative:
 - **P1** high – near-term value / risk
 - **P2** medium – useful, not urgent
@@ -52,28 +13,24 @@ Status tags:
 
 ---
 
-## [P2] UptimeRobot für professionelles Health Monitoring ⏳
-**Goal:** Externe Uptime-Monitoring-Lösung einrichten für bessere Verfügbarkeitsüberwachung, schnellere Health Checks und öffentliche Status-Page.
+## Next steps — approved post-redesign change requests
 
-**Scope**
-- UptimeRobot Account erstellen und konfigurieren
-- Monitor für `https://planning-poker.at/healthz` mit 5-Minuten-Intervall
-- Email-Alerts bei Downtime konfigurieren
-- Öffentliche Status Page einrichten (optional)
-- GitHub Action als Fallback beibehalten oder deaktivieren nach erfolgreicher Migration
+The detailed scope, mandatory start gate and acceptance criteria are maintained
+in [PLANNING-POKER-CHANGE-REQUESTS.md](PLANNING-POKER-CHANGE-REQUESTS.md).
+Execute one request at a time in this order:
 
-**Benefits**
-- Schnellere Health Checks (5 Min statt 30 Min) → weniger Cold Starts
-- Dedizierte Uptime-Statistiken und Monitoring-Dashboard
-- Alert-Benachrichtigungen bei Ausfällen
-- Professionelle Status-Page für User
-- Unabhängig von GitHub Actions
+1. **CR-001 — Improve estimation topic visibility** (`TODO`)
+   - Present the active topic as a dedicated compact panel while preserving the
+     existing data, permissions, editing, events and persistence behavior.
+   - The known empty-topic editor issue is included in CR-001 validation.
+2. **CR-002 — Replace room information panels with collapsible manual** (`TODO`)
+   - Replace the room-only informational cards with one accessible guide that is
+     collapsed by default.
+3. **CR-003 — Improve room exit discoverability** (`TODO`)
+   - Expose the existing individual leave action more clearly while preserving
+     host-only close-room behavior and all lifecycle contracts.
 
-**Acceptance**
-- UptimeRobot läuft stabil und pingt alle 5 Minuten
-- Email-Alerts funktionieren bei Downtime
-- Entscheidung getroffen: GitHub Action behalten (Redundanz) oder deaktivieren
-- Dokumentation in DEPLOYMENT.md aktualisiert
+Documentation consolidation follows CR-001 through CR-003.
 
 ---
 
@@ -113,50 +70,6 @@ Status tags:
 
 ---
 
-## [P3] Compact navigation & menu density ⏳
-**Goal:** Make header/menus and dialogs more compact to show more room content on small screens.
-
-**Scope**
-- Reduce default font size and line-height for navigation and controls.
-- Tighter paddings/margins in the top bar and menus.
-- Validate DE/EN labels for wrapping/overflow.
-
-**Acceptance**
-- No overlaps/wrap glitches at ≤360 px width.
-- Click targets remain ≥36×36 px.
-- No regressions in `room.html`.
-
----
-
-## [P3] Typography & spacing tokens (CSS variables) ⏳
-**Goal:** Centralize typography and spacing via CSS variables to make the UI consistent and easy to tune.
-
-**Scope**
-- Define tokens in `:root` (e.g. `--font-size-sm/md/lg`, `--lh-tight/normal`, `--space-1..4`).
-- Migrate key components (Topbar, topic row, participant list) to tokens.
-- Document tokens and usage in `docs/STYLE.md`.
-
-**Acceptance**
-- A single token change scales the UI consistently.
-- No visual deviations between DE/EN locales.
-
----
-
-## [P3] Optional “compact mode” toggle (room setting) ⏳
-**Status:** Superseded by the released per-user Dev/Clean interface styles; retain only if a distinct synchronized room-level requirement is approved later.
-**Goal:** Toggle a denser layout per room, controlled by the host.
-
-**Scope**
-- Room setting `compactMode: boolean` (persisted).
-- Add body class `compact` to switch to tighter tokens.
-- Host UI toggle (e.g., checkbox in a settings menu).
-
-**Acceptance**
-- Toggle takes effect live and persists across reloads.
-- Non-hosts see the chosen mode; only hosts can change it.
-
----
-
 ## [P3] Security probe endpoints (opt-in, dev-only) ⏳
 **Goal:** Provide optional hashing/diagnostic endpoints behind a feature flag for local/testing only.
 
@@ -170,35 +83,6 @@ Status tags:
 - Useful timing/hash diagnostics for developers.
 
 ---
-
----
-## [P3] Quick Tunnel helper (Windows) – robust URL detection & cleanup ⏳
-**Goal:** Make `scripts/run-and-tunnel.sh` reliably detect the Cloudflare Quick Tunnel URL on Windows/Git-Bash and ensure clean startup/teardown.
-
-**Scope**
-- Capture Cloudflared logs that print the `*.trycloudflare.com` URL by piping **stderr to stdout**:
-  - `bash scripts/tunnel.sh 2>&1 | tee "$TUN_LOG" &` (instead of only stdout).
-- Harden URL extraction:
-  - Grep `https://[a-z0-9-]+\.trycloudflare\.com` with a short backoff loop; if not found, show last 50 log lines for diagnosis.
-- Process handling & cleanup:
-  - Ensure we kill the *cloudflared* process (not just `tee`) on exit; verify PID tracking works on Git-Bash.
-- Polishing (nice-to-have):
-  - Optional `COPY_CLIPBOARD=1` copies the detected URL; optional QR open remains.
-  - Brief README note under `scripts/` describing usage & common issues.
-
-**Acceptance**
-- On Windows/Git-Bash, `npm run tunnel:app`:
-  - prints the detected `https://*.trycloudflare.com` URL within ~10s,
-  - (optionally) copies it to clipboard when `COPY_CLIPBOARD=1`,
-  - waits for HTTP 200 probe on the URL (best-effort),
-  - cleans up both the Spring app and cloudflared on Ctrl+C.
-- No regressions on macOS/Linux shells.
-
-
-
-
-
---------------------------------------------------------------------------------------------------
 
 ## Parking lot / Ideas
 - Multi-tracker link patterns (JIRA + others) using a pluggable regex map per room (low priority).
