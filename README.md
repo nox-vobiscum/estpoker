@@ -8,7 +8,9 @@ No accounts, no heavy SPA — just fast joins, real-time updates, and a clean UI
 ## What it does
 - Create or join a room via link and start voting in seconds
 - Host controls (reveal, reset, deck/sequence, topic visibility)
-- Compact, keyboard-friendly UI with accessible controls
+- Responsive, keyboard-friendly UI with accessible controls
+- Shared full-width header with German/English, Light/Dark/System themes and
+  switchable Dev/Clean interface styles
 - Topic field that accepts full JIRA links  
   → displays the **issue key** while keeping the full link as the target
 - Real-time updates for votes, participants, and topic changes
@@ -23,7 +25,7 @@ distributed teams who meet briefly and often.
 - **Backend:** Java 25, Spring Boot 4.1.1, WebSocket
 - **Frontend:** Server-rendered HTML (Thymeleaf), vanilla JS, single global CSS
 - **State:** In-memory live state; snapshotting to JSON files (FTPS) for persistence
-- **Deploy:** Container-ready; commonly run behind a CDN/proxy
+- **Deploy:** Container-ready; production auto-deploys from GitHub to Koyeb
 
 ## Quick Start
 
@@ -55,6 +57,7 @@ docker run -p 8080:8080 planning-poker
 
 ### For Developers
 - **[BRIEFING.md](docs/BRIEFING.md)** - Project overview, setup, workflows, checklists
+- **[CHANGELOG.md](CHANGELOG.md)** - Compact history of recent releases and fixes
 - **[DEVELOPER-GUIDE.md](docs/DEVELOPER-GUIDE.md)** - Complete development guide with setup, testing, debugging
 - **[ARCHITECTURE.md](docs/ARCHITECTURE.md)** - System architecture, components, data flow
 - **[API.md](docs/API.md)** - HTTP and WebSocket API reference
@@ -66,6 +69,7 @@ docker run -p 8080:8080 planning-poker
 ### Additional Resources
 - **[STYLE.md](docs/STYLE.md)** - UI design tokens and style guide
 - **[BACKLOG.md](docs/BACKLOG.md)** - Future features and roadmap
+- **[PLANNING-POKER-CHANGE-REQUESTS.md](docs/PLANNING-POKER-CHANGE-REQUESTS.md)** - Approved post-redesign change requests
 - **[ADR](docs/adr/)** - Architecture Decision Records
 
 ## Features
@@ -80,7 +84,7 @@ docker run -p 8080:8080 planning-poker
 ✅ **Statistics** (average, median, range, outliers)  
 ✅ **Internationalization** (English, German)  
 ✅ **Mobile-friendly** responsive design  
-✅ **Compact mode** for smaller screens  
+✅ **Light/Dark/System themes** and **Dev/Clean interface styles**
 
 ## Contributing
 

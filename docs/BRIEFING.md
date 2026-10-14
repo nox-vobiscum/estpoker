@@ -11,6 +11,10 @@ Lightweight online planning poker with real-time updates, simple UX, and optiona
 **Prod URL**  
 https://planning-poker.at/
 
+**Current production baseline**
+Major Redesign release `major-redesign-prod-v1` plus invitation hotfix
+`2518de2`. Recent release history is maintained in `CHANGELOG.md`.
+
 ---
 
 ## 1) Current Working Environment (Dev box)
@@ -27,7 +31,7 @@ https://planning-poker.at/
 - **Tests:**  
   - Unit/Component: JUnit 6, Mockito
   - E2E/UI: Playwright (run separately)  
-- **Deployment:** Koyeb (behind Cloudflare proxy/CDN)  
+- **Deployment:** Koyeb with the `planning-poker.at` custom domain; GitHub `main` triggers production deployment
 - **Persistence options:** in-memory; FTPS file store (JSON); DB/JPA currently **not used**  
 - **Configuration:** `src/main/resources/application.properties` (+ optional profile overrides)
 
@@ -181,7 +185,9 @@ For detailed instructions, troubleshooting, CI recipe, and full command list, se
 ## 8) Deploy & Ops (short)
 
 - **Deploy target:** Koyeb  
-- **Proxy/CDN:** Cloudflare (`server.forward-headers-strategy=framework`)  
+- **Production domain:** `https://planning-poker.at`; Koyeb currently terminates the active custom domain
+- **Proxy handling:** forwarded headers are supported by the application; optional proxy/CDN examples do not describe an active Cloudflare requirement
+- **Delivery:** pushes to GitHub `main` trigger the configured Koyeb deployment
 - **Health:** `GET /healthz` returns `ok`  
 - **Profiles:** minimal; prod uses defaults; DB/JPA disabled  
 - **Logs:** concise; avoid noisy stack traces for expected flows
@@ -201,26 +207,35 @@ For detailed instructions, troubleshooting, CI recipe, and full command list, se
 
 - **Server-rendered HTML**, vanilla JS (no SPA).  
 - Realtime via WebSocket; client applies state updates.  
+- The shared full-width app header is rendered from `fragments/app-header.html`.
+  Desktop shows branding and compact preference controls; mobile shows branding
+  and the menu trigger.
+- `ui-preferences.js` (`window.PPUI`) owns language, theme and Dev/Clean style.
+  `menu.js` alone owns menu open state, focus, backdrop, Escape handling and
+  background locking.
+- UI preferences use `planningpoker-theme` and `pp-ui-style`; supported themes
+  are Light, Dark and System, and supported interface styles are Dev and Clean.
 - **Topic input UX**:  
   - **Optimistic editing** for hosts (local input isn’t overwritten mid‑typing by async updates).  
   - If a **full JIRA link** is pasted, the UI **extracts and displays the issue key** while keeping the **full URL** as the anchor target.  
 
-- Compact menu/typography adjustments live in `styles.css` (see backlog for further tuning).
+- All shared layout, themes and responsive styling remain centralized in
+  `styles.css`; reuse its tokens and existing 768px breakpoint.
 
-### 10.1 Participant list (mobile ≤ 768px)
+### 10.1 Room layout (mobile ≤ 768px)
 
 - **Two-line layout on mobile**  
   Line 1: icon + name (left), status/vote chip (right).  
   Line 2: **host actions** (“Host / Spectator / Kick”), right-aligned, full width.  
   The second line is **visible only for hosts**.
 
-- **Desktop unchanged**  
-  Original action buttons remain in `.row-right` and render as before on ≥769px.
+- **Desktop layout**
+  Participant actions remain in `.row-right`; voting controls, result display
+  and participant vote chips retain their centered geometry.
 
-- **Implementation (dev notes)**  
-  - In host view, client JS clones the existing `button.row-action` elements from `.row-right` into a sibling container **`.row-actions`** (created right after `li.appendChild(right);`).  
-  - Rows that actually get the second line are tagged with **`.has-row-actions`** (used for chip/name alignment only).  
-  - All mobile styling lives in `static/styles.css` inside `@media (max-width: 768px)`; desktop styles are not changed.
+- **Implementation notes**
+  - Host actions use the existing `.row-actions` / `.has-row-actions` structure.
+  - Responsive rules live in `static/styles.css` at the existing 768px boundary.
 
 - **Chip/name alignment on mobile**  
   For rows with `.has-row-actions`, name and chip share a unified line box (`--pr-line`), chips use `inline-flex` + `vertical-align: middle`.  
@@ -266,12 +281,12 @@ For detailed instructions, troubleshooting, CI recipe, and full command list, se
 
 ## 15) Backlog (pointer)
 
-Backlog items are maintained in `docs/BACKLOG.md`. Current examples include:  
-- Configurable JIRA base URL (host-editable, persisted per room/workspace).  
-- Snapshot trigger wiring (hook/decorator around live mutations).  
-- Menu compactness (font sizes, line heights, spacing tokens in `styles.css`).  
-- Expand Playwright coverage and wire a simple CI job.  
-- Additional accessibility polish (focus states, roles, landmarks).
+General backlog items are maintained in `docs/BACKLOG.md`. The approved
+post-redesign sequence CR-001 through CR-003 is maintained in
+`docs/PLANNING-POKER-CHANGE-REQUESTS.md`; each CR requires its mandatory start
+gate and a separate explicit approval before implementation. Documentation
+consolidation follows those CRs. Completed release history belongs in
+`CHANGELOG.md`, rather than temporary status or validation reports.
 
 
 
