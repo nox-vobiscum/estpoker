@@ -9,6 +9,7 @@ Comprehensive documentation for the RBS' Planning Poker planning poker applicati
 ### Quick Links
 
 - **[README.md](../README.md)** - Project overview and quick start
+- **[CHANGELOG.md](../CHANGELOG.md)** - Compact history of recent product releases and fixes
 - **[USER-GUIDE.md](USER-GUIDE.md)** - 📖 **Benutzerhandbuch für Endanwender** (Deutsch)
 - **[USER-GUIDE-EN.md](USER-GUIDE-EN.md)** - 📖 **User Guide for End Users** (English)
 - **[BRIEFING.md](BRIEFING.md)** - Essential project baseline (read this first!)
