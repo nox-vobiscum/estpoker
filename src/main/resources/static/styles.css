@@ -922,8 +922,10 @@ html.light .vote-chip.heat, body.light .vote-chip.heat,
   /* place the chip on the exact page center line */
   #liveParticipantList .participant-row .row-right :where(.vote-chip,.mini-chip,.status-icon){
     position: absolute;           /* take it out of the flex flow */
+    grid-column: auto;
     left: 50%;                    /* center of the whole row (incl. icon col) */
-    transform: translateX(-50%);  /* align chip center to that line */
+    translate: -50% 0;            /* keep horizontal centering independent of chipIn */
+    transform: none;
     pointer-events: none;         /* don't block clicks on Host/Spectator/Kick */
     z-index: 1;
   }
@@ -1205,8 +1207,10 @@ body.page-landing {
   /* place the chip on the exact page center line */
   #liveParticipantList .participant-row .row-right :where(.vote-chip,.mini-chip,.status-icon){
     position: absolute;           /* remove from flex flow */
+    grid-column: auto;
     left: 50%;                    /* page center */
-    transform: translateX(-50%);  /* true centering */
+    translate: -50% 0;            /* keep horizontal centering independent of chipIn */
+    transform: none;
     pointer-events: none;         /* keep Host/Spectator/Kick clickable */
     z-index: 1;
   }

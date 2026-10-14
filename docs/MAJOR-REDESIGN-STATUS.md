@@ -50,3 +50,12 @@
 - Four focused Chromium geometry cases passed without retries: Consensus and Average/Median/Range at 375px and 1280px. Result and deck centers match within the required 1px tolerance, with no horizontal overflow.
 - No full E2E, Maven test or cross-browser suite was run for this CSS-only correction.
 - STOP: Alignment polish complete; no further change started.
+
+## Participant vote-chip transform correction — 2026-10-14
+
+- Corrected the isolated desktop chip-centering conflict: an inherited grid-column placement changed the absolute-positioning reference, while the `chipIn` transform animation replaced the horizontal transform.
+- Absolute participant chips now clear that obsolete grid placement and use the independent CSS `translate` property for X centering. The existing opacity/Y entrance animation remains intact.
+- No result display, card grid, participant-row layout, card styling, HTML, JavaScript, state, events or gameplay changed.
+- Two focused Chromium tests passed without retries at 375px and 1280px. They verify the pending position, animation at 0/110/220ms, revealed position and reset position; desktop chip and participant-row centers differ by no more than 1px.
+- No full test suite was run.
+- STOP: Vote-chip centering correction complete; no further change started.
