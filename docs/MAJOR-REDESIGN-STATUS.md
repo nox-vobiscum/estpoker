@@ -13,3 +13,14 @@
 - Local preview: Final MR-016 build is running at http://localhost:8080 with persistent room snapshots disabled.
 - Delivery: MR-020 and MR-021 use separate commits on the feature branch; no push or production deployment.
 - STOP: MR-021 complete. Do not begin another story automatically.
+
+## Return-to-room visual polish — 2026-10-14
+
+- Completed the separately requested visual adjustment after the usage-limit interruption; no further story started.
+- Shared return fragment now uses a decorative left arrow and an emphasized room name without quotation marks. Existing translations, link IDs, destination and navigation JavaScript are unchanged.
+- Shared CSS uses existing theme/style tokens, a 40px minimum height, subtle hover treatment and the existing keyboard focus outline. Underlining is disabled in every interaction state. Mobile ellipsis preserves the complete accessible room name.
+- Updated the stylesheet cache version. No session storage, CID, room state, events, WebSocket or gameplay changes.
+- Validation: Maven package (`-DskipTests`) and `npm run ci:verify` passed. All 21 targeted Playwright tests passed without retries or skips (presentation, existing room-return navigation and imprint).
+- Presentation coverage: DE/EN, Dev/Clean, Light/Dark/System with both system appearances, desktop/mobile, consistent placement on Home/About/Invite/Imprint, hover/active/focus and accessible names. Existing responsive navigation tests cover 320, 375, 768, 769 and 1280px. Clean/light mobile and Dev/dark desktop screenshots were visually inspected.
+- Local preview rebuilt at http://localhost:8080. No push or deployment. User-owned backlog edits remain outside this change.
+- STOP: This visual polish is complete; no next story is authorized by this task.

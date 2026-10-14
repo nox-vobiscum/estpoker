@@ -139,10 +139,15 @@ a{color:var(--link)}
 .container{max-width:800px;margin:0 auto;padding:1rem}
 .room-return{max-width:800px;margin:12px auto 0;padding:0 1rem}
 .room-return[hidden]{display:none}
-.room-return a{display:inline-flex;align-items:center;gap:.35em;max-width:100%;min-height:36px;padding:6px 10px;border:1px solid var(--border);border-radius:var(--ui-small-control-radius);background:var(--panel);color:var(--text);text-decoration:none;font-size:.85rem}
-.room-return a:hover{text-decoration:underline}
-.room-return-name-wrap{display:inline-flex;min-width:0}
-.room-return-name{display:inline-block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.room-return a{display:inline-flex;align-items:center;gap:var(--gap-sm);max-width:100%;min-height:40px;padding:8px 10px;border:1px solid var(--border);border-radius:var(--ui-small-control-radius);background:var(--panel);color:var(--text);text-decoration:none;font-size:.85rem;line-height:1.4;vertical-align:middle}
+.room-return a:is(:hover,:focus,:active){text-decoration:none}
+.room-return a:hover{background:var(--panel-hover);border-color:color-mix(in srgb,var(--text) 25%,var(--border))}
+.room-return-arrow{width:16px;height:16px;flex:none}
+.room-return-label{flex:none;white-space:nowrap}
+/* Ellipsis affects paint only; the complete name remains the link's accessible text. */
+.room-return-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:700}
+:root[data-ui-style="clean"] .room-return a{background:var(--ui-surface);border-color:var(--ui-surface-border)}
+:root[data-ui-style="clean"] .room-return a:hover{background:var(--ui-surface-raised);border-color:color-mix(in srgb,var(--text) 25%,var(--ui-surface-border))}
 h1{color:var(--text-strong);margin-bottom:2rem;font-size:1.1rem}
 h2{color:var(--text-strong);margin:1.2rem 0 .8rem;font-size:.98rem}
 strong{color:var(--text-strong)}
