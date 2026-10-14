@@ -93,10 +93,6 @@ We welcome contributions! Please see:
 - [DEVELOPER-GUIDE.md](docs/DEVELOPER-GUIDE.md) for development setup
 - [Pull Request Template](.github/pull_request_template.md) for PR guidelines
 
-## License
-
-See [LICENSE](LICENSE) file for details.
-
 ## Acknowledgments
 
 Built with Spring Boot, Thymeleaf, and Playwright.

@@ -32,6 +32,33 @@ This document provides a comprehensive overview of the RBS' Planning Poker syste
 - **Templating:** Server-rendered Thymeleaf templates
 - **No frameworks:** React/Vue/Angular not used
 
+#### UI ownership and composition
+
+- `fragments/app-header.html` owns the shared semantic header, branding,
+  desktop preference controls and the single menu trigger.
+- `ui-preferences.js` (`window.PPUI`) is the sole owner of language, theme and
+  Dev/Clean interface-style state. `header-controls.js` and `menu.js` consume
+  that state as view adapters and do not create competing defaults or writers.
+- `menu.js` exclusively owns transient menu state and lifecycle: open/close,
+  backdrop, Escape, focus entry/trap/return, scroll locking and ARIA visibility.
+  `menuOpen` is not a persisted UI preference.
+- `storage.js` provides safe access to the established browser keys. It does not
+  own room/game state or a second preference store.
+- `room.js` retains room rendering, permissions and WebSocket integration. UI
+  preferences never send room commands or assume game-state ownership.
+
+The page order is shared head, app header, one menu overlay, page main content
+and footer. The header remains in normal document flow; only the menu overlay is
+fixed. Desktop is wider than 768px; mobile is 768px or below. Both breakpoints
+use the same live controls and state, without cloned game controls or duplicate
+IDs.
+
+Script order remains storage/pre-paint preference setup, menu, specials bridge,
+header adapter and the page-specific room connector. Presentation changes must
+preserve room creation/join/invite, identity/CID, participant lifecycle,
+host/permissions, voting/reveal/reset, sequences/special cards, spectator/topic
+behavior, WebSocket payloads and persistence contracts.
+
 ### Testing
 - **Unit Tests:** JUnit 6, Mockito
 - **E2E Tests:** Playwright (TypeScript)
