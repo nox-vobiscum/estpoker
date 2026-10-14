@@ -2025,7 +2025,7 @@
         if (!btn || btn.disabled) return;
         const label = btn.dataset.value || btn.textContent || '';
         if (!label) return;
-        if (mySelectedValue() === String(label)) return;
+        if (mySelectedValue() === String(label) || state._optimisticVote === String(label)) return;
         state._optimisticVote = String(label);
         try { grid.querySelectorAll('button').forEach(function (b) { b.classList.remove('selected'); }); } catch (e) {}
         btn.classList.add('selected');
@@ -2226,7 +2226,10 @@ if (action === 'spectator') {
     document.addEventListener('visibilitychange', function () {
       if (document.visibilityState === 'visible') wake('visibility');
     }, true);
-    window.addEventListener('focus',  function () { wake('focus'); },  true);
+    // Element focus (including restored card focus) must not trigger a resync loop.
+    window.addEventListener('focus', function (event) {
+      if (event.target === window) wake('focus');
+    });
     window.addEventListener('online', function () { wake('online'); }, true);
     window.addEventListener('pageshow', function () { wake('pageshow'); }, true);
 
