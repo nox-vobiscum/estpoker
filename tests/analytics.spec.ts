@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test';
 const loaderSelector = 'script[src="https://www.googletagmanager.com/gtag/js?id=G-8Q9XZ0H39G"]';
 
 test('Google Analytics is configured once on public content pages', async ({ page }) => {
-  for (const path of ['/', '/about']) {
+  for (const path of ['/', '/about', '/imprint']) {
     await page.goto(path, { waitUntil: 'domcontentloaded' });
     await expect(page.locator(loaderSelector)).toHaveCount(1);
     await expect(page.locator(loaderSelector)).toHaveAttribute('async', '');

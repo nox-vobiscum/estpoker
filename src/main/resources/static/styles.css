@@ -1067,6 +1067,10 @@ body.page-landing {
   color: var(--color-text-muted, #888);
 }
 
+.app-footer .footer-credit-link {
+  text-decoration: none;
+}
+
 .landing-cta {
   margin-top: 1.5rem;
   text-align: center;

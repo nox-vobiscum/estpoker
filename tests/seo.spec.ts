@@ -90,7 +90,7 @@ test('crawl files and social image are served correctly', async ({ request, page
       urls: Array.from(doc.querySelectorAll('loc')).map(el => el.textContent) };
   }, xml);
   expect(parsed).toEqual({ errors: 0, namespace: 'http://www.sitemaps.org/schemas/sitemap/0.9',
-    urls: [origin + '/', origin + '/about'] });
+    urls: [origin + '/', origin + '/about', origin + '/imprint'] });
   const image = await request.get('/assets/branding/pwa/icon-512x512.png');
   expect(image.status()).toBe(200);
   expect(image.headers()['content-type']).toContain('image/png');

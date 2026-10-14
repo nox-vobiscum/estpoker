@@ -914,3 +914,5 @@ Die Inhalte dieser Web-Anwendung werden mit größtmöglicher Sorgfalt erstellt.
 - german/english version via language switch
 - add link in footer: "Home | About | Imprint"
 - imprint must also contain "back to room"-link as introduced in MR-019
+- Status: DONE
+- Result: Added the public `/imprint` route with approved contact details, German/English runtime translations, canonical/social metadata, Analytics, sitemap inclusion, shared footer navigation and the MR-019 contextual room-return control. Desktop/mobile, SEO, Analytics and return behavior are covered by focused Playwright tests.

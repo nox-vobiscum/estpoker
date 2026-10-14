@@ -3,7 +3,7 @@
      <head th:replace="~{fragments/head :: head(page='home')}"></head>
 -->
 <th:block th:fragment="head(page)"
-          th:with="publicPage=${page == 'home' or page == 'about'}, titleKey=${page == 'about' ? 'seo.about.title' : (page == 'home' ? 'seo.home.title' : 'app.title.short')}, descriptionKey=${page == 'about' ? 'seo.about.description' : 'seo.home.description'}, canonicalUrl=${page == 'about' ? 'https://planning-poker.at/about' : 'https://planning-poker.at/'}">
+          th:with="publicPage=${page == 'home' or page == 'about' or page == 'imprint'}, titleKey=${page == 'imprint' ? 'seo.imprint.title' : (page == 'about' ? 'seo.about.title' : (page == 'home' ? 'seo.home.title' : 'app.title.short'))}, descriptionKey=${page == 'imprint' ? 'seo.imprint.description' : (page == 'about' ? 'seo.about.description' : 'seo.home.description')}, canonicalUrl=${page == 'imprint' ? 'https://planning-poker.at/imprint' : (page == 'about' ? 'https://planning-poker.at/about' : 'https://planning-poker.at/')}">
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="color-scheme" content="dark light"/>
@@ -109,5 +109,5 @@
   <script th:src="@{/js/ui-preferences.js?v=1}"></script>
 
   <!-- Base styles -->
-  <link rel="stylesheet" th:href="@{/styles.css?v=69}"/>
+  <link rel="stylesheet" th:href="@{/styles.css?v=70}"/>
 </th:block>

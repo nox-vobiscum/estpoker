@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" th:lang="${#locale}" lang="en">
+<head th:replace="~{fragments/head :: head(page='imprint')}"></head>
+<body class="page-about page-imprint">
+  <div th:replace="~{fragments/app-header :: appHeader}"></div>
+  <div th:replace="~{fragments/room-return :: roomReturn}"></div>
+  <div th:replace="~{fragments/menu :: appMenu(showSeq=${false}, showAuto=${false}, showRoom=${false})}"></div>
+  <th:block th:replace="~{fragments/app-header :: headerScripts}"></th:block>
+
+  <main class="container about-container">
+    <h1 class="app-title" th:text="#{imprint.heading}" data-i18n="imprint.heading">Imprint</h1>
+    <section class="about-section">
+      <h2 th:text="#{imprint.owner.title}" data-i18n="imprint.owner.title">Owner and person responsible for content</h2>
+      <p>Roland B. Seper<br/>Dammstraße 3h<br/>2460 Bruckneudorf<br/>
+        <span th:text="#{imprint.country}" data-i18n="imprint.country">Austria</span></p>
+    </section>
+    <section class="about-section">
+      <h2 th:text="#{imprint.contact.title}" data-i18n="imprint.contact.title">Contact</h2>
+      <p><span th:text="#{imprint.email}" data-i18n="imprint.email">Email</span>:
+        <a href="mailto:noxvobiscum@gmail.com">noxvobiscum@gmail.com</a><br/>
+        <span th:text="#{imprint.website}" data-i18n="imprint.website">Website</span>:
+        <a href="https://rolandseper.at" target="_blank" rel="noopener noreferrer">rolandseper.at</a></p>
+    </section>
+    <section class="about-section">
+      <h2 th:text="#{imprint.purpose.title}" data-i18n="imprint.purpose.title">Purpose of the website</h2>
+      <p th:text="#{imprint.purpose.text}" data-i18n="imprint.purpose.text">Provision of a free, private online Planning Poker tool for agile teams. This is a private, non-commercial project and experiment without intent to generate profit.</p>
+    </section>
+    <section class="about-section">
+      <h2 th:text="#{imprint.disclaimer.title}" data-i18n="imprint.disclaimer.title">Disclaimer</h2>
+      <p th:text="#{imprint.disclaimer.text}" data-i18n="imprint.disclaimer.text">The content of this web application is prepared with the greatest possible care. No guarantee is given for its accuracy, completeness, availability or timeliness.</p>
+    </section>
+  </main>
+  <div th:replace="~{fragments/footer :: footer}"></div>
+</body>
+</html>

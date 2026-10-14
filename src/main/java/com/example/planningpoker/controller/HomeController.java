@@ -18,4 +18,9 @@ public class HomeController {
     public String about() {
         return "about";
     }
+
+    @GetMapping("/imprint")
+    public String imprint() {
+        return "imprint";
+    }
 }
