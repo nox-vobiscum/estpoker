@@ -8,6 +8,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="color-scheme" content="dark light"/>
 
+  <!-- Analytics stays on public content pages so room identities never reach Google. -->
+  <script th:if="${publicPage}" async src="https://www.googletagmanager.com/gtag/js?id=G-8Q9XZ0H39G"></script>
+  <script th:if="${publicPage}">
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-8Q9XZ0H39G');
+  </script>
+
   <!-- Page-specific metadata uses the existing runtime translation attributes. -->
   <title th:text="${#messages.msg(titleKey)}" th:attr="data-i18n=${titleKey}">RBS' Planning Poker</title>
   <meta th:if="${page == 'room'}" name="robots" content="noindex, nofollow"/>

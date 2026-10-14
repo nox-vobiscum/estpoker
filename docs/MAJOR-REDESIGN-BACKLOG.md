@@ -869,3 +869,48 @@ Completed story results are recorded below; later story results remain placehold
 - New findings: An opener-created tab can clone sessionStorage, so a window-name tab marker guards the return link without changing the existing CID behavior.
 - Effects on following stories: MR-016/017/018 must validate the final return-navigation behavior.
 - Open risks: A room closed while this tab is away has no existing push channel to the public pages; a stale return link is resolved by the existing room-entry flow. MR-016 should review focus and contrast; MR-017 should validate cross-browser behavior.
+
+
+### MR-020 - integrate Google Analytics throughout the website
+
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-8Q9XZ0H39G"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-8Q9XZ0H39G');
+</script>
+
+- Status: DONE
+- Acceptance criteria: Google tracking code is implemented
+- Result: Google Analytics `G-8Q9XZ0H39G` is loaded once through the shared head on public content pages. Room and invitation URLs are deliberately excluded so room codes and participant names are not disclosed to Google. CI guards and dedicated Playwright coverage pass.
+
+
+### MR-021 - Propose imprint
+
+Text:
+
+---
+Medieninhaber, Betreiber und für den Inhalt verantwortlich:
+Roland B. Seper
+Dammstraße 3h
+2460 Bruckneudorf
+Österreich
+
+Kontakt:
+E-Mail: noxvobiscum@gmail.com
+Website: https://rolandseper.at
+
+Blattlinie / Zweck der Website:
+Bereitstellung eines kostenlosen, privaten Online-Werkzeugs (Planning Poker / Estimation Poker) zur Unterstützung von agilen Teams bei Aufwandsschätzungen. Es handelt sich um ein privates, nicht-kommerzielles Projekt und Experiment ohne Erwerbsabsicht.
+
+Haftungsausschluss:
+Die Inhalte dieser Web-Anwendung werden mit größtmöglicher Sorgfalt erstellt. Für die Richtigkeit, Vollständigkeit, Verfügbarkeit und Aktualität der bereitgestellten Funktionen und Inhalte wird jedoch keine Gewähr übernommen.
+---
+
+
+- german/english version via language switch
+- add link in footer: "Home | About | Imprint"
+- imprint must also contain "back to room"-link as introduced in MR-019
