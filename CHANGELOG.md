@@ -5,9 +5,13 @@ temporary validation reports may be removed after the documentation consolidatio
 
 ## Unreleased
 
-- Added the post-redesign change-request backlog for CR-001 through CR-003. No
-  functional change has started; each request remains subject to its mandatory
-  start gate.
+- Added a dedicated responsive estimation-topic panel with a clear bilingual
+  heading, prominent wrapping title, blue clipboard icon and optional external
+  ticket link while retaining host-only edit and delete controls.
+- Fixed the empty-topic editor so Save and Cancel reliably close it by removing
+  overlapping topic action handlers.
+- Added the post-redesign change-request backlog for CR-001 through CR-003;
+  CR-002 and CR-003 remain subject to their mandatory start gates.
 
 ## 2026-10-14 — Major Redesign production release
 

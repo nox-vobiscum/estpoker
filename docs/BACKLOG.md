@@ -19,10 +19,10 @@ The detailed scope, mandatory start gate and acceptance criteria are maintained
 in [PLANNING-POKER-CHANGE-REQUESTS.md](PLANNING-POKER-CHANGE-REQUESTS.md).
 Execute one request at a time in this order:
 
-1. **CR-001 — Improve estimation topic visibility** (`TODO`)
+1. **CR-001 — Improve estimation topic visibility** (`DONE`)
    - Present the active topic as a dedicated compact panel while preserving the
      existing data, permissions, editing, events and persistence behavior.
-   - The known empty-topic editor issue is included in CR-001 validation.
+   - The known empty-topic editor issue was resolved and validated in CR-001.
 2. **CR-002 — Replace room information panels with collapsible manual** (`TODO`)
    - Replace the room-only informational cards with one accessible guide that is
      collapsed by default.

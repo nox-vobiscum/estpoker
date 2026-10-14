@@ -165,10 +165,6 @@
     } catch {}
   })();
 
-  // One-time binding guard for resize wiring
-  let _topicOverflowResizeBound = false;
-  let _topicBound = false;
-
   /*** ---------- Helpers ---------- ***/
   function normalizeSeq(id) {
     if (!id) return 'fib.scrum';
@@ -1297,23 +1293,13 @@
       if (id === 'topicCancelEditBtn') return doCancel();
     };
 
-    // Early capture
-    row.addEventListener('pointerdown', function (e) {
-      if (e.button !== 0) return;
+    row.addEventListener('click', function (e) {
       const btn = e.target && e.target.closest &&
         e.target.closest('#topicEditBtn,#topicClearBtn,#topicSaveBtn,#topicCancelEditBtn');
       if (!btn) return;
       if (e.preventDefault) e.preventDefault();
       act(btn.id);
-    }, { capture: true, passive: false });
-
-    // Fallback click
-    row.addEventListener('click', function (e) {
-      const btn = e.target && e.target.closest &&
-        e.target.closest('#topicEditBtn,#topicClearBtn,#topicSaveBtn,#topicCancelEditBtn');
-      if (!btn) return;
-      act(btn.id);
-    }, { capture: true, passive: true });
+    });
   }
 
   function renderTopic() {
@@ -1339,39 +1325,24 @@
     // Ensure a single delegate is bound
     ensureTopicDelegates();
 
-    // Helper to render read-only text/link (no innerHTML)
-    const renderDisplayContent = function (el) {
-      el.textContent = '';
-      if (state.topicLabel && state.topicUrl) {
-        const a = document.createElement('a');
-        a.rel = 'noopener noreferrer';
-        a.target = '_blank';
-        a.textContent = state.topicLabel;
-        try { a.href = state.topicUrl; } catch { a.href = '#'; }
-        el.appendChild(a);
-      } else if (state.topicLabel) {
-        el.textContent = state.topicLabel;
-      } else {
-        el.textContent = '–';
-      }
-      const full = [state.topicLabel || '', state.topicUrl || ''].filter(Boolean).join(' — ');
-      const link = el.querySelector && el.querySelector('a');
-      (link || el).setAttribute('title', wrapForTitle(full, 44));
-    };
+    const ticketLink = row.querySelector('#topicTicketLink');
 
-    // "more" hint
-    let hint = row.querySelector('#topicOverflowHint');
-    const ensureHint = function () {
-      if (!hint) {
-        const btn = document.createElement('button');
-        btn.id = 'topicOverflowHint';
-        btn.type = 'button';
-        btn.className = 'topic-more-btn';
-        btn.textContent = 'more';
-        const label = t('topic.more', 'Show full topic');
-        btn.setAttribute('aria-label', label);
-        btn.setAttribute('title', label);
-        hint = btn;
+    // Render read-only content without injecting markup.
+    const renderDisplayContent = function (el) {
+      el.textContent = state.topicLabel || '–';
+      const full = [state.topicLabel || '', state.topicUrl || ''].filter(Boolean).join(' — ');
+      el.setAttribute('title', wrapForTitle(full, 44));
+      if (ticketLink) {
+        ticketLink.textContent = t('topic.openLink', 'Open ticket');
+        if (state.topicUrl) {
+          ticketLink.href = state.topicUrl;
+          ticketLink.title = state.topicUrl;
+          ticketLink.hidden = false;
+        } else {
+          ticketLink.removeAttribute('href');
+          ticketLink.removeAttribute('title');
+          ticketLink.hidden = true;
+        }
       }
     };
 
@@ -1389,14 +1360,7 @@
       }
       renderDisplayContent(displayEl);
 
-      ensureHint();
-      if (!hint.isConnected) row.insertBefore(hint, actions);
       actions.innerHTML = '';
-
-      requestAnimationFrame(syncTopicOverflow);
-      const full = [state.topicLabel || '', state.topicUrl || ''].filter(Boolean).join(' — ');
-      hint.setAttribute('title', wrapForTitle(full, 44));
-      hint.setAttribute('aria-label', t('topic.more', 'Show full topic'));
       return;
     }
 
@@ -1412,9 +1376,6 @@
       }
       renderDisplayContent(displayEl);
 
-      ensureHint();
-      if (!hint.isConnected) row.insertBefore(hint, actions);
-
       const titleEdit  = t('button.editTopic',  'Edit');
       const titleClear = t('button.clearTopic', 'Clear');
 
@@ -1424,7 +1385,6 @@
         ' <button id="topicClearBtn" class="icon-button neutral" type="button"' +
                  ' title="' + escapeHtml(titleClear) + '" aria-label="' + escapeHtml(titleClear) + '">🗑️</button>';
 
-      requestAnimationFrame(syncTopicOverflow);
       return;
     }
 
@@ -1443,7 +1403,7 @@
       displayEl = inp;
       setTimeout(function () { try { displayEl.focus(); displayEl.select(); } catch {} }, 0);
     }
-    if (hint) hint.style.display = 'none';
+    if (ticketLink) ticketLink.hidden = true;
 
     const titleSave   = t('button.saveTopic', 'Save');
     const titleCancel = t('button.cancel',    'Cancel');
@@ -1458,32 +1418,6 @@
       if (e.key === 'Enter')  { if (e.preventDefault) e.preventDefault(); const b = $('#topicSaveBtn');   if (b) b.click(); }
       if (e.key === 'Escape') { if (e.preventDefault) e.preventDefault(); const b = $('#topicCancelEditBtn'); if (b) b.click(); }
     }, { passive: false });
-  }
-
-  function syncTopicOverflow() {
-    try {
-      const row  = $('#topicRow');
-      if (!row) return;
-
-      const el   = row.querySelector('#topicDisplay');
-      const hint = row.querySelector('#topicOverflowHint');
-      if (!el || !hint) return;
-
-      const inViewMode = el && el.tagName === 'SPAN';
-      if (!inViewMode) {
-        hint.style.display = 'none';
-        return;
-      }
-
-      const full = [state.topicLabel || '', state.topicUrl || '']
-        .filter(Boolean)
-        .join(' — ');
-      hint.setAttribute('title', full);
-      hint.setAttribute('aria-label', t('topic.more', 'Show full topic'));
-
-      const over = el.scrollWidth > el.clientWidth + 1;
-      hint.style.display = over ? '' : 'none';
-    } catch {}
   }
 
   /*** ---------- Auto-reveal badge ---------- ***/
@@ -2106,49 +2040,6 @@
       _plistBound = true;
     }
 
-    // Topic row: Save / Cancel (works across DOM swaps)
-    const topic = document.querySelector('#topicRow');
-    if (topic && !_topicBound) {
-      const actions = topic.querySelector('.topic-actions') || topic;
-
-      function doSave() {
-        if (!state.isHost) return;
-        const input = topic.querySelector('#topicDisplay');
-        if (!input || input.tagName !== 'INPUT') return;
-        const val = input.value || '';
-        const parsed = clientParseTopic(val);
-        state.topicLabel = parsed.label;
-        state.topicUrl = parsed.url;
-        state.topicEditing = false;
-        renderTopic();
-        try { send('topicSave:' + encodeURIComponent(val)); } catch (e) {}
-      }
-
-      function doCancel() {
-        if (!state.isHost) return;
-        state.topicEditing = false;
-        renderTopic();
-      }
-
-      actions.addEventListener('pointerdown', function (e) {
-        if (e.button !== 0) return;
-        const btn = (e.target && e.target.closest) ? e.target.closest('#topicSaveBtn, #topicCancelEditBtn') : null;
-        if (!btn) return;
-        if (e.preventDefault) e.preventDefault();
-        if (btn.id === 'topicSaveBtn') doSave();
-        else doCancel();
-      }, false);
-
-      actions.addEventListener('click', function (e) {
-        const btn = (e.target && e.target.closest) ? e.target.closest('#topicSaveBtn, #topicCancelEditBtn') : null;
-        if (!btn) return;
-        if (btn.id === 'topicSaveBtn') doSave();
-        else doCancel();
-      }, false);
-
-      _topicBound = true;
-    }
-
     // --- Universal fallback for row-action buttons (capture phase) ---
 if (!window.__ppRowActionFallback) {
   window.__ppRowActionFallback = true;
@@ -2219,11 +2110,6 @@ if (action === 'spectator') {
         if (e.target.closest && e.target.closest('button,a,input')) return;
         beginTopicEdit();
       });
-    }
-
-    if (!_topicOverflowResizeBound) {
-      window.addEventListener('resize', function () { requestAnimationFrame(syncTopicOverflow); });
-      _topicOverflowResizeBound = true;
     }
 
     // Lifecycle wake-ups

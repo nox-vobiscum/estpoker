@@ -1,6 +1,6 @@
 # Planning Poker — Post-Redesign Change Requests
 
-Status: **Backlog / not started**  
+Status: **CR-001 complete; CR-002 and CR-003 pending**
 Scope: Follow-up UX improvements after the Major Redesign release.  
 Execution rule: **One CR at a time; mandatory start gate; approval; implementation through DONE; separate commit; STOP.**
 
@@ -29,7 +29,7 @@ Room creation/join/invite, identity/CID, participant lifecycle, host/host-transf
 - **ID:** CR-001
 - **Title:** Improve estimation topic visibility
 - **Goal:** Make the currently estimated topic immediately recognizable as a distinct functional element.
-- **Status:** TODO
+- **Status:** DONE
 - **Recommended Model:** **GPT-5.6 Sol** — bounded UI/presentation change; propose a stronger model only if the audit uncovers unexpected lifecycle or permission coupling.
 
 **Scope**
@@ -59,11 +59,20 @@ Room creation/join/invite, identity/CID, participant lifecycle, host/host-transf
 **Validation:** Focused topic visibility/editing/permissions tests and responsive checks. No full regression by default.
 
 **Result**
-- Changed files: None.
-- Decisions and screenshots: Pending.
-- Tests: Not run for this CR.
-- Findings / downstream effects: Pending.
-- Completion: Document, update status, separate commit, STOP.
+- Changed files: `room.html`, `styles.css`, `room.js`, both message bundles,
+  focused topic tests, cache-busting template references and status documents.
+- Decisions: Used one semantic topic panel with a blue inline SVG icon, a
+  separate optional ticket link and the existing host-only actions. Long titles
+  wrap in place. Topic Save/Cancel now has one delegated click lifecycle instead
+  of overlapping pointer and click handlers.
+- Tests: `npm run ci:verify`; focused Playwright topic flow, visibility and panel
+  tests (7 passed), plus a final host/guest and empty-editor rerun (3 passed).
+  Responsive geometry covered 375 px and 1280 px in Light/Dark and Dev/Clean.
+- Findings / downstream effects: The empty-topic editor defect was caused by
+  duplicate Save/Cancel bindings and is fixed within this CR. Topic data,
+  permissions, WebSocket messages and persistence contracts remain unchanged.
+- Completion: Acceptance criteria passed; no full regression was required for
+  this bounded UI change.
 
 ---
 

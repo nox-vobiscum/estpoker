@@ -167,22 +167,22 @@ strong{color:var(--text-strong)}
 .room-with-actions .icon-button{margin-left:10px}
 
 /* ---------- Topic row ---------------------------------------------------- */
-.topic-row{display:grid;grid-template-columns:max-content 1fr max-content;gap:8px 10px;align-items:center;padding:10px 12px;background:var(--panel);border:1px solid var(--border);border-radius:var(--ui-radius);margin:1.2rem 0 1rem}
-.topic-label{white-space:nowrap;color:var(--text-strong)}
-.topic-text{display:inline-block;color:var(--text);padding:.15rem .45rem;border-radius:var(--ui-control-radius);background:var(--panel);border:1px solid var(--border);min-height:26px;line-height:1.3;font-size:.92rem}
-.topic-text a{color:inherit;text-decoration:none}
-.topic-text a:hover{text-decoration:underline}
-.topic-actions{display:flex;align-items:center;gap:6px}
+.topic-row{display:grid;grid-template-columns:28px minmax(0,1fr) max-content;gap:8px 12px;align-items:start;padding:14px 14px 14px 12px;background:var(--panel);border:1px solid var(--border);border-inline-start:3px solid color-mix(in srgb,var(--accent) 78%,var(--border));border-radius:var(--ui-panel-radius);margin:1.2rem 0 1rem;box-shadow:var(--ui-panel-shadow)}
+.topic-panel-icon{width:24px;height:24px;margin-top:2px;color:var(--accent);fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.topic-content{min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:4px}
+.topic-heading{color:var(--text-dim);font-size:.7rem;font-weight:700;line-height:1.2;letter-spacing:.08em;text-transform:uppercase}
+.topic-text{display:block;max-width:100%;min-width:0;color:var(--text-strong);padding:0;background:transparent;border:0;line-height:1.45;font-size:1rem;font-weight:650;white-space:normal;overflow-wrap:anywhere;word-break:normal}
+.topic-ticket-link{display:inline-flex;align-items:center;gap:4px;max-width:100%;color:var(--link);font-size:.78rem;line-height:1.35;text-decoration:none}
+.topic-ticket-link::after{content:"↗";font-size:.9em}
+.topic-ticket-link:hover{text-decoration:underline}
+.topic-ticket-link[hidden]{display:none}
+.topic-actions{display:flex;align-items:center;gap:6px;grid-column:3;grid-row:1}
 
 /* Optional edit block */
 .topic-edit{display:grid;grid-template-columns:minmax(0,1fr) max-content;gap:8px;align-items:center;margin:1.2rem 0 1rem;padding:10px 12px;background:var(--panel);border:1px solid var(--border);border-radius:var(--ui-radius)}
 .topic-input{height:36px;border-radius:var(--ui-small-control-radius);border:1px solid var(--border);background:var(--panel);color:var(--text);padding:0 .75rem}
 
-/* #topicRow specific (ellipsis hint) */
-#topicRow{display:flex;align-items:center;gap:.5rem}
-#topicRow .topic-text{flex:1 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#topicOverflowHint.topic-more-btn{flex:0 0 auto;background:transparent;border:0;padding:0;margin-left:.25rem;font:inherit;font-size:.9em;line-height:1;opacity:.8;cursor:help;text-decoration:underline dotted}
-#topicOverflowHint.topic-more-btn:hover{opacity:1}
+#topicRow .topic-inline-input{width:100%;min-width:0;height:36px;border-radius:var(--ui-small-control-radius);border:1px solid var(--field-border);background:var(--field-bg);color:var(--field-fg);padding:0 .75rem}
 
 /* ---------- Menu trigger ------------------------------------------------- */
 .menu-button{
@@ -1286,7 +1286,6 @@ h1,h2,h3{font-weight:var(--ui-heading-weight)}
   border-color:var(--ui-surface-border);box-shadow:var(--ui-shadow-sm);
 }
 :root[data-ui-style="clean"] .topic-row.editable:hover{background:var(--panel-hover)}
-:root[data-ui-style="clean"] .topic-text{border-color:var(--ui-surface-border)}
 :root[data-ui-style="clean"] #resultRow{
   background:var(--ui-surface);border-color:var(--ui-surface-border);
   border-radius:var(--ui-panel-radius);box-shadow:var(--ui-shadow-sm);
