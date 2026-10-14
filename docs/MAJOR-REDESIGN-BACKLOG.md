@@ -32,7 +32,7 @@ Then STOP.
 
 ## Epic Goal
 
-Modernize the complete visual UI and presentation architecture of RBS' Planning Poker while preserving every existing functional effect. MR-001 through MR-016 and MR-019 are complete; MR-017 and MR-018 remain.
+Modernize the complete visual UI and presentation architecture of RBS' Planning Poker while preserving every existing functional effect. MR-001 through MR-017 and MR-019 are complete; MR-018 remains.
 
 ## Frozen Functional Contracts
 
@@ -74,7 +74,7 @@ No gameplay refactoring. Before every commit inspect changes to GameService, Gam
 Only one story at a time. Before every MR-xxx story, re-read README.md, docs/BRIEFING.md, docs/MAJOR-REDESIGN-BACKLOG.md and docs/MAJOR-REDESIGN-STATUS.md; confirm the active branch, the last completed story and the frozen functional contracts. Then report the model recommended for that story. If the currently selected model differs, explicitly propose the model switch and WAIT for user confirmation before doing any implementation work. After explicit approval: set the story IN PROGRESS, implement only that scope through its acceptance criteria, run relevant tests, record results/findings/decisions/downstream risks, mark DONE only when acceptance criteria hold, commit separately, update MAJOR-REDESIGN-STATUS.md, then STOP. User approval is required before the next story.
 
 Allowed statuses: TODO, READY, IN PROGRESS, BLOCKED, DONE.
-MR-001 through MR-016 and MR-019 are DONE. MR-017 and MR-018 are TODO.
+MR-001 through MR-017 and MR-019 are DONE. MR-018 is TODO.
 Stop and report an unclean baseline. Never manufacture green tests through skips, retries or weaker assertions. Intentional DOM changes may require selector updates while retaining functional assertions.
 After architecture changes additionally verify menu open/close, state synchronization, exactly-once toggles, mobile collapse, focus/Escape/overlay. MR-018 runs the full relevant suite.
 Keep each run bounded to analysis, one story, or its validation. When available usage budget falls below roughly 20%, start no new story; write a handoff and stop. Usage quota is not exposed to this run.
@@ -710,21 +710,21 @@ Completed story results are recorded below; later story results remain placehold
 - Acceptance Criteria: All four combinations remain usable and geometrically coherent in both engines.
 - Tests: Cross-browser geometry and visual review on desktop/mobile; record material differences.
 - Dependencies: MR-016
-- Status: TODO
+- Status: DONE
 - Recommended Model: **Sol** — Cross-browser visual/geometry consistency with frozen functionality.
 - Story Start Protocol: Before starting this MR, re-read `README.md`, `docs/BRIEFING.md`, `docs/MAJOR-REDESIGN-BACKLOG.md` and `docs/MAJOR-REDESIGN-STATUS.md`. Confirm the active branch, the last completed MR and the frozen functional contracts. Report the recommended model below. If another model is currently selected, propose switching first and WAIT for explicit user confirmation. Only after confirmation may implementation begin; continue this MR through validation, documentation, DONE, its separate commit and status update, then STOP.
-- Notes / Findings: Not started; findings pending explicit story approval.
-- Resulting Decisions: None yet.
+- Notes / Findings: Chromium and Firefox were compared across Light/Dark Dev/Clean at 375, 768 and 1280px, with additional header breakpoints at 320 and 769px and a 667x375 landscape check. Matching controls differed by less than 2px, used identical radii and disabled native appearance, and remained free of horizontal clipping.
+- Resulting Decisions: No product CSS or template correction is warranted. Retain engine-native font rasterization and minor text-wrap differences; these are expected and do not affect geometry, hierarchy or usability.
 
 #### Result
 
-- Changed files: None.
-- Technical decision: Pending.
-- Visual result: No changes.
-- Tests: Not run for this story; initialization baseline above.
-- New findings: Pending.
-- Effects on following stories: Pending.
-- Open risks: Pending analysis; known baseline risks above.
+- Changed files: This backlog and `docs/MAJOR-REDESIGN-STATUS.md` only; no application source changed.
+- Technical decision: Reuse the established geometry, shape, header, mobile, preference and accessibility suites as one cross-browser matrix instead of adding duplicate assertions.
+- Visual result: Light Dev, Dark Dev, Light Clean and Dark Clean are geometrically coherent in Chromium and Firefox on mobile and desktop. Representative screenshots were inspected pairwise.
+- Tests: 65 focused Playwright cases passed in 2.6 minutes with retries disabled and no skips. The matrix covered both engines directly for control geometry and shape families; related responsive, preference, surface and accessibility checks also passed.
+- New findings: Only expected engine-specific glyph rasterization and small text-wrap differences were visible. No clipped controls, overflow, broken footer/CTA stacking or material layout divergence was found.
+- Effects on following stories: MR-018 can proceed to the final full functional regression using this cross-browser presentation baseline.
+- Open risks: Safari/WebKit is outside the explicitly supported MR-017 engine scope. Visual inspection is representative rather than pixel-identical comparison, consistent with this story's out-of-scope rule.
 
 
 ### MR-018 — Final UI regression validation
