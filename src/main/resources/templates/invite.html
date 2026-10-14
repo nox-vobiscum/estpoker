@@ -16,7 +16,7 @@
     <!-- Safe heading without MessageFormat to avoid 500s -->
     <p class="hint" id="inviteHeading"
        th:if="${rc != null and !#strings.isEmpty(rc)}"
-       th:utext="${'You\u2019ve been invited to room <strong>' + rc + '</strong>.'}">
+       th:utext="${'You’ve been invited to room <strong>' + rc + '</strong>.'}">
       You've been invited to room <strong>demo</strong>.
     </p>
     <p class="hint" th:if="${rc == null or #strings.isEmpty(rc)}"
