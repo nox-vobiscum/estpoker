@@ -737,21 +737,21 @@ Completed story results are recorded below; later story results remain placehold
 - Acceptance Criteria: Every frozen contract has recorded evidence; no unexplained failures or weakened assertions remain.
 - Tests: Maven verify, npm ci:verify, full relevant Playwright suite without retries/skips; verify all frozen contracts and report any coverage gaps.
 - Dependencies: MR-017
-- Status: TODO
+- Status: DONE
 - Recommended Model: **Astra** — Final full regression validation across all frozen contracts and remaining risks.
 - Story Start Protocol: Before starting this MR, re-read `README.md`, `docs/BRIEFING.md`, `docs/MAJOR-REDESIGN-BACKLOG.md` and `docs/MAJOR-REDESIGN-STATUS.md`. Confirm the active branch, the last completed MR and the frozen functional contracts. Report the recommended model below. If another model is currently selected, propose switching first and WAIT for explicit user confirmation. Only after confirmation may implementation begin; continue this MR through validation, documentation, DONE, its separate commit and status update, then STOP.
-- Notes / Findings: Not started; findings pending explicit story approval.
-- Resulting Decisions: None yet.
+- Notes / Findings: Completed in three resumable browser blocks; usage-limit interruption reconciled. One false participant-order assumption corrected and the auto-reveal reload test strengthened. See `docs/MR-018-VALIDATION.md` for full evidence and limitations.
+- Resulting Decisions: Preserve all application code; validate votes by identity and persisted settings through real UI interaction.
 
 #### Result
 
-- Changed files: None.
-- Technical decision: Pending.
+- Changed files: `tests/prod-autoreveal.spec.ts`, `tests/persistence.spec.ts`, this backlog, `docs/MAJOR-REDESIGN-STATUS.md`, `docs/MR-018-VALIDATION.md`.
+- Technical decision: No automatic retries/skips; retain initial failure evidence and validate corrected assertions separately.
 - Visual result: No changes.
-- Tests: Not run for this story; initialization baseline above.
-- New findings: Pending.
-- Effects on following stories: Pending.
-- Open risks: Pending analysis; known baseline risks above.
+- Tests: Maven verify (30 passed), npm ci:verify passed; all 195 distinct Playwright tests have passing evidence after targeted corrections. Initial shards: 65/65, 65/66, 64/64. No retries/skips.
+- New findings: Existing auto-reveal smoke assumed participant order; reload test previously did not assert persistence. Both corrected without application changes.
+- Effects on following stories: MR-018 complete. Further stories require a separate start gate and approval; no automatic continuation or deployment.
+- Open risks: Known topic-editor/stale-return limitations; no live FTPS, manual screen-reader or WebKit validation. Kick coverage is confirmation/cancellation only. See validation report.
 
 
 

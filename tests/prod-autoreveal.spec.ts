@@ -59,7 +59,13 @@ test('Prod: Auto-Reveal toggled → 3 votes → reveal auto', async ({ page }) =
   // Sanity auf einem Gast
   for (const client of [host, a, b]) {
     await expect(client.locator('#averageVote')).toHaveText('3');
-    await expect(client.locator('.vote-chip')).toHaveText(['1', '3', '5']);
+    await expect(client.locator('.vote-chip')).toHaveCount(3);
+    for (const [name, vote] of [['Host', '1'], ['A', '3'], ['B', '5']] as const) {
+      const row = client.locator('#liveParticipantList .participant-row').filter({
+        has: client.locator('.name').filter({ hasText: new RegExp(`^${name}$`) }),
+      });
+      await expect(row.locator('.vote-chip')).toHaveText(vote);
+    }
   }
 
   // Cleanup
