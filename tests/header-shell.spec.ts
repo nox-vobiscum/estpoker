@@ -24,6 +24,11 @@ for (const width of [320, 375, 768, 769, 1280]) {
       expect(await header.evaluate(el => getComputedStyle(el).position)).toBe('static');
       const brand = await header.locator('.app-brand').boundingBox();
       const menu = await trigger.boundingBox();
+      const headerBox = await header.boundingBox();
+      expect(headerBox!.x).toBeCloseTo(0, 1);
+      expect(headerBox!.width).toBeCloseTo(width, 1);
+      expect(brand!.x).toBeGreaterThanOrEqual(width <= 768 ? 16 : 24);
+      expect(width - (menu!.x + menu!.width)).toBeGreaterThanOrEqual(width <= 768 ? 16 : 24);
       expect(brand!.x + brand!.width).toBeLessThanOrEqual(menu!.x);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
       await expect(page.locator('#hcLangEN')).toHaveCount(1);
@@ -74,3 +79,22 @@ test('responsive header preserves one menu and language state across resize', as
   await expect(page.locator('#hcLangEN')).toHaveAttribute('aria-pressed', 'true');
   await expect(page.locator('#menuButton')).toHaveCount(1);
 });
+
+for (const [style, theme] of [['dev', 'light'], ['dev', 'dark'], ['clean', 'light'], ['clean', 'dark']] as const) {
+  test(`full-width header visual ${style}/${theme}`, async ({ page }, testInfo) => {
+    await page.addInitScript(({ style, theme }) => {
+      localStorage.setItem('pp-ui-style', style);
+      localStorage.setItem('planningpoker-theme', theme);
+    }, { style, theme });
+    for (const width of [375, 1280]) {
+      await page.setViewportSize({ width, height: 240 });
+      await page.goto('/');
+      const header = page.locator('.app-header');
+      const box = (await header.boundingBox())!;
+      expect(box.x).toBeCloseTo(0, 1);
+      expect(box.width).toBeCloseTo(width, 1);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      await header.screenshot({ path: testInfo.outputPath(`header-${width}.png`) });
+    }
+  });
+}

@@ -1352,7 +1352,8 @@ h1,h2,h3{font-weight:var(--ui-heading-weight)}
 /* Shared header shell; final preference controls are separate redesign stories. */
 .app-header{
   display:flex;align-items:center;justify-content:space-between;gap:16px;
-  width:100%;max-width:800px;margin:0 auto;padding:12px 16px;
+  width:calc(100% + 4rem);max-width:none;margin:0 -2rem;
+  padding:12px clamp(24px,2.5vw,32px);
 }
 .app-brand{
   display:flex;align-items:center;gap:8px;min-width:0;
@@ -1365,7 +1366,7 @@ h1,h2,h3{font-weight:var(--ui-heading-weight)}
 .app-header .menu-button{position:relative;inset:auto;flex:none}
 .mobile-language{display:none}
 @media (max-width:768px){
-  .app-header{gap:8px;padding:8px 0}
+  .app-header{gap:8px;padding:8px 16px}
   .app-brand{font-size:1.4em}
   .desktop-language{display:none}
   .desktop-theme{display:none}

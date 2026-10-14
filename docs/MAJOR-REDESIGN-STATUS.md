@@ -32,3 +32,13 @@
 - Existing two-second unexpected-disconnect grace, heartbeat interval, host transfer rules, CID identity, room state, event protocol and gameplay remain unchanged.
 - Added regression coverage for initial join, lifecycle wake signals, forced reconnect, real disconnect and a full heartbeat interval, plus a server unit test for overlapping sessions.
 - Validation: clean Maven verify passed 31 tests with zero failures/skips; npm CI guards passed. Eight targeted Playwright cases passed without retries/skips, covering Presence, Heartbeat, Reconnect, Reload, Host/Close, Participation and both Dev/Clean vote-change flows.
+
+## Full-width app header — 2026-10-14
+
+- The shared header shell now spans the viewport while the existing 800px game and content containers remain centered and unchanged.
+- Desktop header padding scales from 24px to 32px. The existing 768px breakpoint uses 16px mobile padding and continues to show only branding and the menu trigger.
+- Header markup, branding assets, controls, menu lifecycle, preference state and events are unchanged. The stylesheet cache version was incremented.
+- Validation: 46 targeted responsive/header/branding/control/content tests passed at 320, 375, 768, 769 and 1280px without retries or skips. The final 25-case header matrix and npm CI guards also passed.
+- Visual inspection covered Dev/Clean in Light/Dark at 375px and 1280px. Alignment is consistent and no horizontal overflow was found.
+- Local preview is running at http://localhost:8080. No push or deployment.
+- STOP: Full-width header polish complete; no further UI work started.
