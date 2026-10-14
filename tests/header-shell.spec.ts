@@ -16,6 +16,10 @@ for (const width of [320, 375, 768, 769, 1280]) {
       await expect(page.locator('#appMenuOverlay')).toHaveCount(1);
       await expect(page.locator('h1')).toHaveCount(1);
       await expect(header.locator('.app-brand')).toHaveAttribute('href', '/');
+      await expect(header.locator('.app-brand img')).toHaveAttribute('width', '48');
+      await expect(header.locator('.app-brand img')).toHaveAttribute('height', '48');
+      const brandFontSize = await header.locator('.app-brand').evaluate(el => parseFloat(getComputedStyle(el).fontSize));
+      expect(brandFontSize).toBeCloseTo(width <= 768 ? 22.4 : 28.8, 1);
       await expect(trigger).toBeVisible();
       expect(await header.evaluate(el => getComputedStyle(el).position)).toBe('static');
       const brand = await header.locator('.app-brand').boundingBox();
