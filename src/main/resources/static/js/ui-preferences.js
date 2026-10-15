@@ -5,8 +5,7 @@
   const normalizeLang = value => String(value || '').toLowerCase().startsWith('de') ? 'de' : 'en';
   const state = {
     themeMode: window.PPStorage.theme() || 'system',
-    language: normalizeLang(window.PPStorage.read('localStorage', 'lang') || root.lang || 'en'),
-    uiStyle: window.PPStorage.uiStyle() || 'dev'
+    language: normalizeLang(window.PPStorage.read('localStorage', 'lang') || root.lang || 'en')
   };
   const listeners = new Set();
   let messages = Object.create(null);
@@ -24,19 +23,12 @@
   const applyRoot = () => {
     if (state.themeMode === 'system') root.removeAttribute('data-theme');
     else root.setAttribute('data-theme', state.themeMode);
-    root.dataset.uiStyle = state.uiStyle;
     if (root.lang !== state.language) root.lang = state.language;
   };
   function setTheme(mode) {
     if (!['light', 'dark', 'system'].includes(mode)) mode = 'system';
     state.themeMode = mode;
     write('planningpoker-theme', mode);
-    applyRoot();
-    publish();
-  }
-  function setUiStyle(style) {
-    state.uiStyle = style === 'clean' ? 'clean' : 'dev';
-    write('pp-ui-style', state.uiStyle);
     applyRoot();
     publish();
   }
@@ -114,14 +106,13 @@
   // Resolve all saved/default values once, before the stylesheet can paint.
   applyRoot();
   write('planningpoker-theme', state.themeMode);
-  write('pp-ui-style', state.uiStyle);
   write('lang', state.language);
   const domReady = document.readyState === 'loading'
     ? new Promise(resolve => document.addEventListener('DOMContentLoaded', resolve, { once: true }))
     : Promise.resolve();
   const ready = domReady.then(() => setLanguage(state.language, 'init'));
   window.PPUI = Object.freeze({
-    snapshot, setTheme, setLanguage, setUiStyle, message, ready,
+    snapshot, setTheme, setLanguage, message, ready,
     subscribe(listener) { listeners.add(listener); listener(snapshot()); return () => listeners.delete(listener); }
   });
   window.setLanguage = code => setLanguage(code);

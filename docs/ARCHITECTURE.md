@@ -36,8 +36,8 @@ This document provides a comprehensive overview of the RBS' Planning Poker syste
 
 - `fragments/app-header.html` owns the shared semantic header, branding,
   desktop preference controls and the single menu trigger.
-- `ui-preferences.js` (`window.PPUI`) is the sole owner of language, theme and
-  Dev/Clean interface-style state. `header-controls.js` and `menu.js` consume
+- `ui-preferences.js` (`window.PPUI`) is the sole owner of language and
+  theme state. `header-controls.js` and `menu.js` consume
   that state as view adapters and do not create competing defaults or writers.
 - `menu.js` exclusively owns transient menu state and lifecycle: open/close,
   backdrop, Escape, focus entry/trap/return, scroll locking and ARIA visibility.
@@ -330,7 +330,7 @@ Single centralized stylesheet with:
 - CSS custom properties (design tokens)
 - Responsive layout
 - Light, Dark and System themes
-- Dev and Clean interface styles
+- One shared interface with theme-aware surfaces and typography
 - Animation/transitions
 
 **Design Tokens:** See [STYLE.md](STYLE.md) for details.

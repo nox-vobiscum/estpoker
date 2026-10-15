@@ -3,7 +3,6 @@ import { test, expect } from '@playwright/test';
 test('current settings are applied when CSS loads and survive reload', async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem('planningpoker-theme', 'light');
-    localStorage.setItem('pp-ui-style', 'clean');
     localStorage.setItem('pp-name', 'Tester');
     localStorage.setItem('pp-room', 'current-team');
     // Observe bootstrap state when CSS loads without blocking the preload scanner.
@@ -11,27 +10,23 @@ test('current settings are applied when CSS loads and survive reload', async ({ 
       if (event.target instanceof HTMLLinkElement && event.target.rel === 'stylesheet') {
         (window as any).__settingsAtStylesheet = {
           theme: document.documentElement.getAttribute('data-theme'),
-          style: document.documentElement.getAttribute('data-ui-style'),
         };
       }
     }, true);
   });
   await page.goto('/');
-  expect(await page.evaluate(() => (window as any).__settingsAtStylesheet)).toEqual({ theme: 'light', style: 'clean' });
+  expect(await page.evaluate(() => (window as any).__settingsAtStylesheet)).toEqual({ theme: 'light' });
   await expect(page.locator('#nameInput')).toHaveValue('Tester');
   await expect(page.locator('#roomInput')).toHaveValue('current-team');
   await page.reload();
-  await expect(page.locator('html')).toHaveAttribute('data-ui-style', 'clean');
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
 });
 
 test('invalid stored settings use defaults and unavailable storage is tolerated', async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem('planningpoker-theme', 'invalid');
-    localStorage.setItem('pp-ui-style', 'invalid');
   });
   await page.goto('/');
-  await expect(page.locator('html')).toHaveAttribute('data-ui-style', 'dev');
   // The preference owner normalizes missing/invalid preferences to system mode.
   await expect.poll(() => page.evaluate(() => (window as any).PPStorage.theme())).toBe('system');
   expect(await page.evaluate(() => {

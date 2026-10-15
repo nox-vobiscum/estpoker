@@ -5,7 +5,15 @@ temporary validation reports may be removed after the documentation consolidatio
 
 ## Unreleased
 
-_No unreleased changes._
+- Consolidated the interface into the former Clean appearance for all users,
+  preserving its layout, typography and colors across Light, Dark and System.
+  Removed the style selector, alternate styling, preference API and storage
+  access. Historical release records below describe the features at that time.
+- Validation: 107 affected browser tests passed, followed by a focused disabled-
+  card hover regression test. Maven packaging and CI guards passed. Compared
+  computed styles and geometry against checkpoint `pre-single-interface` across
+  80 page/theme/viewport cases and 72 interaction cases with no differences
+  (excluding the intentionally removed menu section).
 
 ## 2026-10-15 — Post-redesign UX release
 

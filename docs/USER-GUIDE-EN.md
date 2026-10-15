@@ -152,7 +152,6 @@ Click on **[⋮ Menu]** in the top right to open settings:
 
 - **Language:** German or English
 - **Theme:** Light, Dark or System
-- **Interface style:** Dev or Clean
 
 On larger screens these preferences are also available directly in the header.
 On mobile they remain available through the menu.

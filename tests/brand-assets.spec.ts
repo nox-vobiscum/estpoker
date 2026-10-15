@@ -37,19 +37,16 @@ for (const width of [320, 375, 768, 769, 1280]) {
     await page.goto('/');
     for (const theme of ['light', 'dark']) {
       await page.evaluate(value => document.documentElement.setAttribute('data-theme', value), theme);
-      for (const style of ['dev', 'clean']) {
-        await page.evaluate(value => document.documentElement.setAttribute('data-ui-style', value), style);
-        const image = page.locator('.app-brand img');
-        await expect(image).toBeVisible();
-        const size = await image.evaluate(el => {
-          const img = el as HTMLImageElement;
-          return { naturalWidth: img.naturalWidth, naturalHeight: img.naturalHeight,
-            width: img.getBoundingClientRect().width, height: img.getBoundingClientRect().height };
-        });
-        expect(size.naturalWidth).toBe(96);
-        expect(size.width / size.height).toBeCloseTo(size.naturalWidth / size.naturalHeight, 2);
-        expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-      }
+      const image = page.locator('.app-brand img');
+      await expect(image).toBeVisible();
+      const size = await image.evaluate(el => {
+        const img = el as HTMLImageElement;
+        return { naturalWidth: img.naturalWidth, naturalHeight: img.naturalHeight,
+          width: img.getBoundingClientRect().width, height: img.getBoundingClientRect().height };
+      });
+      expect(size.naturalWidth).toBe(96);
+      expect(size.width / size.height).toBeCloseTo(size.naturalWidth / size.naturalHeight, 2);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     }
   });
 }

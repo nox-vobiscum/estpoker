@@ -80,12 +80,11 @@ test('responsive header preserves one menu and language state across resize', as
   await expect(page.locator('#menuButton')).toHaveCount(1);
 });
 
-for (const [style, theme] of [['dev', 'light'], ['dev', 'dark'], ['clean', 'light'], ['clean', 'dark']] as const) {
-  test(`full-width header visual ${style}/${theme}`, async ({ page }, testInfo) => {
-    await page.addInitScript(({ style, theme }) => {
-      localStorage.setItem('pp-ui-style', style);
+for (const theme of ['light', 'dark'] as const) {
+  test(`full-width header visual ${theme}`, async ({ page }, testInfo) => {
+    await page.addInitScript(({ theme }) => {
       localStorage.setItem('planningpoker-theme', theme);
-    }, { style, theme });
+    }, { theme });
     for (const width of [375, 1280]) {
       await page.setViewportSize({ width, height: 240 });
       await page.goto('/');

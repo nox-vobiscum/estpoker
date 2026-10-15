@@ -33,23 +33,22 @@ for (const width of [375, 1280]) {
     await expect(page.locator('#topicEditBtn')).toHaveAccessibleName(/Edit/i);
     await expect(page.locator('#topicClearBtn')).toHaveAccessibleName(/Clear/i);
 
-    for (const [theme, style] of [['light', 'dev'], ['light', 'clean'], ['dark', 'dev'], ['dark', 'clean']] as const) {
-      await page.evaluate(({ nextTheme, nextStyle }) => {
+    for (const theme of ['light', 'dark'] as const) {
+      await page.evaluate(({ nextTheme }) => {
         const ui = (window as typeof window & {
-          PPUI: { setTheme: (value: string) => void; setUiStyle: (value: string) => void };
+          PPUI: { setTheme: (value: string) => void };
         }).PPUI;
         ui.setTheme(nextTheme);
-        ui.setUiStyle(nextStyle);
-      }, { nextTheme: theme, nextStyle: style });
+      }, { nextTheme: theme });
       const geometry = await page.locator('#topicRow').evaluate((row) => ({
         rowOverflow: row.scrollWidth - row.clientWidth,
         pageOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
         lines: Math.round((document.querySelector('#topicDisplay')!.getBoundingClientRect().height) /
           parseFloat(getComputedStyle(document.querySelector('#topicDisplay')!).lineHeight))
       }));
-      expect(geometry.rowOverflow, `${theme}/${style} topic overflow`).toBeLessThanOrEqual(1);
-      expect(geometry.pageOverflow, `${theme}/${style} page overflow`).toBeLessThanOrEqual(1);
-      if (width === 375) expect(geometry.lines, `${theme}/${style} wrapped lines`).toBeGreaterThan(1);
+      expect(geometry.rowOverflow, `${theme} topic overflow`).toBeLessThanOrEqual(1);
+      expect(geometry.pageOverflow, `${theme} page overflow`).toBeLessThanOrEqual(1);
+      if (width === 375) expect(geometry.lines, `${theme} wrapped lines`).toBeGreaterThan(1);
     }
   });
 }

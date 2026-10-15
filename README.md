@@ -9,8 +9,7 @@ No accounts, no heavy SPA — just fast joins, real-time updates, and a clean UI
 - Create or join a room via link and start voting in seconds
 - Host controls (reveal, reset, deck/sequence, topic visibility)
 - Responsive, keyboard-friendly UI with accessible controls
-- Shared full-width header with German/English, Light/Dark/System themes and
-  switchable Dev/Clean interface styles
+- Shared full-width header with German/English and Light/Dark/System themes
 - Topic field that accepts full JIRA links  
   → displays the **issue key** while keeping the full link as the target
 - Compact active-topic panel, collapsible in-room guide and clearly separated
@@ -87,7 +86,7 @@ docker run -p 8080:8080 planning-poker
 ✅ **Statistics** (average, median, range, outliers)  
 ✅ **Internationalization** (English, German)  
 ✅ **Mobile-friendly** responsive design  
-✅ **Light/Dark/System themes** and **Dev/Clean interface styles**
+✅ **Light/Dark/System themes** with one consistent interface
 
 ## Contributing
 

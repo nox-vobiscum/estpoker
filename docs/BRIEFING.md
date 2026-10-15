@@ -210,11 +210,11 @@ For detailed instructions, troubleshooting, CI recipe, and full command list, se
 - The shared full-width app header is rendered from `fragments/app-header.html`.
   Desktop shows branding and compact preference controls; mobile shows branding
   and the menu trigger.
-- `ui-preferences.js` (`window.PPUI`) owns language, theme and Dev/Clean style.
+- `ui-preferences.js` (`window.PPUI`) owns language and theme.
   `menu.js` alone owns menu open state, focus, backdrop, Escape handling and
   background locking.
-- UI preferences use `planningpoker-theme` and `pp-ui-style`; supported themes
-  are Light, Dark and System, and supported interface styles are Dev and Clean.
+- The color preference uses `planningpoker-theme`; supported themes are Light,
+  Dark and System. Interface geometry and typography are shared by all users.
 - **Topic input UX**:  
   - **Optimistic editing** for hosts (local input isn’t overwritten mid‑typing by async updates).  
   - If a **full JIRA link** is pasted, the UI **extracts and displays the issue key** while keeping the **full URL** as the anchor target.  
@@ -288,6 +288,12 @@ complete, merged and deployed in production commit `e84cecd`. Completed release
 history belongs in `CHANGELOG.md`; `docs/BACKLOG.md` contains open work only.
 No additional CR is active.
 
+The single-interface consolidation is implemented on `refactor/single-interface`
+and awaits deployment approval. Checkpoint `pre-single-interface` preserves
+`5f9281a`. The former Clean appearance is now the unconditional interface;
+language and Light/Dark/System remain user preferences. See the Unreleased
+changelog entry for validation. The production baseline above is unchanged.
+
 
 
 ## ###########################################
@@ -352,7 +358,7 @@ No additional CR is active.
 
 ### Current naming and storage
 
-`storage.js` reads only `planningpoker-theme`, `pp-ui-style`, `pp-name`,
+`storage.js` reads only `planningpoker-theme`, `pp-name`,
 `pp-room`, `pp-cid`, and `pp-pf-ok:<room>:<name>`. Invalid or unavailable
 storage uses the existing defaults. `pp-flash` is consumed once;
 `pp-presence:<encoded-name>` retains its existing write-only behavior.

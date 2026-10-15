@@ -19,21 +19,18 @@ for (const width of [320, 375, 768, 1280]) {
     await expect(page.locator('.knowledge-bites, .kb')).toHaveCount(0);
 
     for (const theme of ['light', 'dark', 'system'] as const) {
-      for (const style of ['dev', 'clean'] as const) {
-        await page.evaluate(({ theme, style }) => {
-          const ui = (window as typeof window & {
-            PPUI: { setTheme: (value: string) => void; setUiStyle: (value: string) => void };
-          }).PPUI;
-          ui.setTheme(theme);
-          ui.setUiStyle(style);
-        }, { theme, style });
-        await summary.click();
-        await expect(manual).toHaveAttribute('open', '');
-        expect(await manual.evaluate(element => element.scrollWidth - element.clientWidth)).toBeLessThanOrEqual(1);
-        expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
-        await summary.click();
-        await expect(manual).not.toHaveAttribute('open', '');
-      }
+      await page.evaluate(({ theme }) => {
+        const ui = (window as typeof window & {
+          PPUI: { setTheme: (value: string) => void };
+        }).PPUI;
+        ui.setTheme(theme);
+      }, { theme });
+      await summary.click();
+      await expect(manual).toHaveAttribute('open', '');
+      expect(await manual.evaluate(element => element.scrollWidth - element.clientWidth)).toBeLessThanOrEqual(1);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
+      await summary.click();
+      await expect(manual).not.toHaveAttribute('open', '');
     }
   });
 }

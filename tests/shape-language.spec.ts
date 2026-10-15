@@ -1,70 +1,64 @@
 import { expect, test, chromium, firefox } from '@playwright/test';
 
-for (const style of ['dev', 'clean']) {
-  for (const theme of ['light', 'dark', 'system']) {
-    for (const width of [375, 1280]) {
-      test(`shape families ${style}/${theme} at ${width}px in Chromium and Firefox`, async ({ baseURL }, testInfo) => {
-        for (const [engineName, engine] of Object.entries({ chromium, firefox })) {
-          const browser = await engine.launch();
-          try {
-            const page = await browser.newPage({ viewport: { width, height: 800 }, colorScheme: 'light' });
-            await page.addInitScript(({ style, theme }) => {
-              localStorage.setItem('pp-ui-style', style);
-              localStorage.setItem('planningpoker-theme', theme);
-            }, { style, theme });
-            await page.goto(`${baseURL}/?lang=en`);
-            const measure = async (selector: string) => page.locator(selector).evaluate(el => {
-              const css = getComputedStyle(el);
-              const rect = el.getBoundingClientRect();
-              return {
-                radius: css.borderRadius,
-                height: rect.height,
-                border: `${css.borderTopWidth} ${css.borderTopStyle} ${css.borderTopColor}`,
-                background: css.backgroundColor,
-                shadow: css.boxShadow,
-              };
-            });
+for (const theme of ['light', 'dark', 'system']) {
+  for (const width of [375, 1280]) {
+    test(`shape families ${theme} at ${width}px in Chromium and Firefox`, async ({ baseURL }, testInfo) => {
+      for (const [engineName, engine] of Object.entries({ chromium, firefox })) {
+        const browser = await engine.launch();
+        try {
+          const page = await browser.newPage({ viewport: { width, height: 800 }, colorScheme: 'light' });
+          await page.addInitScript(({ theme }) => {
+            localStorage.setItem('planningpoker-theme', theme);
+          }, { theme });
+          await page.goto(`${baseURL}/?lang=en`);
+          const measure = async (selector: string) => page.locator(selector).evaluate(el => {
+            const css = getComputedStyle(el);
+            const rect = el.getBoundingClientRect();
+            return {
+              radius: css.borderRadius,
+              height: rect.height,
+              border: `${css.borderTopWidth} ${css.borderTopStyle} ${css.borderTopColor}`,
+              background: css.backgroundColor,
+              shadow: css.boxShadow,
+            };
+          });
 
-            const language = await measure('#hcLang');
-            const themeControl = await measure('.desktop-theme .preference-control');
-            expect(language.radius).toBe('10px');
-            expect(themeControl.radius).toBe(language.radius);
-            expect(themeControl.border).toBe(language.border);
-            if (width > 768) {
-              expect(language.height).toBe(40);
-              expect(themeControl.height).toBe(language.height);
-            }
-            expect((await measure('#nameInput')).radius).toBe('14px');
-            expect((await measure('#joinForm .button')).radius).toBe('14px');
-            expect((await measure('#joinForm')).radius).toBe(style === 'clean' ? '20px' : '0px');
-
-            const trigger = page.locator('#menuButton');
-            await trigger.focus();
-            await expect(trigger).toHaveCSS('outline-style', 'solid');
-            await page.keyboard.press('Enter');
-            const close = page.locator('#menuCloseButton');
-            await expect(close).toBeFocused();
-            await expect(close).toHaveCSS('outline-style', 'solid');
-            const menuButton = await measure('#menuButton');
-            const closeButton = await measure('#menuCloseButton');
-            expect(menuButton.radius).toBe('14px');
-            expect(closeButton).toEqual(menuButton);
-            expect(menuButton.height).toBe(40);
-            const menuTheme = await measure('#menuTheme');
-            const menuStyle = await measure('#menuUiStyle');
-            expect(menuTheme.radius).toBe('10px');
-            expect(menuStyle.radius).toBe(menuTheme.radius);
-            expect(menuStyle.height).toBe(40);
-            expect((await measure('.menu-panel')).radius).toBe(width <= 768 ? '20px' : '0px');
-            expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-            if (theme === 'dark' && (style === 'clean' || width === 375)) {
-              await page.screenshot({ path: testInfo.outputPath(`${engineName}-${style}-${width}.png`), animations: 'disabled' });
-            }
-          } finally {
-            await browser.close();
+          const language = await measure('#hcLang');
+          const themeControl = await measure('.desktop-theme .preference-control');
+          expect(language.radius).toBe('10px');
+          expect(themeControl.radius).toBe(language.radius);
+          expect(themeControl.border).toBe(language.border);
+          if (width > 768) {
+            expect(language.height).toBe(40);
+            expect(themeControl.height).toBe(language.height);
           }
+          expect((await measure('#nameInput')).radius).toBe('14px');
+          expect((await measure('#joinForm .button')).radius).toBe('14px');
+          expect((await measure('#joinForm')).radius).toBe('20px');
+
+          const trigger = page.locator('#menuButton');
+          await trigger.focus();
+          await expect(trigger).toHaveCSS('outline-style', 'solid');
+          await page.keyboard.press('Enter');
+          const close = page.locator('#menuCloseButton');
+          await expect(close).toBeFocused();
+          await expect(close).toHaveCSS('outline-style', 'solid');
+          const menuButton = await measure('#menuButton');
+          const closeButton = await measure('#menuCloseButton');
+          expect(menuButton.radius).toBe('14px');
+          expect(closeButton).toEqual(menuButton);
+          expect(menuButton.height).toBe(40);
+          const menuTheme = await measure('#menuTheme');
+          expect(menuTheme.radius).toBe('10px');
+          expect((await measure('.menu-panel')).radius).toBe(width <= 768 ? '20px' : '0px');
+          expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+          if (theme === 'dark') {
+            await page.screenshot({ path: testInfo.outputPath(`${engineName}-${width}.png`), animations: 'disabled' });
+          }
+        } finally {
+          await browser.close();
         }
-      });
-    }
+      }
+    });
   }
 }

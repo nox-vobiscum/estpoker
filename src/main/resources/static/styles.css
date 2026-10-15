@@ -64,7 +64,7 @@
   --field-fg:#111827; --field-placeholder:#8b8b8b; --field-focus:#3b82f6;
 }
 
-/* System theme follows the OS without setting data-theme. Both styles share this palette. */
+/* System theme follows the OS without setting data-theme. */
 @media (prefers-color-scheme: light){
   :root:not([data-theme]){
   --bg:#f6f7f9; --text:#1f2937; --text-strong:#111827; --text-dim:#374151;
@@ -83,10 +83,9 @@
   }
 }
 
-/* Interface geometry defaults preserve the existing Dev presentation. */
-:root,
-:root[data-ui-style="dev"]{
-  --ui-font:Consolas,monospace;
+/* Shared interface geometry. */
+:root{
+  --ui-font:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
   --ui-radius:var(--shape-radius-medium);
   --ui-radius-lg:var(--shape-radius-large);
   --ui-control-radius:var(--shape-radius-medium);
@@ -96,28 +95,23 @@
   --ui-panel-radius:var(--shape-radius-large);
   --ui-large-radius:var(--shape-radius-large);
   --ui-letter-spacing:0;
-  --ui-heading-weight:700;
-  --ui-panel-shadow:var(--shadow);
-  --ui-menu-shadow:0 20px 40px rgba(0,0,0,.35);
-  --ui-card-shadow:none;
-  --ui-card-hover-shadow:0 0 10px rgba(0,122,204,.35);
-  --ui-menu-padding:12px;
-  --ui-menu-item-padding:10px 12px;
-  --ui-input-padding:.55rem .75rem;
-  --ui-join-gap:1rem;
-}
-:root[data-ui-style="clean"]{
-  --ui-font:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
   --ui-heading-weight:750;
-  --ui-panel-shadow:0 8px 30px rgba(0,0,0,.10);
-  --ui-menu-shadow:0 12px 32px rgba(0,0,0,.18);
-  --ui-card-shadow:0 2px 5px rgba(0,0,0,.08);
-  --ui-card-hover-shadow:0 4px 12px rgba(0,0,0,.16);
-  --ui-menu-padding:16px;
-  --ui-menu-item-padding:12px;
-  --ui-input-padding:.6rem .85rem;
+  --ui-panel-shadow:var(--ui-shadow-md);
+  --ui-menu-shadow:var(--ui-shadow-lg);
+  --ui-card-shadow:0 3px 10px rgba(0,0,0,.08);
+  --ui-card-hover-shadow:0 7px 18px rgba(0,0,0,.12);
+  --ui-menu-padding:18px;
+  --ui-menu-item-padding:14px;
+  --ui-input-padding:.65rem .95rem;
   --ui-join-gap:1.15rem;
+  --ui-shadow-sm:0 2px 8px rgba(0,0,0,.08);
+  --ui-shadow-md:0 8px 24px rgba(0,0,0,.10);
+  --ui-shadow-lg:0 16px 40px rgba(0,0,0,.14);
+  --ui-surface:color-mix(in srgb,var(--panel) 75%,var(--bg));
+  --ui-surface-raised:color-mix(in srgb,var(--panel-2) 55%,var(--panel));
+  --ui-surface-border:color-mix(in srgb,var(--border) 45%,transparent);
 }
+
 /* ---------- Base --------------------------------------------------------- */
 *{box-sizing:border-box}
 html,body{height:100%}
@@ -146,8 +140,8 @@ a{color:var(--link)}
 .room-return-label{flex:none;white-space:nowrap}
 /* Ellipsis affects paint only; the complete name remains the link's accessible text. */
 .room-return-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:700}
-:root[data-ui-style="clean"] .room-return a{background:var(--ui-surface);border-color:var(--ui-surface-border)}
-:root[data-ui-style="clean"] .room-return a:hover{background:var(--ui-surface-raised);border-color:color-mix(in srgb,var(--text) 25%,var(--ui-surface-border))}
+:root .room-return a{background:var(--ui-surface);border-color:var(--ui-surface-border)}
+:root .room-return a:hover{background:var(--ui-surface-raised);border-color:color-mix(in srgb,var(--text) 25%,var(--ui-surface-border))}
 h1{color:var(--text-strong);margin-bottom:2rem;font-size:1.1rem}
 h2{color:var(--text-strong);margin:1.2rem 0 .8rem;font-size:.98rem}
 .participant-heading{display:flex;align-items:center;gap:.35rem;margin-bottom:.6rem;font-size:.7rem;line-height:1.2}
@@ -329,7 +323,7 @@ strong{color:var(--text-strong)}
 .page-landing .join-form .form-actions{width:100%;margin-top:.15rem}
 .page-landing .join-form .form-actions .button{display:block;width:100%;min-height:48px;margin-top:0}
 
-:root[data-ui-style="clean"] .page-landing .join-form{
+:root .page-landing .join-form{
   padding:1.3rem;border:1px solid var(--ui-surface-border);
   border-radius:var(--ui-large-radius);background:var(--ui-surface);
   box-shadow:var(--ui-shadow-sm);
@@ -388,8 +382,8 @@ button.shake{animation:shake .4s}
 .card-grid button.selected{background:var(--accent-strong) !important;color:#fff !important;font-weight:700;border-color:var(--accent);box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 30%,transparent);transform:none}
 .card-grid .grid-break{grid-column:1 / -1;height:0;pointer-events:none}
 .card-grid .checkmark{display:none !important}
-.card-grid button:disabled{opacity:.55;cursor:not-allowed;filter:grayscale(35%);background:var(--panel-2);border-color:var(--border);box-shadow:none;transform:none !important}
-.card-grid button:disabled:hover{background:var(--panel-2);border-color:var(--border);box-shadow:none;transform:none}
+.card-grid button:disabled{opacity:.55;cursor:not-allowed;filter:grayscale(35%);background:var(--panel-2);border-color:var(--ui-surface-border);box-shadow:none;transform:none !important}
+.card-grid button:disabled:hover{background:var(--panel-2);border-color:var(--ui-surface-border);box-shadow:none;transform:none}
 
 /* ---------- Participants (shared) --------------------------------------- */
 ul{list-style:none;padding:0;margin:0}
@@ -1252,124 +1246,110 @@ body.page-landing {
   }
 }
 
-/* Only surface details vary; grids, card sizes, and responsive rules stay shared. */
+/* Shared typography and surface details. */
 h1,h2,h3{font-weight:var(--ui-heading-weight)}
-:root[data-ui-style="clean"] .button:hover{filter:none}
-:root[data-ui-style="clean"] .choice-btn:hover,
-:root[data-ui-style="clean"] .menu-item:not(.danger):not(.switch):not(.room-exit-action):hover{box-shadow:inset 0 0 0 1px var(--accent)}
+:root .button:hover{filter:none}
+:root .choice-btn:hover,
+:root .menu-item:not(.danger):not(.switch):not(.room-exit-action):hover{box-shadow:inset 0 0 0 1px var(--accent)}
 
-/* Clean surfaces share the theme palette and preserve the existing layout rules. */
-:root[data-ui-style="clean"]{
-  --ui-shadow-sm:0 2px 8px rgba(0,0,0,.08);
-  --ui-shadow-md:0 8px 24px rgba(0,0,0,.10);
-  --ui-shadow-lg:0 16px 40px rgba(0,0,0,.14);
-  --ui-surface:color-mix(in srgb,var(--panel) 75%,var(--bg));
-  --ui-surface-raised:color-mix(in srgb,var(--panel-2) 55%,var(--panel));
-  --ui-surface-border:color-mix(in srgb,var(--border) 45%,transparent);
-  --ui-panel-shadow:var(--ui-shadow-md);
-  --ui-menu-shadow:var(--ui-shadow-lg);
-  --ui-card-shadow:0 3px 10px rgba(0,0,0,.08);
-  --ui-card-hover-shadow:0 7px 18px rgba(0,0,0,.12);
-  --ui-menu-padding:18px;
-  --ui-menu-item-padding:14px;
-  --ui-input-padding:.65rem .95rem;
-}
-:root[data-ui-style="clean"] h1{font-size:1.25rem;line-height:1.4}
-:root[data-ui-style="clean"] h2{font-size:1.1rem;line-height:1.45}
-:root[data-ui-style="clean"] .participant-heading{font-size:.7rem;line-height:1.2}
-:root[data-ui-style="clean"] h3{line-height:1.45}
-:root[data-ui-style="clean"] .page-about .about-section h2{font-size:1.4rem}
-:root[data-ui-style="clean"] .page-about .about-section p{line-height:1.8}
+/* Theme-aware surfaces and typography. */
+
+:root h1{font-size:1.25rem;line-height:1.4}
+:root h2{font-size:1.1rem;line-height:1.45}
+:root .participant-heading{font-size:.7rem;line-height:1.2}
+:root h3{line-height:1.45}
+:root .page-about .about-section h2{font-size:1.4rem}
+:root .page-about .about-section p{line-height:1.8}
 
 /* Raised controls retain their existing focus and disabled affordances. */
-:root[data-ui-style="clean"] .button{padding-inline:1.4rem;box-shadow:var(--ui-shadow-sm);font-weight:600}
-:root[data-ui-style="clean"] .button:hover:not(:disabled){box-shadow:var(--ui-shadow-md);transform:translateY(-1px)}
-:root[data-ui-style="clean"] .button:active:not(:disabled){transform:translateY(1px)}
-:root[data-ui-style="clean"] :is(input[type="text"],input[type="search"],input[type="email"],input[type="url"],input[type="password"],input[type="number"],input[type="tel"],textarea,select):not(:focus){
+:root .button{padding-inline:1.4rem;box-shadow:var(--ui-shadow-sm);font-weight:600}
+:root .button:hover:not(:disabled){box-shadow:var(--ui-shadow-md);transform:translateY(-1px)}
+:root .button:active:not(:disabled){transform:translateY(1px)}
+:root :is(input[type="text"],input[type="search"],input[type="email"],input[type="url"],input[type="password"],input[type="number"],input[type="tel"],textarea,select):not(:focus){
   background:color-mix(in srgb,var(--field-bg) 95%,var(--panel));
   border-color:color-mix(in srgb,var(--field-border) 85%,var(--field-bg));
   box-shadow:var(--ui-shadow-sm);
 }
-:root[data-ui-style="clean"] .card-grid button{
+:root .card-grid button{
   min-height:48px;padding:.7rem .6rem;border-color:var(--ui-surface-border);
   background:var(--panel);font-weight:600;
 }
-:root[data-ui-style="clean"] .card-grid button:hover:not(:disabled):not(.selected){
+:root .card-grid button:hover:not(:disabled):not(.selected){
   background:var(--panel-hover);border-color:var(--accent);transform:translateY(-2px);
 }
-:root[data-ui-style="clean"] .card-grid button.selected{
+:root .card-grid button.selected{
   background:var(--accent-strong) !important;border-color:var(--accent);
   box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 30%,transparent),var(--ui-shadow-sm);
 }
-:root[data-ui-style="clean"] .card-grid button:disabled{background:var(--panel-2);box-shadow:none}
+:root .card-grid button:disabled{background:var(--panel-2);box-shadow:none}
 
 /* Padding changes do not replace either desktop or mobile participant grids. */
-:root[data-ui-style="clean"] #liveParticipantList .participant-row{
+:root #liveParticipantList .participant-row{
   padding:11px 16px;margin-bottom:.6rem;
   border-bottom-color:var(--ui-surface-border);background:var(--ui-surface);box-shadow:var(--ui-shadow-sm);
 }
-:root[data-ui-style="clean"] #liveParticipantList .participant-row.is-host{
+:root #liveParticipantList .participant-row.is-host{
   background:color-mix(in srgb,var(--ui-surface) 92%,var(--accent));
   outline-color:color-mix(in srgb,var(--accent) 30%,transparent);
 }
-:root[data-ui-style="clean"] #liveParticipantList .name{font-weight:600}
-:root[data-ui-style="clean"] :is(.topic-row,.topic-edit){
+:root #liveParticipantList .name{font-weight:600}
+:root :is(.topic-row,.topic-edit){
   padding:10px 12px;border-radius:var(--ui-panel-radius);background:var(--ui-surface);
   border-color:var(--ui-surface-border);box-shadow:var(--ui-shadow-sm);
 }
-:root[data-ui-style="clean"] .topic-row.editable:hover{background:var(--panel-hover)}
-:root[data-ui-style="clean"] #resultRow{
+:root .topic-row.editable:hover{background:var(--panel-hover)}
+:root #resultRow{
   background:var(--ui-surface);border-color:var(--ui-surface-border);
   border-radius:var(--ui-panel-radius);box-shadow:var(--ui-shadow-sm);
 }
 
 /* Menu surfaces keep selected states distinct without heavy surrounding rings. */
-:root[data-ui-style="clean"] .menu-panel{border-color:var(--ui-surface-border)}
+:root .menu-panel{border-color:var(--ui-surface-border)}
 @media (min-width:769px){
-  :root[data-ui-style="clean"] .menu-overlay .menu-panel{border-radius:0}
+  :root .menu-overlay .menu-panel{border-radius:0}
 }
-:root[data-ui-style="clean"] .menu-header{padding:8px 6px 12px;border-bottom-color:var(--ui-surface-border)}
-:root[data-ui-style="clean"] .menu-header h3{font-size:1.1rem}
-:root[data-ui-style="clean"] .menu-section{gap:12px;padding-block:12px 14px}
-:root[data-ui-style="clean"] .section-title{font-weight:600;opacity:1;color:var(--text-dim)}
-:root[data-ui-style="clean"] :is(.menu-item:not(.danger):not(.switch):not(.room-exit-action),.radio-row,.choice-btn){
+:root .menu-header{padding:8px 6px 12px;border-bottom-color:var(--ui-surface-border)}
+:root .menu-header h3{font-size:1.1rem}
+:root .menu-section{gap:12px;padding-block:12px 14px}
+:root .section-title{font-weight:600;opacity:1;color:var(--text-dim)}
+:root :is(.menu-item:not(.danger):not(.switch):not(.room-exit-action),.radio-row,.choice-btn){
   background:var(--ui-surface-raised);border-color:var(--ui-surface-border);box-shadow:none;
 }
-:root[data-ui-style="clean"] .menu-choice:not(.vertical){gap:6px}
-:root[data-ui-style="clean"] .choice-btn{height:38px;padding-inline:12px}
-:root[data-ui-style="clean"] .radio-row{padding:11px 12px}
-:root[data-ui-style="clean"] :is(.menu-item:not(.danger):not(.switch):not(.room-exit-action),.radio-row,.choice-btn):hover{
+:root .menu-choice:not(.vertical){gap:6px}
+:root .choice-btn{height:38px;padding-inline:12px}
+:root .radio-row{padding:11px 12px}
+:root :is(.menu-item:not(.danger):not(.switch):not(.room-exit-action),.radio-row,.choice-btn):hover{
   background:var(--panel-2-hover);border-color:var(--accent);box-shadow:var(--ui-shadow-sm);
 }
-:root[data-ui-style="clean"] :is(.choice-btn.active,.choice-btn[aria-pressed="true"],.radio-row:has(input:checked)){
+:root :is(.choice-btn.active,.choice-btn[aria-pressed="true"],.radio-row:has(input:checked)){
   background:color-mix(in srgb,var(--ui-surface-raised) 84%,var(--accent));
   border-color:var(--accent);box-shadow:var(--ui-shadow-sm);font-weight:600;
 }
-:root[data-ui-style="clean"] .menu-button{border-color:var(--ui-surface-border);box-shadow:var(--ui-shadow-sm)}
-:root[data-ui-style="clean"] .menu-button:hover{border-color:var(--accent);box-shadow:var(--ui-shadow-md)}
+:root .menu-button{border-color:var(--ui-surface-border);box-shadow:var(--ui-shadow-sm)}
+:root .menu-button:hover{border-color:var(--accent);box-shadow:var(--ui-shadow-md)}
 
 /* Explanatory content gets a softer surface and clearer reading rhythm. */
-:root[data-ui-style="clean"] .page-about :is(.about-intro,.about-section){
+:root .page-about :is(.about-intro,.about-section){
   border:1px solid var(--ui-surface-border);
   border-radius:var(--ui-large-radius);
   background:var(--ui-surface);
   padding:clamp(16px,2vw,24px);
   box-shadow:var(--ui-shadow-sm);
 }
-:root[data-ui-style="clean"] .page-about .about-intro{
+:root .page-about .about-intro{
   background:linear-gradient(135deg,color-mix(in srgb,var(--ui-surface) 92%,var(--accent)),var(--ui-surface));
 }
-:root[data-ui-style="clean"] .page-about .lead{color:var(--text)}
-:root[data-ui-style="clean"] :is(.room-manual-details,.landing-explainer){
+:root .page-about .lead{color:var(--text)}
+:root :is(.room-manual-details,.landing-explainer){
   border-radius:var(--ui-large-radius);background:var(--ui-surface);
   border:1px solid var(--ui-surface-border);padding:20px;box-shadow:var(--ui-shadow-md);
 }
-:root[data-ui-style="clean"] .room-manual-details{padding:0}
-:root[data-ui-style="clean"] .room-manual-details > summary{padding:14px 16px}
-:root[data-ui-style="clean"] .room-manual-body{padding:16px;border-color:var(--ui-surface-border)}
-:root[data-ui-style="clean"] .landing-explainer{line-height:1.75}
-:root[data-ui-style="clean"] .landing-explainer h1{font-size:1.1rem;line-height:1.45;margin-top:.25rem;margin-bottom:1rem}
-:root[data-ui-style="clean"] .landing-explainer h2{font-size:1.05rem;margin:1.2rem 0 .6rem}
+:root .room-manual-details{padding:0}
+:root .room-manual-details > summary{padding:14px 16px}
+:root .room-manual-body{padding:16px;border-color:var(--ui-surface-border)}
+:root .landing-explainer{line-height:1.75}
+:root .landing-explainer h1{font-size:1.1rem;line-height:1.45;margin-top:.25rem;margin-bottom:1rem}
+:root .landing-explainer h2{font-size:1.05rem;margin:1.2rem 0 .6rem}
 
 /* Shared header shell; final preference controls are separate redesign stories. */
 .app-header{
@@ -1419,13 +1399,13 @@ html.menu-scroll-locked, .menu-scroll-locked body{overflow:hidden}
   border-radius:var(--ui-button-radius);background:var(--panel);color:var(--text-strong);
   box-shadow:var(--ui-panel-shadow);font-size:18px;
 }
-:root[data-ui-style="clean"] #menuCloseButton{
+:root #menuCloseButton{
   border-color:var(--ui-surface-border);box-shadow:var(--ui-shadow-sm);
 }
 .app-header .menu-button:hover,#menuCloseButton:hover{
   background:var(--panel-hover);border-color:var(--accent);
 }
-:root[data-ui-style="clean"] #menuCloseButton:hover{box-shadow:var(--ui-shadow-md)}
+:root #menuCloseButton:hover{box-shadow:var(--ui-shadow-md)}
 @keyframes settings-enter{from{opacity:0;transform:translateX(12px)}to{opacity:1;transform:translateX(0)}}
 @media (max-width:768px){
   .menu-overlay .menu-panel{

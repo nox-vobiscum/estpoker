@@ -50,21 +50,18 @@ for (const { width, language, label } of [
     await expect(heading).toHaveAccessibleName(label);
     await expect(page.locator('#participantCount')).toHaveText('1');
 
-    for (const style of ['dev', 'clean']) {
-      const geometry = await heading.evaluate((element, uiStyle) => {
-        (window as any).PPUI.setUiStyle(uiStyle);
-        const headingRect = element.getBoundingClientRect();
-        const countRect = element.querySelector('#participantCount')!.getBoundingClientRect();
-        return {
-          aligned: Math.abs((headingRect.top + headingRect.height / 2) - (countRect.top + countRect.height / 2)),
-          overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
-          headingFontSize: getComputedStyle(element).fontSize,
-          topicHeadingFontSize: getComputedStyle(document.querySelector('.topic-heading')!).fontSize,
-        };
-      }, style);
-      expect(geometry.aligned).toBeLessThanOrEqual(1);
-      expect(geometry.overflow).toBeLessThanOrEqual(1);
-      expect(geometry.headingFontSize).toBe(geometry.topicHeadingFontSize);
-    }
+    const geometry = await heading.evaluate(element => {
+      const headingRect = element.getBoundingClientRect();
+      const countRect = element.querySelector('#participantCount')!.getBoundingClientRect();
+      return {
+        aligned: Math.abs((headingRect.top + headingRect.height / 2) - (countRect.top + countRect.height / 2)),
+        overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        headingFontSize: getComputedStyle(element).fontSize,
+        topicHeadingFontSize: getComputedStyle(document.querySelector('.topic-heading')!).fontSize,
+      };
+    });
+    expect(geometry.aligned).toBeLessThanOrEqual(1);
+    expect(geometry.overflow).toBeLessThanOrEqual(1);
+    expect(geometry.headingFontSize).toBe(geometry.topicHeadingFontSize);
   });
 }

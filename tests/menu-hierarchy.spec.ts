@@ -11,8 +11,8 @@ for (const width of [320, 768, 1280]) {
     await expect(page.locator('#menuCloseButton')).toBeFocused();
 
     const sectionIds = width <= 768
-      ? ['menuLanguageHeading', 'menuThemeHeading', 'menuUiStyleHeading', 'menuSequenceHeading', 'menuRoomHeading', 'menuPersonalHeading', 'menuSecondaryHeading']
-      : ['menuThemeHeading', 'menuUiStyleHeading', 'menuSequenceHeading', 'menuRoomHeading', 'menuPersonalHeading', 'menuSecondaryHeading'];
+      ? ['menuLanguageHeading', 'menuThemeHeading', 'menuSequenceHeading', 'menuRoomHeading', 'menuPersonalHeading', 'menuSecondaryHeading']
+      : ['menuThemeHeading', 'menuSequenceHeading', 'menuRoomHeading', 'menuPersonalHeading', 'menuSecondaryHeading'];
     const headings = page.locator('.menu-panel .menu-section > .section-title:visible');
     await expect(headings).toHaveCount(sectionIds.length);
     expect(await headings.evaluateAll(els => els.map(el => el.id))).toEqual(sectionIds);
@@ -33,8 +33,8 @@ for (const width of [320, 768, 1280]) {
       if (id === 'closeRoomBtn') break;
     }
     const expected = width <= 768
-      ? ['menuLangDE', 'themeLight', 'uiStyleDev', 'menuAutoRevealToggle', 'menuParticipationToggle', 'closeRoomBtn']
-      : ['themeLight', 'uiStyleDev', 'menuAutoRevealToggle', 'menuParticipationToggle', 'closeRoomBtn'];
+      ? ['menuLangDE', 'themeLight', 'menuAutoRevealToggle', 'menuParticipationToggle', 'closeRoomBtn']
+      : ['themeLight', 'menuAutoRevealToggle', 'menuParticipationToggle', 'closeRoomBtn'];
     let previous = -1;
     for (const id of expected) {
       const index = focusOrder.indexOf(id);

@@ -10,20 +10,19 @@ const switches = [
 ] as const;
 
 for (const [engineName, engine] of Object.entries({ chromium, firefox })) {
-  for (const style of ['dev', 'clean']) {
-    test(`${engineName}/${style}: responsive switches, keyboard events and guest permissions`, async ({}, testInfo) => {
+  for (const width of [320, 1280]) {
+    test(`${engineName}/${width}: responsive switches, keyboard events and guest permissions`, async ({}, testInfo) => {
       const browser = await engine.launch();
-      const width = style === 'clean' ? 320 : 1280;
+
       const theme = engineName === 'chromium' ? 'dark' : 'light';
       const hostContext = await browser.newContext({ viewport: { width, height: 720 }, reducedMotion: 'reduce' });
       const guestContext = await browser.newContext({ viewport: { width, height: 720 }, reducedMotion: 'reduce' });
       try {
         for (const context of [hostContext, guestContext]) {
-          await context.addInitScript(({ style, theme }) => {
-            localStorage.setItem('pp-ui-style', style);
+          await context.addInitScript(({ theme }) => {
             localStorage.setItem('planningpoker-theme', theme);
             localStorage.setItem('lang', 'de');
-          }, { style, theme });
+          }, { theme });
         }
         const host = await hostContext.newPage();
         const guest = await guestContext.newPage();

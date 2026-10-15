@@ -10,8 +10,6 @@
   };
   const theme = () => read('localStorage', 'planningpoker-theme',
     value => ['light', 'dark', 'system'].includes(value));
-  const uiStyle = () => read('localStorage', 'pp-ui-style',
-    value => ['dev', 'clean'].includes(value));
   const consumeFlash = () => {
     const value = read('sessionStorage', 'pp-flash',
       item => ['kicked', 'roomClosed'].includes(item));
@@ -21,5 +19,5 @@
     } catch {}
     return value;
   };
-  window.PPStorage = Object.freeze({ read, theme, uiStyle, consumeFlash });
+  window.PPStorage = Object.freeze({ read, theme, consumeFlash });
 })();

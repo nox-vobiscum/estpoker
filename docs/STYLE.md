@@ -26,16 +26,15 @@ Declare tokens in CSS (see snippet below). Suggested defaults:
 | `--radius-sm`    | `4px`      | Small rounding |
 | `--radius-md`    | `8px`      | Default rounding |
 
-## Active appearance axes
+## Appearance and preferences
 
 - **Theme:** Light, Dark or System. System follows `prefers-color-scheme` and
   is represented by the absence of a `data-theme` attribute.
-- **Interface style:** Dev or Clean, represented by
-  `data-ui-style="dev|clean"` on the document root.
+- Geometry, typography and surfaces use one shared set of interface tokens.
 
-`ui-preferences.js` (`window.PPUI`) owns language, theme and interface style.
-`menu.js` owns the menu lifecycle only. Do not introduce the former `.compact`
-body mode: Dev/Clean are per-user preferences, not synchronized room settings.
+`ui-preferences.js` (`window.PPUI`) owns language and theme.
+`menu.js` owns the menu lifecycle only. Presentation preferences are local to
+each user and are not synchronized room settings.
 
 ## CSS boilerplate
 
@@ -78,7 +77,7 @@ Add this to your main stylesheet (e.g., `styles.css`):
   line-height: var(--lh-normal);
 }
 
-/* Keep minimum tap targets in both interface styles */
+/* Keep minimum tap targets across themes */
 .button, .icon-button {
   min-height: 36px;
   min-width: 36px;

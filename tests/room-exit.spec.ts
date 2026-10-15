@@ -56,21 +56,18 @@ test('guest menu leave uses individual navigation and preserves host room', asyn
     await expect(guest.locator('#menuLeaveRoomBtn')).toHaveAccessibleName('Leave room');
     await expect(guest.locator('#closeRoomBtn')).toBeHidden();
     for (const theme of ['light', 'dark', 'system'] as const) {
-      for (const style of ['dev', 'clean'] as const) {
-        const colors = await guest.evaluate(({ theme, style }) => {
-          const ui = (window as typeof window & {
-            PPUI: { setTheme: (value: string) => void; setUiStyle: (value: string) => void };
-          }).PPUI;
-          ui.setTheme(theme);
-          ui.setUiStyle(style);
-          const appearance = (id: string) => {
-            const css = getComputedStyle(document.getElementById(id)!);
-            return [css.backgroundColor, css.borderColor, css.color];
-          };
-          return { bottom: appearance('leaveRoomBtn'), menu: appearance('menuLeaveRoomBtn') };
-        }, { theme, style });
-        expect(colors.menu, `${theme}/${style} leave action`).toEqual(colors.bottom);
-      }
+      const colors = await guest.evaluate(({ theme }) => {
+        const ui = (window as typeof window & {
+          PPUI: { setTheme: (value: string) => void };
+        }).PPUI;
+        ui.setTheme(theme);
+        const appearance = (id: string) => {
+          const css = getComputedStyle(document.getElementById(id)!);
+          return [css.backgroundColor, css.borderColor, css.color];
+        };
+        return { bottom: appearance('leaveRoomBtn'), menu: appearance('menuLeaveRoomBtn') };
+      }, { theme });
+      expect(colors.menu, `${theme} leave action`).toEqual(colors.bottom);
     }
     await guest.locator('#menuLeaveRoomBtn').click();
     await expect(guest).toHaveURL(/\/$/);
@@ -114,18 +111,15 @@ for (const width of [375, 1280]) {
     await expect(leave).toHaveAccessibleName('Raum verlassen');
     await expect(leave.locator('svg')).toBeVisible();
     for (const theme of ['light', 'dark', 'system'] as const) {
-      for (const style of ['dev', 'clean'] as const) {
-        await page.evaluate(({ theme, style }) => {
-          const ui = (window as typeof window & {
-            PPUI: { setTheme: (value: string) => void; setUiStyle: (value: string) => void };
-          }).PPUI;
-          ui.setTheme(theme);
-          ui.setUiStyle(style);
-        }, { theme, style });
-        expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
-        await leave.scrollIntoViewIfNeeded();
-        await expect(leave).toBeInViewport();
-      }
+      await page.evaluate(({ theme }) => {
+        const ui = (window as typeof window & {
+          PPUI: { setTheme: (value: string) => void };
+        }).PPUI;
+        ui.setTheme(theme);
+      }, { theme });
+      expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
+      await leave.scrollIntoViewIfNeeded();
+      await expect(leave).toBeInViewport();
     }
     await leave.focus();
     await expect(leave).toBeFocused();
