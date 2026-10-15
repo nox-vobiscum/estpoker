@@ -560,26 +560,39 @@ html.light .vote-chip.heat, body.light .vote-chip.heat,
 .topic-row.editable{cursor:pointer}
 .topic-row.editable:hover{background:rgba(148,163,184,.08)}
 
-/* ---------- Knowledge bites --------------------------------------------- */
-.knowledge-bites{
-  margin-top:5.25rem;
-  padding-bottom:max(24px, calc(var(--footer-h) + var(--cta-offset, 8px) + env(safe-area-inset-bottom)));
-  background:var(--panel); border:1px solid var(--border); border-radius:var(--ui-large-radius);
-  box-shadow:var(--ui-panel-shadow); padding-inline:12px; padding-block:10px;
+/* ---------- Room guide -------------------------------------------------- */
+.room-manual{margin-top:5.25rem;padding-bottom:8px}
+.room-manual-details{
+  overflow:clip;background:var(--panel);border:1px solid var(--border);
+  border-radius:var(--ui-large-radius);box-shadow:var(--ui-panel-shadow);
 }
-.container .knowledge-bites{padding-bottom:8px}
-@media (max-width:600px){.container .knowledge-bites{padding-bottom:12px}}
-.knowledge-bites > h2{margin:.25rem 0 .5rem;font-size:.95rem;color:var(--text-strong);text-align:center}
-.kb{border:1px solid var(--border);border-radius:var(--ui-radius);background:var(--panel-2);margin:8px 0;overflow:clip}
-.kb > summary{display:flex;align-items:baseline;gap:.5rem;padding:8px 10px;cursor:pointer;list-style:none}
-.kb > summary::-webkit-details-marker{display:none}
-.kb-title{font-size:.80rem;font-weight:600;color:var(--text-strong)}
-.kb-preview{font-size:.80rem;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.kb-body{padding:8px 10px 10px;font-size:.75rem;line-height:1.45;color:var(--text)}
-.kb-body ul{margin:.25rem 0 0 .9rem;padding:0}
-.kb-body li{margin:.25rem 0;font-size:.75rem}
-.kb:hover{border-color:var(--accent)}
-.kb[open] > summary{background:var(--panel-2-hover)}
+.room-manual-details > summary{
+  display:grid;grid-template-columns:24px minmax(0,1fr) 20px;align-items:center;gap:10px;
+  min-height:48px;padding:10px 14px;cursor:pointer;list-style:none;color:var(--text-strong);
+}
+.room-manual-details > summary::-webkit-details-marker{display:none}
+.room-manual-details > summary:hover{background:var(--panel-2-hover)}
+.room-manual-details > summary:focus-visible{outline:2px solid var(--field-focus);outline-offset:-3px}
+.room-manual-icon,.room-manual-chevron{
+  width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.7;
+  stroke-linecap:round;stroke-linejoin:round;
+}
+.room-manual-icon{color:var(--accent)}
+.room-manual-chevron{color:var(--text-dim);transition:transform 160ms ease}
+.room-manual-details[open] .room-manual-chevron{transform:rotate(180deg)}
+.room-manual-title{font-size:.9rem;font-weight:650}
+.room-manual-body{
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 22px;
+  padding:14px;border-top:1px solid var(--border);color:var(--text);
+}
+.room-manual-body section{min-width:0}
+.room-manual-body h3{margin:0 0 4px;color:var(--text-strong);font-size:.82rem;line-height:1.35}
+.room-manual-body p{margin:0;font-size:.78rem;line-height:1.55;overflow-wrap:anywhere}
+@media (max-width:600px){
+  .room-manual{padding-bottom:12px}
+  .room-manual-body{grid-template-columns:1fr}
+}
+@media (prefers-reduced-motion:reduce){.room-manual-chevron{transition:none}}
 
 /* ---------- Header controls (language pill) ------------------------------ */
 .header-controls{
@@ -1328,18 +1341,13 @@ h1,h2,h3{font-weight:var(--ui-heading-weight)}
   background:linear-gradient(135deg,color-mix(in srgb,var(--ui-surface) 92%,var(--accent)),var(--ui-surface));
 }
 :root[data-ui-style="clean"] .page-about .lead{color:var(--text)}
-:root[data-ui-style="clean"] :is(.knowledge-bites,.landing-explainer){
+:root[data-ui-style="clean"] :is(.room-manual-details,.landing-explainer){
   border-radius:var(--ui-large-radius);background:var(--ui-surface);
   border:1px solid var(--ui-surface-border);padding:20px;box-shadow:var(--ui-shadow-md);
 }
-:root[data-ui-style="clean"] .knowledge-bites > h2{font-size:1.05rem;margin-bottom:.75rem}
-:root[data-ui-style="clean"] .kb{border-color:var(--ui-surface-border);background:var(--ui-surface-raised);margin:12px 0}
-:root[data-ui-style="clean"] .kb > summary{padding:12px 14px;flex-wrap:wrap;gap:.25rem .5rem}
-:root[data-ui-style="clean"] .kb-title{font-size:.875rem;font-weight:650}
-:root[data-ui-style="clean"] .kb-preview{font-size:.825rem;line-height:1.55;white-space:normal}
-:root[data-ui-style="clean"] .kb-body{padding:10px 12px 12px;font-size:.825rem;line-height:1.65}
-:root[data-ui-style="clean"] .kb-body li{font-size:inherit}
-:root[data-ui-style="clean"] .kb:hover{border-color:var(--accent)}
+:root[data-ui-style="clean"] .room-manual-details{padding:0}
+:root[data-ui-style="clean"] .room-manual-details > summary{padding:14px 16px}
+:root[data-ui-style="clean"] .room-manual-body{padding:16px;border-color:var(--ui-surface-border)}
 :root[data-ui-style="clean"] .landing-explainer{line-height:1.75}
 :root[data-ui-style="clean"] .landing-explainer h1{font-size:1.1rem;line-height:1.45;margin-top:.25rem;margin-bottom:1rem}
 :root[data-ui-style="clean"] .landing-explainer h2{font-size:1.05rem;margin:1.2rem 0 .6rem}

@@ -1,6 +1,6 @@
 # Planning Poker — Post-Redesign Change Requests
 
-Status: **CR-001 complete; CR-002 and CR-003 pending**
+Status: **CR-001 and CR-002 complete; CR-003 pending**
 Scope: Follow-up UX improvements after the Major Redesign release.  
 Execution rule: **One CR at a time; mandatory start gate; approval; implementation through DONE; separate commit; STOP.**
 
@@ -81,7 +81,7 @@ Room creation/join/invite, identity/CID, participant lifecycle, host/host-transf
 - **ID:** CR-002
 - **Title:** Replace room information panels with collapsible manual
 - **Goal:** Remove redundant informational content from the room view and provide contextual instructions on using the application.
-- **Status:** TODO
+- **Status:** DONE
 - **Recommended Model:** **GPT-5.6 Sol** — constrained UI/content task; escalate only if integration reveals unexpected dependencies.
 
 **Scope**
@@ -108,11 +108,21 @@ Room creation/join/invite, identity/CID, participant lifecycle, host/host-transf
 **Validation:** Focused manual/accordion, keyboard and responsive checks; no full regression by default.
 
 **Result**
-- Changed files: None.
-- Decisions and screenshots: Pending.
-- Tests: Not run for this CR.
-- Findings / downstream effects: Pending.
-- Completion: Document, update status, separate commit, STOP.
+- Changed files: the existing `kbase.html` room fragment, `room.html`, shared
+  styles and message bundles, focused responsive tests, and status documents.
+- Decisions: Reused the existing room-only fragment for one native `<details>`
+  guide. It is closed by default, needs no JavaScript, and uses the shared
+  surface, focus and responsive tokens. Six concise sections describe existing
+  room behavior without repeating About-page marketing copy.
+- Tests: `npm run ci:verify`; focused Playwright guide and mobile-content tests
+  (9 passed), followed by the final guide/accessibility rerun (6 passed).
+  Coverage includes keyboard operation, DE/EN, 320/375/768/1280 px,
+  Light/Dark/System and Dev/Clean.
+- Findings / downstream effects: The former four-card accordion and its
+  one-open-panel script were removed. No game, menu, state, event or WebSocket
+  contract changed.
+- Completion: Acceptance criteria passed; no full regression was required for
+  this bounded content and presentation change.
 
 ---
 

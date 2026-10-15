@@ -23,7 +23,7 @@ Execute one request at a time in this order:
    - Present the active topic as a dedicated compact panel while preserving the
      existing data, permissions, editing, events and persistence behavior.
    - The known empty-topic editor issue was resolved and validated in CR-001.
-2. **CR-002 — Replace room information panels with collapsible manual** (`TODO`)
+2. **CR-002 — Replace room information panels with collapsible manual** (`DONE`)
    - Replace the room-only informational cards with one accessible guide that is
      collapsed by default.
 3. **CR-003 — Improve room exit discoverability** (`TODO`)

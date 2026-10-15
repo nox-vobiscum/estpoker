@@ -13,7 +13,7 @@ for (const { width, height } of [{ width: 320, height: 568 }, { width: 375, heig
       if (path.startsWith('/room')) {
         await expect(page.locator('body')).toHaveClass(/is-host/);
         await expect(page.locator('#cardGrid button').first()).toBeVisible();
-        await expect(page.locator('.knowledge-bites')).toBeVisible();
+        await expect(page.locator('.room-manual')).toBeVisible();
       }
 
       await page.evaluate(() => scrollTo(0, document.documentElement.scrollHeight));
@@ -23,7 +23,7 @@ for (const { width, height } of [{ width: 320, height: 568 }, { width: 375, heig
       const footerBox = await footer.boundingBox();
       expect(footerBox!.y + footerBox!.height).toBeLessThanOrEqual(height + 1);
       if (path.startsWith('/room')) {
-        const lastContent = page.locator('.knowledge-bites');
+        const lastContent = page.locator('.room-manual');
         await expect(lastContent).toBeVisible();
         const lastBox = await lastContent.boundingBox();
         expect(lastBox!.y + lastBox!.height).toBeLessThanOrEqual(footerBox!.y + 1);

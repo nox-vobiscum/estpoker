@@ -288,8 +288,8 @@ gate and a separate explicit approval before implementation. Documentation
 consolidation follows those CRs. Completed release history belongs in
 `CHANGELOG.md`, rather than temporary status or validation reports.
 
-CR-001 is complete on its dedicated feature branch. CR-002 is the next planned
-request and must begin with its own start gate; it has not been started.
+CR-001 and CR-002 are complete on their dedicated feature branch. CR-003 is the
+next planned request and must begin with its own start gate; it has not started.
 
 
 

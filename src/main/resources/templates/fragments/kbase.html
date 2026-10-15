@@ -1,67 +1,42 @@
 <!-- templates/fragments/kbase.html -->
-<section class="knowledge-bites kbase" aria-labelledby="kb-title" th:fragment="kbase">
-  <!-- <h2 id="kb-title" data-i18n="kb.title">FAQ</h2>-->
-
-  <details class="kb" data-scope="kb.what">
+<section class="room-manual" th:fragment="kbase">
+  <details id="roomManual" class="room-manual-details">
     <summary>
-      <span class="kb-title"   data-i18n="kb.what.title">What is Planning Poker?</span>
-      <span class="kb-preview" data-i18n="kb.what.preview">Card-based collaborative estimation…</span>
+      <svg class="room-manual-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H11a2 2 0 0 1 2 2v16a2 2 0 0 0-2-2H4V5.5Zm16 0A2.5 2.5 0 0 0 17.5 3H13v18a2 2 0 0 1 2-2h5V5.5Z"/>
+      </svg>
+      <span class="room-manual-title" data-i18n="manual.title"
+            th:text="#{manual.title}">Guide &amp; Features</span>
+      <svg class="room-manual-chevron" viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+        <path d="m5 7.5 5 5 5-5"/>
+      </svg>
     </summary>
-    <div class="kb-body">
-      <p data-i18n="kb.what.body">
-        Planning Poker is a collaborative practice where team members estimate simultaneously and reveal together. This avoids anchoring and surfaces shared understanding.
-      </p>
-    </div>
-  </details>
 
-  <details class="kb" data-scope="kb.when">
-    <summary>
-      <span class="kb-title"   data-i18n="kb.when.title">When do you use it?</span>
-      <span class="kb-preview" data-i18n="kb.when.preview">Before or during sprint planning…</span>
-    </summary>
-    <div class="kb-body">
-      <ul>
-        <li data-i18n="kb.when.li1">Backlog Refinement &amp; Sprint Planning</li>
-        <li data-i18n="kb.when.li2">New/unclear requirements</li>
-        <li data-i18n="kb.when.li3">Early-phase rough estimation</li>
-      </ul>
-    </div>
-  </details>
-
-  <details class="kb" data-scope="kb.benefits">
-    <summary>
-      <span class="kb-title"   data-i18n="kb.benefits.title">Benefits</span>
-      <span class="kb-preview" data-i18n="kb.benefits.preview">Simultaneous voting, better discussion…</span>
-    </summary>
-    <div class="kb-body">
-      <ul>
-        <li data-i18n="kb.benefits.li1">Avoids bias (simultaneous reveal)</li>
-        <li data-i18n="kb.benefits.li2">Exposes gaps &amp; risks via divergence</li>
-        <li data-i18n="kb.benefits.li3">Builds shared team understanding</li>
-      </ul>
-    </div>
-  </details>
-
-  <details class="kb" data-scope="kb.storypoints">
-    <summary>
-      <span class="kb-title"   data-i18n="kb.storypoints.title">What are Story Points?</span>
-      <span class="kb-preview" data-i18n="kb.storypoints.preview">Relative measure for effort/complexity…</span>
-    </summary>
-    <div class="kb-body">
-      <p data-i18n="kb.storypoints.body">
-        Story Points measure size relatively (not in hours): a mix of scope, complexity, uncertainty and risks. Team comparability grows over time.
-      </p>
+    <div class="room-manual-body">
+      <section>
+        <h3 data-i18n="manual.join.title" th:text="#{manual.join.title}">Join and invite</h3>
+        <p data-i18n="manual.join.body" th:text="#{manual.join.body}">Use the link button beside the room code to copy an invitation. Everyone joins with their own display name.</p>
+      </section>
+      <section>
+        <h3 data-i18n="manual.vote.title" th:text="#{manual.vote.title}">Estimate and reveal</h3>
+        <p data-i18n="manual.vote.body" th:text="#{manual.vote.body}">Choose a card to estimate. Votes stay hidden until the host reveals them. Start a new round after the discussion to vote again.</p>
+      </section>
+      <section>
+        <h3 data-i18n="manual.roles.title" th:text="#{manual.roles.title}">Roles and participation</h3>
+        <p data-i18n="manual.roles.body" th:text="#{manual.roles.body}">The host manages reveal, new rounds and room settings. Spectators can follow the session without voting; the host can change participant roles.</p>
+      </section>
+      <section>
+        <h3 data-i18n="manual.cards.title" th:text="#{manual.cards.title}">Decks and special cards</h3>
+        <p data-i18n="manual.cards.body" th:text="#{manual.cards.body}">The host selects the estimation sequence and can enable special cards for questions, breaks, dependencies and other discussion signals.</p>
+      </section>
+      <section>
+        <h3 data-i18n="manual.topic.title" th:text="#{manual.topic.title}">Topic and automatic reveal</h3>
+        <p data-i18n="manual.topic.body" th:text="#{manual.topic.body}">The host can show an estimation topic, add a short title or ticket link, and enable automatic reveal when all active estimators have voted.</p>
+      </section>
+      <section>
+        <h3 data-i18n="manual.exit.title" th:text="#{manual.exit.title}">Leave or close the room</h3>
+        <p data-i18n="manual.exit.body" th:text="#{manual.exit.body}">Leaving the room page removes only you from the session. The separate host action “Close room for everyone” ends the room for all participants.</p>
+      </section>
     </div>
   </details>
 </section>
-
-<!-- JS: nur ein Panel gleichzeitig offen -->
-<script th:fragment="kbase-js">
-  (function(){
-    if (window.__kbBound) return; window.__kbBound = true;
-    document.addEventListener('toggle', function(e){
-      if (!e.target.classList || !e.target.classList.contains('kb') || !e.target.open) return;
-      document.querySelectorAll('.kb[open]').forEach(d => { if (d !== e.target) d.open = false; });
-    });
-  })();
-</script>

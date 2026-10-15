@@ -10,8 +10,11 @@ temporary validation reports may be removed after the documentation consolidatio
   ticket link while retaining host-only edit and delete controls.
 - Fixed the empty-topic editor so Save and Cancel reliably close it by removing
   overlapping topic action handlers.
+- Replaced the room's four informational FAQ cards with one accessible,
+  bilingual guide that is collapsed by default and documents the existing room
+  workflow and settings.
 - Added the post-redesign change-request backlog for CR-001 through CR-003;
-  CR-002 and CR-003 remain subject to their mandatory start gates.
+  CR-003 remains subject to its mandatory start gate.
 
 ## 2026-10-14 — Major Redesign production release
 
