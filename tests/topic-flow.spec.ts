@@ -52,6 +52,12 @@ test.describe('Topic flow', () => {
     await waitTopicVisibility(host, true, 10_000);
     await waitTopicVisibility(guest, true, 10_000);
     await expect(guest.locator('#topicEditBtn, #topicClearBtn')).toHaveCount(0);
+    await guest.evaluate(() => {
+      document.dispatchEvent(new CustomEvent('pp:participation-toggle', { detail: { estimating: false } }));
+    });
+    const guestRow = host.locator('#liveParticipantList .participant-row', { hasText: 'Guest' });
+    await expect(guestRow.locator('.mini-chip.spectator')).toHaveCount(1);
+    await expect(guest.locator('#topicEditBtn, #topicClearBtn')).toHaveCount(0);
     await forceTopicToggle(host, false);
     await closeAnyMenus(host);
     await waitTopicVisibility(host, false, 10_000);

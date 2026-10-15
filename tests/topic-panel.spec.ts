@@ -32,8 +32,15 @@ for (const width of [375, 1280]) {
     await expect(page.locator('.topic-panel-icon')).toBeVisible();
     await expect(page.locator('#topicEditBtn')).toHaveAccessibleName(/Edit/i);
     await expect(page.locator('#topicClearBtn')).toHaveAccessibleName(/Clear/i);
+    expect(await page.evaluate(() => {
+      const topic = document.querySelector('#topicRow')!;
+      const participants = document.querySelector('.participant-heading')!;
+      return Boolean(topic.compareDocumentPosition(participants) & Node.DOCUMENT_POSITION_FOLLOWING) &&
+        topic.getBoundingClientRect().bottom <= participants.getBoundingClientRect().top;
+    })).toBe(true);
 
-    for (const theme of ['light', 'dark'] as const) {
+    for (const theme of ['light', 'dark', 'system'] as const) {
+      if (theme === 'system') await page.emulateMedia({ colorScheme: 'light' });
       await page.evaluate(({ nextTheme }) => {
         const ui = (window as typeof window & {
           PPUI: { setTheme: (value: string) => void };

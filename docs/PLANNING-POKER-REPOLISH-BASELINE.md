@@ -167,3 +167,24 @@ target. Existing mobile-content and participant identity checks also pass. The
 TypeScript build check and Maven package (`-DskipTests`) pass. Full Maven,
 Playwright, cross-browser and screenshot suites were intentionally not run.
 
+## RP-002 result
+
+The existing `#topicRow` is now located between `.main-info` and the participant
+heading. Its established `hidden`, `.is-hidden`, `data-visible` and inline
+`display` synchronization remains unchanged, so a disabled topic reserves no
+space. Every existing topic ID and the delegated edit/save/cancel/clear handlers
+remain intact.
+
+The panel now uses `--ui-surface-raised`, `--ui-surface-border`, the RP-001
+`--ui-meta-label-*` tokens and existing radius/shadow tokens. The icon is quiet
+and neutral, the title remains below hero size, and existing host controls stay
+right aligned. Long content wraps without horizontal overflow.
+
+Focused Chromium validation passed at 375 and 1280px in Light, Dark and System,
+including long content, external ticket URLs, order geometry, complete hidden
+collapse, host editing and propagation to guest and spectator clients. A real
+Guest-to-Spectator transition confirmed that neither role receives topic action
+controls. The TypeScript build check and Maven package (`-DskipTests`) pass.
+Full Maven, Playwright, cross-browser and screenshot suites were intentionally
+not run.
+

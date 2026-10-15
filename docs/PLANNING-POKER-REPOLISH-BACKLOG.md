@@ -59,12 +59,12 @@ Do not infer permission from a mockup. Preserve server-side authorization; merel
 
 ## RP-002 — Topic panel emphasis (presentation only)
 
-- **Status:** TODO · **Model:** GPT-5.6 Sol (suggested)
+- **Status:** DONE · **Model:** GPT-5.6 Sol
 - **Goal:** Distinguish the estimation topic from participant rows without creating a giant headline.
 - **Tasks:** Dedicated restrained topic surface, positioned before the participant heading/list whenever enabled and visible, with no reserved placeholder when disabled. Use modest border separation, small uppercase `SCHÄTZTHEMA` label and a medium-weight readable title (not hero-sized); align existing host edit/clear actions right with shared compact button geometry. Preserve optional URL, empty/hidden states, long multiline titles, role-based permissions, IDs and existing handlers. No accidental host buttons for guests/spectators, regardless of illustrative mockup.
 - **Acceptance:** Topic visibly identifiable; no hero styling, no new highlight color; host editing works; guest/spectator cannot access topic edit/clear; long topics flow on mobile.
 - **Tests:** Focused topic state/permissions + desktop/mobile layout only.
-- **Result:** Pending.
+- **Result:** The unchanged `#topicRow` now precedes the participant heading/list whenever enabled and collapses completely when disabled. Its existing IDs, inline editor, ticket link, delegated handlers, WebSocket contracts and permission checks remain intact. Local topic CSS uses the shared meta-label and surface tokens for a restrained raised panel, quieter icon, modest title and right-aligned existing controls; `styles.css` cache version is 80. Validation passed: TypeScript build check, Maven package with tests skipped, 7 focused topic panel/flow/visibility cases at 375/1280px in Light/Dark/System, plus a final 3-case topic-flow run after adding real Guest-to-Spectator permission coverage. Host edit/save/cancel/clear, long wrapping, optional URL, hidden-state collapse and guest/spectator action absence passed. No full Maven, Playwright, cross-browser or screenshot suite was run; no known RP-002 risk remains.
 
 ## RP-003 — Participant list visual hierarchy
 

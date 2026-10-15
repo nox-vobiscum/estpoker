@@ -33,6 +33,22 @@
       </div>
     </dl>
 
+    <!-- Active estimation topic panel (inline edit for hosts) -->
+    <div id="topicRow" class="topic-row is-hidden" hidden aria-labelledby="topicPanelHeading">
+      <svg class="topic-panel-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M9 5h6m-7 4h8m-8 4h8m-8 4h5M9 3h6a2 2 0 0 1 2 2h2v16H5V5h2a2 2 0 0 1 2-2Z"/>
+      </svg>
+      <div class="topic-content">
+        <span id="topicPanelHeading" class="topic-heading"
+              th:text="#{topic.current.heading}" data-i18n="topic.current.heading">CURRENT ESTIMATION TOPIC</span>
+        <span id="topicDisplay" class="topic-text">–</span>
+        <a id="topicTicketLink" class="topic-ticket-link" href="#" target="_blank"
+           rel="noopener noreferrer" hidden
+           th:text="#{topic.openLink}" data-i18n="topic.openLink">Open ticket</a>
+      </div>
+      <div class="topic-actions"></div>
+    </div>
+
     <h2 class="participant-heading">
       <span th:text="#{label.participants}" data-i18n="label.participants">Participants</span>
       <span class="participant-heading-separator" aria-hidden="true">·</span>
@@ -52,22 +68,6 @@
             aria-label="Host"
             data-i18n-attr="title:label.host;aria-label:label.host">👑</span>
     </template>
-
-    <!-- Active estimation topic panel (inline edit for hosts) -->
-    <div id="topicRow" class="topic-row is-hidden" hidden aria-labelledby="topicPanelHeading">
-      <svg class="topic-panel-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-        <path d="M9 5h6m-7 4h8m-8 4h8m-8 4h5M9 3h6a2 2 0 0 1 2 2h2v16H5V5h2a2 2 0 0 1 2-2Z"/>
-      </svg>
-      <div class="topic-content">
-        <span id="topicPanelHeading" class="topic-heading"
-              th:text="#{topic.current.heading}" data-i18n="topic.current.heading">CURRENT ESTIMATION TOPIC</span>
-        <span id="topicDisplay" class="topic-text">–</span>
-        <a id="topicTicketLink" class="topic-ticket-link" href="#" target="_blank"
-           rel="noopener noreferrer" hidden
-           th:text="#{topic.openLink}" data-i18n="topic.openLink">Open ticket</a>
-      </div>
-      <div class="topic-actions"></div>
-    </div>
 
     <!-- Result row (always present; space is reserved even when hidden) -->
     <p id="resultRow"

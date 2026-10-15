@@ -16,6 +16,8 @@ test('Topic visibility toggles [hidden] and .is-hidden correctly', async ({ page
   await expect(page.locator('#liveParticipantList .participant-row.is-host')).toHaveCount(1);
 
   const row = page.locator('#topicRow');
+  const heading = page.locator('.participant-heading');
+  const headingTopWithoutTopic = await heading.evaluate(element => element.getBoundingClientRect().top);
 
   // Turn ON (host event) → renderTopic() will sync [hidden] and classes
   await page.evaluate(() => {
@@ -24,6 +26,8 @@ test('Topic visibility toggles [hidden] and .is-hidden correctly', async ({ page
   await expect(row).toBeVisible();
   await expect(row).not.toHaveAttribute('hidden', /.+/);
   await expect(row).not.toHaveClass(/is-hidden/);
+  const headingTopWithTopic = await heading.evaluate(element => element.getBoundingClientRect().top);
+  expect(headingTopWithTopic).toBeGreaterThan(headingTopWithoutTopic);
 
   // Turn OFF again
   await page.evaluate(() => {
@@ -32,4 +36,7 @@ test('Topic visibility toggles [hidden] and .is-hidden correctly', async ({ page
   await expect(row).toBeHidden();
   await expect(row).toHaveAttribute('hidden', '');
   await expect(row).toHaveClass(/is-hidden/);
+  await expect(row).toHaveCSS('display', 'none');
+  expect(await heading.evaluate(element => element.getBoundingClientRect().top))
+    .toBeCloseTo(headingTopWithoutTopic, 0);
 });
