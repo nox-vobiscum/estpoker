@@ -12,8 +12,9 @@ Lightweight online planning poker with real-time updates, simple UX, and optiona
 https://planning-poker.at/
 
 **Current production baseline**
-Post-redesign UX release `e84cecd`, including CR-001 through CR-004. Recent
-release history is maintained in `CHANGELOG.md`.
+Single-interface release `03a3622`, including CR-001 through CR-004 and the
+removal of the former Dev/Clean split. Recent release history is maintained in
+`CHANGELOG.md`.
 
 ---
 
@@ -288,11 +289,12 @@ complete, merged and deployed in production commit `e84cecd`. Completed release
 history belongs in `CHANGELOG.md`; `docs/BACKLOG.md` contains open work only.
 No additional CR is active.
 
-The single-interface consolidation is implemented on `refactor/single-interface`
-and awaits deployment approval. Checkpoint `pre-single-interface` preserves
-`5f9281a`. The former Clean appearance is now the unconditional interface;
-language and Light/Dark/System remain user preferences. See the Unreleased
-changelog entry for validation. The production baseline above is unchanged.
+The single-interface consolidation is deployed at `03a3622`; the former Clean
+appearance is the unconditional interface, while language and
+Light/Dark/System remain user preferences. The presentation-only repolish epic
+is isolated on `feature/interface-repolish`. Its production checkpoint is
+`pre-interface-repolish`, and RP-000's selector and risk inventory is maintained
+in `PLANNING-POKER-REPOLISH-BASELINE.md`.
 
 
 
