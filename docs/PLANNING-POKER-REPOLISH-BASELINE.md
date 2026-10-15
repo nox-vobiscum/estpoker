@@ -146,3 +146,24 @@ styles, JavaScript, backend behavior or tests changed. No test suite was run;
 the audit used source inspection and the existing focused test inventory, as
 required for the read-only baseline ticket.
 
+## RP-001 result
+
+Room metadata remains a semantic `dl` and retains the functional IDs
+`#youName`, `#roomCodeVal` and `#copyRoomLink`. Two `.main-info-group` wrappers
+provide the compact visual grouping: they share a quiet token-based surface,
+use the existing localized labels in small uppercase presentation and protect
+long visible values with ellipsis while leaving their complete DOM text
+available to assistive technology. The groups remain side by side from 375px
+upward and stack at 320px so the existing 40px mobile copy target cannot collide
+with a long room code.
+
+The shared `--ui-meta-label-size`, `--ui-meta-label-weight`,
+`--ui-meta-label-line-height` and `--ui-meta-label-spacing` tokens now keep room
+metadata, topic and participant labels typographically aligned.
+
+The focused Chromium checks cover 320, 375, 768, 769 and 1280px, long names and
+room codes, Dark, Light and System Light, overflow, label hierarchy and the copy
+target. Existing mobile-content and participant identity checks also pass. The
+TypeScript build check and Maven package (`-DskipTests`) pass. Full Maven,
+Playwright, cross-browser and screenshot suites were intentionally not run.
+

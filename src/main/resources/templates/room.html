@@ -12,21 +12,25 @@
     <h1 class="sr-only"><span th:text="#{label.room}">Room:</span> <span th:text="${roomCode}">demo</span></h1>
 
     <dl class="main-info">
-      <dt><span class="mi-icon" aria-hidden="true">👤</span><span class="mi-label" th:text="#{label.you}" data-i18n="label.you">You are:</span></dt>
-      <dd><strong id="youName" th:text="${participantName}">Guest</strong></dd>
+      <div class="main-info-group main-info-group--participant">
+        <dt><span class="mi-icon" aria-hidden="true">👤</span><span class="mi-label" th:text="#{label.you}" data-i18n="label.you">You are:</span></dt>
+        <dd><strong id="youName" th:text="${participantName}">Guest</strong></dd>
+      </div>
 
-      <dt><span class="mi-icon" aria-hidden="true">🆔</span><span class="mi-label" th:text="#{label.room}" data-i18n="label.room">Room:</span></dt>
-      <dd>
-        <div class="room-with-actions">
-          <strong id="roomCodeVal" th:text="${roomCode}">demo</strong>
-          <button id="copyRoomLink"
-                  class="icon-button"
-                  type="button"
-                  th:attr="aria-label=#{invite.copyLink},title=#{invite.copyLink}"
-                  data-i18n-attr="aria-label:invite.copyLink;title:invite.copyLink"
-                  aria-live="polite">🔗</button>
-        </div>
-      </dd>
+      <div class="main-info-group main-info-group--room">
+        <dt><span class="mi-icon" aria-hidden="true">🆔</span><span class="mi-label" th:text="#{label.room}" data-i18n="label.room">Room:</span></dt>
+        <dd>
+          <div class="room-with-actions">
+            <strong id="roomCodeVal" th:text="${roomCode}">demo</strong>
+            <button id="copyRoomLink"
+                    class="icon-button"
+                    type="button"
+                    th:attr="aria-label=#{invite.copyLink},title=#{invite.copyLink}"
+                    data-i18n-attr="aria-label:invite.copyLink;title:invite.copyLink"
+                    aria-live="polite">🔗</button>
+          </div>
+        </dd>
+      </div>
     </dl>
 
     <h2 class="participant-heading">

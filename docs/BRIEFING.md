@@ -294,7 +294,9 @@ appearance is the unconditional interface, while language and
 Light/Dark/System remain user preferences. The presentation-only repolish epic
 is isolated on `feature/interface-repolish`. Its production checkpoint is
 `pre-interface-repolish`, and RP-000's selector and risk inventory is maintained
-in `PLANNING-POKER-REPOLISH-BASELINE.md`.
+in `PLANNING-POKER-REPOLISH-BASELINE.md`. RP-001 is complete on the working
+branch: room metadata now uses compact responsive groups while preserving all
+identity and copy-link contracts. The backlog records its focused validation.
 
 
 

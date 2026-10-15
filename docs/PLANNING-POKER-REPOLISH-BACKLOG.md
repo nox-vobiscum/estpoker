@@ -50,12 +50,12 @@ Do not infer permission from a mockup. Preserve server-side authorization; merel
 
 ## RP-001 — Room metadata & typographic hierarchy
 
-- **Status:** TODO · **Model:** GPT-5.6 Sol (suggested)
+- **Status:** DONE · **Model:** GPT-5.6 Sol
 - **Goal:** Quiet compact room information with consistent small uppercase labels.
 - **Tasks:** Keep existing full-width header and production controls exactly as-is. Within centered room content, refine `DU BIST` and `RAUM` into compact, one-line-preferred groups, keep small person/room icons and copy-link control; align `SCHÄTZTHEMA` and `TEILNEHMENDE` label styles via shared token. Handle long user names/codes: flex min-width 0, wrap or truncation with accessible full value; copy-link must remain tappable. Never force a single line at all viewport widths.
 - **Acceptance:** Header unchanged; labels uniform; no clipping, horizontal scroll, hidden room name/link or mobile overlap. Real i18n strings intact.
 - **Tests:** Targeted room metadata + 320/375/768/769/1280 geometry; long-name/code edge cases.
-- **Result:** Pending.
+- **Result:** `room.html` now groups the existing semantic metadata pairs without changing `#youName`, `#roomCodeVal` or `#copyRoomLink`. Local `.main-info*` rules provide a restrained shared surface, uppercase meta labels, safe ellipsis and a two-column layout from 375px upward; 320px stacks the groups to protect long values and the existing mobile copy target. The new `--ui-meta-label-*` tokens align metadata, topic and participant labels while existing theme/surface/radius/shadow tokens provide both color schemes; `styles.css` cache version is 79. Validation passed: TypeScript build check, Maven package with tests skipped, 7 focused metadata cases (320/375/768/769/1280 plus Light/System), 3 existing mobile-content cases and the existing participant-list identity case. No full Maven, Playwright, cross-browser or screenshot suite was run; no known RP-001 risk remains.
 
 ## RP-002 — Topic panel emphasis (presentation only)
 
