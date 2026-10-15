@@ -802,43 +802,74 @@
         if (p.isHost) li.classList.add('is-host');
         if (isSpectator(p)) li.classList.add('spectator');
 
-      const left = document.createElement('span');
-        left.className = 'participant-icon' + (p.isHost ? ' host' : '');
-        // Left icon rules:
-        // - Host: crown
-        // - Inactive (disconnected/away): zzz
-        // - Everyone else (incl. spectator): silhouette
-        var icon = '👤';
-        if (p.isHost) icon = '👑';
-        else if (isInactive) icon = '💤';
-        left.textContent = icon;
+        const left = document.createElement('span');
+        left.className = 'participant-icon';
+        left.textContent = '👤';
         left.setAttribute('aria-hidden', 'true');
-
-        if (isInactive) left.classList.add('inactive');
         li.appendChild(left);
+
+        const identity = document.createElement('span');
+        identity.className = 'participant-identity';
 
         const name = document.createElement('span');
         name.className = 'name';
         name.textContent = p.name;
-        li.appendChild(name);
+        identity.appendChild(name);
 
-        // SR-only host label
         if (p.isHost) {
+          const crown = document.createElement('span');
+          crown.className = 'participant-role participant-role-host';
+          crown.textContent = '♛';
+          crown.setAttribute('aria-hidden', 'true');
+          crown.setAttribute('title', t('label.host', 'Host'));
+          identity.appendChild(crown);
+
           const sr = document.createElement('span');
           sr.className = 'host-label sr-only';
           sr.textContent = t('label.host', 'Host');
-          left.appendChild(sr);
+          identity.appendChild(sr);
         }
+
+        if (isSpectator(p)) {
+          const spectator = document.createElement('span');
+          spectator.className = 'participant-role participant-role-spectator mini-chip spectator';
+          spectator.textContent = '◉';
+          spectator.setAttribute('aria-hidden', 'true');
+          spectator.setAttribute('title', t('label.spectator', isDe() ? 'Zuschauer' : 'Spectator'));
+          identity.appendChild(spectator);
+
+          const sr = document.createElement('span');
+          sr.className = 'spectator-label sr-only';
+          sr.textContent = t('label.spectator', isDe() ? 'Zuschauer' : 'Spectator');
+          identity.appendChild(sr);
+        }
+
+        if (isInactive) {
+          const inactive = document.createElement('span');
+          inactive.className = 'participant-role participant-role-inactive';
+          inactive.textContent = 'zzz';
+          inactive.setAttribute('aria-hidden', 'true');
+          inactive.setAttribute('title', t('label.inactive', isDe() ? 'Inaktiv' : 'Inactive'));
+          identity.appendChild(inactive);
+
+          const sr = document.createElement('span');
+          sr.className = 'inactive-label sr-only';
+          sr.textContent = t('label.inactive', isDe() ? 'Inaktiv' : 'Inactive');
+          identity.appendChild(sr);
+        }
+
+        li.appendChild(identity);
 
         const right = document.createElement('div');
         right.className = 'row-right';
 
         if (!state.votesRevealed) {
           if (isSpectator(p)) {
-            var eye = document.createElement('span');
-            eye.className = 'mini-chip spectator';
-            eye.textContent = '👁️';
-            right.appendChild(eye);
+            var spectatorSlot = document.createElement('span');
+            spectatorSlot.className = 'mini-chip spectator-slot';
+            spectatorSlot.textContent = '–';
+            spectatorSlot.setAttribute('aria-hidden', 'true');
+            right.appendChild(spectatorSlot);
           } else if (!p.disconnected && p.vote != null && String(p.vote) !== '') {
             var ok = document.createElement('span');
             ok.className = 'mini-chip done';
@@ -852,10 +883,11 @@
           }
         } else {
           if (isSpectator(p)) {
-            var eye2 = document.createElement('span');
-            eye2.className = 'mini-chip spectator';
-            eye2.textContent = '👁️';
-            right.appendChild(eye2);
+            var spectatorSlot2 = document.createElement('span');
+            spectatorSlot2.className = 'mini-chip spectator-slot';
+            spectatorSlot2.textContent = '–';
+            spectatorSlot2.setAttribute('aria-hidden', 'true');
+            right.appendChild(spectatorSlot2);
           } else if (isInactive) {
             var dash2 = document.createElement('span');
             dash2.className = 'mini-chip';

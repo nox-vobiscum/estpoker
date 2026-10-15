@@ -16,7 +16,7 @@ async function setChipAnimationTime(page: Page, locator: Locator, time: number) 
   }, time);
 }
 
-for (const width of [375, 1280]) {
+for (const width of [320, 375, 1280]) {
   test(`vote chip keeps its horizontal position through reveal and reset at ${width}px`, async ({ browser }) => {
     const room = newRoomCode('CHIPCENTER');
     const hostContext = await browser.newContext({ viewport: { width, height: 900 } });

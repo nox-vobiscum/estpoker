@@ -1449,3 +1449,53 @@ html.menu-scroll-locked, .menu-scroll-locked body{overflow:hidden}
   button.shake{animation:none}
   .button:hover,.button:active,.card-grid button:hover{transform:none !important}
 }
+
+/* RP-003: calm participant rows with stable identity, vote and action zones. */
+:root #liveParticipantList{
+  border:1px solid var(--ui-surface-border);
+  border-radius:var(--ui-panel-radius);
+  background:var(--ui-surface);
+  box-shadow:var(--ui-shadow-sm);
+}
+:root #liveParticipantList .participant-row{
+  grid-template-columns:var(--icon-col-width) minmax(0,1fr) minmax(0,1fr);
+  margin:0;padding:11px 16px;border:0;border-bottom:1px solid var(--ui-surface-border);
+  border-radius:0;background:transparent;box-shadow:none;outline:0;position:relative;
+}
+:root #liveParticipantList .participant-row:last-child{border-bottom:0}
+:root #liveParticipantList .participant-row.is-host{background:transparent;outline:0}
+:root #liveParticipantList .participant-icon{
+  color:var(--text-dim);font-size:.9rem;opacity:.72;
+}
+:root #liveParticipantList .participant-identity{
+  display:flex;align-items:center;gap:.4rem;min-width:0;
+}
+:root #liveParticipantList .participant-identity .name{
+  min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+:root #liveParticipantList .participant-role{
+  flex:none;display:inline-flex;align-items:center;justify-content:center;
+  inline-size:auto;block-size:auto;min-width:0;padding:0;border:0;border-radius:0;
+  background:transparent;box-shadow:none;color:var(--text-dim);
+  font-family:inherit;font-size:.72rem;font-weight:700;line-height:1;
+}
+:root #liveParticipantList .participant-role-host{font-size:.8rem}
+:root #liveParticipantList .participant-role-spectator{font-size:.72rem}
+:root #liveParticipantList .participant-role-inactive{
+  font-size:.58rem;letter-spacing:-.04em;text-transform:lowercase;
+}
+:root #liveParticipantList .participant-row.disconnected .participant-identity{opacity:.78}
+
+@media (max-width:768px){
+  :root #liveParticipantList .participant-row{
+    grid-template-columns:var(--icon-col-width) minmax(0,1fr) minmax(var(--vote-chip-width),1fr);
+    padding:10px 12px;
+  }
+  :root #liveParticipantList .participant-row .participant-identity{
+    grid-column:2;grid-row:1;
+  }
+  :root #liveParticipantList .participant-row .name{grid-column:auto;grid-row:auto}
+  :root #liveParticipantList .participant-row .row-right :where(.vote-chip,.mini-chip,.status-icon){
+    position:absolute;left:50%;translate:-50% 0;transform:none;pointer-events:none;z-index:1;
+  }
+}

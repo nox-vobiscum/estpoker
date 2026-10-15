@@ -68,12 +68,12 @@ Do not infer permission from a mockup. Preserve server-side authorization; merel
 
 ## RP-003 — Participant list visual hierarchy
 
-- **Status:** TODO · **Model:** GPT-5.6 Sol (suggested)
+- **Status:** DONE · **Model:** GPT-5.6 Sol
 - **Goal:** Calm three-zone participant rows while preserving vote centering and all role states.
 - **Tasks:** Heading `TEILNEHMENDE` + live existing count; modest shared container/row separators, names left, **vote chips geometrically centered on the participant row / shared vertical axis** (avoid previous animation-transform drift), action zone right reserved for eligible host controls. Small monochrome host crown immediately beside host name; spectator eye and inactive zzz icon next to respective names **without textual status labels**; preserve accessible label/tooltips and disconnected styling. Do not invent generic avatars, initials, new voting colors or extra emphasis.
 - **Acceptance:** Row and vote alignment consistent at 320px and desktop; names wrap/truncate gracefully; host/spectator/inactive distinguishable without extra written labels; no vote chip resizing or recoloring.
 - **Tests:** Focused participant/status/geometry incl. after reveal/reset and end of animations; role presentation checks.
-- **Result:** Pending.
+- **Result:** Participant rows now use one restrained shared surface with row separators and three stable zones: identity left, vote/status exactly on the row center axis, and the unchanged eligible-host actions right. The existing silhouette remains neutral; a small monochrome crown, spectator marker or inactive `zzz` sits beside the safely truncated name with screen-reader text and tooltips. Spectators retain a neutral centered vote placeholder, while vote-chip dimensions, colors, animation, participant state and action contracts remain unchanged. The former strong host-row fill was removed because the inline crown now carries that hierarchy. Cache versions are `styles.css?v=81` and `room.js?v=60`. Validation passed: TypeScript/guard checks, Maven package with tests skipped, and 12 focused Chromium cases covering 320/375/1280px, live count, spectator transitions, disconnect/inactive presentation, long names, no horizontal overflow, heartbeat/reconnect, and chip centering before/during/after reveal and reset. No full regression or cross-browser suite was run; no known RP-003 risk remains.
 
 ## RP-004 — Host participant-actions overflow menu
 
