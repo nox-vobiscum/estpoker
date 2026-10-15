@@ -416,8 +416,6 @@ button.shake{animation:shake .4s}
 ul{list-style:none;padding:0;margin:0}
 li{margin-bottom:.4rem;line-height:1.5;font-size:1rem}
 
-/* Mobile-only actions container is hidden by default (desktop) */
-#liveParticipantList .participant-row .row-actions{display:none}
 
 #liveParticipantList .participant-row{
   display:grid;
@@ -717,45 +715,15 @@ html.light .vote-chip.heat, body.light .vote-chip.heat,
 #rowSpecials .specials-icons .spc .ico{display:block;font-size:18px;line-height:1}
 #rowSpecials .specials-icons .spc:focus{outline-offset:2px}
 
-/* ---------- Desktop-only actions styling -------------------------------- */
-@media (min-width:769px){
-  #liveParticipantList .row-right{gap:8px;min-height:1.6rem;white-space:nowrap;align-items:center}
-  #liveParticipantList .row-right > .row-action:first-of-type{margin-left:auto}
-  #liveParticipantList .row-right .row-action{
-    display:inline-flex;align-items:baseline;background:transparent;border:0;padding:0;cursor:pointer;font:inherit;color:inherit;
-  }
-  #liveParticipantList .row-right .row-action .ra-icon{display:none}
-  #liveParticipantList .row-right .row-action .ra-label{
-    font-size:.82rem;line-height:1.2;font-weight:600;color:var(--text-dim);
-    text-decoration:none;border-bottom:1px dotted transparent;white-space:nowrap;
-  }
-  #liveParticipantList .row-right .row-action.spectator,
-  #liveParticipantList .row-right .row-action.kick{
-    border-left:1px solid var(--sep-color, rgba(255,255,255,.45));padding-left:.44rem;
-  }
-  :root[data-theme="light"] #liveParticipantList .row-right .row-action.spectator,
-  :root[data-theme="light"] #liveParticipantList .row-right .row-action.kick{border-left-color:rgba(0,0,0,.35)}
-  #liveParticipantList .row-right .row-action:hover .ra-label,
-  #liveParticipantList .row-right .row-action:focus-visible .ra-label{color:var(--text-strong);border-bottom-color:currentColor}
-  #liveParticipantList .row-right .row-action:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:var(--shape-radius-small)}
-  #liveParticipantList .row-right .row-action.kick .ra-label{color:#fca5a5}
-  #liveParticipantList .row-right .row-action.kick:hover .ra-label,
-  #liveParticipantList .row-right .row-action.kick:focus-visible .ra-label{color:#f87171}
-  #liveParticipantList .row-right .row-action:disabled .ra-label{opacity:.55;border-bottom-color:transparent;cursor:not-allowed}
-  /* Ensure the cloned mobile container stays hidden on desktop */
-  #liveParticipantList .participant-row .row-actions{display:none !important}
-}
 
 /* ---------- Mobile: Participants (single, consolidated block) ------------ */
 @media (max-width:768px){
-  /* Two-row grid per participant:
-     row 1: icon | name | chip
-     row 2: actions (right-aligned, text links) */
+  /* One row; participant actions use the same overflow menu as desktop. */
   #liveParticipantList .participant-row{
     display:grid;
     grid-template-columns: var(--icon-col-width) minmax(0,1fr) auto;
-    grid-template-rows: auto auto;
-    column-gap:10px; row-gap:6px;
+    grid-template-rows: auto;
+    column-gap:10px; row-gap:0;
     align-items:center; padding:8px 12px;
   }
 
@@ -769,23 +737,6 @@ html.light .vote-chip.heat, body.light .vote-chip.heat,
     grid-column:3;grid-row:1;
     display:flex !important;align-items:center;gap:8px;
   }
-  /* only chip/status on row 1 */
-  #liveParticipantList .participant-row .row-right .row-action{display:none !important}
-
-  /* row 2: cloned actions container (right aligned) */
-  #liveParticipantList .participant-row .row-actions{
-    grid-column:1 / -1;grid-row:2;
-    display:flex !important;justify-content:flex-end;align-items:center;
-    gap:10px;margin-top:4px;margin-bottom:2px;
-    font-size:13px;line-height:1.25;
-  }
-  #liveParticipantList .participant-row .row-actions .row-action{
-    appearance:none;background:transparent;border:0;box-shadow:none;
-    padding:2px 4px;border-radius:var(--shape-radius-small);color:var(--text-dim);cursor:pointer;
-  }
-  #liveParticipantList .participant-row .row-actions .row-action:hover{text-decoration:underline}
-  #liveParticipantList .participant-row .row-actions .row-action:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-  #liveParticipantList .participant-row .row-actions .row-action.kick{color:var(--danger)}
 }
 
 /* ---------- Header controls micro-polish -------------------------------- */
@@ -1405,9 +1356,6 @@ h1,h2,h3{font-weight:var(--ui-heading-weight)}
   .page-room .room-with-actions .icon-button,
   .page-room .topic-actions .icon-button{min-width:40px;min-height:40px}
   .page-room #rowSpecials .specials-icons .spc{width:40px;height:40px}
-  .page-room #liveParticipantList .participant-row .row-actions .row-action{
-    min-width:40px;min-height:40px;display:inline-flex;align-items:center;justify-content:center;
-  }
 }
 /* One modal settings container: desktop drawer and mobile sheet. */
 .menu-overlay{z-index:1200}
@@ -1448,6 +1396,36 @@ html.menu-scroll-locked, .menu-scroll-locked body{overflow:hidden}
   .average-label #averageVote{animation:none;opacity:1;transform:none}
   button.shake{animation:none}
   .button:hover,.button:active,.card-grid button:hover{transform:none !important}
+}
+
+/* Participant actions share one menu on desktop and mobile. */
+#liveParticipantList .participant-more{
+  margin-left:auto;flex:none;width:40px;height:40px;padding:0;
+  display:inline-flex;align-items:center;justify-content:center;
+  border:1px solid transparent;border-radius:var(--ui-button-radius);
+  background:transparent;color:var(--text-dim);box-shadow:none;
+  font-size:1.3rem;line-height:1;cursor:pointer;
+}
+#liveParticipantList .participant-more:hover,
+#liveParticipantList .participant-more[aria-expanded="true"]{
+  background:var(--panel-hover);border-color:var(--ui-surface-border);color:var(--text-strong);
+}
+#liveParticipantList .participant-action-menu{
+  position:absolute;top:calc(100% - 6px);right:12px;z-index:50;
+  width:min(18rem,calc(100% - 24px));max-height:calc(100vh - 32px);overflow-y:auto;
+  padding:6px;border:1px solid var(--ui-surface-border);border-radius:var(--ui-panel-radius);
+  background:var(--ui-surface-raised);box-shadow:var(--ui-shadow-md);
+}
+#liveParticipantList .participant-action-menu.opens-up{top:auto;bottom:calc(100% - 6px)}
+#liveParticipantList .participant-action-menu .row-action{
+  display:block;width:100%;min-height:40px;padding:8px 10px;text-align:left;
+  border:0;border-radius:var(--shape-radius-small);box-shadow:none;
+  background:transparent;color:var(--text);font:inherit;font-size:.85rem;cursor:pointer;
+}
+#liveParticipantList .participant-action-menu .row-action:hover{background:var(--panel-hover)}
+#liveParticipantList .participant-action-menu .kick{color:var(--danger)}
+#liveParticipantList :is(.participant-more,.participant-action-menu .row-action):focus-visible{
+  outline:2px solid var(--accent);outline-offset:2px;
 }
 
 /* RP-003: calm participant rows with stable identity, vote and action zones. */

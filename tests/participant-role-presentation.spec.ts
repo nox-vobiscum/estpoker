@@ -22,6 +22,7 @@ test('participant roles stay beside the name while the vote slot remains centere
     await expect(hostRow.locator('.host-label')).toHaveText('Host');
     await expect(guestRow.locator('.participant-role-host')).toHaveCount(0);
 
+    await guestRow.locator('.participant-more').click();
     await guestRow.locator('button.row-action.spectator').click();
     await expect(guestRow).toHaveClass(/spectator/);
     await expect(guestRow.locator('.participant-identity .participant-role-spectator')).toHaveCount(1);

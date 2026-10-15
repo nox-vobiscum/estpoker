@@ -188,3 +188,33 @@ controls. The TypeScript build check and Maven package (`-DskipTests`) pass.
 Full Maven, Playwright, cross-browser and screenshot suites were intentionally
 not run.
 
+## RP-004 result and handoff
+
+Participant actions now have one owner in `room.js`: one native click execution
+path, a localized overflow menu and permission checks at rendering and execution.
+The explicitly approved consolidation removes the conflicting capture/pointer
+handlers and mobile clones, correcting the old spectator-toggle inversion.
+Existing `setSpectator`, `makeHost` and `kick` payloads, confirmations and backend
+authorization remain unchanged. A spectator host has no participant-action menu;
+guests, spectators and self targets cannot access it either.
+
+The menu closes on selection, Escape, Tab, outside interaction and roster
+rerender; focus returns to the replacement trigger or header menu after a role
+change. Arrow/Home/End navigation and upward placement near the viewport bottom
+are covered. CSS uses the existing surface, radius and focus tokens. DE/EN
+messages are in the existing bundles; resource versions are CSS 82 / room JS 61.
+
+Fourteen focused Chromium cases passed, followed by five final menu geometry,
+touch and localization cases at 320/375/768/769/1280px. Actual WebSocket command
+counts verify single execution. Cancellation, transfer, kick, spectator round
+trips, forged/self/non-host targets, server rejection, reconnect and rerender
+were checked. JavaScript syntax, TypeScript and diff checks passed. No broad
+Maven/E2E or cross-browser suite was run; this branch has not been deployed.
+
+Final screenshots exposed two existing RP-003 presentation issues for RP-006:
+at 320px the name/role area has insufficient clearance from the centered vote
+chip; the explicit Light-theme selector still wins over the neutral host-row
+surface. These are outside RP-004 and have not been silently corrected here.
+Artifacts are in ignored `test-results/rp004-complete` (Dark mobile and Light
+desktop menu screenshots); they are not committed.
+

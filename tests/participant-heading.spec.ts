@@ -20,6 +20,7 @@ test('participant heading follows the displayed roster through role and presence
     await expectParticipantCount(host, 2);
 
     const guestRow = host.locator('#liveParticipantList .participant-row').filter({ hasText: 'CountGuest' });
+    await guestRow.locator('.participant-more').click();
     await guestRow.locator('button.row-action.spectator').click();
     await expect(guestRow).toHaveClass(/spectator/);
     await expectParticipantCount(host, 2);
@@ -29,6 +30,7 @@ test('participant heading follows the displayed roster through role and presence
     await expectParticipantCount(host, 2);
 
     host.once('dialog', dialog => dialog.accept());
+    await guestRow.locator('.participant-more').click();
     await guestRow.locator('button.row-action.kick').click();
     await expectParticipantCount(host, 1);
   } finally {

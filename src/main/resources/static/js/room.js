@@ -780,6 +780,130 @@
     return document.querySelector('#liveParticipantList, #participantsList, #participantList, ul#participants, .participants-list, #participants ul, [data-participants-list]');
   }
 
+  let participantMenu = null;
+  let participantActionsBound = false;
+
+  function canManageParticipant(p) {
+    const me = (state.participants || []).find(item => item && item.name === state.youName);
+    return !!(state.isHost && !state.selfSpectator && me && me.isHost && !isSpectator(me) &&
+      p && p.name !== state.youName && !p.isHost);
+  }
+
+  function closeParticipantMenu(restoreFocus = true) {
+    if (!participantMenu) return;
+    const { trigger, menu } = participantMenu;
+    participantMenu = null;
+    trigger.setAttribute('aria-expanded', 'false');
+    trigger.removeAttribute('aria-controls');
+    menu.remove();
+    if (restoreFocus && trigger.isConnected) trigger.focus({ preventScroll: true });
+  }
+
+  function positionParticipantMenu() {
+    if (!participantMenu) return;
+    const { menu } = participantMenu;
+    menu.classList.remove('opens-up');
+    if (menu.getBoundingClientRect().bottom > window.innerHeight - 12) menu.classList.add('opens-up');
+  }
+
+  function openParticipantMenu(trigger) {
+    if (participantMenu?.trigger === trigger) { closeParticipantMenu(); return; }
+    closeParticipantMenu(false);
+    const p = (state.participants || []).find(item => item && item.name === trigger.dataset.name);
+    if (!canManageParticipant(p)) return;
+    const menu = document.createElement('div');
+    menu.className = 'participant-action-menu';
+    menu.id = 'participantActionMenu';
+    menu.setAttribute('role', 'menu');
+    menu.setAttribute('aria-label', trigger.getAttribute('aria-label'));
+    const actions = [
+      ['host', t('action.makeHost', isDe() ? 'Zum Host machen' : 'Make host')],
+      ['spectator', isSpectator(p)
+        ? t('action.makeParticipant', isDe() ? 'Wieder mitschätzen lassen' : 'Restore participation')
+        : t('action.makeSpectator', isDe() ? 'Zum Zuschauer machen' : 'Make spectator')],
+      ['kick', t('action.kick', isDe() ? 'Aus dem Raum entfernen' : 'Remove from room')]
+    ];
+    actions.forEach(([action, label]) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'row-action ' + action;
+      button.dataset.action = action;
+      button.dataset.name = p.name;
+      button.setAttribute('role', 'menuitem');
+      button.tabIndex = -1;
+      button.textContent = label;
+      menu.appendChild(button);
+    });
+    trigger.closest('.participant-row').appendChild(menu);
+    trigger.setAttribute('aria-expanded', 'true');
+    trigger.setAttribute('aria-controls', menu.id);
+    participantMenu = { trigger, menu };
+    positionParticipantMenu();
+    menu.firstElementChild.focus({ preventScroll: true });
+  }
+
+  function executeParticipantAction(button) {
+    // Native click is the sole execution path for mouse, touch, Enter and Space.
+    if (!participantMenu || !participantMenu.menu.contains(button)) return;
+    const p = (state.participants || []).find(item => item && item.name === button.dataset.name);
+    const action = button.dataset.action;
+    closeParticipantMenu();
+    if (!canManageParticipant(p)) return;
+    const name = p.name;
+    if (action === 'host') {
+      if (confirm(isDe() ? `Host-Rolle an ${name} übertragen?` : `Transfer host role to ${name}?`)) {
+        send('makeHost:' + encodeURIComponent(name));
+      }
+    } else if (action === 'kick') {
+      if (confirm(isDe() ? `${name} wirklich entfernen?` : `Remove ${name}?`)) {
+        send('kick:' + encodeURIComponent(name));
+      }
+    } else if (action === 'spectator') {
+      const newSpectator = !isSpectator(p);
+      p.spectator = newSpectator;
+      p.participating = !newSpectator;
+      if (newSpectator) p.vote = null;
+      renderParticipants();
+      renderCards();
+      syncMenuFromState();
+      send('setSpectator:' + encodeURIComponent(name) + ':' + newSpectator);
+    }
+  }
+
+  function bindParticipantActions() {
+    if (participantActionsBound) return;
+    participantActionsBound = true;
+    document.addEventListener('click', event => {
+      const trigger = event.target.closest?.('#liveParticipantList .participant-more');
+      if (trigger) { openParticipantMenu(trigger); return; }
+      const action = event.target.closest?.('#liveParticipantList .participant-action-menu .row-action');
+      if (action) { executeParticipantAction(action); return; }
+      if (participantMenu && !participantMenu.menu.contains(event.target)) closeParticipantMenu(false);
+    });
+    document.addEventListener('keydown', event => {
+      const trigger = event.target.closest?.('#liveParticipantList .participant-more');
+      if (trigger && ['ArrowDown', 'ArrowUp'].includes(event.key)) {
+        event.preventDefault();
+        if (!participantMenu || participantMenu.trigger !== trigger) openParticipantMenu(trigger);
+        if (event.key === 'ArrowUp') participantMenu?.menu.lastElementChild.focus();
+        return;
+      }
+      if (!participantMenu) return;
+      if (event.key === 'Escape') { event.preventDefault(); closeParticipantMenu(); return; }
+      if (event.key === 'Tab') { closeParticipantMenu(); return; }
+      if (!participantMenu.menu.contains(event.target)) return;
+      const items = Array.from(participantMenu.menu.querySelectorAll('button'));
+      const current = items.indexOf(document.activeElement);
+      const target = { ArrowDown: (current + 1) % items.length, ArrowUp: (current + items.length - 1) % items.length, Home: 0, End: items.length - 1 }[event.key];
+      if (target !== undefined) { event.preventDefault(); items[target].focus(); }
+    });
+    document.addEventListener('focusin', event => {
+      if (participantMenu && !participantMenu.menu.contains(event.target) && event.target !== participantMenu.trigger) closeParticipantMenu(false);
+    });
+    window.addEventListener('resize', positionParticipantMenu, { passive: true });
+    window.addEventListener('scroll', positionParticipantMenu, { passive: true, capture: true });
+  }
+
   function renderParticipants() {
     const ul = participantsRoot();
     if (!ul) return;
@@ -926,78 +1050,18 @@
           }
         }
 
-        // --- Host action buttons -------------------------------------------------
-        if (state.isHost && !p.isHost) {
-          // Make host
-          var makeHostBtn = document.createElement('button');
-          makeHostBtn.className = 'row-action host';
-          makeHostBtn.type = 'button';
-          makeHostBtn.setAttribute('data-action', 'host');
-          makeHostBtn.setAttribute('data-name', p.name);
-          var labelMakeHost = t('action.makeHost', isDe() ? 'Zum Host machen' : 'Make host');
-          makeHostBtn.setAttribute('aria-label', labelMakeHost);
-          makeHostBtn.setAttribute('title', labelMakeHost);
-          var makeHostLbl = document.createElement('span');
-          makeHostLbl.className = 'ra-label';
-          makeHostLbl.textContent = 'Host';
-          makeHostBtn.appendChild(makeHostLbl);
-          right.appendChild(makeHostBtn);
-
-          // Spectator toggle
-          var spectBtn = document.createElement('button');
-          spectBtn.className = 'row-action spectator';
-          spectBtn.type = 'button';
-          spectBtn.setAttribute('data-action', 'spectator');
-          spectBtn.setAttribute('data-name', p.name);
-          var labelSpect = t('action.spectatorToggle', isDe() ? 'Zuschauer umschalten' : 'Toggle spectator');
-          spectBtn.setAttribute('aria-label', labelSpect);
-          spectBtn.setAttribute('title', labelSpect);
-          var spectLbl = document.createElement('span');
-          spectLbl.className = 'ra-label';
-          spectLbl.textContent = 'Spectator';
-          spectBtn.appendChild(spectLbl);
-          right.appendChild(spectBtn);
-
-          // Kick
-          var kickBtn = document.createElement('button');
-          kickBtn.className = 'row-action kick';
-          kickBtn.type = 'button';
-          kickBtn.setAttribute('data-action', 'kick');
-          kickBtn.setAttribute('data-name', p.name);
-          var labelKick = t('action.kick', isDe() ? 'Teilnehmer entfernen' : 'Kick participant');
-          kickBtn.setAttribute('aria-label', labelKick);
-          kickBtn.setAttribute('title', labelKick);
-          var kickLbl = document.createElement('span');
-          kickLbl.className = 'ra-label';
-          kickLbl.textContent = 'Kick';
-          kickBtn.appendChild(kickLbl);
-          right.appendChild(kickBtn);
+        if (canManageParticipant(p)) {
+          const trigger = document.createElement('button');
+          trigger.type = 'button';
+          trigger.className = 'participant-more';
+          trigger.dataset.name = p.name;
+          trigger.textContent = '…';
+          trigger.setAttribute('aria-label', t('action.participantMenu', 'Participant actions') + ': ' + p.name);
+          trigger.setAttribute('aria-haspopup', 'menu');
+          trigger.setAttribute('aria-expanded', 'false');
+          right.appendChild(trigger);
         }
-
         li.appendChild(right);
-
-
-    // === Mobile full-width actions row (host view only) ======================
-    // We show a second line across full width for host actions on mobiles.
-    // Desktop keeps using the original buttons inside .row-right.
-
-    try {
-      const isHostView = document.body.classList.contains('is-host');
-      if (isHostView) {
-        // clone all action buttons that were added to the right column
-        const actionButtons = right.querySelectorAll('button.row-action');
-        if (actionButtons.length > 0) {
-          const rowActions = document.createElement('div');
-          rowActions.className = 'row-actions';
-          actionButtons.forEach(btn => rowActions.appendChild(btn.cloneNode(true)));
-          // place as a sibling so CSS grid can put it on row 2 with full width
-          li.appendChild(rowActions);
-          li.classList.add('has-row-actions');
-        }
-      }
-    } catch (e) {
-      // no-op: keep rendering even if something above fails
-    }
 
 
 
@@ -1006,7 +1070,14 @@
         frag.appendChild(li);
       });
 
+      const activeName = document.activeElement?.closest('.participant-row')?.querySelector('.participant-more')?.dataset.name;
+      const restoreFocus = !!activeName && !!document.activeElement?.closest('.participant-more, .participant-action-menu');
+      closeParticipantMenu(false);
       ul.replaceChildren(frag);
+      if (restoreFocus) {
+        const next = Array.from(ul.querySelectorAll('.participant-more')).find(button => button.dataset.name === activeName);
+        (next || document.getElementById('menuButton'))?.focus({ preventScroll: true });
+      }
       const count = document.getElementById('participantCount');
       if (count) count.textContent = String(ul.querySelectorAll('.participant-row').length);
     } catch (e) {
@@ -2002,7 +2073,6 @@
 
   // Event-delegation (robust, no global capture)
   let _cardGridBound = false;
-  let _plistBound = false;
 
   function bindDelegatedHandlers() {
     // Cards
@@ -2033,114 +2103,7 @@
       _cardGridBound = true;
     }
 
-    // Host / Kick / Spectator
-    const list = participantsRoot();
-    if (list && !_plistBound) {
-      const onAction = function (btn) {
-        const action = btn.dataset.action;
-        const name = btn.dataset.name || '';
-        if (!action || !name) return;
-
-        if (action === 'host') {
-          const q = isDe() ? ('Host-Rolle an ' + name + ' übertragen?') : ('Transfer host role to ' + name + '?');
-          if (!confirm(q)) return;
-          send('makeHost:' + encodeURIComponent(name));
-        } else if (action === 'kick') {
-          const q = isDe() ? (name + ' wirklich entfernen?') : ('Remove ' + name + '?');
-          if (!confirm(q)) return;
-          send('kick:' + encodeURIComponent(name));
-        } else if (action === 'spectator') {
-        // Find target participant
-        const p = (state.participants || []).find(x => x && x.name === name);
-        const currentlySpectator = !!(p && (p.spectator === true || p.participating === false));
-
-        // Toggle target state
-        const newSpectator = !currentlySpectator;   // what we want after this click
-        const nextParticipating = !newSpectator;    // participating is the inverse
-
-        // Optimistic UI update
-        if (p) {
-          p.spectator = newSpectator;
-          p.participating = nextParticipating;
-          if (!nextParticipating) p.vote = null;    // clear vote when becoming spectator
-          renderParticipants();
-          renderCards();
-          syncMenuFromState();
-        }
-
-        // Host -> server (explicit and unambiguous)
-        send('setSpectator:' + encodeURIComponent(name) + ':' + newSpectator);
-        return;
-      }
-
-      };
-
-      list.addEventListener('pointerdown', function (e) {
-        if (e.button !== 0) return;
-        const btn = (e.target && e.target.closest) ? e.target.closest('button.row-action') : null;
-        if (btn) { if (e.preventDefault) e.preventDefault(); onAction(btn); }
-      }, false);
-
-      list.addEventListener('click', function (e) {
-        const btn = (e.target && e.target.closest) ? e.target.closest('button.row-action') : null;
-        if (btn) onAction(btn);
-      }, false);
-
-      _plistBound = true;
-    }
-
-    // --- Universal fallback for row-action buttons (capture phase) ---
-if (!window.__ppRowActionFallback) {
-  window.__ppRowActionFallback = true;
-  document.addEventListener('click', function (e) {
-    var btn = (e.target && e.target.closest) ? e.target.closest('button.row-action') : null;
-    if (!btn) return;
-    e.preventDefault && e.preventDefault();
-
-    var action = btn.dataset.action;
-    var name   = btn.dataset.name || '';
-    if (!action || !name) return;
-
-    // Mirror of onAction(...)
-    if (action === 'host') {
-      var q1 = isDe() ? ('Host-Rolle an ' + name + ' übertragen?') : ('Transfer host role to ' + name + '?');
-      if (!confirm(q1)) return;
-      send('makeHost:' + encodeURIComponent(name));
-      return;
-    }
-    if (action === 'kick') {
-      var q2 = isDe() ? (name + ' wirklich entfernen?') : ('Remove ' + name + '?');
-      if (!confirm(q2)) return;
-      send('kick:' + encodeURIComponent(name));
-      return;
-    }
-    // --- Spectator (host toggles a target participant) ---
-if (action === 'spectator') {
-  const p = (state.participants || []).find(x => x && x.name === name);
-  const currentlySpectator = !!(p && (p.spectator === true || p.participating === false));
-
-  // New state after click
-  const newSpectator = !currentlySpectator;
-  const nextParticipating = !newSpectator;
-
-  // Optimistic UI update
-  if (p) {
-    p.spectator = newSpectator;
-    p.participating = nextParticipating;
-    if (!nextParticipating) p.vote = null; // clear vote when becoming spectator
-    renderParticipants();
-    renderCards();
-    syncMenuFromState();
-  }
-
-  // Server command (explicit, unambiguous)
-  send('setSpectator:' + encodeURIComponent(name) + ':' + newSpectator);
-  return;
-}
-
-  }, true); // capture=true
-}
-
+    bindParticipantActions();
   }
 
   function wireOnce() {
@@ -2366,85 +2329,6 @@ if (action === 'spectator') {
     boot();
   }
 
-  // --- Row-action: globaler Capture-Fallback (host/spectator/kick) ---
-(function bindRowActionHotfix() {
-  if (window.__ppRowActionHotfixBound) return;
-  window.__ppRowActionHotfixBound = true;
-
-  const onRowAction = (btn) => {
-    const action = btn?.dataset?.action || '';
-    let name = btn?.dataset?.name || '';
-    if (!name) {
-      try {
-        name = btn.closest('.participant-row')?.querySelector('.name')?.textContent?.trim() || '';
-      } catch {}
-    }
-    if (!action || !name) return;
-
-    if (action === 'spectator') {
-      // aktuellen Zustand ermitteln
-      const p = (state.participants || []).find(x => x && x.name === name);
-      const currentlySpectator = !!(p && (p.spectator === true || p.participating === false));
-      const nextParticipating = !currentlySpectator;
-
-      // Optimistische UI
-      if (p) {
-        p.spectator = !nextParticipating;
-        p.participating = nextParticipating;
-        if (!nextParticipating) p.vote = null;
-        try { renderParticipants(); renderCards(); syncMenuFromState(); } catch {}
-      }
-
-      // host → server
-      try {
-        if (state.ws && state.ws.readyState === 1) {
-          state.ws.send('setParticipating:' + encodeURIComponent(name) + ':' + nextParticipating);
-        }
-      } catch {}
-      return;
-    }
-
-    if (action === 'host') {
-      const q = isDe() ? `Host-Rolle an ${name} übertragen?` : `Transfer host role to ${name}?`;
-      if (!confirm(q)) return;
-      try {
-        if (state.ws && state.ws.readyState === 1) {
-          state.ws.send('makeHost:' + encodeURIComponent(name));
-        }
-      } catch {}
-      return;
-    }
-
-    if (action === 'kick') {
-      const q = isDe() ? `${name} wirklich entfernen?` : `Remove ${name}?`;
-      if (!confirm(q)) return;
-      try {
-        if (state.ws && state.ws.readyState === 1) {
-          state.ws.send('kick:' + encodeURIComponent(name));
-        }
-      } catch {}
-      return;
-    }
-  };
-
-  const handle = (e) => {
-    const btn = e.target && e.target.closest ? e.target.closest('button.row-action') : null;
-    if (!btn) return;
-    e.preventDefault?.();
-    e.stopPropagation?.();
-    try { e.stopImmediatePropagation?.(); } catch {}
-    onRowAction(btn);
-  };
-
-  // Klick + Tastatur (Enter/Space) im Capture-Phase, überlebt DOM-Swaps
-  document.addEventListener('click', handle, { capture: true, passive: false });
-  document.addEventListener('keydown', (e) => {
-    if (e.key !== 'Enter' && e.key !== ' ') return;
-    handle(e);
-  }, { capture: true, passive: false });
-
-  try { console.info('[ROOM] row-action hotfix bound'); } catch {}
-})();
 
 })();
 
@@ -2455,45 +2339,3 @@ function __normalizeAllowSpecials(obj){
   }catch(e){}
   return obj;
 }
-
-
-// viewport/theme sync for mobile .row-actions
-(function(){
-  if (window.__ppSyncRowActions) return;
-  function isMobileVW(){ return window.matchMedia && window.matchMedia('(max-width: 768px)').matches; }
-  function syncRowActions(){
-    var list = document.getElementById('liveParticipantList');
-    if (!list) return;
-    var mobile = isMobileVW();
-    list.querySelectorAll('li.participant-row').forEach(function(li){
-      var right = li.querySelector('.row-right');
-      if (!right) return;
-      var actions = right.querySelectorAll('button.row-action');
-      var mobileRow = li.querySelector('.row-actions');
-      if (mobile){
-        if (actions.length){
-          if (!mobileRow){
-            mobileRow = document.createElement('div');
-            mobileRow.className = 'row-actions';
-            li.appendChild(mobileRow);
-          }
-          var frag = document.createDocumentFragment();
-          actions.forEach(function(btn){ frag.appendChild(btn.cloneNode(true)); });
-          mobileRow.replaceChildren();
-          mobileRow.appendChild(frag);
-        }
-      }else{
-        if (mobileRow) mobileRow.remove();
-      }
-    });
-  }
-  window.__ppSyncRowActions = syncRowActions;
-  var to=null;
-  window.addEventListener('resize', function(){ clearTimeout(to); to=setTimeout(syncRowActions, 120); }, {passive:true});
-  try{
-    var mo = new MutationObserver(function(){ syncRowActions(); });
-    mo.observe(document.documentElement, {attributes:true, attributeFilter:['class','data-theme']});
-    mo.observe(document.body, {attributes:true, attributeFilter:['class','data-theme']});
-  }catch(e){}
-  setTimeout(syncRowActions,0);
-})();
