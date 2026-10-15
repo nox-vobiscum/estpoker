@@ -13,8 +13,11 @@ temporary validation reports may be removed after the documentation consolidatio
 - Replaced the room's four informational FAQ cards with one accessible,
   bilingual guide that is collapsed by default and documents the existing room
   workflow and settings.
+- Added a clearly visible individual Leave room action below the room guide.
+  Hosts retain Close room for everyone in the menu, while guests see Leave room.
+  Leaving follows the existing navigation, disconnect and host-transfer path.
 - Added the post-redesign change-request backlog for CR-001 through CR-003;
-  CR-003 remains subject to its mandatory start gate.
+  all three requests are complete on their feature branches.
 
 ## 2026-10-14 — Major Redesign production release
 

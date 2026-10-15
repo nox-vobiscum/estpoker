@@ -289,6 +289,21 @@ strong{color:var(--text-strong)}
 #closeRoomBtn.menu-item.danger .mi-icon{font-size:18px;line-height:1}
 #closeRoomBtn .truncate-1{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
+/* Individual room exit is shared by the page and the guest menu. */
+.room-exit-row{display:flex;justify-content:flex-start;margin:18px 0 0}
+.room-exit-action{
+  display:inline-flex;align-items:center;justify-content:center;gap:10px;
+  min-height:44px;padding:10px 16px;border:1px solid color-mix(in srgb,var(--danger) 40%,var(--border));
+  border-radius:var(--ui-button-radius);background:color-mix(in srgb,var(--danger) 10%,var(--panel));
+  color:color-mix(in srgb,var(--danger) 80%,var(--text-strong));font:inherit;font-size:.9rem;font-weight:600;
+  cursor:pointer;transition:background 180ms,border-color 180ms,box-shadow 180ms,transform 120ms;
+}
+.room-exit-action svg{flex:none;width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.room-exit-action:hover{background:color-mix(in srgb,var(--danger) 17%,var(--panel));border-color:var(--danger)}
+.room-exit-action:focus-visible{outline:2px solid var(--field-focus);outline-offset:2px}
+.room-exit-action:active{transform:translateY(1px)}
+.menu-item.room-exit-action{display:grid;grid-template-columns:28px minmax(0,1fr);justify-content:stretch;text-align:left;width:100%}
+
 /* ---------- Icon button -------------------------------------------------- */
 .icon-button{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:var(--ui-button-radius);background:var(--panel-2);color:var(--text);border:1px solid var(--border);cursor:pointer;transition:background 180ms,border-color 180ms,transform 120ms,box-shadow 180ms;-webkit-tap-highlight-color:transparent;font-size:16px;line-height:1}
 .icon-button:hover{background:var(--panel-2-hover);border-color:var(--accent);box-shadow:0 0 0 2px rgba(0,122,204,.12)}
@@ -1238,7 +1253,7 @@ body.page-landing {
 h1,h2,h3{font-weight:var(--ui-heading-weight)}
 :root[data-ui-style="clean"] .button:hover{filter:none}
 :root[data-ui-style="clean"] .choice-btn:hover,
-:root[data-ui-style="clean"] .menu-item:not(.danger):not(.switch):hover{box-shadow:inset 0 0 0 1px var(--accent)}
+:root[data-ui-style="clean"] .menu-item:not(.danger):not(.switch):not(.room-exit-action):hover{box-shadow:inset 0 0 0 1px var(--accent)}
 
 /* Clean surfaces share the theme palette and preserve the existing layout rules. */
 :root[data-ui-style="clean"]{
@@ -1313,13 +1328,13 @@ h1,h2,h3{font-weight:var(--ui-heading-weight)}
 :root[data-ui-style="clean"] .menu-header h3{font-size:1.1rem}
 :root[data-ui-style="clean"] .menu-section{gap:12px;padding-block:12px 14px}
 :root[data-ui-style="clean"] .section-title{font-weight:600;opacity:1;color:var(--text-dim)}
-:root[data-ui-style="clean"] :is(.menu-item:not(.danger):not(.switch),.radio-row,.choice-btn){
+:root[data-ui-style="clean"] :is(.menu-item:not(.danger):not(.switch):not(.room-exit-action),.radio-row,.choice-btn){
   background:var(--ui-surface-raised);border-color:var(--ui-surface-border);box-shadow:none;
 }
 :root[data-ui-style="clean"] .menu-choice:not(.vertical){gap:6px}
 :root[data-ui-style="clean"] .choice-btn{height:38px;padding-inline:12px}
 :root[data-ui-style="clean"] .radio-row{padding:11px 12px}
-:root[data-ui-style="clean"] :is(.menu-item:not(.danger):not(.switch),.radio-row,.choice-btn):hover{
+:root[data-ui-style="clean"] :is(.menu-item:not(.danger):not(.switch):not(.room-exit-action),.radio-row,.choice-btn):hover{
   background:var(--panel-2-hover);border-color:var(--accent);box-shadow:var(--ui-shadow-sm);
 }
 :root[data-ui-style="clean"] :is(.choice-btn.active,.choice-btn[aria-pressed="true"],.radio-row:has(input:checked)){

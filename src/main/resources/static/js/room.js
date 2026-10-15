@@ -1489,6 +1489,11 @@
   }
 
   function syncMenuFromState() {
+    const hostClose = $('#closeRoomBtn');
+    const guestLeave = $('#menuLeaveRoomBtn');
+    if (hostClose) hostClose.classList.toggle('hidden', !state._hostKnown || !state.isHost);
+    if (guestLeave) guestLeave.classList.toggle('hidden', !state._hostKnown || state.isHost);
+
     // Disable guest controls once host info is known
     setRowDisabled('menuAutoRevealToggle', !state.isHost && state._hostKnown);
     setRowDisabled('menuTopicToggle',      !state.isHost && state._hostKnown);
@@ -1836,6 +1841,16 @@
   })();
 
   function wireMenuEvents() {
+    let leavingRoom = false;
+    const leaveRoom = function () {
+      if (leavingRoom) return;
+      leavingRoom = true;
+      window.PPRoomReturn?.clear(state.roomCode, state.youName);
+      location.assign('/');
+    };
+    $('#leaveRoomBtn')?.addEventListener('click', leaveRoom);
+    $('#menuLeaveRoomBtn')?.addEventListener('click', leaveRoom);
+
     // Single, final close-room confirmation
     document.addEventListener('pp:close-room', function () {
       if (!state.isHost) return;

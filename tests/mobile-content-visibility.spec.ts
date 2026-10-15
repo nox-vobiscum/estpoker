@@ -23,7 +23,7 @@ for (const { width, height } of [{ width: 320, height: 568 }, { width: 375, heig
       const footerBox = await footer.boundingBox();
       expect(footerBox!.y + footerBox!.height).toBeLessThanOrEqual(height + 1);
       if (path.startsWith('/room')) {
-        const lastContent = page.locator('.room-manual');
+        const lastContent = page.locator('.room-exit-row');
         await expect(lastContent).toBeVisible();
         const lastBox = await lastContent.boundingBox();
         expect(lastBox!.y + lastBox!.height).toBeLessThanOrEqual(footerBox!.y + 1);

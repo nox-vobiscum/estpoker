@@ -111,10 +111,21 @@
 
     <div th:replace="~{fragments/kbase :: kbase}"></div>
 
+    <div class="room-exit-row">
+      <button id="leaveRoomBtn" type="button" class="room-exit-action"
+              th:attr="aria-label=#{room.leave},title=#{room.leave}"
+              data-i18n-attr="aria-label:room.leave;title:room.leave">
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path d="M9 4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4m5-4 4-4-4-4m4 4H9"/>
+        </svg>
+        <span th:text="#{room.leave}" data-i18n="room.leave">Leave room</span>
+      </button>
+    </div>
+
   </div>
 
   <!-- Room connector (bump v-param if clients cache JS) -->
-  <script defer th:src="@{/js/room.js?v=58}"
+  <script defer th:src="@{/js/room.js?v=59}"
           th:attr="data-participant=${participantName},data-room=${roomCode}"></script>
 
   <div th:replace="~{fragments/footer :: footer}"></div>

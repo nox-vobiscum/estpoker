@@ -26,7 +26,7 @@ Execute one request at a time in this order:
 2. **CR-002 — Replace room information panels with collapsible manual** (`DONE`)
    - Replace the room-only informational cards with one accessible guide that is
      collapsed by default.
-3. **CR-003 — Improve room exit discoverability** (`TODO`)
+3. **CR-003 — Improve room exit discoverability** (`DONE`)
    - Expose the existing individual leave action more clearly while preserving
      host-only close-room behavior and all lifecycle contracts.
 

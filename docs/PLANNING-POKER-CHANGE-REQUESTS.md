@@ -1,6 +1,6 @@
 # Planning Poker — Post-Redesign Change Requests
 
-Status: **CR-001 and CR-002 complete; CR-003 pending**
+Status: **CR-001 through CR-003 complete**
 Scope: Follow-up UX improvements after the Major Redesign release.  
 Execution rule: **One CR at a time; mandatory start gate; approval; implementation through DONE; separate commit; STOP.**
 
@@ -131,7 +131,7 @@ Room creation/join/invite, identity/CID, participant lifecycle, host/host-transf
 - **ID:** CR-003
 - **Title:** Improve room exit discoverability
 - **Goal:** Make leaving a room obvious without confusing individual departure with host-only closing for everyone.
-- **Status:** TODO
+- **Status:** DONE
 - **Recommended Model:** **GPT-5.6 Sol** for a clearly existing and well-characterized leave/close contract; **propose GPT-6 Sol/Astra only if inspection reveals uncertain host-transfer, identity or WebSocket lifecycle coupling**, and wait for approval.
 
 **Mandatory pre-implementation audit**
@@ -170,12 +170,27 @@ Room creation/join/invite, identity/CID, participant lifecycle, host/host-transf
 **Validation:** Targeted host/guest leave-vs-close tests, existing host-transfer tests or characterization checks, permissions, relevant menu behavior and responsive checks. No full regression by default; do not mask functional failures as cosmetic.
 
 **Result**
-- Changed files: None.
-- Existing leave/host-transfer behavior: **To be verified in start gate**.
-- Decisions and screenshots: Pending.
-- Tests: Not run for this CR.
-- Findings / downstream effects: Pending.
-- Completion: Document, update status, separate commit, STOP.
+- Changed files: room and menu templates, `room.js`, shared CSS, English/German
+  messages, the room guide, focused room-exit and mobile tests, and status files.
+- Existing leave/host-transfer behavior: Navigating away closes the room socket;
+  the server marks that participant inactive after about two seconds and
+  transfers an inactive host to another participant after about five seconds.
+  The room remains open. Browser tests verified this path and one
+  `participantLeft` event for the departing host.
+- Decision: Both Leave room buttons use one client handler that clears the
+  per-tab return link and navigates home. The user explicitly approved this
+  existing navigation/disconnect path after the start-gate audit. The unused
+  `intentionalLeave` protocol was left untouched because combining it with
+  normal socket closure could duplicate leave notifications.
+- Tests: Spring Boot package build, `npm run ci:verify`, an initial 18-test
+  Playwright run including room-return, followed by a final 26-test run for
+  room exit, mobile layout, guide, menu and host-close behavior. Verified
+  host/guest permissions, existing close confirmation, keyboard use,
+  DE/EN labels, 375/1280 px, Light/Dark/System and Dev/Clean.
+- Findings / downstream effects: The host menu keeps Close room for everyone;
+  guests see Leave room there. The bottom Leave room action is available to
+  both roles. No backend lifecycle, WebSocket protocol or game logic changed.
+- Completion: Acceptance criteria passed; separate commit, then STOP.
 
 ---
 
