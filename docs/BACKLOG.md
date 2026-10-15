@@ -29,8 +29,11 @@ Execute one request at a time in this order:
 3. **CR-003 — Improve room exit discoverability** (`DONE`)
    - Expose the existing individual leave action more clearly while preserving
      host-only close-room behavior and all lifecycle contracts.
+4. **CR-004 — Improve participant section heading** (`DONE`)
+   - Retain the semantic heading and show a compact live count derived from the
+     displayed participant rows without changing participant lifecycle behavior.
 
-Documentation consolidation follows CR-001 through CR-003.
+Documentation consolidation follows CR-001 through CR-004.
 
 ---
 

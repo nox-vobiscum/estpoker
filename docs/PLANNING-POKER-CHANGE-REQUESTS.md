@@ -1,10 +1,10 @@
 # Planning Poker — Post-Redesign Change Requests
 
-Status: **CR-001 through CR-003 complete**
+Status: **CR-001 through CR-004 complete**
 Scope: Follow-up UX improvements after the Major Redesign release.  
 Execution rule: **One CR at a time; mandatory start gate; approval; implementation through DONE; separate commit; STOP.**
 
-## Mandatory CR Start Gate (applies to CR-001, CR-002, CR-003)
+## Mandatory CR Start Gate (applies to CR-001 through CR-004)
 
 **Do not begin implementation merely because a ticket is mentioned or requested to start.** First execute this gate and wait for approval.
 
@@ -194,9 +194,31 @@ Room creation/join/invite, identity/CID, participant lifecycle, host/host-transf
 
 ---
 
+### CR-004 — Improve participant section heading
+
+- **ID:** CR-004
+- **Title:** Improve participant section heading
+- **Goal:** Improve the informational value and visual hierarchy of the participant section heading.
+- **Status:** DONE
+- **Recommended Model:** **GPT-5.6 Sol**
+
+**Scope**
+- Retain the semantic participant `h2` and add a discreet count of the rows currently displayed.
+- Keep the heading compact on desktop and mobile and use existing typography and color tokens.
+- Preserve participant state, lifecycle and WebSocket contracts.
+
+**Result**
+- The room heading now renders `Participants · n` / `Teilnehmende · n`, with the number in a subtle neutral badge.
+- `renderParticipants()` updates the count after replacing the displayed roster, so host, spectator and disconnected rows remain counted while removed rows do not.
+- The count and separator are hidden from assistive technologies because the participant list is already the live region. The semantic heading therefore retains a stable accessible name without duplicate announcements.
+- Focused Chromium coverage verifies join, spectator, disconnected and removed states plus English/German layout at 375 and 1280 px.
+- No room state, participant management, gameplay, backend or WebSocket behavior changed.
+
+---
+
 ## Proposed execution order and handoff
 
-**CR-001 → CR-002 → CR-003**. Finish/document/commit each CR before considering the next. CR-003 is last because its host/participant behavior deserves a specific lifecycle audit. The approved visual references are the topic panel and rose-toned logout button discussed in the project conversation; do not reinterpret them into unrelated design variants.
+**CR-001 → CR-002 → CR-003 → CR-004**. All four requests are complete. The approved visual references are the topic panel, rose-toned logout button and compact participant heading discussed in the project conversation; do not reinterpret them into unrelated design variants.
 
 **Start prompt for each ticket:**
 

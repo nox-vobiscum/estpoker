@@ -282,14 +282,17 @@ For detailed instructions, troubleshooting, CI recipe, and full command list, se
 ## 15) Backlog (pointer)
 
 General backlog items are maintained in `docs/BACKLOG.md`. The approved
-post-redesign sequence CR-001 through CR-003 is maintained in
+post-redesign sequence CR-001 through CR-004 is maintained in
 `docs/PLANNING-POKER-CHANGE-REQUESTS.md`; each CR requires its mandatory start
 gate and a separate explicit approval before implementation. Documentation
 consolidation follows those CRs. Completed release history belongs in
 `CHANGELOG.md`, rather than temporary status or validation reports.
 
-CR-001 through CR-003 are complete on dedicated feature branches. The next
-planned work is documentation consolidation; no additional CR is active.
+CR-001 through CR-004 are complete on dedicated feature branches. CR-004 keeps
+the semantic participant heading and adds a compact visible count derived from
+the rendered roster; the existing participant-list live region remains the only
+announcement source. The next planned work is documentation consolidation; no
+additional CR is active.
 
 
 

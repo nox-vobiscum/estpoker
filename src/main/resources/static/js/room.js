@@ -975,6 +975,8 @@
       });
 
       ul.replaceChildren(frag);
+      const count = document.getElementById('participantCount');
+      if (count) count.textContent = String(ul.querySelectorAll('.participant-row').length);
     } catch (e) {
       console.error('[ROOM] renderParticipants failed', e);
     }
