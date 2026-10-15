@@ -12,8 +12,8 @@ Lightweight online planning poker with real-time updates, simple UX, and optiona
 https://planning-poker.at/
 
 **Current production baseline**
-Major Redesign release `major-redesign-prod-v1` plus invitation hotfix
-`2518de2`. Recent release history is maintained in `CHANGELOG.md`.
+Post-redesign UX release `e84cecd`, including CR-001 through CR-004. Recent
+release history is maintained in `CHANGELOG.md`.
 
 ---
 
@@ -282,17 +282,11 @@ For detailed instructions, troubleshooting, CI recipe, and full command list, se
 ## 15) Backlog (pointer)
 
 General backlog items are maintained in `docs/BACKLOG.md`. The approved
-post-redesign sequence CR-001 through CR-004 is maintained in
-`docs/PLANNING-POKER-CHANGE-REQUESTS.md`; each CR requires its mandatory start
-gate and a separate explicit approval before implementation. Documentation
-consolidation follows those CRs. Completed release history belongs in
-`CHANGELOG.md`, rather than temporary status or validation reports.
-
-CR-001 through CR-004 are complete on dedicated feature branches. CR-004 keeps
-the semantic participant heading and adds a compact visible count derived from
-the rendered roster; the existing participant-list live region remains the only
-announcement source. The next planned work is documentation consolidation; no
-additional CR is active.
+post-redesign sequence CR-001 through CR-004 and its implementation record are
+maintained in `docs/PLANNING-POKER-CHANGE-REQUESTS.md`. All four requests are
+complete, merged and deployed in production commit `e84cecd`. Completed release
+history belongs in `CHANGELOG.md`; `docs/BACKLOG.md` contains open work only.
+No additional CR is active.
 
 
 

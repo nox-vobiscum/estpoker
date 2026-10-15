@@ -1,6 +1,6 @@
 # Planning Poker — Post-Redesign Change Requests
 
-Status: **CR-001 through CR-004 complete**
+Status: **CR-001 through CR-004 complete and deployed in `e84cecd`**
 Scope: Follow-up UX improvements after the Major Redesign release.  
 Execution rule: **One CR at a time; mandatory start gate; approval; implementation through DONE; separate commit; STOP.**
 
@@ -212,6 +212,8 @@ Room creation/join/invite, identity/CID, participant lifecycle, host/host-transf
 - `renderParticipants()` updates the count after replacing the displayed roster, so host, spectator and disconnected rows remain counted while removed rows do not.
 - The count and separator are hidden from assistive technologies because the participant list is already the live region. The semantic heading therefore retains a stable accessible name without duplicate announcements.
 - Focused Chromium coverage verifies join, spectator, disconnected and removed states plus English/German layout at 375 and 1280 px.
+- Production validation covered the same participant states plus two-user vote,
+  reveal and reset flows in Dev and Clean styles.
 - No room state, participant management, gameplay, backend or WebSocket behavior changed.
 
 ---

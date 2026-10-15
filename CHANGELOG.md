@@ -5,6 +5,12 @@ temporary validation reports may be removed after the documentation consolidatio
 
 ## Unreleased
 
+_No unreleased changes._
+
+## 2026-10-15 — Post-redesign UX release
+
+Production commit: `e84cecd`.
+
 - Added a dedicated responsive estimation-topic panel with a clear bilingual
   heading, prominent wrapping title, blue clipboard icon and optional external
   ticket link while retaining host-only edit and delete controls.
@@ -16,8 +22,20 @@ temporary validation reports may be removed after the documentation consolidatio
 - Added a clearly visible individual Leave room action below the room guide.
   Hosts retain Close room for everyone in the menu, while guests see Leave room.
   Leaving follows the existing navigation, disconnect and host-transfer path.
-- Added the post-redesign change-request backlog for CR-001 through CR-003;
-  all three requests are complete on their feature branches.
+- Added a compact semantic participant heading with a live count of the rows
+  currently displayed. Host, spectator and disconnected rows remain counted;
+  removed rows do not.
+- Matched the participant heading typography to the discreet estimation-topic
+  heading in both Dev and Clean interface styles.
+- Completed and deployed post-redesign change requests CR-001 through CR-004.
+
+### Validation
+
+- GitHub CI and the complete GitHub Playwright workflow passed for `e84cecd`.
+- Koyeb deployed the commit successfully to `https://planning-poker.at`.
+- The production smoke covered participant lifecycle/count updates at 375 and
+  1280 px plus two-user voting, reveal and reset in Dev and Clean styles
+  (5 focused tests passed).
 
 ## 2026-10-14 — Major Redesign production release
 

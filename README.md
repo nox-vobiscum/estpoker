@@ -13,6 +13,9 @@ No accounts, no heavy SPA — just fast joins, real-time updates, and a clean UI
   switchable Dev/Clean interface styles
 - Topic field that accepts full JIRA links  
   → displays the **issue key** while keeping the full link as the target
+- Compact active-topic panel, collapsible in-room guide and clearly separated
+  individual Leave room action
+- Participant list with a compact live count of displayed room members
 - Real-time updates for votes, participants, and topic changes
 - Minimal client code and server-rendered HTML; public content pages use Google Analytics
 
@@ -69,7 +72,7 @@ docker run -p 8080:8080 planning-poker
 ### Additional Resources
 - **[STYLE.md](docs/STYLE.md)** - UI design tokens and style guide
 - **[BACKLOG.md](docs/BACKLOG.md)** - Future features and roadmap
-- **[PLANNING-POKER-CHANGE-REQUESTS.md](docs/PLANNING-POKER-CHANGE-REQUESTS.md)** - Approved post-redesign change requests
+- **[PLANNING-POKER-CHANGE-REQUESTS.md](docs/PLANNING-POKER-CHANGE-REQUESTS.md)** - Completed post-redesign change-request record
 - **[ADR](docs/adr/)** - Architecture Decision Records
 
 ## Features

@@ -13,30 +13,6 @@ Status tags:
 
 ---
 
-## Next steps — approved post-redesign change requests
-
-The detailed scope, mandatory start gate and acceptance criteria are maintained
-in [PLANNING-POKER-CHANGE-REQUESTS.md](PLANNING-POKER-CHANGE-REQUESTS.md).
-Execute one request at a time in this order:
-
-1. **CR-001 — Improve estimation topic visibility** (`DONE`)
-   - Present the active topic as a dedicated compact panel while preserving the
-     existing data, permissions, editing, events and persistence behavior.
-   - The known empty-topic editor issue was resolved and validated in CR-001.
-2. **CR-002 — Replace room information panels with collapsible manual** (`DONE`)
-   - Replace the room-only informational cards with one accessible guide that is
-     collapsed by default.
-3. **CR-003 — Improve room exit discoverability** (`DONE`)
-   - Expose the existing individual leave action more clearly while preserving
-     host-only close-room behavior and all lifecycle contracts.
-4. **CR-004 — Improve participant section heading** (`DONE`)
-   - Retain the semantic heading and show a compact live count derived from the
-     displayed participant rows without changing participant lifecycle behavior.
-
-Documentation consolidation follows CR-001 through CR-004.
-
----
-
 ## [P2] Debounced room snapshotter & unified mutation hooks ⏳
 **Goal:** Persist a debounced snapshot of the live room state on relevant mutations (topic, votes, join/leave/rename, settings), avoiding excessive writes.
 
