@@ -127,10 +127,11 @@ geometry or permission assertions for the changed surface.
 4. `.vote-chip` enters using `transform: translateY(...)`; its stable horizontal
    center uses the separate `translate` property. Combining these transforms can
    reintroduce the previously fixed chip drift.
-5. The mockup places the topic before participants, while production renders
-   participant heading/list before the topic. No current ticket explicitly
-   authorizes this DOM reorder. Keep production order unless the user approves a
-   change before the affected ticket.
+5. The approved target order is topic before participants whenever the topic is
+   enabled and visible. When the topic is disabled, no empty placeholder is
+   reserved there. RP-002 may perform the smallest safe DOM adjustment required
+   for that order while preserving all topic IDs, handlers, permissions and
+   visibility behavior.
 6. The mockup shows controls in illustrative guest/mobile states that are not
    permitted by the role matrix. They must never be used as implementation
    evidence.

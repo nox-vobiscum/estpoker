@@ -46,7 +46,7 @@ Do not infer permission from a mockup. Preserve server-side authorization; merel
 - **Tasks:** Compare current single-interface production/refactor baseline to design image. Map header, metadata, topic, participant rows, role/status icons, vote chip, action buttons, result panel, manual and responsive CSS owners; record JS-coupled selectors/IDs, transform and sticky interactions, actual menu permission rules. Identify reusable tokens and existing tests. Capture lightweight current-state screenshots (desktop/mobile host + guest) only if needed.
 - **Acceptance:** Explicit baseline commit/tag/branch; list of safe CSS/markup touch points and uncertain items; no product changes.
 - **Tests:** None; read-only audit.
-- **Result:** Baseline `03a3622` is protected by annotated tag `pre-interface-repolish`; work continues on `feature/interface-repolish`. The selector, ownership, role, token, focused-test and risk inventory is recorded in `PLANNING-POKER-REPOLISH-BASELINE.md`. No product files or behavior changed and no tests were required. One presentation decision remains intentionally open before an affected implementation ticket: production places participants before the topic, while the illustrative mockup reverses that order.
+- **Result:** Baseline `03a3622` is protected by annotated tag `pre-interface-repolish`; work continues on `feature/interface-repolish`. The selector, ownership, role, token, focused-test and risk inventory is recorded in `PLANNING-POKER-REPOLISH-BASELINE.md`. No product files or behavior changed and no tests were required. The approved target order is topic before participants whenever the topic is enabled and visible, with no empty topic placeholder when disabled.
 
 ## RP-001 — Room metadata & typographic hierarchy
 
@@ -61,7 +61,7 @@ Do not infer permission from a mockup. Preserve server-side authorization; merel
 
 - **Status:** TODO · **Model:** GPT-5.6 Sol (suggested)
 - **Goal:** Distinguish the estimation topic from participant rows without creating a giant headline.
-- **Tasks:** Dedicated restrained topic surface, modest border separation, small uppercase `SCHÄTZTHEMA` label, medium-weight readable title (not hero-sized); existing host edit/clear actions aligned right with shared compact button geometry. Preserve optional URL, empty/hidden states, long multiline titles, role-based permissions and existing handlers. No accidental host buttons for guests/spectators, regardless of illustrative mockup.
+- **Tasks:** Dedicated restrained topic surface, positioned before the participant heading/list whenever enabled and visible, with no reserved placeholder when disabled. Use modest border separation, small uppercase `SCHÄTZTHEMA` label and a medium-weight readable title (not hero-sized); align existing host edit/clear actions right with shared compact button geometry. Preserve optional URL, empty/hidden states, long multiline titles, role-based permissions, IDs and existing handlers. No accidental host buttons for guests/spectators, regardless of illustrative mockup.
 - **Acceptance:** Topic visibly identifiable; no hero styling, no new highlight color; host editing works; guest/spectator cannot access topic edit/clear; long topics flow on mobile.
 - **Tests:** Focused topic state/permissions + desktop/mobile layout only.
 - **Result:** Pending.
