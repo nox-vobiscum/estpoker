@@ -234,3 +234,20 @@ and 1280px; guide behavior at 320/375/768/1280px; and mobile scroll clearance
 for the final voting row, guide, leave control and footer. TypeScript and diff
 checks pass. No Maven/full regression/cross-browser suite or deployment.
 
+## RP-006 result and handoff
+
+Responsive presentation is verified for 320/375/768/769/1280px layouts. The
+two inherited RP-003 findings are resolved with narrowly scoped CSS: explicit
+Light theme no longer restores the obsolete host-row fill, and the mobile
+participant identity zone reserves clearance before the centered vote/status
+chip. Long names still truncate, role markers remain beside the identity and
+the chip center is unchanged. The stylesheet cache version is 84.
+
+The TypeScript build check and 26 focused Chromium cases pass. Coverage includes
+mobile header/menu availability, long room metadata, multiline topic content,
+five-participant host/guest/spectator/inactive states, host-action permissions,
+keyboard operation, popup viewport containment, sticky-action clearance and
+horizontal overflow. Final Light screenshots at 320 and 1280px were inspected.
+No Maven, full regression or cross-browser suite was run. No known RP-006 gap
+remains; RP-007 is the next separately gated ticket.
+

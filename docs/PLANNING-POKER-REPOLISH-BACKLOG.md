@@ -95,12 +95,12 @@ Do not infer permission from a mockup. Preserve server-side authorization; merel
 
 ## RP-006 — Responsive & accessible presentation verification
 
-- **Status:** TODO · **Model:** GPT-5.6 Sol (suggested)
+- **Status:** DONE · **Model:** GPT-5.6 Sol
 - **Goal:** Finish small-screen behavior without changing desktop or functional contracts.
 - **Tasks:** Inspect at 320/375/768/769/1280 px; ensure mobile **only brand + hamburger** in header, language/theme are available through existing menu; room metadata adapts for long strings, topic multiline, participant actions popup stays within viewport, touch targets/focus outlines work, sticky action does not occlude cards, no outer page frame or horizontal overflow. Check long names, inactive/spectator, two users, many users, host and guest/spectator. Restrict fixes to proven presentation issues; if functional impact suspected STOP.
 - **Acceptance:** No overlap/cutoff; accessible controls; intended full-width header on desktop; no accidental host controls in any non-host state.
 - **Tests:** Focused responsive geometry/keyboard/role screenshots (not complete project suite); report remaining known gaps.
-- **Result:** Pending.
+- **Result:** Responsive presentation was verified across the established 320/375/768/769/1280px breakpoints and dense host/guest/spectator/inactive roster states. Two inherited RP-003 issues were corrected locally: the explicit Light-theme host-row fill is now neutral like every other theme, and the mobile identity zone reserves sufficient space before the geometrically centered vote chip so long names and role markers cannot collide with it. Header controls, room metadata, topic wrapping, participant actions, mobile sticky action clearance, guide and leave controls retain their existing behavior; CSS cache version is 84. TypeScript and 26 focused Chromium cases pass, including keyboard/permission coverage, popup containment, long values, five-participant rooms and horizontal-overflow checks. Dark/Light behavior is covered by the targeted specs and final Light mobile/desktop screenshots were inspected. No Maven, full regression or cross-browser suite was run; no known RP-006 presentation gap remains.
 
 ## RP-007 — Epic verification, decision & handoff
 
