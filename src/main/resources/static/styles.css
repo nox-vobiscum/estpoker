@@ -598,7 +598,7 @@ html.light .vote-chip.heat, body.light .vote-chip.heat,
 .topic-row.editable:hover{background:rgba(148,163,184,.08)}
 
 /* ---------- Room guide -------------------------------------------------- */
-.room-manual{margin-top:5.25rem;padding-bottom:8px}
+.room-manual{margin-top:3rem;padding-bottom:8px}
 .room-manual-details{
   overflow:clip;background:var(--panel);border:1px solid var(--border);
   border-radius:var(--ui-large-radius);box-shadow:var(--ui-panel-shadow);
@@ -626,7 +626,7 @@ html.light .vote-chip.heat, body.light .vote-chip.heat,
 .room-manual-body h3{margin:0 0 4px;color:var(--text-strong);font-size:.82rem;line-height:1.35}
 .room-manual-body p{margin:0;font-size:.78rem;line-height:1.55;overflow-wrap:anywhere}
 @media (max-width:600px){
-  .room-manual{padding-bottom:12px}
+  .room-manual{margin-top:5.25rem;padding-bottom:12px}
   .room-manual-body{grid-template-columns:1fr}
 }
 @media (prefers-reduced-motion:reduce){.room-manual-chevron{transition:none}}

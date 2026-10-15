@@ -86,12 +86,12 @@ Do not infer permission from a mockup. Preserve server-side authorization; merel
 
 ## RP-005 — Results, voting, actions & guide: preservation/polish
 
-- **Status:** TODO · **Model:** GPT-5.6 Sol (suggested)
+- **Status:** DONE · **Model:** GPT-5.6 Sol
 - **Goal:** Harmonize section spacing without changing established core gameplay UI.
 - **Tasks:** Preserve existing result states: hidden before reveal/reset; 🎉 + green consensus chip only when consensus; average/median/range only when non-consensus reveal (special-card handling unchanged). Preserve result and vote-chip colors, sizes, sequence, selected states and centering. Preserve compact desktop reveal/new-round button and current mobile sticky host behavior including safe scroll clearance; guest/spectator should not receive host actions. Keep bottom Leave Room button available to all roles and closed-by-default `Anleitung & Funktionen` below action area; **reuse the current production guide component** and its look, not the mockup's unboxed text. Adjust only local spacing/consistency if demonstrably needed.
 - **Acceptance:** No appearance/behavior regression to result or voting chips; action never obscures last voting row; guide and leave remain discoverable; no extra colors/effects.
 - **Tests:** Focused unrevealed/revealed/consensus/non-consensus/reset/host-vs-guest mobile layout and sticky clearance.
-- **Result:** Pending.
+- **Result:** The established result, cards, vote-chip colors/sizes/order, host button geometry, mobile fixed action, guide component and leave control remain unchanged. The only product styling adjustment reduces the rigid desktop gap before the existing collapsed guide from `5.25rem` to `3rem`, bringing it into the room section rhythm; the original `5.25rem` is retained at `≤600px` as clearance for the fixed host action. CSS cache version is 83. A 19-case focused baseline passed before the change. Afterward, 10 existing focused Chromium cases confirmed consensus/statistics center alignment at 375/1280px and guide behavior at 320/375/768/1280px; two new cases confirmed hidden/revealed/consensus/non-consensus/reset states, compact host-only controls, guest denial, guide/leave availability and mobile ability to scroll the final voting row, guide and leave control clear of the fixed action/footer. TypeScript and diff checks pass. No Maven/full regression/cross-browser suite or deployment.
 
 ## RP-006 — Responsive & accessible presentation verification
 

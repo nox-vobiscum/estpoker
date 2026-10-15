@@ -218,3 +218,19 @@ surface. These are outside RP-004 and have not been silently corrected here.
 Artifacts are in ignored `test-results/rp004-complete` (Dark mobile and Light
 desktop menu screenshots); they are not committed.
 
+## RP-005 result and handoff
+
+Result rendering, card/vote presentation, reveal/reset behavior, mobile fixed
+host action, the production guide component and individual Leave Room behavior
+were preserved. The only product CSS change reduces the desktop-only gap before
+the collapsed guide from `5.25rem` to `3rem`; mobile retains `5.25rem` so the
+fixed host action has safe scroll clearance. The stylesheet cache version is 83.
+
+A 19-case focused baseline passed. Post-change validation retained ten existing
+focused result-alignment and guide cases and added two targeted state/layout
+checks. Together they cover hidden, consensus, statistics and reset states;
+host-vs-guest actions; compact desktop controls; result/card centering at 375
+and 1280px; guide behavior at 320/375/768/1280px; and mobile scroll clearance
+for the final voting row, guide, leave control and footer. TypeScript and diff
+checks pass. No Maven/full regression/cross-browser suite or deployment.
+
