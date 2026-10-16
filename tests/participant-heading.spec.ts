@@ -51,6 +51,7 @@ for (const { width, language, label } of [
     await expect(heading).toBeVisible();
     await expect(heading).toHaveAccessibleName(label);
     await expect(page.locator('#participantCount')).toHaveText('1');
+    await expect(page.locator('#participantCount')).toHaveCSS('border-radius', '5px');
 
     const geometry = await heading.evaluate(element => {
       const headingRect = element.getBoundingClientRect();

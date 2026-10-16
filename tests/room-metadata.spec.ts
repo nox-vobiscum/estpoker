@@ -18,6 +18,7 @@ for (const width of widths) {
     await expect(page.locator('#youName')).toHaveText(participantName);
     await expect(page.locator('#roomCodeVal')).toHaveText(roomCode);
     await expect(page.locator('#copyRoomLink')).toHaveAccessibleName(/copy.*room/i);
+    await expect(page.locator('#copyRoomLink')).toHaveCSS('border-radius', '10px');
     await expect(metadata.locator('.mi-label').first()).toHaveCSS('text-transform', 'uppercase');
     const labelStyles = await page.locator('.main-info .mi-label:first-of-type, .participant-heading, .topic-heading').evaluateAll(elements =>
       elements.map(element => {

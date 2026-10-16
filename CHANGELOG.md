@@ -10,6 +10,8 @@ temporary validation reports may be removed after the documentation consolidatio
   participants, settings and host actions.
 - Extended the shared monochrome icon set to room identifiers, topic edit and
   delete actions, and the participant removal action.
+- Aligned the invite-link and topic-action button corners, plus the participant
+  counter shape, with the restrained rounded geometry used by header controls.
 - Arranged the language and theme controls side by side at their compact,
   intrinsic control widths in the responsive mobile settings menu, while
   keeping both preferences exclusively in the header on desktop.
