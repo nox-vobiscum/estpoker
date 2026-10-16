@@ -5,6 +5,10 @@ temporary validation reports may be removed after the documentation consolidatio
 
 ## Unreleased
 
+- Centered the participant-action trigger's three dots independently of font
+  metrics and sized its menu to its content, retaining the mobile width cap.
+  Focused Chromium/WebKit checks cover DE/EN at 375/393/1280px, menu hit targets,
+  keyboard navigation and focus return; trigger dimensions remain unchanged.
 - Grouped the participant heading and list inside a transparent, subtly framed
   section, using a weaker border than the estimation topic. Row dimensions and
   vote-chip horizontal positions are preserved; menus remain unclipped.
