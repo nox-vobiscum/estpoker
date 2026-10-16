@@ -5,6 +5,10 @@ temporary validation reports may be removed after the documentation consolidatio
 
 ## Unreleased
 
+- Fixed the iOS/mobile room layout by stacking room metadata with wrapping
+  values, reclaiming participant-name space, stabilizing vote-chip width across
+  emoji fonts, and returning the round action to document flow below the card
+  grid so it cannot cover cards.
 - Replaced person, host, spectator and inactive emoji/status glyphs with a
   shared set of minimalist monochrome icons across room information,
   participants, settings and host actions.

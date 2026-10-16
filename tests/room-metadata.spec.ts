@@ -48,7 +48,7 @@ for (const width of widths) {
     expect(geometry.documentOverflow).toBeLessThanOrEqual(1);
     expect(geometry.metadataLeft).toBeGreaterThanOrEqual(0);
     expect(geometry.metadataRight).toBeLessThanOrEqual(width + 1);
-    if (width === 320) {
+    if (width <= 600) {
       expect(geometry.roomTop).toBeGreaterThan(geometry.participantTop);
     } else {
       expect(Math.abs(geometry.roomTop - geometry.participantTop)).toBeLessThanOrEqual(1);

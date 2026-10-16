@@ -30,8 +30,9 @@ for (const { width, height } of [{ width: 320, height: 568 }, { width: 375, heig
         const action = page.locator('#revealButton:visible, #resetButton:visible');
         const actionBox = await action.boundingBox();
         if (width <= 600) {
-          expect(actionBox!.y + actionBox!.height).toBeLessThanOrEqual(footerBox!.y);
-          expect(lastBox!.y + lastBox!.height).toBeLessThanOrEqual(actionBox!.y);
+          const cardGridBox = await page.locator('#cardGrid').boundingBox();
+          expect(cardGridBox!.y + cardGridBox!.height).toBeLessThanOrEqual(actionBox!.y + 1);
+          expect(await action.evaluate(button => getComputedStyle(button).position)).toBe('static');
         }
         await page.locator('#copyRoomLink').scrollIntoViewIfNeeded();
         const copyBox = await page.locator('#copyRoomLink').boundingBox();

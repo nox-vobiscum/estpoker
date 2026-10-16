@@ -30,7 +30,7 @@
   --icon-col-width:1.5rem;
 
   /* Chips */
-  --vote-chip-width:5ch;
+  --vote-chip-width:3rem;
 
   /* Inactive */
   --inactive-fg:#8c949f;
@@ -185,9 +185,13 @@ strong{color:var(--text-strong)}
 .room-with-actions{display:flex;align-items:center;gap:8px;min-width:0;width:100%}
 .room-with-actions #roomCodeVal{flex:1 1 auto}
 .room-with-actions .icon-button{flex:none;margin-left:0}
-@media (max-width:360px){
+@media (max-width:600px){
   .main-info{grid-template-columns:minmax(0,1fr)}
   .main-info-group + .main-info-group{border-inline-start:0;border-top:1px solid var(--ui-surface-border)}
+  .main-info-group{padding-block:9px}
+  .main-info dd > strong,.room-with-actions #roomCodeVal{
+    overflow:visible;text-overflow:clip;white-space:normal;overflow-wrap:anywhere;
+  }
 }
 
 /* ---------- Topic row ---------------------------------------------------- */
@@ -591,12 +595,11 @@ html.light .vote-chip.heat, body.light .vote-chip.heat,
 @media (max-width:600px){
   .app-footer{font-size:.62rem;padding:6px 10px;margin-top:50px}
   body{padding-bottom:calc(var(--footer-h) + 72px)}
+  .vote-actions{position:static}
   #revealButton,#resetButton{
-    position:fixed;left:16px;right:16px;
-    bottom:calc(var(--cta-offset) + var(--footer-h) + env(safe-area-inset-bottom));
-    z-index:20;box-shadow:0 10px 24px rgba(0,0,0,.22);
+    width:100%;margin-top:.5rem;box-shadow:0 10px 24px rgba(0,0,0,.22);
   }
-  .container{padding-bottom:calc(var(--footer-h) + 120px)}
+  .container{padding-bottom:calc(var(--footer-h) + 72px)}
 }
 @supports (-webkit-touch-callout:none){.app-footer{font-size:.58rem}}
 
@@ -1490,16 +1493,27 @@ html.menu-scroll-locked, .menu-scroll-locked body{overflow:hidden}
 
 @media (max-width:768px){
   :root #liveParticipantList .participant-row{
-    grid-template-columns:var(--icon-col-width) minmax(0,1fr) minmax(var(--vote-chip-width),1fr);
+    grid-template-columns:var(--icon-col-width) minmax(0,1fr) 40px;
     padding:10px 12px;
   }
   :root #liveParticipantList .participant-row .participant-identity{
-    grid-column:2;grid-row:1;width:calc(100% - 2.5ch - 1.1rem);overflow:hidden;
+    grid-column:2;grid-row:1;width:auto;min-width:0;overflow:hidden;
   }
   :root #liveParticipantList .participant-row .participant-identity .name{flex:1 1 auto}
   :root #liveParticipantList .participant-row .name{grid-column:auto;grid-row:auto}
   :root #liveParticipantList .participant-row .row-right :where(.vote-chip,.mini-chip,.status-icon){
     position:absolute;left:50%;translate:-50% 0;transform:none;pointer-events:none;z-index:1;
+  }
+  :root #liveParticipantList .participant-row .row-right{
+    min-width:40px;justify-content:flex-end;
+  }
+}
+@media (max-width:600px){
+  :root #liveParticipantList .participant-row{
+    grid-template-columns:var(--icon-col-width) minmax(0,1fr) auto;
+  }
+  :root #liveParticipantList .participant-row .row-right :where(.vote-chip,.mini-chip,.status-icon){
+    position:static;translate:none;transform:none;
   }
 }
 :root[data-theme="light"] #liveParticipantList .participant-row.is-host{
