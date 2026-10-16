@@ -1570,3 +1570,13 @@ html.menu-scroll-locked, .menu-scroll-locked body{overflow:hidden}
 :root[data-theme="light"] #liveParticipantList .participant-row.is-host{
   background:transparent;outline:0;
 }
+
+/* Mobile voting tracks stay fixed to shared axes inside a centered grid. */
+@media (max-width:768px){
+  #cardGrid.card-grid,
+  #cardGrid.card-grid.fixed4{
+    width:100% !important;max-width:100% !important;margin-inline:auto !important;
+    grid-template-columns:repeat(auto-fill,minmax(var(--card-min-mobile),var(--card-max-mobile)));
+    justify-content:center !important;justify-items:center !important;
+  }
+}

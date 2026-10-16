@@ -4,6 +4,10 @@ This file summarizes completed product changes.
 
 ## 2026-10-16
 
+- Centered the mobile voting grid on shared fixed track axes while keeping
+  incomplete final rows left-aligned within the centered grid. Chromium and
+  WebKit geometry checks cover 320/375/393/430px, multiple decks, an optional
+  special card, overflow and an unchanged desktop control.
 - Refreshed the bilingual in-room guide, About copy and detailed DE/EN user
   guides against current decks, participant states, permissions, result rules,
   navigation and keyboard behavior. Removed obsolete timing, shortcut and room-
