@@ -62,6 +62,17 @@ test('shared participant framing preserves row geometry and accessible menus', a
 
     for (const width of [375, 393, 1280]) {
       await host.setViewportSize({ width, height: 852 });
+      const rowMetrics = await host.locator('#liveParticipantList .participant-row').evaluateAll(rows => rows.map(row => {
+        const rowRect = row.getBoundingClientRect();
+        const chipRect = row.querySelector('.row-right .mini-chip,.row-right .vote-chip')!.getBoundingClientRect();
+        return { height: rowRect.height, chipOffset: chipRect.top + chipRect.height / 2 - (rowRect.top + rowRect.height / 2) };
+      }));
+      expect(Math.max(...rowMetrics.map(metric => metric.height)) - Math.min(...rowMetrics.map(metric => metric.height))).toBeLessThanOrEqual(1);
+      for (const metric of rowMetrics) expect(Math.abs(metric.chipOffset)).toBeLessThanOrEqual(1);
+      for (const size of await host.locator('.participant-more').evaluateAll(buttons => buttons.map(button => {
+        const rect = button.getBoundingClientRect();
+        return { width: rect.width, height: rect.height };
+      }))) expect(size).toEqual({ width: 32, height: 32 });
       for (const last of [false, true]) {
         const triggers = host.locator('.participant-more');
         await (last ? triggers.last() : triggers.first()).click();

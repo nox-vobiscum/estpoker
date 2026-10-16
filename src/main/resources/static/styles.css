@@ -1432,7 +1432,7 @@ html.menu-scroll-locked, .menu-scroll-locked body{overflow:hidden}
 
 /* Participant actions share one menu on desktop and mobile. */
 #liveParticipantList .participant-more{
-  margin-left:auto;flex:none;width:40px;height:40px;padding:0;
+  margin-left:auto;flex:none;width:32px;height:32px;padding:0;
   display:inline-flex;align-items:center;justify-content:center;
   border:1px solid transparent;border-radius:var(--ui-button-radius);
   background:transparent;color:var(--text-dim);box-shadow:none;
@@ -1482,7 +1482,7 @@ html.menu-scroll-locked, .menu-scroll-locked body{overflow:hidden}
 }
 :root #liveParticipantList .participant-row{
   grid-template-columns:var(--icon-col-width) minmax(0,1fr) minmax(0,1fr);
-  margin:0;padding:11px 16px;border:0;border-bottom:1px solid var(--ui-surface-border);
+  min-height:54px;margin:0;padding:11px 16px;border:0;border-bottom:1px solid var(--ui-surface-border);
   border-radius:0;background:transparent;box-shadow:none;outline:0;position:relative;
 }
 :root #liveParticipantList .participant-row:last-child{border-bottom:0}
@@ -1513,7 +1513,7 @@ html.menu-scroll-locked, .menu-scroll-locked body{overflow:hidden}
   .participant-section .participant-heading{padding-inline:12px}
   :root #liveParticipantList .participant-row{
     grid-template-columns:var(--icon-col-width) minmax(0,1fr) 40px;
-    padding:10px 12px;
+    min-height:52px;padding:10px 12px;
   }
   :root #liveParticipantList .participant-row .participant-identity{
     grid-column:2;grid-row:1;width:auto;min-width:0;overflow:hidden;

@@ -5,6 +5,9 @@ temporary validation reports may be removed after the documentation consolidatio
 
 ## Unreleased
 
+- Standardized participant-row heights with and without host actions and
+  reduced the three-dot trigger to 32px. Vote chips remain vertically centered,
+  and the existing menu interaction remains unchanged across desktop/mobile.
 - Changed the desktop room metadata grid so the participant block uses its
   intrinsic width with comfortable trailing space, capped at half the row,
   while the room block consumes the remainder and keeps sharing at the far
