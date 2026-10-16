@@ -44,3 +44,22 @@ test('home form has breathing room below the header', async ({ page }) => {
     expect(form.y - (header.y + header.height)).toBeGreaterThanOrEqual(width < 600 ? 32 : 48);
   }
 });
+
+test('landing form icons stay aligned with their labels', async ({ page }) => {
+  for (const width of [320, 915]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto('/');
+
+    for (const label of ['nameInput', 'roomInput']) {
+      const positions = await page.locator(`label[for="${label}"]`).evaluate(element => {
+        const icon = element.querySelector('svg')!.getBoundingClientRect();
+        const text = element.querySelector('span:last-child')!.getBoundingClientRect();
+        return {
+          iconCenter: icon.y + icon.height / 2,
+          textCenter: text.y + text.height / 2,
+        };
+      });
+      expect(Math.abs(positions.iconCenter - positions.textCenter)).toBeLessThanOrEqual(1);
+    }
+  }
+});
