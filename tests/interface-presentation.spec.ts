@@ -14,7 +14,7 @@ for (const width of [375, 768, 1280]) {
         await expect(page.locator('body')).toHaveCSS('background-color',
           theme === 'dark' ? 'rgb(30, 30, 30)' : 'rgb(246, 247, 249)');
         const backgroundImage = await page.locator('body').evaluate(el => getComputedStyle(el).backgroundImage);
-        expect(backgroundImage === 'none').toBe(theme !== 'dark');
+        expect(backgroundImage).not.toBe('none');
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
         await page.locator('#menuButton').click();
         if (width < 769) {
