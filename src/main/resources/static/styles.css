@@ -601,6 +601,11 @@ html.light .vote-chip.heat, body.light .vote-chip.heat,
   }
   .container{padding-bottom:calc(var(--footer-h) + 72px)}
 }
+@media (max-width:768px){
+  #resultRow{margin-block:.75rem .5rem}
+  #resultRow.is-hidden{display:none}
+  .card-grid{margin-block:.5rem}
+}
 @supports (-webkit-touch-callout:none){.app-footer{font-size:.58rem}}
 
 /* ---------- Utilities ---------------------------------------------------- */

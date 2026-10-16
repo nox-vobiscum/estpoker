@@ -5,6 +5,10 @@ temporary validation reports may be removed after the documentation consolidatio
 
 ## Unreleased
 
+- Compacted the mobile room flow: before reveal, the hidden result row no
+  longer reserves its 1.6rem minimum height, 1.3rem vertical padding and
+  paragraph margins; after reveal, result and card-grid spacing now use
+  explicit .75rem/.5rem mobile margins. Desktop spacing is unchanged.
 - Fixed the iOS/mobile room layout by stacking room metadata with wrapping
   values, reclaiming participant-name space, stabilizing vote-chip width across
   emoji fonts, and returning the round action to document flow below the card
