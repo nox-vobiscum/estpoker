@@ -13,7 +13,7 @@
 
     <dl class="main-info">
       <div class="main-info-group main-info-group--participant">
-        <dt><span class="mi-icon" aria-hidden="true">👤</span><span class="mi-label" th:text="#{label.you}" data-i18n="label.you">You are:</span></dt>
+        <dt><span class="mi-icon" aria-hidden="true"><svg class="pp-status-icon"><use href="#pp-icon-person"/></svg></span><span class="mi-label" th:text="#{label.you}" data-i18n="label.you">You are:</span></dt>
         <dd><strong id="youName" th:text="${participantName}">Guest</strong></dd>
       </div>
 
@@ -66,7 +66,7 @@
       <span class="host-label"
             title="Host"
             aria-label="Host"
-            data-i18n-attr="title:label.host;aria-label:label.host">👑</span>
+            data-i18n-attr="title:label.host;aria-label:label.host"><svg class="pp-status-icon" aria-hidden="true"><use href="#pp-icon-host"/></svg></span>
     </template>
 
     <!-- Result row (always present; space is reserved even when hidden) -->
@@ -133,7 +133,7 @@
   </div>
 
   <!-- Room connector (bump v-param if clients cache JS) -->
-  <script defer th:src="@{/js/room.js?v=62}"
+  <script defer th:src="@{/js/room.js?v=63}"
           th:attr="data-participant=${participantName},data-room=${roomCode}"></script>
 
   <div th:replace="~{fragments/footer :: footer}"></div>

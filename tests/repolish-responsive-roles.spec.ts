@@ -42,9 +42,13 @@ for (const width of [320, 1280]) {
         await expect(host.locator('.desktop-theme')).toBeVisible();
       }
       await host.locator('#menuButton').click();
-      if (width <= 768) await expect(host.locator('#menuLanguageHeading')).toBeVisible();
-      else await expect(host.locator('#menuLanguageHeading')).toBeHidden();
-      await expect(host.locator('#menuTheme')).toBeVisible();
+      if (width <= 768) {
+        await expect(host.locator('#menuLanguageHeading')).toBeVisible();
+        await expect(host.locator('#menuTheme')).toBeVisible();
+      } else {
+        await expect(host.locator('#menuLanguageHeading')).toBeHidden();
+        await expect(host.locator('#menuTheme')).toBeHidden();
+      }
       await host.locator('#menuCloseButton').click();
 
       await expect(host.locator('.participant-more')).toHaveCount(4);

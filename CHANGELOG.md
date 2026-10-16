@@ -5,6 +5,9 @@ temporary validation reports may be removed after the documentation consolidatio
 
 ## Unreleased
 
+- Replaced person, host, spectator and inactive emoji/status glyphs with a
+  shared set of minimalist monochrome icons across room information,
+  participants, settings and host actions.
 - Arranged the language and theme controls side by side at their compact,
   intrinsic control widths in the responsive mobile settings menu, while
   keeping both preferences exclusively in the header on desktop.

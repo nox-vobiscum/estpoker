@@ -10,6 +10,7 @@ test('participant roles stay beside the name while the vote slot remains centere
 
   try {
     await host.goto(roomUrlFor('RoleHost', room));
+    await expect(host.locator('.main-info-group--participant .pp-status-icon use')).toHaveAttribute('href', '#pp-icon-person');
     await expect(host.locator('#liveParticipantList .participant-row.is-host')).toHaveCount(1);
     await guest.goto(roomUrlFor('RoleGuest', room));
 
@@ -19,6 +20,8 @@ test('participant roles stay beside the name while the vote slot remains centere
     const guestRow = rows.filter({ has: host.locator('.name', { hasText: /^RoleGuest$/ }) });
 
     await expect(hostRow.locator('.participant-identity .participant-role-host')).toHaveCount(1);
+    await expect(hostRow.locator('.participant-icon .pp-status-icon[data-icon="person"] use')).toHaveAttribute('href', '#pp-icon-person');
+    await expect(hostRow.locator('.participant-role-host .pp-status-icon[data-icon="host"] use')).toHaveAttribute('href', '#pp-icon-host');
     await expect(hostRow.locator('.host-label')).toHaveText('Host');
     await expect(guestRow.locator('.participant-role-host')).toHaveCount(0);
 
@@ -26,6 +29,7 @@ test('participant roles stay beside the name while the vote slot remains centere
     await guestRow.locator('button.row-action.spectator').click();
     await expect(guestRow).toHaveClass(/spectator/);
     await expect(guestRow.locator('.participant-identity .participant-role-spectator')).toHaveCount(1);
+    await expect(guestRow.locator('.participant-role-spectator .pp-status-icon[data-icon="spectator"] use')).toHaveAttribute('href', '#pp-icon-spectator');
     await expect(guestRow.locator('.spectator-label')).toHaveText('Spectator');
     await expect(guestRow.locator('.row-right .spectator-slot')).toHaveText('–');
 
@@ -43,6 +47,7 @@ test('participant roles stay beside the name while the vote slot remains centere
     await guestContext.close();
     await expect(guestRow).toHaveClass(/disconnected/, { timeout: 5_000 });
     await expect(guestRow.locator('.participant-identity .participant-role-inactive')).toHaveCount(1);
+    await expect(guestRow.locator('.participant-role-inactive .pp-status-icon[data-icon="inactive"] use')).toHaveAttribute('href', '#pp-icon-inactive');
     await expect(guestRow.locator('.inactive-label')).toHaveText('Inactive');
   } finally {
     await hostContext.close();

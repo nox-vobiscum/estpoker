@@ -1,5 +1,19 @@
 <!-- Shared shell; functional page headings remain in page content. -->
 <header th:fragment="appHeader" class="app-header">
+  <svg class="app-icon-sprite" aria-hidden="true" focusable="false">
+    <symbol id="pp-icon-person" viewBox="0 0 24 24">
+      <circle cx="12" cy="7" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>
+    </symbol>
+    <symbol id="pp-icon-host" viewBox="0 0 24 24">
+      <path d="M4 18h16l1-10-5 4-4-7-4 7-5-4 1 10Zm1 3h14"/>
+    </symbol>
+    <symbol id="pp-icon-spectator" viewBox="0 0 24 24">
+      <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="2.5"/>
+    </symbol>
+    <symbol id="pp-icon-inactive" viewBox="0 0 24 24">
+      <path d="M3 16h7l-7 6h7M9 10h6l-6 5h6M15 4h6l-6 5h6"/>
+    </symbol>
+  </svg>
   <a class="app-brand" th:href="@{/}">
     <img src="/assets/branding/brandmark-rbs-96.png" alt="" width="48" height="48">
     <span th:text="#{ui.heading}" data-i18n="ui.heading">Planning Poker</span>

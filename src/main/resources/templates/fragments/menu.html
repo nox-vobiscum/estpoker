@@ -50,7 +50,10 @@
 
       <!-- Card sequence -->
       <div class="menu-section menu-section--sequence" role="group" aria-labelledby="menuSequenceHeading" th:if="${showSeq}">
-        <h4 id="menuSequenceHeading" class="section-title" data-i18n="menu.sequence">Card sequence [👑]</h4>
+        <h4 id="menuSequenceHeading" class="section-title section-title-with-icon">
+          <svg class="pp-status-icon" aria-hidden="true"><use href="#pp-icon-host"/></svg>
+          <span data-i18n="menu.sequence">Card sequence</span>
+        </h4>
         <fieldset id="menuSeqChoice" class="menu-choice vertical" aria-labelledby="menuSequenceHeading">
           <label class="radio-row">
             <input type="radio" name="menu-seq" value="fib.scrum" checked>
@@ -77,7 +80,10 @@
 
       <!-- Room functions -->
       <div class="menu-section menu-section--room" role="group" aria-labelledby="menuRoomHeading" th:if="${showRoom}">
-        <h4 id="menuRoomHeading" class="section-title" data-i18n="menu.roomFunctions">Room functions [👑]</h4>
+        <h4 id="menuRoomHeading" class="section-title section-title-with-icon">
+          <svg class="pp-status-icon" aria-hidden="true"><use href="#pp-icon-host"/></svg>
+          <span data-i18n="menu.roomFunctions">Room functions</span>
+        </h4>
 
         <!-- Auto-reveal -->
         <div class="menu-item switch" role="group" id="rowAutoReveal"
@@ -174,7 +180,7 @@
         <h4 id="menuPersonalHeading" class="section-title" data-i18n="menu.personalFunctions">Personal functions</h4>
         <div class="menu-item switch" role="group" id="rowParticipation"
              th:attr="title=#{menu.participation}" data-i18n-attr="title:menu.participation">
-          <span class="mi-icon" aria-hidden="true">🧑‍💻</span>
+          <span class="mi-icon" aria-hidden="true"><svg class="pp-status-icon"><use href="#pp-icon-person"/></svg></span>
           <div class="switch-text">
             <strong data-i18n="menu.participation">Participation</strong>
             <span id="menuPartStatus" data-i18n="participation.imIn">I'm estimating</span>

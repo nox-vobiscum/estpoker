@@ -9,6 +9,9 @@ for (const width of [320, 768, 1280]) {
     await expect(page.locator('body')).toHaveClass(/is-host/);
     await page.locator('#menuButton').click();
     await expect(page.locator('#menuCloseButton')).toBeFocused();
+    await expect(page.locator('#menuSequenceHeading .pp-status-icon use')).toHaveAttribute('href', '#pp-icon-host');
+    await expect(page.locator('#menuRoomHeading .pp-status-icon use')).toHaveAttribute('href', '#pp-icon-host');
+    await expect(page.locator('#rowParticipation .pp-status-icon use')).toHaveAttribute('href', '#pp-icon-person');
 
     const sectionIds = width <= 768
       ? ['menuLanguageHeading', 'menuThemeHeading', 'menuSequenceHeading', 'menuRoomHeading', 'menuPersonalHeading', 'menuSecondaryHeading']
@@ -69,6 +72,7 @@ test('public pages retain only their applicable settings sections', async ({ pag
   await page.setViewportSize({ width: 375, height: 600 });
   for (const path of ['/', '/about']) {
     await page.goto(path + '?lang=de');
+    if (path === '/') await expect(page.locator('.join-form .pp-status-icon use')).toHaveAttribute('href', '#pp-icon-person');
     await page.locator('#menuButton').click();
     await expect(page.locator('#menuLanguageHeading')).toHaveText('Sprache');
     await expect(page.locator('#menuPersonalHeading')).toHaveText('Persönliche Funktionen');

@@ -813,16 +813,30 @@
     svg.setAttribute('viewBox', '0 0 24 24');
     svg.setAttribute('aria-hidden', 'true');
     svg.setAttribute('focusable', 'false');
-    const shapes = action === 'host'
-      ? [['circle', { cx: '12', cy: '7', r: '4' }], ['path', { d: 'M4 21a8 8 0 0 1 16 0' }]]
-      : action === 'spectator'
-        ? [['path', { d: 'M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z' }], ['circle', { cx: '12', cy: '12', r: '2.5' }]]
-        : [['path', { d: 'M4 7h16M9 7V4h6v3m3 0-1 14H7L6 7m4 4v6m4-6v6' }]];
+    if (action === 'host' || action === 'spectator') {
+      const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+      use.setAttribute('href', action === 'host' ? '#pp-icon-host' : '#pp-icon-spectator');
+      svg.appendChild(use);
+      return svg;
+    }
+    const shapes = [['path', { d: 'M4 7h16M9 7V4h6v3m3 0-1 14H7L6 7m4 4v6m4-6v6' }]];
     shapes.forEach(([tag, attributes]) => {
       const shape = document.createElementNS('http://www.w3.org/2000/svg', tag);
       Object.entries(attributes).forEach(([name, value]) => shape.setAttribute(name, value));
       svg.appendChild(shape);
     });
+    return svg;
+  }
+
+  function participantStatusIcon(kind) {
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.classList.add('pp-status-icon');
+    svg.dataset.icon = kind;
+    svg.setAttribute('aria-hidden', 'true');
+    svg.setAttribute('focusable', 'false');
+    const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+    use.setAttribute('href', '#pp-icon-' + kind);
+    svg.appendChild(use);
     return svg;
   }
 
@@ -951,8 +965,8 @@
 
         const left = document.createElement('span');
         left.className = 'participant-icon';
-        left.textContent = '👤';
         left.setAttribute('aria-hidden', 'true');
+        left.appendChild(participantStatusIcon('person'));
         li.appendChild(left);
 
         const identity = document.createElement('span');
@@ -966,9 +980,9 @@
         if (p.isHost) {
           const crown = document.createElement('span');
           crown.className = 'participant-role participant-role-host';
-          crown.textContent = '♛';
           crown.setAttribute('aria-hidden', 'true');
           crown.setAttribute('title', t('label.host', 'Host'));
+          crown.appendChild(participantStatusIcon('host'));
           identity.appendChild(crown);
 
           const sr = document.createElement('span');
@@ -980,9 +994,9 @@
         if (isSpectator(p)) {
           const spectator = document.createElement('span');
           spectator.className = 'participant-role participant-role-spectator mini-chip spectator';
-          spectator.textContent = '◉';
           spectator.setAttribute('aria-hidden', 'true');
           spectator.setAttribute('title', t('label.spectator', isDe() ? 'Zuschauer' : 'Spectator'));
+          spectator.appendChild(participantStatusIcon('spectator'));
           identity.appendChild(spectator);
 
           const sr = document.createElement('span');
@@ -994,9 +1008,9 @@
         if (isInactive) {
           const inactive = document.createElement('span');
           inactive.className = 'participant-role participant-role-inactive';
-          inactive.textContent = 'zzz';
           inactive.setAttribute('aria-hidden', 'true');
           inactive.setAttribute('title', t('label.inactive', isDe() ? 'Inaktiv' : 'Inactive'));
+          inactive.appendChild(participantStatusIcon('inactive'));
           identity.appendChild(inactive);
 
           const sr = document.createElement('span');
