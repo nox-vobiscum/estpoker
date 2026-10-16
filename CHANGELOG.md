@@ -1,10 +1,20 @@
 # Changelog
 
-This file summarizes completed product changes. Detailed implementation notes and
-temporary validation reports may be removed after the documentation consolidation.
+This file summarizes completed product changes.
 
 ## 2026-10-16
 
+- Refreshed the bilingual in-room guide, About copy and detailed DE/EN user
+  guides against current decks, participant states, permissions, result rules,
+  navigation and keyboard behavior. Removed obsolete timing, shortcut and room-
+  lifetime claims and consolidated the corresponding style/index guidance.
+- Improved the expanded room guide with compact result definitions, a full-
+  width result section, calmer spacing and subtle horizontal separators.
+- Reduced About and Imprint typography to a compact public-content scale without
+  affecting the header, room interface or gameplay controls.
+- Deployed the documentation and public-page polish through production commit
+  `271f9f7`; the focused release smoke passed 18 Chromium cases plus the
+  TypeScript build check.
 - Polished room metadata, participant rows, lower actions and pending status.
 - Centered the participant-action trigger's three dots independently of font
   metrics and sized its menu to its content, retaining the mobile width cap.

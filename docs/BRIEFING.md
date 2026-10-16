@@ -12,9 +12,9 @@ Lightweight online planning poker with real-time updates, simple UX, and optiona
 https://planning-poker.at/
 
 **Current production baseline**
-Production commit `e7a7e7f`: single-interface room repolish with responsive
-mobile corrections and the latest compact UI polish. Recent release history is
-maintained in `CHANGELOG.md`.
+Production commit `271f9f7`: single-interface room repolish, responsive mobile
+corrections, refreshed DE/EN user documentation and compact public-page
+typography. Recent release history is maintained in `CHANGELOG.md`.
 
 ---
 
@@ -284,9 +284,9 @@ For detailed instructions, troubleshooting, CI recipe, and full command list, se
 
 General backlog items are maintained in `docs/BACKLOG.md`; it contains open
 work only. Completed work belongs in `CHANGELOG.md`. The single-interface room
-repolish and subsequent responsive/UI fixes are deployed through `e7a7e7f`.
-They preserve the established room, voting, permission and WebSocket contracts.
-No additional change request is active.
+repolish, subsequent responsive/UI fixes and documentation refresh are deployed
+through `271f9f7`. They preserve the established room, voting, permission and
+WebSocket contracts. No additional change request is active.
 
 
 
