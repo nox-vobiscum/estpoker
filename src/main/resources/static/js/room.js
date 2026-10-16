@@ -806,6 +806,26 @@
     if (menu.getBoundingClientRect().bottom > window.innerHeight - 12) menu.classList.add('opens-up');
   }
 
+  function participantActionIcon(action) {
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.classList.add('participant-action-icon');
+    svg.dataset.icon = action;
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('aria-hidden', 'true');
+    svg.setAttribute('focusable', 'false');
+    const shapes = action === 'host'
+      ? [['circle', { cx: '12', cy: '7', r: '4' }], ['path', { d: 'M4 21a8 8 0 0 1 16 0' }]]
+      : action === 'spectator'
+        ? [['path', { d: 'M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z' }], ['circle', { cx: '12', cy: '12', r: '2.5' }]]
+        : [['path', { d: 'M4 7h16M9 7V4h6v3m3 0-1 14H7L6 7m4 4v6m4-6v6' }]];
+    shapes.forEach(([tag, attributes]) => {
+      const shape = document.createElementNS('http://www.w3.org/2000/svg', tag);
+      Object.entries(attributes).forEach(([name, value]) => shape.setAttribute(name, value));
+      svg.appendChild(shape);
+    });
+    return svg;
+  }
+
   function openParticipantMenu(trigger) {
     if (participantMenu?.trigger === trigger) { closeParticipantMenu(); return; }
     closeParticipantMenu(false);
@@ -831,7 +851,10 @@
       button.dataset.name = p.name;
       button.setAttribute('role', 'menuitem');
       button.tabIndex = -1;
-      button.textContent = label;
+      button.appendChild(participantActionIcon(action));
+      const text = document.createElement('span');
+      text.textContent = label;
+      button.appendChild(text);
       menu.appendChild(button);
     });
     trigger.closest('.participant-row').appendChild(menu);

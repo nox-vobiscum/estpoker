@@ -1418,9 +1418,13 @@ html.menu-scroll-locked, .menu-scroll-locked body{overflow:hidden}
 }
 #liveParticipantList .participant-action-menu.opens-up{top:auto;bottom:calc(100% - 6px)}
 #liveParticipantList .participant-action-menu .row-action{
-  display:block;width:100%;min-height:40px;padding:8px 10px;text-align:left;
+  display:flex;align-items:center;gap:10px;width:100%;min-height:40px;padding:8px 10px;text-align:left;
   border:0;border-radius:var(--shape-radius-small);box-shadow:none;
   background:transparent;color:var(--text);font:inherit;font-size:.85rem;cursor:pointer;
+}
+#liveParticipantList .participant-action-icon{
+  flex:none;width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;
+  stroke-linecap:round;stroke-linejoin:round;
 }
 #liveParticipantList .participant-action-menu .row-action:hover{background:var(--panel-hover)}
 #liveParticipantList .participant-action-menu .kick{color:var(--danger)}

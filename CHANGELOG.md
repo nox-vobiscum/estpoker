@@ -5,6 +5,8 @@ temporary validation reports may be removed after the documentation consolidatio
 
 ## Unreleased
 
+- Added restrained person, spectator and remove icons to the existing host
+  participant-action menu without changing its actions or permissions.
 - Fixed refresh, reconnect and same-tab rejoin resetting an existing
   participant's spectator status. The room now preserves participation state
   for the existing CID while new participant identities still estimate by

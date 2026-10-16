@@ -32,6 +32,10 @@ test('mouse: spectator round trip, cancelled/accepted transfer, new host kick an
     await expect(row(host, 'Host').locator('.participant-more')).toHaveCount(0);
     await expect(guest.locator('.participant-more')).toHaveCount(0);
     await row(host, 'Guest').locator('.participant-more').click();
+    await expect(host.locator('.participant-action-icon')).toHaveCount(3);
+    for (const action of ['host', 'spectator', 'kick']) {
+      await expect(host.locator(`.participant-action-menu [data-action="${action}"] .participant-action-icon[data-icon="${action}"]`)).toHaveCount(1);
+    }
     await host.getByRole('menuitem', { name: 'Make spectator', exact: true }).click();
     await expect(row(guest, 'Guest')).toHaveClass(/spectator/);
     await expect(guest.locator('.participant-more, [role="menu"]')).toHaveCount(0);
