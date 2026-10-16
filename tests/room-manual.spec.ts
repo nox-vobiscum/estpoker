@@ -5,7 +5,7 @@ function roomUrl(language: 'de' | 'en') {
   return `/room?roomCode=${newRoomCode('GUIDE')}&participantName=Host&lang=${language}`;
 }
 
-for (const width of [320, 375, 768, 1280]) {
+for (const width of [320, 375, 393, 768, 1280]) {
   test(`room guide is collapsed and responsive at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 800 });
     await page.goto(roomUrl('en'));
@@ -43,8 +43,10 @@ test('room guide supports keyboard operation and exposes its content', async ({ 
   await expect(summary).toBeFocused();
   await page.keyboard.press('Enter');
   await expect(manual).toHaveAttribute('open', '');
-  await expect(page.locator('.room-manual-body section')).toHaveCount(6);
-  await expect(page.locator('[data-i18n="manual.exit.body"]')).toContainText('Close room for everyone');
+  await expect(page.locator('.room-manual-body section')).toHaveCount(8);
+  await expect(page.locator('[data-i18n="manual.results.consensus"]')).toContainText('no infinity card');
+  await expect(page.locator('[data-i18n="manual.topic.autoreveal"]')).toContainText('numeric card');
+  await expect(page.locator('[data-i18n="manual.exit.close"]')).toContainText('Close room for everyone');
   await page.keyboard.press('Space');
   await expect(manual).not.toHaveAttribute('open', '');
 });
@@ -54,6 +56,23 @@ test('German room guide has translated heading and matching sections', async ({ 
   const manual = page.locator('#roomManual');
   await expect(manual.locator('summary')).toContainText('Anleitung & Funktionen');
   await manual.locator('summary').click();
-  await expect(page.locator('.room-manual-body section')).toHaveCount(6);
-  await expect(page.locator('[data-i18n="manual.exit.body"]')).toContainText('Raum für alle schließen');
+  await expect(page.locator('.room-manual-body section')).toHaveCount(8);
+  await expect(page.locator('[data-i18n="manual.results.consensus"]')).toContainText('keine Unendlich-Karte');
+  await expect(page.locator('[data-i18n="manual.topic.autoreveal"]')).toContainText('numerische Karte');
+  await expect(page.locator('[data-i18n="manual.exit.close"]')).toContainText('Raum für alle schließen');
+});
+
+test('room guide updates all sections when switching languages', async ({ page }) => {
+  await page.goto(roomUrl('en'));
+  const manual = page.locator('#roomManual');
+  await manual.locator('summary').click();
+
+  await page.evaluate(() => (window as typeof window & {
+    PPUI: { setLanguage: (value: string) => Promise<string> };
+  }).PPUI.setLanguage('de'));
+
+  await expect(manual.locator('summary')).toContainText('Anleitung & Funktionen');
+  await expect(page.locator('.room-manual-body section')).toHaveCount(8);
+  await expect(page.locator('[data-i18n="manual.appearance.title"]')).toHaveText('Sprache und Darstellung');
+  await expect(page.locator('.room-manual-body')).not.toContainText(/manual\./);
 });
