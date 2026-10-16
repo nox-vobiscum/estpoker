@@ -115,6 +115,27 @@ test('guide sections use subtle responsive separators', async ({ page }) => {
   expect(mobileSecond).toEqual({ border: '1px', padding: '12px' });
 });
 
+test('desktop guide keeps a continuous column divider around the full-width result section', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto(roomUrl('en'));
+  await page.locator('#roomManual > summary').click();
+
+  const desktop = await page.locator('.room-manual-body').evaluate(body => ({
+    backgroundImage: getComputedStyle(body).backgroundImage,
+    resultColumns: getComputedStyle(body.querySelector('.room-manual-results-content')!).gridTemplateColumns,
+  }));
+  expect(desktop.backgroundImage).not.toBe('none');
+  expect(desktop.resultColumns.split(' ')).toHaveLength(2);
+
+  await page.setViewportSize({ width: 375, height: 800 });
+  const mobile = await page.locator('.room-manual-body').evaluate(body => ({
+    backgroundImage: getComputedStyle(body).backgroundImage,
+    resultColumns: getComputedStyle(body.querySelector('.room-manual-results-content')!).gridTemplateColumns,
+  }));
+  expect(mobile.backgroundImage).toBe('none');
+  expect(mobile.resultColumns.split(' ')).toHaveLength(1);
+});
+
 test('German room guide has translated heading and matching sections', async ({ page }) => {
   await page.goto(roomUrl('de'));
   const manual = page.locator('#roomManual');
