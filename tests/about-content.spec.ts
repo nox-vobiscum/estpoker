@@ -32,6 +32,24 @@ for (const language of ['en', 'de'] as const) {
   });
 }
 
+test('About and imprint use compact content typography', async ({ page }) => {
+  for (const path of ['/about?lang=en', '/imprint?lang=en']) {
+    await page.goto(path);
+    const sizes = await page.locator('.about-container').evaluate(container => {
+      const px = (selector: string) => parseFloat(getComputedStyle(container.querySelector(selector)!).fontSize);
+      return {
+        title: px(':scope > h1'),
+        heading: px('.about-section h2'),
+        paragraph: px('.about-section p'),
+      };
+    });
+
+    expect(sizes.title).toBeLessThanOrEqual(17);
+    expect(sizes.heading).toBeLessThanOrEqual(16);
+    expect(sizes.paragraph).toBeLessThanOrEqual(13);
+  }
+});
+
 test('About content switches between equivalent DE and EN copy', async ({ page }) => {
   await page.goto('/about?lang=en');
   await page.locator('#hcLangDE').click();

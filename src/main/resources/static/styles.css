@@ -1359,7 +1359,14 @@ h1,h2,h3{font-weight:var(--ui-heading-weight)}
 :root .page-about .about-intro{
   background:linear-gradient(135deg,color-mix(in srgb,var(--ui-surface) 92%,var(--accent)),var(--ui-surface));
 }
-:root .page-about .lead{color:var(--text)}
+:root .page-about .about-container{font-size:.78rem}
+:root .page-about .about-container > .app-title{font-size:1.05rem;line-height:1.4}
+:root .page-about .lead{color:var(--text);font-size:.86rem;line-height:1.55}
+:root .page-about .about-section h2{font-size:.98rem;line-height:1.4}
+:root .page-about .about-section p{font-size:.78rem;line-height:1.6}
+:root .page-about :is(.feature-list li,.steps-list li){font-size:.78rem;line-height:1.5}
+:root .page-about .about-cta .hint{font-size:.78rem}
+:root .page-about .about-cta .button-primary{font-size:.85rem}
 :root :is(.room-manual-details,.landing-explainer){
   border-radius:var(--ui-large-radius);background:var(--ui-surface);
   border:1px solid var(--ui-surface-border);padding:20px;box-shadow:var(--ui-shadow-md);
