@@ -27,7 +27,11 @@ test('hard mode gates reveal and host transfer updates permissions', async ({ br
     await expect(host.locator('#revealButton')).toBeVisible();
 
     host.on('dialog', dialog => dialog.accept());
-    await host.locator('[data-action="host"][data-name="Guest"]').click();
+    const guestTarget = host.locator('#liveParticipantList .participant-row').filter({
+      has: host.locator('.name', { hasText: /^Guest$/ }),
+    });
+    await guestTarget.locator('.participant-more').click();
+    await host.locator('.participant-action-menu [data-action="host"][data-name="Guest"]').click();
     const guestRow = guest.locator('#liveParticipantList .participant-row').filter({ hasText: 'Guest' });
     await expect(guestRow.locator('.host-label')).toHaveCount(1);
     await ensureMenuOpen(guest);

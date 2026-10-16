@@ -1,9 +1,10 @@
 import { test, expect } from '@playwright/test';
+import { newRoomCode } from './utils/env';
 
 test('i18n switch: header language buttons flip <html lang> and update UI text', async ({ page }) => {
   // Go directly to room to have a clearly translated label on the page.
   // preflight=1 skips name-availability redirect.
-  const roomCode = 'i18n-e2e';
+  const roomCode = newRoomCode('I18N');
   await page.goto(`/room?roomCode=${roomCode}&participantName=Tester&preflight=1`);
 
   // Header language buttons
@@ -29,7 +30,7 @@ test('i18n switch: header language buttons flip <html lang> and update UI text',
     .toBe(targetLang);
 
   // A visible translated label should change (Participants ↔ Teilnehmende)
-  const participantsLabel = page.locator('h2[data-i18n="label.participants"]');
+  const participantsLabel = page.locator('.participant-heading [data-i18n="label.participants"]');
   await expect(participantsLabel).toBeVisible();
 
   const expectedText = targetLang === 'de' ? 'Teilnehmende' : 'Participants';
