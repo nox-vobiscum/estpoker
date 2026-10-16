@@ -90,6 +90,31 @@ test('result section spans both guide columns on desktop only', async ({ page })
   expect(mobileColumn).toBe('auto');
 });
 
+test('guide sections use subtle responsive separators', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto(roomUrl('en'));
+  await page.locator('#roomManual > summary').click();
+
+  const desktop = await page.locator('.room-manual-body section').evaluateAll(sections =>
+    sections.slice(0, 3).map(section => ({
+      border: getComputedStyle(section).borderTopWidth,
+      padding: getComputedStyle(section).paddingTop,
+    }))
+  );
+  expect(desktop).toEqual([
+    { border: '0px', padding: '0px' },
+    { border: '0px', padding: '0px' },
+    { border: '1px', padding: '12px' },
+  ]);
+
+  await page.setViewportSize({ width: 375, height: 800 });
+  const mobileSecond = await page.locator('.room-manual-body section:nth-child(2)').evaluate(section => ({
+    border: getComputedStyle(section).borderTopWidth,
+    padding: getComputedStyle(section).paddingTop,
+  }));
+  expect(mobileSecond).toEqual({ border: '1px', padding: '12px' });
+});
+
 test('German room guide has translated heading and matching sections', async ({ page }) => {
   await page.goto(roomUrl('de'));
   const manual = page.locator('#roomManual');
