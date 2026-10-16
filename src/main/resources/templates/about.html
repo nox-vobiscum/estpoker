@@ -26,13 +26,14 @@
     <section class="about-section">
       <h2 th:text="#{about.what.title}" data-i18n="about.what.title">What is Planning Poker?</h2>
       <p th:text="#{about.what.p1}" data-i18n="about.what.p1">
-        Planning Poker (also known as Scrum Poker or Estimation Poker) is a consensus-based technique 
-        for estimating effort or relative size of development goals in software development. 
-        Team members make estimates by playing numbered cards face-down, then reveal them simultaneously.
+        Planning Poker (also called Scrum Poker or Estimation Poker) helps teams estimate the effort or
+        relative size of tasks together. Everyone chooses an estimate privately, and the cards are then
+        revealed at the same time.
       </p>
       <p th:text="#{about.what.p2}" data-i18n="about.what.p2">
-        This method prevents cognitive bias and anchoring, where the first number spoken influences 
-        the rest of the team's estimates.
+        This reduces the influence of the first number spoken on other estimates. Different estimates
+        make different perspectives visible and give the team useful reasons to discuss the work. The
+        goal is to build a shared understanding of the task.
       </p>
     </section>
 
@@ -50,10 +51,10 @@
           <span th:text="#{about.why.sequences}" data-i18n="about.why.sequences">Multiple card sequences (Fibonacci, T-Shirt sizes, Powers of 2)</span>
         </li>
         <li><span class="feature-icon" aria-hidden="true">🎯</span> 
-          <span th:text="#{about.why.autoreveal}" data-i18n="about.why.autoreveal">Auto-reveal mode when everyone has voted</span>
+          <span th:text="#{about.why.autoreveal}" data-i18n="about.why.autoreveal">Manual or automatic reveal</span>
         </li>
         <li><span class="feature-icon" aria-hidden="true">🔗</span> 
-          <span th:text="#{about.why.persistent}" data-i18n="about.why.persistent">Optional persistent rooms with shareable links</span>
+          <span th:text="#{about.why.persistent}" data-i18n="about.why.persistent">Shareable invitation links for quick access</span>
         </li>
         <li><span class="feature-icon" aria-hidden="true">🌍</span> 
           <span th:text="#{about.why.i18n}" data-i18n="about.why.i18n">Multi-language support (English, German)</span>
@@ -80,12 +81,15 @@
     <section class="about-section">
       <h2 th:text="#{about.features.title}" data-i18n="about.features.title">Key Features</h2>
       <ul class="feature-list">
-        <li th:text="#{about.features.websocket}" data-i18n="about.features.websocket">WebSocket-based real-time updates</li>
-        <li th:text="#{about.features.specials}" data-i18n="about.features.specials">Special cards: Question (❓), Coffee Break (☕), Discussion (💬)</li>
-        <li th:text="#{about.features.spectator}" data-i18n="about.features.spectator">Spectator mode for non-voting participants</li>
-        <li th:text="#{about.features.host}" data-i18n="about.features.host">Host controls: reveal, reset, kick, sequence selection</li>
-        <li th:text="#{about.features.topic}" data-i18n="about.features.topic">Ticket/Story field with JIRA link support</li>
-        <li th:text="#{about.features.themes}" data-i18n="about.features.themes">Dark and light theme support</li>
+        <li th:text="#{about.features.websocket}" data-i18n="about.features.websocket">Collaborative estimation in real time without registration</li>
+        <li th:text="#{about.features.specials}" data-i18n="about.features.specials">Multiple card decks and optional special cards</li>
+        <li th:text="#{about.features.host}" data-i18n="about.features.host">Manual or automatic reveal</li>
+        <li th:text="#{about.features.results}" data-i18n="about.features.results">Clear results with average, median, range and consensus</li>
+        <li th:text="#{about.features.outliers}" data-i18n="about.features.outliers">Highlights for notably different estimates as a discussion aid</li>
+        <li th:text="#{about.features.spectator}" data-i18n="about.features.spectator">Host controls and spectator mode</li>
+        <li th:text="#{about.features.topic}" data-i18n="about.features.topic">Estimation topics with an optional ticket link</li>
+        <li th:text="#{about.features.themes}" data-i18n="about.features.themes">English and German with Light, Dark and System appearance</li>
+        <li th:text="#{about.features.responsive}" data-i18n="about.features.responsive">Designed for desktop, tablet and smartphone</li>
       </ul>
     </section>
 

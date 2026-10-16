@@ -1,6 +1,6 @@
 # Planning Poker — Documentation & In-App Guide Refresh
 
-**Status:** IN PROGRESS — DOC-001 COMPLETE  
+**Status:** IN PROGRESS — DOC-001 AND DOC-002 COMPLETE
 **Scope:** In-room manual, About, German and English user guides, documentation consistency  
 **Recommended model:** GPT-5.6 Sol (review complexity before each story)  
 **Target:** `docs/` (this file); implementation only after explicit per-story approval
@@ -280,7 +280,7 @@ Keep the existing single-interface style and Light/Dark/System policy (already d
 
 ### DOC-001 — In-room manual DE/EN
 
-**Status:** DONE  
+**Status:** DONE
 **Recommended model:** GPT-5.6 Sol  
 **Depends on:** §3.2 behavior checks
 
@@ -311,7 +311,7 @@ permission, WebSocket or gameplay code changed.
 
 ### DOC-002 — About text precision DE/EN
 
-**Status:** TODO  
+**Status:** DONE
 **Recommended model:** GPT-5.6 Sol  
 **Depends on:** DOC-001 factual definitions
 
@@ -323,7 +323,21 @@ permission, WebSocket or gameplay code changed.
 
 **Focused tests:** About page render, DE/EN switching, page metadata/canonical; no full suite.
 
-**Result:** Pending.
+**Result:** Refined the existing two-paragraph DE/EN explanation without
+changing the About structure: Planning Poker now describes private estimates,
+simultaneous reveal, reduced anchoring influence, useful disagreement and shared
+understanding without claiming to prevent cognitive bias. The existing benefit
+list no longer promises persistent rooms and instead describes shareable invite
+links. The feature list now covers nine verified user-facing capabilities,
+including results, outlier discussion support, themes and responsive use; the
+technology section remains separate. Three minimally required translation keys
+and matching list items were added. Removed the second English `about.*` block:
+all 29 duplicated definitions were byte-for-byte equivalent before editing.
+Final DE/EN key parity is 35/35 with no English duplicates. TypeScript buildcheck
+passed, as did three focused Chromium About content/language-switch tests and
+the two existing DE/EN About metadata/canonical cases. Heading, CTA, metadata,
+canonical URL, SEO terms and visual structure remain intact. No CSS, behavior,
+permissions, state or gameplay code changed.
 
 ### DOC-003 — User Guides & doc style consistency
 
