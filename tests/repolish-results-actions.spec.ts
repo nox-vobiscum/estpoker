@@ -39,12 +39,13 @@ test('result states, compact host action and preserved guide/leave controls', as
 
     const layout = await host.evaluate(() => {
       const action = document.querySelector('#resetButton')!.getBoundingClientRect();
+      const leave = document.querySelector('.room-exit-row')!.getBoundingClientRect();
       const guide = document.querySelector('.room-manual')!.getBoundingClientRect();
-      return { actionWidth: action.width, gap: guide.top - action.bottom };
+      return { actionWidth: action.width, ordered: action.bottom <= leave.top && leave.bottom <= guide.top };
     });
-    expect(layout.actionWidth).toBeLessThan(240);
-    expect(layout.gap).toBeGreaterThanOrEqual(32);
-    expect(layout.gap).toBeLessThanOrEqual(80);
+    expect(layout.actionWidth).toBeGreaterThanOrEqual(220);
+    expect(layout.actionWidth).toBeLessThanOrEqual(260);
+    expect(layout.ordered).toBe(true);
 
     await host.locator('#resetButton').click();
     await expect(host.locator('#resultRow')).toHaveClass(/is-hidden/);
@@ -57,7 +58,7 @@ test('result states, compact host action and preserved guide/leave controls', as
   } finally { await p.close(); }
 });
 
-test('mobile sticky host action clears cards, guide, leave control and footer', async ({ browser }) => {
+test('mobile host action clears cards and keeps lower controls reachable', async ({ browser }) => {
   const p = await joinPair(browser, 375);
   try {
     const { host, guest } = p;
@@ -83,12 +84,13 @@ test('mobile sticky host action clears cards, guide, leave control and footer', 
       const guide = document.querySelector('.room-manual')!.getBoundingClientRect();
       const leave = document.querySelector('.room-exit-row')!.getBoundingClientRect();
       const footer = document.querySelector('.app-footer')!.getBoundingClientRect();
-      return { actionTop: action.top, actionBottom: action.bottom, guideBottom: guide.bottom,
-        leaveBottom: leave.bottom, footerTop: footer.top, overflow: document.documentElement.scrollWidth - innerWidth };
+      return { actionBottom: action.bottom, leaveTop: leave.top, leaveBottom: leave.bottom,
+        guideTop: guide.top, guideBottom: guide.bottom, footerTop: footer.top,
+        overflow: document.documentElement.scrollWidth - innerWidth };
     });
-    expect(bottom.actionBottom).toBeLessThanOrEqual(bottom.footerTop);
-    expect(bottom.guideBottom).toBeLessThanOrEqual(bottom.actionTop);
-    expect(bottom.leaveBottom).toBeLessThanOrEqual(bottom.actionTop);
+    expect(bottom.actionBottom).toBeLessThanOrEqual(bottom.leaveTop);
+    expect(bottom.leaveBottom).toBeLessThanOrEqual(bottom.guideTop);
+    expect(bottom.guideBottom).toBeLessThanOrEqual(bottom.footerTop);
     expect(bottom.overflow).toBeLessThanOrEqual(1);
   } finally { await p.close(); }
 });

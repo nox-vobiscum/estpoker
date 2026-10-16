@@ -5,6 +5,10 @@ temporary validation reports may be removed after the documentation consolidatio
 
 ## Unreleased
 
+- Reordered and aligned the room's lower controls as voting cards, centered
+  host round action, centered leave action, then the collapsed guide. Added one
+  subtle separator before leaving, visible to hosts and guests, while retaining
+  mobile scroll reachability and all existing control behavior.
 - Standardized participant-row heights with and without host actions and
   reduced the three-dot trigger to 32px. Vote chips remain vertically centered,
   and the existing menu interaction remains unchanged across desktop/mobile.

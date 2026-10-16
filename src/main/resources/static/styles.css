@@ -322,7 +322,10 @@ strong{color:var(--text-strong)}
 #closeRoomBtn .truncate-1{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
 /* Individual room exit is shared by the page and the guest menu. */
-.room-exit-row{display:flex;justify-content:flex-start;margin:18px 0 0}
+.room-exit-row{display:flex;flex-direction:column;align-items:center;gap:1.1rem;margin:2rem 0 0}
+.room-exit-row::before{
+  content:"";width:min(12rem,40%);border-top:1px solid color-mix(in srgb,var(--ui-surface-border) 75%,transparent)
+}
 .room-exit-action{
   display:inline-flex;align-items:center;justify-content:center;gap:10px;
   min-height:44px;padding:10px 16px;border:1px solid color-mix(in srgb,var(--danger) 40%,var(--border));
@@ -334,6 +337,7 @@ strong{color:var(--text-strong)}
 .room-exit-action:hover{background:color-mix(in srgb,var(--danger) 17%,var(--panel));border-color:var(--danger)}
 .room-exit-action:focus-visible{outline:2px solid var(--field-focus);outline-offset:2px}
 .room-exit-action:active{transform:translateY(1px)}
+.room-exit-row .room-exit-action{width:200px}
 .menu-item.room-exit-action{display:grid;grid-template-columns:28px minmax(0,1fr);justify-content:stretch;text-align:left;width:100%}
 
 /* ---------- Icon button -------------------------------------------------- */
@@ -571,8 +575,9 @@ html.light .vote-chip.heat, body.light .vote-chip.heat,
 /* Reserve space even when hidden */
 #resultRow.is-hidden{visibility:hidden}
 
-/* Preserve host button visibility and the existing mobile sticky placement. */
-.vote-actions .button{margin-top:.5rem;min-width:9rem;font-weight:600;box-shadow:none}
+/* Preserve host action behavior while aligning it with the voting grid. */
+.vote-actions{display:flex;justify-content:center}
+.vote-actions .button{width:240px;margin-top:.5rem;font-weight:600;box-shadow:none}
 
 /* ---------- Toast -------------------------------------------------------- */
 .toast{position:fixed;top:20px;right:20px;background:rgba(51,51,51,.95);color:#fff;padding:12px 20px;border-radius:var(--ui-radius);z-index:9999;font-size:14px;box-shadow:var(--ui-panel-shadow);transform:translateY(-10px);opacity:0;animation:fadein 220ms ease forwards,fadeout 400ms ease 2400ms forwards}
@@ -602,6 +607,8 @@ html.light .vote-chip.heat, body.light .vote-chip.heat,
   #revealButton,#resetButton{
     width:100%;margin-top:.5rem;box-shadow:0 10px 24px rgba(0,0,0,.22);
   }
+  .room-exit-row{margin-top:1.5rem;gap:1rem}
+  .room-exit-row .room-exit-action{width:100%}
   .container{padding-bottom:calc(var(--footer-h) + 72px)}
 }
 @media (max-width:768px){
@@ -619,7 +626,7 @@ html.light .vote-chip.heat, body.light .vote-chip.heat,
 .topic-row.editable:hover{background:rgba(148,163,184,.08)}
 
 /* ---------- Room guide -------------------------------------------------- */
-.room-manual{margin-top:3rem;padding-bottom:8px}
+.room-manual{margin-top:1.25rem;padding-bottom:8px}
 .room-manual-details{
   overflow:clip;background:var(--panel);border:1px solid var(--border);
   border-radius:var(--ui-large-radius);box-shadow:var(--ui-panel-shadow);
@@ -647,7 +654,7 @@ html.light .vote-chip.heat, body.light .vote-chip.heat,
 .room-manual-body h3{margin:0 0 4px;color:var(--text-strong);font-size:.82rem;line-height:1.35}
 .room-manual-body p{margin:0;font-size:.78rem;line-height:1.55;overflow-wrap:anywhere}
 @media (max-width:600px){
-  .room-manual{margin-top:5.25rem;padding-bottom:12px}
+  .room-manual{margin-top:1rem;padding-bottom:12px}
   .room-manual-body{grid-template-columns:1fr}
 }
 @media (prefers-reduced-motion:reduce){.room-manual-chevron{transition:none}}

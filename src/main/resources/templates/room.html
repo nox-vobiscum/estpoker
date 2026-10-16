@@ -119,8 +119,6 @@
               onclick="resetRoom()"></button>
     </div>
 
-    <div th:replace="~{fragments/kbase :: kbase}"></div>
-
     <div class="room-exit-row">
       <button id="leaveRoomBtn" type="button" class="room-exit-action"
               th:attr="aria-label=#{room.leave},title=#{room.leave}"
@@ -129,6 +127,8 @@
         <span th:text="#{room.leave}" data-i18n="room.leave">Leave room</span>
       </button>
     </div>
+
+    <div th:replace="~{fragments/kbase :: kbase}"></div>
 
   </div>
 
