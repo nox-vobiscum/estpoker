@@ -5,6 +5,9 @@ temporary validation reports may be removed after the documentation consolidatio
 
 ## Unreleased
 
+- Kept the host crown directly beside the participant name on mobile by
+  preventing the name from growing into unused row space. Chromium and WebKit
+  checks at 320/399/587/765/768/769/805/1280px confirmed a consistent 6.4px gap.
 - Compacted the mobile room flow: before reveal, the hidden result row no
   longer reserves its 1.6rem minimum height, 1.3rem vertical padding and
   paragraph margins; after reveal, result and card-grid spacing now use
