@@ -1,6 +1,6 @@
 # Planning Poker — Documentation & In-App Guide Refresh
 
-**Status:** IN PROGRESS — DOC-001 AND DOC-002 COMPLETE
+**Status:** COMPLETE — DOC-001, DOC-002 AND DOC-003 COMPLETE
 **Scope:** In-room manual, About, German and English user guides, documentation consistency  
 **Recommended model:** GPT-5.6 Sol (review complexity before each story)  
 **Target:** `docs/` (this file); implementation only after explicit per-story approval
@@ -341,7 +341,7 @@ permissions, state or gameplay code changed.
 
 ### DOC-003 — User Guides & doc style consistency
 
-**Status:** TODO  
+**Status:** DONE
 **Recommended model:** GPT-5.6 Sol, upgrade only if the factual audit proves technically complex  
 **Depends on:** DOC-001, DOC-002
 
@@ -353,7 +353,14 @@ permissions, state or gameplay code changed.
 
 **Focused tests:** Markdown/link/terminology checks and targeted code inspection for factual claims; no full test suite.
 
-**Result:** Pending.
+**Result:** Replaced both stale user guides with concise DE/EN references verified
+against the current deck definitions, participant states, result calculations,
+permissions, navigation and keyboard handlers. The guides now document exact
+deck values and special cards, numeric-statistic exclusions, Infinity consensus
+behavior and the precise outlier thresholds without fixed time, reconnect or
+retention promises. Added matching visual/editorial conventions to `STYLE.md`
+and refreshed `INDEX.md` while removing volatile line counts and unsupported
+completeness claims. No application code or behavior changed.
 
 ## 9. Start prompt for Codex (copy/paste)
 

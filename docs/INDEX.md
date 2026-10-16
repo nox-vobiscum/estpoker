@@ -1,6 +1,6 @@
 # RBS' Planning Poker Documentation Index
 
-Comprehensive documentation for the RBS' Planning Poker planning poker application.
+Documentation entry points for RBS' Planning Poker.
 
 ---
 
@@ -93,14 +93,11 @@ Comprehensive documentation for the RBS' Planning Poker planning poker applicati
 
 ### USER-GUIDE.md / USER-GUIDE-EN.md
 **End-user documentation** (German / English) covering:
-- Schnellstart für Moderatoren und Teilnehmer
-- Schritt-für-Schritt Anleitungen
-- UI-Elemente erklärt
-- Kartenwerte und ihre Bedeutung
-- Häufige Fragen (FAQ)
-- Tipps für effektive Planning-Poker Sessions
-- Troubleshooting für Endanwender
-- Beispiel-Session
+- quick start and current room controls
+- exact decks, optional special cards and participant statuses
+- results, consensus and outlier interpretation
+- host, participant and spectator permissions
+- connection, return, keyboard operation and troubleshooting
 
 **For non-technical users who want to use the tool.**
 
@@ -313,25 +310,6 @@ If you can't find what you need:
 
 ---
 
-## 📊 Documentation Statistics
-
-| Document | Lines | Topics | Last Major Update |
-|----------|-------|--------|-------------------|
-| USER-GUIDE.md | ~650 | 15 | 2026-07-22 |
-| USER-GUIDE-EN.md | ~650 | 15 | 2026-07-22 |
-| BRIEFING.md | ~300 | 7 | Regularly updated |
-| ARCHITECTURE.md | ~800 | 11 | 2026-07-22 |
-| API.md | ~1000 | 7 | 2026-07-22 |
-| DEVELOPER-GUIDE.md | ~900 | 9 | 2026-07-22 |
-| DEPLOYMENT.md | ~700 | 7 | 2026-07-22 |
-| E2E-TESTING.md | ~200 | 6 | Regularly updated |
-| STYLE.md | ~100 | 4 | Regularly updated |
-| BACKLOG.md | ~150 | Varies | Ongoing |
-
-**Total documentation:** ~5,450 lines across 10 primary documents
-
----
-
 ## 🌐 External Resources
 
 ### Spring Boot
@@ -355,16 +333,9 @@ If you can't find what you need:
 
 ## ✅ Documentation Health
 
-**Last Review:** 2026-07-22  
-**Coverage:** Comprehensive  
-**Status:** ✅ Complete
+The German and English user guides, in-room guide and About content were reviewed against current code in October 2026. Other technical documents remain subject to review whenever their corresponding implementation changes.
 
-**Gaps Identified:**
-- None currently
-
-**Upcoming Updates:**
-- Keep BACKLOG.md in sync with development
-- Add ADRs for future major decisions
+Keep examples, links and behavioral claims aligned with code. Record future work in `BACKLOG.md` and architectural decisions in `adr/` when appropriate.
 
 ---
 

@@ -1,412 +1,110 @@
-# User Guide – RBS' Planning Poker
+# Planning Poker – User Guide
 
-Simple guide for using the RBS' Planning Poker estimation tool for agile teams.
+This guide describes the current behavior of [planning-poker.at](https://planning-poker.at/). Story Points express relative size; they are not a universal conversion to hours or days.
 
----
+## Quick start
 
-## What is RBS' Planning Poker?
+1. Enter your display name and a room code.
+2. As host, use the link button beside the room code to share an invitation.
+3. Configure the estimation topic, deck, special cards and automatic reveal as needed.
+4. Everyone currently participating selects a card privately. A selection can be changed until reveal.
+5. The host reveals the cards and starts a new round after the discussion.
 
-RBS' Planning Poker is an online tool for **Planning Poker** sessions in agile teams. It allows teams to estimate user stories or tasks together without personal bias influencing the estimates.
+There is no public room directory. Keep the link or room code if you want to return.
 
-**Live App:** https://planning-poker.at/
+## Interface and settings
 
-### Benefits
+The room view contains room information, an optional current topic, the participant list, results and the voting grid. Host actions appear only with the required permission.
 
-✅ No registration required  
-✅ Ready to use instantly via link  
-✅ Real-time synchronization  
-✅ Works on desktop, tablet, and smartphone  
-✅ No installation needed (runs in browser)  
+- **Desktop:** language and appearance controls are in the header.
+- **Phone:** language and appearance controls are in the menu.
+- **Appearance:** Light, Dark or System.
+- **Estimation topic:** the host can show, edit or remove a title and optional ticket link.
+- **Automatic reveal:** cards are revealed once every active participant eligible to vote has selected a regular estimate. Spectators and inactive participants are excluded; special cards do not trigger automatic reveal.
 
----
+## Card decks
 
-## Quick Start
+| Deck | Values |
+|---|---|
+| Fibonacci (Scrum basic) | `1, 2, 3, 5, 8, 13, 20, 40` |
+| Fibonacci (Scrum enhanced) | `0, ½, 1, 2, 3, 5, 8, 13, 20, 40, 100, ∞` |
+| Fibonacci (mathematical) | `0, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89` |
+| Powers of 2 | `2, 4, 8, 16, 32, 64, 128` |
+| T-shirt sizes | `XXS, XS, S, M, L, XL, XXL, XXXL` |
 
-### 1. Create a Room (as Moderator/Host)
+In a numeric deck, `5` represents more relative effort or complexity than `3`. The team decides which comparison tasks give those values practical meaning.
 
-1. Open https://planning-poker.at/
-2. Enter a **room name** (e.g., "Sprint-Planning-2024")
-3. Enter your **name** (e.g., "Maria")
-4. Click **"Create Room"**
+The question-mark card signals an unclear estimate. The host can additionally enable coffee (break), speech bubble (separate discussion), telescope (spike/exploration), waiting (prerequisite), link (dependency), warning (risk) and target (relevance/alignment). Special cards are not numeric and are excluded from average, median and range.
 
-**→ You're now in the room and automatically the moderator!**
+## Participant status
 
-### 2. Invite Your Team
+- A neutral hourglass means an active participant has not selected a card yet.
+- After a private vote, a marker shows only that a vote exists; its value stays hidden until reveal.
+- After reveal, the selected card is shown.
+- A neutral dash identifies a spectator without a vote.
+- Inactive or disconnected participants are visually muted and do not actively take part in voting.
 
-1. Copy the **link** from the top bar (e.g., `https://planning-poker.at/room?roomCode=...`)
-2. Share the link with your team (Slack, Teams, email, etc.)
-3. Team members open the link and enter their names
+## Results
 
-**→ All participants see each other in real-time!**
+Only numeric votes from active participants currently taking part are considered:
 
-### 3. Estimate
+- **Average:** arithmetic mean.
+- **Median:** middle value of the sorted votes; shown from two numeric votes.
+- **Range:** lowest through highest value; shown from two numeric votes.
+- **Consensus:** all considered numeric votes are equal and at least one numeric vote exists. Infinity prevents consensus; other special cards are not treated as numeric votes.
 
-1. **Moderator** provides the topic (e.g., "USER-123: Login functionality")
-2. All participants select a **card** (number or symbol)
-3. Once everyone has voted, the moderator clicks **"Reveal"**
-4. Results are displayed with average and median
+A round containing only special cards has no numeric statistics and no consensus. One numeric vote combined with Infinity is not consensus either.
 
-**→ Team discusses differences and re-estimates if needed!**
+After reveal, a subtle outline may highlight an estimate furthest from the average. Only numeric votes count. Outliers are evaluated from three numeric votes. A uniquely furthest estimate is highlighted; equally furthest estimates are highlighted only from five numeric votes. Equal estimates have no marker. The marker is a discussion aid, not a judgment.
 
----
+## Roles and permissions
 
-## The User Interface
+The host can reveal cards, start a new round, manage room options and the estimation topic, and close the room for everyone. In the three-dot menu for another eligible participant, the host can transfer the host role, toggle spectator status or remove that participant. The server authorizes these actions; guests and spectators cannot use host actions, and invalid self-actions are not offered.
 
-### Overview of Main Areas
+Active participants can vote. Spectators follow without voting and can enable “Participate” in their own menu. The host can also change their status. The status is retained when reconnecting with the same existing participant identity.
 
-```
-┌─────────────────────────────────────────────────┐
-│ [Planning Poker]   [DE EN] [☀︎ ◐ ▣] [☰] │  ← Header
-├─────────────────────────────────────────────────┤
-│  📋 Topic: USER-123: Implement login           │  ← Current topic
-├─────────────────────────────────────────────────┤
-│                                                 │
-│   [1] [2] [3] [5] [8] [13] [21]                │  ← Cards to choose
-│   [☕] [❓]                                      │
-│                                                 │
-├─────────────────────────────────────────────────┤
-│  👥 Participants:                               │
-│   • Maria (Moderator) ✓ [5]                    │  ← Participant list
-│   • Tom ✓ [8]                                   │
-│   • Sarah ✓ [?]                                 │
-├─────────────────────────────────────────────────┤
-│  [Reveal]  (moderator only)                    │  ← Action buttons
-└─────────────────────────────────────────────────┘
-```
+If the host actually leaves or does not return, the room lifecycle can transfer the role. A former host does not automatically reclaim it after returning later.
 
----
+## Connection, return and room data
 
-## The Cards
+The app synchronizes through WebSocket and automatically attempts to reconnect after short interruptions. Refreshing or returning with the same existing participant identity should preserve participating or spectator status.
 
-### Standard Cards (Fibonacci)
+Room lifetime and recoverability depend on server configuration. The server can persist room snapshots, but this does not guarantee a retention period. Planning Poker is not an authoritative ticket or results archive.
 
-The standard card values follow the Fibonacci sequence, which has proven effective for story points:
+On public pages, a “Return to room” link can appear in the same browser tab while a valid return target is stored. “Leave room” exits only your session. The host action “Close room for everyone” ends the session for everyone.
 
-| Card | Meaning |
-|------|---------|
-| **1** | Very small / trivial (1-2 hours) |
-| **2** | Small (half a day) |
-| **3** | Small to medium |
-| **5** | Medium (1-2 days) |
-| **8** | Large (3-5 days) |
-| **13** | Very large (1 week) |
-| **21** | Extra large (too big, split it!) |
+## Keyboard operation
 
-### Special Cards
+There are no global number, reveal or reset shortcuts.
 
-| Card | Meaning | Usage |
-|------|---------|-------|
-| **❓** | Question mark | "I don't understand the task" / Need for discussion |
-| **☕** | Coffee break | "I need a break" |
-| **🔭** | Telescope | "Needs more analysis" (optional) |
-| **⏳** | Hourglass | "Waiting for something" (optional) |
-
-**Note:** Special cards are **not** included in the average calculation.
-
----
-
-## Functions Step by Step
-
-### Voting as a Participant
-
-1. **Wait** until the moderator provides a topic
-2. **Think** about your estimate (e.g., "This is a 5")
-3. **Click** on the corresponding card
-4. **Your choice** is marked (green outline)
-5. You see a ✓ for other participants (but not their card!)
-6. **Wait** for the reveal
-
-**Tip:** You can change your choice anytime before the reveal!
-
-### Working as Moderator
-
-#### Enter Topic
-
-1. **Click** on the topic field at the top
-2. **Enter** the title (e.g., "USER-123: Login")
-3. Or paste a **JIRA link** – the issue key is automatically extracted!
-4. **Press Enter** or click outside
-
-**→ Everyone sees the new topic instantly!**
-
-#### Reveal Cards
-
-1. **Wait** until everyone has voted (✓ for all participants)
-2. **Click** on **"Reveal"**
-3. **See** the results:
-   - Selected card for each participant
-   - **Average** (arithmetic mean)
-   - **Median** (middle value)
-   - **Range** (lowest to highest value)
-   - **Outliers** (values that deviate significantly)
-
-#### Reset Round
-
-1. **After discussion** click on **"Reset"**
-2. **All votes** are cleared
-3. **Next round** can begin
-
-### Adjust Settings (Menu)
-
-Click on **[⋮ Menu]** in the top right to open settings:
-
-- **Language:** German or English
-- **Theme:** Light, Dark or System
-
-On larger screens these preferences are also available directly in the header.
-On mobile they remain available through the menu.
-
-#### 📊 Switch Card Set
-
-Different sequences for different estimation methods:
-
-- **Fibonacci** (Standard): 1, 2, 3, 5, 8, 13, 21
-- **Fibonacci Extended**: 0, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, ∞
-- **T-Shirt Sizes**: XS, S, M, L, XL, XXL
-- **Powers of Two**: 1, 2, 4, 8, 16, 32, 64
-
-**When to switch?**
-- **T-Shirt Sizes** → Quick, rough estimates
-- **Fibonacci Extended** → When very large or very small tasks are involved
-- **Powers of Two** → Technical tasks (often used in DevOps)
-
-#### ⚡ Auto-Reveal
-
-**Enabled:** Cards are automatically revealed once everyone has voted  
-**Disabled:** Moderator must manually click "Reveal"
-
-**Recommendation:** Enable for quick sessions, disable when time for discussion before revealing is desired.
-
-#### ☕ Special Cards
-
-**Enabled:** Shows additional cards (☕, 🔭, ⏳, etc.)  
-**Disabled:** Only numbers and question mark
-
-#### 📋 Show Topic
-
-**Enabled:** Topic is visible to everyone  
-**Disabled:** Topic is hidden (but saved)
-
-#### 👓 Spectator Mode
-
-As a participant, you can switch between **Participant** and **Spectator**:
-
-- **Participant:** Your vote counts
-- **Spectator:** You see everything, but your vote doesn't count (e.g., for stakeholders who only observe)
-
----
-
-## Frequently Asked Questions (FAQ)
-
-### How many people can participate?
-
-Theoretically unlimited, but **5-10 people** are ideal for Planning Poker.
-
-### What happens if someone loses connection?
-
-- **Brief interruption** (<5 seconds): Automatic reconnection
-- **Longer interruption**: Participant is marked as "disconnected" (grayed out)
-- **Return**: Simply reload the page – the chosen name is recognized again
-
-### What happens to the moderator if they lose connection?
-
-Another participant is **automatically promoted to new moderator**. If the original moderator returns, they can reclaim the role.
-
-### Is data saved?
-
-**By default:** No. Everything runs in the server's memory and is lost when everyone leaves the room.
-
-**Optional:** The server can be configured to save rooms as snapshots (for later resumption).
-
-### Can someone see others' votes before revealing?
-
-**No!** This is the core of Planning Poker: Nobody sees others' votes until the moderator reveals them. This prevents early estimates from influencing later ones.
-
-### How long does a room stay active?
-
-A room stays active as long as at least one person is connected. When everyone leaves, it's automatically closed after a short time (without persistence).
-
-### Can I find an existing room again?
-
-Only via the **link**! There's no room list. Save the link if you want to return later.
-
-### Does it work on smartphones?
-
-Yes! The interface automatically adapts to small screens. Best used in landscape mode for better overview.
-
----
-
-## Tips for Effective Sessions
-
-### 🎯 Preparation
-
-- **Prepare topics in advance**: Have a list of user stories/tasks ready
-- **Invite all participants**: Ensure everyone has the link
-- **Clarify Definition of Done**: Team should know what "done" means
-
-### 💡 During the Session
-
-- **Timebox per story**: Max. 5 minutes per estimate
-- **With large differences**: Have people with highest/lowest estimates explain
-- **Second round**: If needed, vote again after discussion
-- **Plan breaks**: Short break after 45-60 minutes
-
-### ⚖️ Handling Outliers
-
-When someone estimates **much higher** or **lower** than the rest:
-
-1. **Ask** why this person estimates that way
-2. **Listen** – often there are important aspects others overlooked
-3. **Discuss** – align team understanding
-4. **Vote again** – with new knowledge
-
-### 🚫 Avoid Common Mistakes
-
-- **Too much discussion**: At 3-5 minutes without consensus → split story or discuss later
-- **First person influences**: That's why **only reveal** when everyone has chosen
-- **Getting too technical**: Focus on "How much work?" not "How do we do it?"
-- **Perfectionism**: Planning Poker is a rough estimate, not an exact value!
-
----
-
-## Keyboard Shortcuts (for Power Users)
-
-| Key | Function |
-|-----|----------|
-| **1-9** | Select card with corresponding number |
-| **?** | Select question mark card |
-| **Space** | Open/close menu |
-| **R** | Reset round (moderator only) |
-| **V** | Reveal (moderator only) |
-| **Esc** | Close menu |
-
----
+- Buttons and cards: focus with `Tab`; activate with `Enter` or `Space`.
+- Menus: `Escape` closes them; the participant action menu also supports arrow keys, `Home` and `End`.
+- Topic editor: `Enter` saves and `Escape` cancels.
 
 ## Troubleshooting
 
-### Problem: I can't select a card
+- **Cannot select a card:** check spectator status and connection; after reveal, wait for the next round.
+- **Changes are missing:** verify the room code, allow reconnection to complete or reload. Proxies/firewalls may block WebSocket.
+- **Name already in use:** display names alone are not identities. Use the existing invitation and browser session or choose a unique name.
 
-**Solution:**
-- Check if you're marked as **Spectator** (switch in menu)
-- Ensure you're connected to the internet
-- Reload the page (F5)
+## Example round
 
-### Problem: I don't see other participants
-
-**Solution:**
-- Check if you're in the correct room (verify link)
-- Reload the page (F5)
-- Ensure others have actually joined
-
-### Problem: My name is already taken
-
-**Solution:**
-- The server automatically adds a number (e.g., "Maria" → "Maria-2")
-- Or: Choose a unique name when joining
-
-### Problem: Page won't load
-
-**Solution:**
-- Check your internet connection
-- Clear browser cache (Ctrl+Shift+R / Cmd+Shift+R)
-- Try a different browser
-- Check if the app is online: https://planning-poker.at/
-
-### Problem: WebSocket connection fails
-
-**Solution:**
-- Check if your company blocks WebSockets (firewall/proxy)
-- Try private/incognito mode
-- Contact your IT support
-
----
-
-## Example Session
-
-### Scenario: Sprint Planning for 5 User Stories
-
-**Participants:**
-- Maria (Scrum Master, Moderator)
-- Tom (Developer)
-- Sarah (Developer)
-- Alex (QA)
-- Chris (Product Owner, Spectator)
-
-**Timeline:**
-
-1. **10:00** – Maria creates room "Sprint24-Planning"
-2. **10:02** – All team members have joined
-3. **10:05** – Chris switches to spectator mode (doesn't want to estimate)
-4. **10:05** – Maria enters first topic: "USER-123: Login functionality"
-5. **10:07** – Everyone has voted:
-   - Maria: 5
-   - Tom: 8
-   - Sarah: 5
-   - Alex: 8
-6. **10:08** – Revealed: Average 6.5, Median 6.5
-7. **10:09** – Discussion: Tom and Alex explain their 8 (testing effort)
-8. **10:12** – Second vote: Everyone chooses 8 → **Consensus!**
-9. **10:12** – Maria resets
-10. **10:13** – Next topic: "USER-124: Forgot password"
-11. ... (more stories)
-12. **11:00** – Session ended, results entered in JIRA
-
-**Result:** 5 stories estimated in 60 minutes
-
----
-
-## For Team Leads: Introducing to the Team
-
-### Preparation
-
-1. **Demo session** with 2-3 colleagues in advance
-2. **Establish rules**: How do we handle outliers? When second round?
-3. **Define card values**: What does a "5" mean to us? (e.g., 2 days of work)
-4. **Prepare link**: Create room in advance, include link in invitation
-
-### First Session
-
-1. **5 min**: Briefly introduce and demonstrate the tool
-2. **5 min**: Estimate one simple story as practice
-3. **40 min**: Estimate real stories
-4. **10 min**: Retrospective: What went well? What can we improve?
-
-### Establish Best Practices
-
-- **Fixed time**: E.g., every Tuesday 10:00-11:00
-- **Preparation**: Product Owner prepares stories
-- **Timeboxing**: Max. 5 minutes per story
-- **Focus**: Only estimate, don't design
-
----
+A team opens a room, enters a user story as the estimation topic and selects Fibonacci (Scrum basic). Every active participant votes privately while a spectator follows without voting. After reveal, the team discusses different values and starts another round. Results are recorded in the relevant issue tracker when needed.
 
 ## Glossary
 
-| Term | Explanation |
-|------|-------------|
-| **Planning Poker** | Estimation method for agile teams where everyone votes simultaneously |
-| **Story Points** | Relative unit of effort (not a time estimate!) |
-| **Moderator/Host** | Person leading the session (can set topic, reveal, etc.) |
-| **Spectator** | Participant who only watches but doesn't vote |
-| **Average** | Arithmetic mean of all votes |
-| **Median** | Middle value (divides votes into two halves) |
-| **Outlier** | Votes that deviate significantly from the average |
-| **Consensus** | Everyone has chosen the same card |
-| **Fibonacci Sequence** | 1, 2, 3, 5, 8, 13, 21... (each number is the sum of the two preceding ones) |
+| Term | Meaning |
+|---|---|
+| Story Points | team-specific relative size, not a fixed unit of time |
+| Host | participant with room control and administration permissions |
+| Spectator | participant who follows the room without voting |
+| Consensus | agreement among considered numeric votes under the rules above |
+| Special card | deliberately selected non-numeric signal that discussion is needed |
 
----
+## Help and links
 
-## Contact & Support
+- [Application](https://planning-poker.at/)
+- [Source and issues](https://github.com/nox-vobiscum/planning-poker)
+- [Documentation index](INDEX.md)
 
-**Live App:** https://planning-poker.at/  
-**GitHub:** https://github.com/nox-vobiscum/planning-poker  
-**Documentation:** https://github.com/nox-vobiscum/planning-poker/tree/main/docs
-
-**For problems:**
-1. Check this guide and [Troubleshooting](#troubleshooting)
-2. Create an issue on GitHub
-3. Contact your team lead or IT support
-
----
-
-*Last updated: 2026-07-22*
+Last updated: October 2026

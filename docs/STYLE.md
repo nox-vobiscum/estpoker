@@ -8,6 +8,20 @@ The goal is to keep contributions consistent and make global tweaks easy.
 - **Consistency via tokens**: never hard-code ad-hoc sizes if a token exists.
 - **Accessible by default**: readable line-heights, contrast, and tap targets.
 
+## Visual semantics
+
+- System states use quiet, neutral and monochrome symbols. They must not look like deliberate votes or game actions.
+- Selected estimates and special cards may use distinctive color or personality when this communicates meaning.
+- Results remain factual and restrained. The consensus celebration symbol is an intentional exception.
+- Icons convey information or an available action; avoid purely decorative icons and never reuse voting semantics for system status.
+
+## Editorial language
+
+- German user-facing text uses natural inclusive wording such as `Teilnehmende`, `Zuschauende`, `Nutzende` or direct address.
+- Established English product and role terms remain unchanged in German, including `Host`, `Scrum Master`, `Product Owner`, `Developer`, `Stakeholder`, `Planning Poker`, `Story Points` and `User Story`.
+- English text expresses the same behavior naturally rather than mirroring German sentence structure.
+- Labels and documentation describe verified behavior without promises about fixed timing, persistence or availability.
+
 ## Tokens
 
 Declare tokens in CSS (see snippet below). Suggested defaults:
