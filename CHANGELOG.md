@@ -5,6 +5,10 @@ temporary validation reports may be removed after the documentation consolidatio
 
 ## Unreleased
 
+- Changed the desktop room metadata grid so the participant block uses its
+  intrinsic width with comfortable trailing space, capped at half the row,
+  while the room block consumes the remainder and keeps sharing at the far
+  edge. The stacked mobile layout remains unchanged.
 - Centered the participant-action trigger's three dots independently of font
   metrics and sized its menu to its content, retaining the mobile width cap.
   Focused Chromium/WebKit checks cover DE/EN at 375/393/1280px, menu hit targets,

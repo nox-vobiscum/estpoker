@@ -77,3 +77,65 @@ for (const theme of ['light', 'system'] as const) {
     expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
   });
 }
+
+for (const width of [601, 769, 805, 1280]) {
+  test(`desktop metadata gives the participant only its required width at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 800 });
+    await page.goto(`/room?roomCode=room-with-available-space&participantName=Ada&lang=en`);
+
+    const geometry = await page.evaluate(() => {
+      const rect = (selector: string) => document.querySelector(selector)!.getBoundingClientRect();
+      const metadata = rect('.main-info');
+      const participant = rect('.main-info-group--participant');
+      const room = rect('.main-info-group--room');
+      const name = rect('#youName');
+      const share = rect('#copyRoomLink');
+      return {
+        participantWidth: participant.width,
+        roomWidth: room.width,
+        participantShare: participant.width / metadata.width,
+        nameClearance: participant.right - name.right,
+        shareRightInset: metadata.right - share.right,
+        aligned: Math.abs(participant.top - room.top),
+        overflow: document.documentElement.scrollWidth - innerWidth,
+      };
+    });
+
+    expect(geometry.participantWidth).toBeLessThan(geometry.roomWidth);
+    expect(geometry.participantShare).toBeLessThan(0.35);
+    expect(geometry.nameClearance).toBeGreaterThanOrEqual(23);
+    expect(geometry.shareRightInset).toBeGreaterThanOrEqual(13);
+    expect(geometry.shareRightInset).toBeLessThanOrEqual(15);
+    expect(geometry.aligned).toBeLessThanOrEqual(1);
+    expect(geometry.overflow).toBeLessThanOrEqual(1);
+  });
+}
+
+test('desktop metadata caps a long participant while preserving the flexible room area', async ({ page }) => {
+  await page.setViewportSize({ width: 805, height: 800 });
+  await page.goto(`/room?roomCode=${encodeURIComponent('Room-' + 'r'.repeat(100))}&participantName=${encodeURIComponent('Participant-' + 'n'.repeat(100))}&lang=en`);
+
+  const geometry = await page.evaluate(() => {
+    const metadata = document.querySelector('.main-info')!.getBoundingClientRect();
+    const participant = document.querySelector('.main-info-group--participant')!.getBoundingClientRect();
+    const room = document.querySelector('.main-info-group--room')!.getBoundingClientRect();
+    const name = document.querySelector<HTMLElement>('#youName')!;
+    const code = document.querySelector<HTMLElement>('#roomCodeVal')!;
+    const share = document.querySelector('#copyRoomLink')!.getBoundingClientRect();
+    return {
+      participantShare: participant.width / metadata.width,
+      roomWidth: room.width,
+      nameTruncated: name.scrollWidth > name.clientWidth,
+      roomTruncated: code.scrollWidth > code.clientWidth,
+      codeClear: code.getBoundingClientRect().right <= share.left - 7,
+      overflow: document.documentElement.scrollWidth - innerWidth,
+    };
+  });
+
+  expect(geometry.participantShare).toBeLessThanOrEqual(0.501);
+  expect(geometry.roomWidth).toBeGreaterThan(0);
+  expect(geometry.nameTruncated).toBe(true);
+  expect(geometry.roomTruncated).toBe(true);
+  expect(geometry.codeClear).toBe(true);
+  expect(geometry.overflow).toBeLessThanOrEqual(1);
+});
