@@ -5,6 +5,9 @@ temporary validation reports may be removed after the documentation consolidatio
 
 ## Unreleased
 
+- Arranged the language and theme controls side by side at their compact,
+  intrinsic control widths in the responsive mobile settings menu, while
+  keeping both preferences exclusively in the header on desktop.
 - Added restrained person, spectator and remove icons to the existing host
   participant-action menu without changing its actions or permissions.
 - Fixed refresh, reconnect and same-tab rejoin resetting an existing

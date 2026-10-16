@@ -12,7 +12,7 @@ for (const width of [320, 768, 1280]) {
 
     const sectionIds = width <= 768
       ? ['menuLanguageHeading', 'menuThemeHeading', 'menuSequenceHeading', 'menuRoomHeading', 'menuPersonalHeading', 'menuSecondaryHeading']
-      : ['menuThemeHeading', 'menuSequenceHeading', 'menuRoomHeading', 'menuPersonalHeading', 'menuSecondaryHeading'];
+      : ['menuSequenceHeading', 'menuRoomHeading', 'menuPersonalHeading', 'menuSecondaryHeading'];
     const headings = page.locator('.menu-panel .menu-section > .section-title:visible');
     await expect(headings).toHaveCount(sectionIds.length);
     expect(await headings.evaluateAll(els => els.map(el => el.id))).toEqual(sectionIds);
@@ -22,8 +22,22 @@ for (const width of [320, 768, 1280]) {
       await expect(section).toHaveAttribute('aria-labelledby', id);
       await expect(section).toHaveAccessibleName(/.+/);
     }
-    if (width > 768) await expect(page.locator('#menuLanguageHeading')).toBeHidden();
-    else await expect(page.locator('#menuLanguageHeading')).toHaveText('Language');
+    if (width > 768) {
+      await expect(page.locator('#menuLanguageHeading')).toBeHidden();
+      await expect(page.locator('#menuThemeHeading')).toBeHidden();
+    }
+    else {
+      await expect(page.locator('#menuLanguageHeading')).toHaveText('Language');
+      const preferenceGeometry = await page.locator('.menu-preferences > .menu-section').evaluateAll(sections =>
+        sections.map(section => {
+          const rect = section.getBoundingClientRect();
+          return { left: rect.left, top: rect.top };
+        }));
+      expect(preferenceGeometry).toHaveLength(2);
+      expect(Math.abs(preferenceGeometry[0]!.top - preferenceGeometry[1]!.top)).toBeLessThanOrEqual(1);
+      expect(preferenceGeometry[1]!.left).toBeGreaterThan(preferenceGeometry[0]!.left);
+      expect(await page.locator('.menu-preferences').evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+    }
 
     const focusOrder: string[] = [];
     for (let i = 0; i < 35; i++) {
@@ -34,7 +48,7 @@ for (const width of [320, 768, 1280]) {
     }
     const expected = width <= 768
       ? ['menuLangDE', 'themeLight', 'menuAutoRevealToggle', 'menuParticipationToggle', 'closeRoomBtn']
-      : ['themeLight', 'menuAutoRevealToggle', 'menuParticipationToggle', 'closeRoomBtn'];
+      : ['menuAutoRevealToggle', 'menuParticipationToggle', 'closeRoomBtn'];
     let previous = -1;
     for (const id of expected) {
       const index = focusOrder.indexOf(id);

@@ -17,32 +17,34 @@
                 aria-label="Close menu" title="Close menu">&#x2715;</button>
       </div>
 
-      <!-- Reuse the existing language adapter on narrow screens. -->
-      <div class="menu-section mobile-language" role="group" aria-labelledby="menuLanguageHeading">
-        <h4 id="menuLanguageHeading" class="section-title" data-i18n="menu.language">Language</h4>
-        <div th:replace="~{fragments/header-controls :: languageControls(prefix='menuLang')}"></div>
-      </div>
+      <div class="menu-preferences">
+        <!-- Reuse the existing language adapter on narrow screens. -->
+        <div class="menu-section mobile-language" role="group" aria-labelledby="menuLanguageHeading">
+          <h4 id="menuLanguageHeading" class="section-title" data-i18n="menu.language">Language</h4>
+          <div th:replace="~{fragments/header-controls :: languageControls(prefix='menuLang')}"></div>
+        </div>
 
-      <!-- Theme -->
-      <div class="menu-section" role="group" aria-labelledby="menuThemeHeading">
-        <h4 id="menuThemeHeading" class="section-title" data-i18n="menu.theme">Theme</h4>
-        <div id="menuTheme" class="preference-control" role="group"
-             th:attr="aria-label=#{menu.theme}" aria-label="Theme">
-          <button id="themeLight"  type="button" class="preference-seg" data-theme-mode="light" aria-pressed="false"
-                  th:attr="title=#{theme.light},aria-label=#{theme.light}"
-                  data-i18n-attr="title:theme.light;aria-label:theme.light">
-            <svg th:replace="~{fragments/app-header :: themeLightIcon}"></svg>
-          </button>
-          <button id="themeDark"   type="button" class="preference-seg" data-theme-mode="dark" aria-pressed="false"
-                  th:attr="title=#{theme.dark},aria-label=#{theme.dark}"
-                  data-i18n-attr="title:theme.dark;aria-label:theme.dark">
-            <svg th:replace="~{fragments/app-header :: themeDarkIcon}"></svg>
-          </button>
-          <button id="themeSystem" type="button" class="preference-seg" data-theme-mode="system" aria-pressed="false"
-                  th:attr="title=#{theme.system},aria-label=#{theme.system}"
-                  data-i18n-attr="title:theme.system;aria-label:theme.system">
-            <svg th:replace="~{fragments/app-header :: themeSystemIcon}"></svg>
-          </button>
+        <!-- Theme -->
+        <div class="menu-section" role="group" aria-labelledby="menuThemeHeading">
+          <h4 id="menuThemeHeading" class="section-title" data-i18n="menu.theme">Theme</h4>
+          <div id="menuTheme" class="preference-control" role="group"
+               th:attr="aria-label=#{menu.theme}" aria-label="Theme">
+            <button id="themeLight"  type="button" class="preference-seg" data-theme-mode="light" aria-pressed="false"
+                    th:attr="title=#{theme.light},aria-label=#{theme.light}"
+                    data-i18n-attr="title:theme.light;aria-label:theme.light">
+              <svg th:replace="~{fragments/app-header :: themeLightIcon}"></svg>
+            </button>
+            <button id="themeDark"   type="button" class="preference-seg" data-theme-mode="dark" aria-pressed="false"
+                    th:attr="title=#{theme.dark},aria-label=#{theme.dark}"
+                    data-i18n-attr="title:theme.dark;aria-label:theme.dark">
+              <svg th:replace="~{fragments/app-header :: themeDarkIcon}"></svg>
+            </button>
+            <button id="themeSystem" type="button" class="preference-seg" data-theme-mode="system" aria-pressed="false"
+                    th:attr="title=#{theme.system},aria-label=#{theme.system}"
+                    data-i18n-attr="title:theme.system;aria-label:theme.system">
+              <svg th:replace="~{fragments/app-header :: themeSystemIcon}"></svg>
+            </button>
+          </div>
         </div>
       </div>
 

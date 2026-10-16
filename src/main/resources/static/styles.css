@@ -1344,12 +1344,22 @@ h1,h2,h3{font-weight:var(--ui-heading-weight)}
 .app-header .header-controls{position:static}
 .app-header .menu-button{position:relative;inset:auto;flex:none}
 .mobile-language{display:none}
+.menu-preferences{display:contents}
+@media (min-width:769px){
+  .menu-preferences{display:none}
+}
 @media (max-width:768px){
   .app-header{gap:8px;padding:8px 16px}
   .app-brand{font-size:1.4em}
   .desktop-language{display:none}
   .desktop-theme{display:none}
   .mobile-language{display:flex}
+  .menu-preferences{display:flex;align-items:flex-end;gap:0}
+  .menu-preferences .menu-section{min-width:0;padding-inline:0}
+  .menu-preferences .menu-section + .menu-section{position:relative;margin-left:12px;padding-left:12px}
+  .menu-preferences .menu-section + .menu-section::before{
+    content:"";position:absolute;left:0;top:12px;bottom:10px;border-left:1px solid var(--ui-surface-border);
+  }
   .page-room .room-with-actions{display:flex;width:100%;min-width:0}
   .page-room #roomCodeVal{min-width:0;overflow:hidden;text-overflow:ellipsis}
   .page-room .room-with-actions .icon-button{flex:none;margin-left:0}
