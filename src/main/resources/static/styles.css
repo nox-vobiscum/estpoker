@@ -167,6 +167,7 @@ strong{color:var(--text-strong)}
   background:var(--ui-surface);box-shadow:var(--ui-shadow-sm)
 }
 .main-info-group{position:relative;min-width:0;padding:10px 14px 10px 48px}
+.main-info-group--room{padding-inline-end:50px}
 .main-info-group + .main-info-group{border-inline-start:1px solid var(--ui-surface-border)}
 .main-info dt{margin:0;min-width:0;line-height:1.2}
 .main-info dd{margin:3px 0 0;min-width:0;line-height:1.35}
@@ -184,7 +185,7 @@ strong{color:var(--text-strong)}
 }
 .room-with-actions{display:flex;align-items:center;gap:8px;min-width:0;width:100%}
 .room-with-actions #roomCodeVal{flex:1 1 auto}
-.room-with-actions .icon-button{flex:none;margin-left:0}
+.room-with-actions .icon-button{position:absolute;inset-inline-end:14px;top:50%;translate:0 -50%;flex:none;margin-left:0}
 @media (max-width:600px){
   .main-info{grid-template-columns:minmax(0,1fr)}
   .main-info-group + .main-info-group{border-inline-start:0;border-top:1px solid var(--ui-surface-border)}
@@ -1378,6 +1379,7 @@ h1,h2,h3{font-weight:var(--ui-heading-weight)}
   .menu-preferences .menu-section + .menu-section::before{
     content:"";position:absolute;left:0;top:12px;bottom:10px;border-left:1px solid var(--ui-surface-border);
   }
+  .page-room .main-info-group--room{padding-inline-end:62px}
   .page-room .room-with-actions{display:flex;width:100%;min-width:0}
   .page-room #roomCodeVal{min-width:0;overflow:hidden;text-overflow:ellipsis}
   .page-room .room-with-actions .icon-button{flex:none;margin-left:0}

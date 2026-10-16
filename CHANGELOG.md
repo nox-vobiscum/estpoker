@@ -5,6 +5,10 @@ temporary validation reports may be removed after the documentation consolidatio
 
 ## Unreleased
 
+- Centered the room-share button independently of the metadata value line,
+  retaining an 8px text clearance. Mobile room rows shrink from about 75px to
+  57px for short values; desktop name and room values now align vertically.
+  Chromium/WebKit checks cover short and long values at 320–1280px.
 - Kept the host crown directly beside the participant name on mobile by
   preventing the name from growing into unused row space. Chromium and WebKit
   checks at 320/399/587/765/768/769/805/1280px confirmed a consistent 6.4px gap.
