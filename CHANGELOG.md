@@ -5,6 +5,11 @@ temporary validation reports may be removed after the documentation consolidatio
 
 ## Unreleased
 
+- Grouped the participant heading and list inside a transparent, subtly framed
+  section, using a weaker border than the estimation topic. Row dimensions and
+  vote-chip horizontal positions are preserved; menus remain unclipped.
+  Focused Chromium/WebKit validation covers 1/2/5 participants, Light/Dark,
+  375/393/1280px, spectator/inactive states and first/last actionable menus.
 - Centered the room-share button independently of the metadata value line,
   retaining an 8px text clearance. Mobile room rows shrink from about 75px to
   57px for short values; desktop name and room values now align vertically.

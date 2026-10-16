@@ -1463,11 +1463,16 @@ html.menu-scroll-locked, .menu-scroll-locked body{overflow:hidden}
 }
 
 /* RP-003: calm participant rows with stable identity, vote and action zones. */
+.participant-section{
+  margin-top:1.2rem;border:1px solid color-mix(in srgb,var(--ui-surface-border) 65%,transparent);
+  border-radius:var(--ui-panel-radius);background:transparent;overflow:visible;
+}
+.participant-section .participant-heading{margin:0;padding:10px 16px}
 :root #liveParticipantList{
-  border:1px solid var(--ui-surface-border);
-  border-radius:var(--ui-panel-radius);
-  background:var(--ui-surface);
-  box-shadow:var(--ui-shadow-sm);
+  border:0;
+  border-radius:0;
+  background:transparent;
+  box-shadow:none;
 }
 :root #liveParticipantList .participant-row{
   grid-template-columns:var(--icon-col-width) minmax(0,1fr) minmax(0,1fr);
@@ -1499,6 +1504,7 @@ html.menu-scroll-locked, .menu-scroll-locked body{overflow:hidden}
 :root #liveParticipantList .participant-row.disconnected .participant-identity{opacity:.78}
 
 @media (max-width:768px){
+  .participant-section .participant-heading{padding-inline:12px}
   :root #liveParticipantList .participant-row{
     grid-template-columns:var(--icon-col-width) minmax(0,1fr) 40px;
     padding:10px 12px;

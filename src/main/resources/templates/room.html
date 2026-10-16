@@ -49,7 +49,8 @@
       <div class="topic-actions"></div>
     </div>
 
-    <h2 class="participant-heading">
+    <section class="participant-section" aria-labelledby="participantHeading">
+    <h2 id="participantHeading" class="participant-heading">
       <span th:text="#{label.participants}" data-i18n="label.participants">Participants</span>
       <span class="participant-heading-separator" aria-hidden="true">·</span>
       <span id="participantCount" class="participant-count" aria-hidden="true">0</span>
@@ -58,6 +59,7 @@
     <!-- Live participants list.
          ARIA: polite live region so screen readers get updates without being too disruptive. -->
     <ul id="liveParticipantList" role="list" aria-live="polite" aria-busy="false"></ul>
+    </section>
 
     <!-- Host label template: JS can clone this when marking a participant as Host.
          Accessible: title + aria-label; i18n-ready via data-i18n-attr.
