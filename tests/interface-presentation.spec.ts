@@ -13,14 +13,22 @@ for (const width of [375, 768, 1280]) {
         expect(await page.locator('body').evaluate(el => getComputedStyle(el).fontFamily)).toContain('system-ui');
         await expect(page.locator('body')).toHaveCSS('background-color',
           theme === 'dark' ? 'rgb(30, 30, 30)' : 'rgb(246, 247, 249)');
+        const backgroundImage = await page.locator('body').evaluate(el => getComputedStyle(el).backgroundImage);
+        expect(backgroundImage === 'none').toBe(theme !== 'dark');
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
         await page.locator('#menuButton').click();
-        await expect(page.locator('#menuTheme')).toBeVisible();
+        if (width < 769) {
+          await expect(page.locator('#menuTheme')).toBeVisible();
+        } else {
+          await expect(page.locator('#menuTheme')).toBeHidden();
+          await expect(page.locator('.app-header .theme-control')).toBeVisible();
+        }
         await page.locator('#menuCloseButton').click();
       }
       if (theme === 'system') {
         await page.emulateMedia({ colorScheme: 'dark' });
         await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(30, 30, 30)');
+        expect(await page.locator('body').evaluate(el => getComputedStyle(el).backgroundImage)).not.toBe('none');
       }
     });
   }

@@ -9,6 +9,7 @@
 /* ---------- Theme tokens ------------------------------------------------ */
 :root{
   --bg:#1e1e1e; --text:#d4d4d4; --text-strong:#fff; --text-dim:#aeb3bb;
+  --page-bg-image:radial-gradient(ellipse 120% 90% at 50% 8%,rgba(13,38,54,.16) 0%,rgba(15,34,47,.07) 48%,transparent 78%);
   --color-text-muted:var(--text-dim);
   --panel:#2d2d30; --panel-2:#3c3c3c; --panel-2-hover:#47494d; --panel-hover:#34363a; --border:#3c3c3c;
   --accent:#007acc; --accent-strong:#005a9e; --link:#7dbbff;
@@ -51,6 +52,7 @@
 }
 :root[data-theme="light"]{
   --bg:#f6f7f9; --text:#1f2937; --text-strong:#111827; --text-dim:#374151;
+  --page-bg-image:none;
   --panel:#fff; --panel-2:#eef2f7; --panel-2-hover:#e7ebf2; --panel-hover:#f7f8fb; --border:#e5e7eb;
   --accent:#2563eb; --accent-strong:#1d4ed8; --link:#1d4ed8;
   --shadow:0 10px 24px rgba(0,0,0,.08);
@@ -68,6 +70,7 @@
 @media (prefers-color-scheme: light){
   :root:not([data-theme]){
   --bg:#f6f7f9; --text:#1f2937; --text-strong:#111827; --text-dim:#374151;
+  --page-bg-image:none;
   --panel:#fff; --panel-2:#eef2f7; --panel-2-hover:#e7ebf2; --panel-hover:#f7f8fb; --border:#e5e7eb;
   --accent:#2563eb; --accent-strong:#1d4ed8; --link:#1d4ed8;
   --shadow:0 10px 24px rgba(0,0,0,.08);
@@ -120,7 +123,7 @@
 *{box-sizing:border-box}
 html,body{height:100%}
 body{
-  background:var(--bg); color:var(--text); font-family:var(--ui-font);letter-spacing:var(--ui-letter-spacing);
+  background-color:var(--bg);background-image:var(--page-bg-image); color:var(--text); font-family:var(--ui-font);letter-spacing:var(--ui-letter-spacing);
   margin:0; padding:2rem; -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
   padding-bottom:var(--footer-h);
 }
