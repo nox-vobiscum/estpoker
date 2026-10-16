@@ -12,6 +12,8 @@ temporary validation reports may be removed after the documentation consolidatio
   delete actions, and the participant removal action.
 - Aligned the invite-link and topic-action button corners, plus the participant
   counter shape, with the restrained rounded geometry used by header controls.
+- Replaced the remaining topic-editor save and cancel emojis with monochrome
+  confirm and dismiss icons.
 - Arranged the language and theme controls side by side at their compact,
   intrinsic control widths in the responsive mobile settings menu, while
   keeping both preferences exclusively in the header on desktop.

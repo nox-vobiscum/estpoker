@@ -111,6 +111,8 @@ test.describe('Topic flow', () => {
 
     await setTopicLabel(page, 'Story to remove');
     await page.locator('#topicEditBtn').click();
+    await expect(page.locator('#topicSaveBtn use')).toHaveAttribute('href', '#pp-icon-confirm');
+    await expect(page.locator('#topicCancelEditBtn use')).toHaveAttribute('href', '#pp-icon-cancel');
     await page.locator('#topicDisplay').fill('');
     await page.locator('#topicSaveBtn').click();
     await expect(page.locator('#topicDisplay')).toHaveText(/^[–—]$/);

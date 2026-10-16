@@ -1544,9 +1544,9 @@
 
     actions.innerHTML =
       '<button id="topicSaveBtn" class="icon-button neutral" type="button"' +
-               ' title="' + escapeHtml(titleSave) + '" aria-label="' + escapeHtml(titleSave) + '">✅</button>' +
+               ' title="' + escapeHtml(titleSave) + '" aria-label="' + escapeHtml(titleSave) + '"><svg class="pp-status-icon" aria-hidden="true"><use href="#pp-icon-confirm"></use></svg></button>' +
       ' <button id="topicCancelEditBtn" class="icon-button neutral" type="button"' +
-               ' title="' + escapeHtml(titleCancel) + '" aria-label="' + escapeHtml(titleCancel) + '">❌</button>';
+               ' title="' + escapeHtml(titleCancel) + '" aria-label="' + escapeHtml(titleCancel) + '"><svg class="pp-status-icon" aria-hidden="true"><use href="#pp-icon-cancel"></use></svg></button>';
 
     displayEl.addEventListener('keydown', function (e) {
       if (e.key === 'Enter')  { if (e.preventDefault) e.preventDefault(); const b = $('#topicSaveBtn');   if (b) b.click(); }
