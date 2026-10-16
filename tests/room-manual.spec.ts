@@ -51,6 +51,45 @@ test('room guide supports keyboard operation and exposes its content', async ({ 
   await expect(manual).not.toHaveAttribute('open', '');
 });
 
+test('result definitions use the compact guide typography', async ({ page }) => {
+  await page.goto(roomUrl('en'));
+  await page.locator('#roomManual > summary').click();
+
+  const typography = await page.locator('[data-i18n="manual.results.average"]').evaluate(element => {
+    const style = getComputedStyle(element);
+    return { fontSize: style.fontSize, lineHeight: style.lineHeight };
+  });
+  const bodyTypography = await page.locator('[data-i18n="manual.results.intro"]').evaluate(element => {
+    const style = getComputedStyle(element);
+    return { fontSize: style.fontSize, lineHeight: style.lineHeight };
+  });
+  const listStyle = await page.locator('[data-i18n="manual.results.average"]').evaluate(element =>
+    getComputedStyle(element).listStyleType
+  );
+
+  expect(typography).toEqual(bodyTypography);
+  expect(listStyle).toBe('disc');
+});
+
+test('result section spans both guide columns on desktop only', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto(roomUrl('en'));
+  await page.locator('#roomManual > summary').click();
+
+  const desktop = await page.locator('.room-manual-body').evaluate(body => {
+    const container = body.getBoundingClientRect();
+    const result = body.querySelector('section:nth-child(3)')!.getBoundingClientRect();
+    return { containerWidth: container.width, resultWidth: result.width };
+  });
+  expect(Math.abs(desktop.containerWidth - desktop.resultWidth)).toBeLessThanOrEqual(32);
+
+  await page.setViewportSize({ width: 375, height: 800 });
+  const mobileColumn = await page.locator('.room-manual-body section:nth-child(3)').evaluate(element =>
+    getComputedStyle(element).gridColumn
+  );
+  expect(mobileColumn).toBe('auto');
+});
+
 test('German room guide has translated heading and matching sections', async ({ page }) => {
   await page.goto(roomUrl('de'));
   const manual = page.locator('#roomManual');
