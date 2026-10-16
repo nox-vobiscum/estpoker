@@ -32,6 +32,25 @@ for (const width of [320, 375, 1280]) {
       const hostRow = host.locator('#liveParticipantList .participant-row').filter({ hasText: 'ChipHost' });
       const pending = hostRow.locator('.mini-chip');
       await expect(pending).toBeVisible();
+      await expect(pending).toHaveText('⏳');
+      const pendingVisual = await pending.evaluate(element => {
+        const chip = getComputedStyle(element);
+        const icon = getComputedStyle(element, '::before');
+        return {
+          fontSize: chip.fontSize,
+          fontFamily: chip.fontFamily,
+          boxShadow: chip.boxShadow,
+          iconWidth: icon.width,
+          iconHeight: icon.height,
+          iconMask: icon.maskImage || (icon as CSSStyleDeclaration & { webkitMaskImage?: string }).webkitMaskImage,
+        };
+      });
+      expect(pendingVisual.fontSize).toBe('0px');
+      expect(pendingVisual.fontFamily).not.toMatch(/Emoji/i);
+      expect(pendingVisual.boxShadow).toBe('none');
+      expect(pendingVisual.iconWidth).toBe('14px');
+      expect(pendingVisual.iconHeight).toBe('14px');
+      expect(pendingVisual.iconMask).toContain('data:image/svg+xml');
       const expectedCenter = await centerX(pending);
       if (width === 1280) expect(Math.abs(expectedCenter - await centerX(hostRow))).toBeLessThanOrEqual(1);
 

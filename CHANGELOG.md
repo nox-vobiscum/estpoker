@@ -5,6 +5,10 @@ temporary validation reports may be removed after the documentation consolidatio
 
 ## Unreleased
 
+- Replaced the participant pending-vote emoji presentation with a neutral,
+  monochrome hourglass icon and restrained system-status styling. The existing
+  pending value and behavior remain unchanged; selectable special cards and
+  all voting logic are unaffected.
 - Reordered and aligned the room's lower controls as voting cards, centered
   host round action, centered leave action, then the collapsed guide. Added one
   subtle separator before leaving, visible to hosts and guests, while retaining
