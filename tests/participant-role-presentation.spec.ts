@@ -11,6 +11,7 @@ test('participant roles stay beside the name while the vote slot remains centere
   try {
     await host.goto(roomUrlFor('RoleHost', room));
     await expect(host.locator('.main-info-group--participant .pp-status-icon use')).toHaveAttribute('href', '#pp-icon-person');
+    await expect(host.locator('.main-info-group--room .pp-status-icon use')).toHaveAttribute('href', '#pp-icon-room');
     await expect(host.locator('#liveParticipantList .participant-row.is-host')).toHaveCount(1);
     await guest.goto(roomUrlFor('RoleGuest', room));
 

@@ -18,7 +18,7 @@
       </div>
 
       <div class="main-info-group main-info-group--room">
-        <dt><span class="mi-icon" aria-hidden="true">🆔</span><span class="mi-label" th:text="#{label.room}" data-i18n="label.room">Room:</span></dt>
+        <dt><span class="mi-icon" aria-hidden="true"><svg class="pp-status-icon"><use href="#pp-icon-room"/></svg></span><span class="mi-label" th:text="#{label.room}" data-i18n="label.room">Room:</span></dt>
         <dd>
           <div class="room-with-actions">
             <strong id="roomCodeVal" th:text="${roomCode}">demo</strong>
@@ -123,9 +123,7 @@
       <button id="leaveRoomBtn" type="button" class="room-exit-action"
               th:attr="aria-label=#{room.leave},title=#{room.leave}"
               data-i18n-attr="aria-label:room.leave;title:room.leave">
-        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-          <path d="M9 4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4m5-4 4-4-4-4m4 4H9"/>
-        </svg>
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#pp-icon-exit"/></svg>
         <span th:text="#{room.leave}" data-i18n="room.leave">Leave room</span>
       </button>
     </div>
@@ -133,7 +131,7 @@
   </div>
 
   <!-- Room connector (bump v-param if clients cache JS) -->
-  <script defer th:src="@{/js/room.js?v=63}"
+  <script defer th:src="@{/js/room.js?v=64}"
           th:attr="data-participant=${participantName},data-room=${roomCode}"></script>
 
   <div th:replace="~{fragments/footer :: footer}"></div>

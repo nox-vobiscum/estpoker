@@ -36,6 +36,7 @@ test('mouse: spectator round trip, cancelled/accepted transfer, new host kick an
     for (const action of ['host', 'spectator', 'kick']) {
       await expect(host.locator(`.participant-action-menu [data-action="${action}"] .participant-action-icon[data-icon="${action}"]`)).toHaveCount(1);
     }
+    await expect(host.locator('.participant-action-menu [data-action="kick"] use')).toHaveAttribute('href', '#pp-icon-exit');
     await host.getByRole('menuitem', { name: 'Make spectator', exact: true }).click();
     await expect(row(guest, 'Guest')).toHaveClass(/spectator/);
     await expect(guest.locator('.participant-more, [role="menu"]')).toHaveCount(0);

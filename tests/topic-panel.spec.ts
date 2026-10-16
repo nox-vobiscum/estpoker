@@ -32,6 +32,8 @@ for (const width of [375, 1280]) {
     await expect(page.locator('.topic-panel-icon')).toBeVisible();
     await expect(page.locator('#topicEditBtn')).toHaveAccessibleName(/Edit/i);
     await expect(page.locator('#topicClearBtn')).toHaveAccessibleName(/Clear/i);
+    await expect(page.locator('#topicEditBtn use')).toHaveAttribute('href', '#pp-icon-edit');
+    await expect(page.locator('#topicClearBtn use')).toHaveAttribute('href', '#pp-icon-delete');
     expect(await page.evaluate(() => {
       const topic = document.querySelector('#topicRow')!;
       const participants = document.querySelector('.participant-heading')!;

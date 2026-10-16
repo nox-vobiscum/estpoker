@@ -813,18 +813,10 @@
     svg.setAttribute('viewBox', '0 0 24 24');
     svg.setAttribute('aria-hidden', 'true');
     svg.setAttribute('focusable', 'false');
-    if (action === 'host' || action === 'spectator') {
-      const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
-      use.setAttribute('href', action === 'host' ? '#pp-icon-host' : '#pp-icon-spectator');
-      svg.appendChild(use);
-      return svg;
-    }
-    const shapes = [['path', { d: 'M4 7h16M9 7V4h6v3m3 0-1 14H7L6 7m4 4v6m4-6v6' }]];
-    shapes.forEach(([tag, attributes]) => {
-      const shape = document.createElementNS('http://www.w3.org/2000/svg', tag);
-      Object.entries(attributes).forEach(([name, value]) => shape.setAttribute(name, value));
-      svg.appendChild(shape);
-    });
+    const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+    use.setAttribute('href', action === 'host' ? '#pp-icon-host'
+      : action === 'spectator' ? '#pp-icon-spectator' : '#pp-icon-exit');
+    svg.appendChild(use);
     return svg;
   }
 
@@ -1523,9 +1515,9 @@
 
       actions.innerHTML =
         '<button id="topicEditBtn" class="icon-button neutral" type="button"' +
-                 ' title="' + escapeHtml(titleEdit) + '" aria-label="' + escapeHtml(titleEdit) + '">✍️</button>' +
+                 ' title="' + escapeHtml(titleEdit) + '" aria-label="' + escapeHtml(titleEdit) + '"><svg class="pp-status-icon" aria-hidden="true"><use href="#pp-icon-edit"></use></svg></button>' +
         ' <button id="topicClearBtn" class="icon-button neutral" type="button"' +
-                 ' title="' + escapeHtml(titleClear) + '" aria-label="' + escapeHtml(titleClear) + '">🗑️</button>';
+                 ' title="' + escapeHtml(titleClear) + '" aria-label="' + escapeHtml(titleClear) + '"><svg class="pp-status-icon" aria-hidden="true"><use href="#pp-icon-delete"></use></svg></button>';
 
       return;
     }

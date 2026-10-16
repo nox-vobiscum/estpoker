@@ -72,7 +72,10 @@ test('public pages retain only their applicable settings sections', async ({ pag
   await page.setViewportSize({ width: 375, height: 600 });
   for (const path of ['/', '/about']) {
     await page.goto(path + '?lang=de');
-    if (path === '/') await expect(page.locator('.join-form .pp-status-icon use')).toHaveAttribute('href', '#pp-icon-person');
+    if (path === '/') {
+      await expect(page.locator('.join-form label[for="nameInput"] .pp-status-icon use')).toHaveAttribute('href', '#pp-icon-person');
+      await expect(page.locator('.join-form label[for="roomInput"] .pp-status-icon use')).toHaveAttribute('href', '#pp-icon-room');
+    }
     await page.locator('#menuButton').click();
     await expect(page.locator('#menuLanguageHeading')).toHaveText('Sprache');
     await expect(page.locator('#menuPersonalHeading')).toHaveText('Persönliche Funktionen');

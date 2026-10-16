@@ -110,6 +110,7 @@ for (const width of [375, 1280]) {
     const leave = page.locator('#leaveRoomBtn');
     await expect(leave).toHaveAccessibleName('Raum verlassen');
     await expect(leave.locator('svg')).toBeVisible();
+    await expect(leave.locator('use')).toHaveAttribute('href', '#pp-icon-exit');
     for (const theme of ['light', 'dark', 'system'] as const) {
       await page.evaluate(({ theme }) => {
         const ui = (window as typeof window & {

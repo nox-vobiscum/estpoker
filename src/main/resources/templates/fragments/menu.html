@@ -204,9 +204,7 @@
         <button id="menuLeaveRoomBtn" type="button" class="menu-item room-exit-action hidden"
                 th:attr="title=#{room.leave},aria-label=#{room.leave}"
                 data-i18n-attr="title:room.leave;aria-label:room.leave">
-          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-            <path d="M9 4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4m5-4 4-4-4-4m4 4H9"/>
-          </svg>
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#pp-icon-exit"/></svg>
           <span class="truncate-1" data-i18n="room.leave" th:text="#{room.leave}">Leave room</span>
         </button>
       </div>
