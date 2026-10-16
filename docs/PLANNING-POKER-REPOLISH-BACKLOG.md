@@ -1,6 +1,6 @@
 # Planning Poker — Repolish Epic Backlog
 
-Status: **PLANNED** · Target: current single-interface (former Clean) design · Scope: **presentation only**
+Status: **COMPLETE — AWAITING RELEASE DECISION** · Target: current single-interface (former Clean) design · Scope: **presentation only**
 
 ## Reference and precedence
 
@@ -104,12 +104,12 @@ Do not infer permission from a mockup. Preserve server-side authorization; merel
 
 ## RP-007 — Epic verification, decision & handoff
 
-- **Status:** TODO · **Model:** GPT-5.6 Sol (suggested)
+- **Status:** DONE · **Model:** GPT-5.6 Sol
 - **Goal:** Verify bounded work, document residual risk and prepare release separately.
 - **Tasks:** Review diff against RP-000 baseline and frozen contracts; check no unexpected i18n/JS/backend/CSS legacy changes, no unused duplicate rules, compare actual current UI to approved reference on host/guest/mobile. Summarize each ticket and focused test results; identify if any broader regression run is outstanding. **Do not deploy or merge without a separate user-approved release instruction.**
 - **Tests:** Reuse targeted tests already run; only run additional narrowly scoped checks for uncovered changed behavior. Full regression is a separate release decision.
 - **Acceptance:** All tickets documented; known risks and tests not run made explicit; per-story commits and clean working tree; user sign-off requested.
-- **Result:** Pending.
+- **Result:** The complete branch diff from checkpoint `pre-interface-repolish` (`03a3622`) through RP-006 was reviewed against the functional freeze, role matrix and reference mockup. The eight ticket commits remain individually traceable. Product changes are confined to room presentation, the explicitly approved participant-action consolidation, related DE/EN labels and cache versions; no backend, WebSocket contract, storage, route, configuration or gameplay implementation changed. The final cascade contains no remaining RP-004 mobile-clone/action rules, and the RP-003/RP-006 participant rules have one intentional final owner for identity, status and centered vote geometry. Existing ticket-specific validation is sufficient for this audit, so no tests were repeated. Outstanding release work is a separately approved full regression/build, merge, deployment and production smoke; cross-browser coverage beyond Chromium also remains unverified. The branch is ready for user review and a separate release decision.
 
 ## Story execution summary
 

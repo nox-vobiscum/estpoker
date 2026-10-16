@@ -14,6 +14,17 @@ temporary validation reports may be removed after the documentation consolidatio
   computed styles and geometry against checkpoint `pre-single-interface` across
   80 page/theme/viewport cases and 72 interaction cases with no differences
   (excluding the intentionally removed menu section).
+- Completed the presentation-only room-interface repolish: compact responsive
+  room metadata, clearer topic hierarchy, restrained participant rows and
+  centered vote/status geometry across narrow and desktop layouts.
+- Replaced duplicated participant action controls with one accessible overflow
+  menu for eligible hosts. Mouse, touch and keyboard share one command path;
+  host transfer, kick and spectator payload contracts remain unchanged.
+- Focused ticket validation covers responsive geometry, Light/Dark/System,
+  host/guest/spectator permissions, participant lifecycle, topic behavior,
+  result states, voting, guide/exit visibility and mobile sticky clearance.
+  Full release regression, merge, deployment and production smoke remain the
+  separate release gate.
 
 ## 2026-10-15 — Post-redesign UX release
 

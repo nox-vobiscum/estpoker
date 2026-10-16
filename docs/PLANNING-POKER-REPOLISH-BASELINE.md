@@ -1,8 +1,8 @@
 # Planning Poker interface repolish baseline
 
-Status: **RP-000 complete**  
-Baseline commit: `03a3622`  
-Checkpoint: `pre-interface-repolish`  
+Status: **RP-000 through RP-007 complete; awaiting release decision**
+Baseline commit: `03a3622`
+Checkpoint: `pre-interface-repolish`
 Working branch: `feature/interface-repolish`
 
 This document maps the current production interface before the presentation-only
@@ -249,5 +249,29 @@ five-participant host/guest/spectator/inactive states, host-action permissions,
 keyboard operation, popup viewport containment, sticky-action clearance and
 horizontal overflow. Final Light screenshots at 320 and 1280px were inspected.
 No Maven, full regression or cross-browser suite was run. No known RP-006 gap
-remains; RP-007 is the next separately gated ticket.
+remains; the RP-007 audit follows below.
+
+## RP-007 final audit and release handoff
+
+The branch contains eight traceable commits after the checkpoint: two setup and
+decision records followed by RP-001 through RP-006. The complete diff is limited
+to room markup/presentation, the explicitly approved participant-action client
+consolidation, four localized action labels, cache versions, focused tests and
+epic documentation. No Java backend, WebSocket contract, application
+configuration, route, persistence or game calculation changed.
+
+The reference hierarchy is represented while established product rules take
+precedence: full-width header, compact metadata, topic before participants when
+visible, calm roster rows, centered vote/status chips, eligible-host-only action
+menus, unchanged cards/results, mobile host action clearance, guide and Leave
+room access. Obsolete cloned participant-action markup, handlers and CSS were
+removed in RP-004; no such live selectors remain. Existing final CSS owners are
+intentional cascade endpoints for theme specificity and responsive geometry.
+
+No tests were repeated for this documentation audit. RP-001 through RP-006
+already record successful focused TypeScript, Maven-package and Chromium runs.
+Before release, the separate release gate should run the project's full
+regression/build and CI guards, then perform merge/deployment and a production
+host/guest smoke only after explicit approval. Non-Chromium browser coverage is
+the remaining unverified presentation risk.
 

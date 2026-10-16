@@ -292,14 +292,14 @@ No additional CR is active.
 The single-interface consolidation is deployed at `03a3622`; the former Clean
 appearance is the unconditional interface, while language and
 Light/Dark/System remain user preferences. The presentation-only repolish epic
-is isolated on `feature/interface-repolish`. Its production checkpoint is
-`pre-interface-repolish`, and RP-000's selector and risk inventory is maintained
-in `PLANNING-POKER-REPOLISH-BASELINE.md`. RP-001 is complete on the working
-branch: room metadata now uses compact responsive groups while preserving all
-identity and copy-link contracts. RP-002 is also complete: an enabled topic now
-appears before participants on a restrained token-based surface and disappears
-without reserved space when disabled. Topic behavior and role permissions are
-unchanged. The backlog records focused validation for both tickets.
+is complete on `feature/interface-repolish`, based on checkpoint
+`pre-interface-repolish`. It refines room metadata, topic hierarchy,
+participant presentation and participant-action overflow controls while
+preserving the established room, voting and permission contracts. Ticket
+results, focused validation and the release handoff are maintained in
+`PLANNING-POKER-REPOLISH-BACKLOG.md` and
+`PLANNING-POKER-REPOLISH-BASELINE.md`. Merge and deployment require a separate
+release instruction.
 
 
 
