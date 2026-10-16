@@ -25,21 +25,15 @@
       </section>
       <section>
         <h3 data-i18n="manual.results.title" th:text="#{manual.results.title}">Voting status and results</h3>
-        <div class="room-manual-results-content">
-          <div>
-            <p data-i18n="manual.results.status" th:text="#{manual.results.status}">Symbols in the participant list show whether someone has voted, has not selected a card, is a spectator or is inactive.</p>
-            <p data-i18n="manual.results.intro" th:text="#{manual.results.intro}">After reveal, selected cards become visible. For differing numeric estimates, Planning Poker shows:</p>
-            <ul>
-              <li data-i18n="manual.results.average" th:text="#{manual.results.average}">Average: the arithmetic mean of the numeric estimates.</li>
-              <li data-i18n="manual.results.median" th:text="#{manual.results.median}">Median: the middle value of the sorted numeric estimates.</li>
-              <li data-i18n="manual.results.range" th:text="#{manual.results.range}">Range: the lowest and highest numeric estimates.</li>
-            </ul>
-          </div>
-          <div>
-            <p data-i18n="manual.results.outlier" th:text="#{manual.results.outlier}">A subtle extra outline may mark estimates furthest from the average. It helps identify different perspectives and does not mean an estimate is wrong.</p>
-            <p data-i18n="manual.results.consensus" th:text="#{manual.results.consensus}">Planning Poker shows consensus when at least one numeric estimate exists, all numeric estimates agree and no infinity card was played. Other special cards are excluded from this comparison.</p>
-          </div>
-        </div>
+        <p data-i18n="manual.results.status" th:text="#{manual.results.status}">Symbols in the participant list show whether someone has voted, has not selected a card, is a spectator or is inactive.</p>
+        <p data-i18n="manual.results.intro" th:text="#{manual.results.intro}">After reveal, selected cards become visible. For differing numeric estimates, Planning Poker shows:</p>
+        <ul>
+          <li data-i18n="manual.results.average" th:text="#{manual.results.average}">Average: the arithmetic mean of the numeric estimates.</li>
+          <li data-i18n="manual.results.median" th:text="#{manual.results.median}">Median: the middle value of the sorted numeric estimates.</li>
+          <li data-i18n="manual.results.range" th:text="#{manual.results.range}">Range: the lowest and highest numeric estimates.</li>
+        </ul>
+        <p data-i18n="manual.results.outlier" th:text="#{manual.results.outlier}">A subtle extra outline may mark estimates furthest from the average. It helps identify different perspectives and does not mean an estimate is wrong.</p>
+        <p data-i18n="manual.results.consensus" th:text="#{manual.results.consensus}">Planning Poker shows consensus when at least one numeric estimate exists, all numeric estimates agree and no infinity card was played. Other special cards are excluded from this comparison.</p>
       </section>
       <section>
         <h3 data-i18n="manual.cards.title" th:text="#{manual.cards.title}">Decks and special cards</h3>
