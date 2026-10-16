@@ -5,6 +5,10 @@ temporary validation reports may be removed after the documentation consolidatio
 
 ## Unreleased
 
+- Fixed refresh, reconnect and same-tab rejoin resetting an existing
+  participant's spectator status. The room now preserves participation state
+  for the existing CID while new participant identities still estimate by
+  default.
 - Consolidated the interface into the former Clean appearance for all users,
   preserving its layout, typography and colors across Light, Dark and System.
   Removed the style selector, alternate styling, preference API and storage

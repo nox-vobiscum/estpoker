@@ -129,7 +129,6 @@ public class GameService {
             Participant byCid = room.getParticipantByCid(cid).orElse(null);
             if (byCid != null) {
                 byCid.setActive(true);
-                byCid.setParticipating(true);
                 byCid.bumpLastSeen();
                 if (room.getHost() == null) byCid.setHost(true);
                 rememberClientName(roomCode, cid, byCid.getName());

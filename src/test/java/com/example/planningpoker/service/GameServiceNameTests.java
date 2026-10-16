@@ -26,6 +26,7 @@ public class GameServiceNameTests {
         Room room = svc.join("r1", "cidA", "Alice");
         assertNotNull(room, "room should be created");
         assertNotNull(room.getParticipant("Alice"), "participant Alice should exist");
+        assertTrue(room.getParticipant("Alice").isParticipating(), "new participants estimate by default");
         assertNotNull(room.getHost(), "host should be set");
         assertEquals("Alice", room.getHost().getName(), "first join becomes host");
     }
@@ -42,5 +43,21 @@ public class GameServiceNameTests {
         assertNotNull(alice, "original 'Alice' should still be present");
         assertEquals("Alice", alice.getName(), "CID maps to original name – not renamed on re-join");
         assertNull(room.getParticipant("AliceChanged"), "no second row created just by changing name on same CID");
+    }
+
+    @Test
+    @DisplayName("Re-join with the same CID preserves spectator state")
+    void rejoinWithSameCidKeepsParticipationState() {
+        GameService svc = new GameService();
+
+        svc.join("r1", "cidA", "Alice");
+        svc.setSpectator("r1", "cidA", true);
+        Room room = svc.join("r1", "cidA", "AliceChanged");
+
+        Participant alice = room.getParticipant("Alice");
+        assertNotNull(alice);
+        assertFalse(alice.isParticipating(), "rejoining the same identity must not reset spectator state");
+        assertTrue(alice.isSpectator());
+        assertEquals(1, room.getParticipants().size(), "rejoin must retain one logical participant");
     }
 }
