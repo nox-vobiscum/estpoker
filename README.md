@@ -71,7 +71,6 @@ docker run -p 8080:8080 planning-poker
 ### Additional Resources
 - **[STYLE.md](docs/STYLE.md)** - UI design tokens and style guide
 - **[BACKLOG.md](docs/BACKLOG.md)** - Future features and roadmap
-- **[PLANNING-POKER-CHANGE-REQUESTS.md](docs/PLANNING-POKER-CHANGE-REQUESTS.md)** - Completed post-redesign change-request record
 - **[ADR](docs/adr/)** - Architecture Decision Records
 
 ## Features

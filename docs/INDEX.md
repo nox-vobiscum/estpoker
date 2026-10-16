@@ -35,7 +35,6 @@ Comprehensive documentation for the RBS' Planning Poker planning poker applicati
 
 #### 📋 Planning
 - **[BACKLOG.md](BACKLOG.md)** - Future features, enhancements, and roadmap
-- **[PLANNING-POKER-CHANGE-REQUESTS.md](PLANNING-POKER-CHANGE-REQUESTS.md)** - Completed post-redesign change-request record
 
 ---
 

@@ -3,23 +3,9 @@
 This file summarizes completed product changes. Detailed implementation notes and
 temporary validation reports may be removed after the documentation consolidation.
 
-## Unreleased
+## 2026-10-16
 
-- Replaced the participant pending-vote emoji presentation with a neutral,
-  monochrome hourglass icon and restrained system-status styling. The existing
-  pending value and behavior remain unchanged; selectable special cards and
-  all voting logic are unaffected.
-- Reordered and aligned the room's lower controls as voting cards, centered
-  host round action, centered leave action, then the collapsed guide. Added one
-  subtle separator before leaving, visible to hosts and guests, while retaining
-  mobile scroll reachability and all existing control behavior.
-- Standardized participant-row heights with and without host actions and
-  reduced the three-dot trigger to 32px. Vote chips remain vertically centered,
-  and the existing menu interaction remains unchanged across desktop/mobile.
-- Changed the desktop room metadata grid so the participant block uses its
-  intrinsic width with comfortable trailing space, capped at half the row,
-  while the room block consumes the remainder and keeps sharing at the far
-  edge. The stacked mobile layout remains unchanged.
+- Polished room metadata, participant rows, lower actions and pending status.
 - Centered the participant-action trigger's three dots independently of font
   metrics and sized its menu to its content, retaining the mobile width cap.
   Focused Chromium/WebKit checks cover DE/EN at 375/393/1280px, menu hit targets,

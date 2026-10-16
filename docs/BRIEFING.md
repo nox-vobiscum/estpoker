@@ -12,9 +12,9 @@ Lightweight online planning poker with real-time updates, simple UX, and optiona
 https://planning-poker.at/
 
 **Current production baseline**
-Single-interface release `03a3622`, including CR-001 through CR-004 and the
-removal of the former Dev/Clean split. Recent release history is maintained in
-`CHANGELOG.md`.
+Production commit `e7a7e7f`: single-interface room repolish with responsive
+mobile corrections and the latest compact UI polish. Recent release history is
+maintained in `CHANGELOG.md`.
 
 ---
 
@@ -282,24 +282,11 @@ For detailed instructions, troubleshooting, CI recipe, and full command list, se
 
 ## 15) Backlog (pointer)
 
-General backlog items are maintained in `docs/BACKLOG.md`. The approved
-post-redesign sequence CR-001 through CR-004 and its implementation record are
-maintained in `docs/PLANNING-POKER-CHANGE-REQUESTS.md`. All four requests are
-complete, merged and deployed in production commit `e84cecd`. Completed release
-history belongs in `CHANGELOG.md`; `docs/BACKLOG.md` contains open work only.
-No additional CR is active.
-
-The single-interface consolidation is deployed at `03a3622`; the former Clean
-appearance is the unconditional interface, while language and
-Light/Dark/System remain user preferences. The presentation-only repolish epic
-is complete on `feature/interface-repolish`, based on checkpoint
-`pre-interface-repolish`. It refines room metadata, topic hierarchy,
-participant presentation and participant-action overflow controls while
-preserving the established room, voting and permission contracts. Ticket
-results, focused validation and the release handoff are maintained in
-`PLANNING-POKER-REPOLISH-BACKLOG.md` and
-`PLANNING-POKER-REPOLISH-BASELINE.md`. Merge and deployment require a separate
-release instruction.
+General backlog items are maintained in `docs/BACKLOG.md`; it contains open
+work only. Completed work belongs in `CHANGELOG.md`. The single-interface room
+repolish and subsequent responsive/UI fixes are deployed through `e7a7e7f`.
+They preserve the established room, voting, permission and WebSocket contracts.
+No additional change request is active.
 
 
 
